@@ -166,7 +166,7 @@ class generate_b_ame:
 
 
         if self.circuit is None:
-            ame_qc = create_ame_circuit(dim=self.dim, graph=self.graph)
+            ame_qc, _ = create_ame_circuit(dim=self.dim, graph=self.graph)
             try:
                 if thval:
                     self.exp_val = th_values(ame_qc, self.qc_stab_list)
