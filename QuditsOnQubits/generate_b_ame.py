@@ -8,28 +8,28 @@ from QuditsOnQubits import create_ame_circuit
 from IPython.display import display, Math
 from fractions import Fraction
 
-with open('Xgate3.qpy', 'rb') as fd:
+with open('quantum_circuits/Xgate3.qpy', 'rb') as fd:
     Xgate3 = qpy.load(fd)[0]
 
-with open('Zgate3.qpy', 'rb') as fd:
+with open('quantum_circuits/Zgate3.qpy', 'rb') as fd:
     Zgate3 = qpy.load(fd)[0]
 
-with open('Xgate4.qpy', 'rb') as fd:
+with open('quantum_circuits/Xgate4.qpy', 'rb') as fd:
     Xgate4 = qpy.load(fd)[0]
 
-with open('Zgate4.qpy', 'rb') as fd:
+with open('quantum_circuits/Zgate4.qpy', 'rb') as fd:
     Zgate4 = qpy.load(fd)[0]
 
-with open('Xgate3dag.qpy', 'rb') as fd:
+with open('quantum_circuits/Xgate3dag.qpy', 'rb') as fd:
     Xgate3dag = qpy.load(fd)[0]
 
-with open('Zgate3dag.qpy', 'rb') as fd:
+with open('quantum_circuits/Zgate3dag.qpy', 'rb') as fd:
     Zgate3dag = qpy.load(fd)[0]
 
-with open('Xgate4dag.qpy', 'rb') as fd:
+with open('quantum_circuits/Xgate4dag.qpy', 'rb') as fd:
     Xgate4dag = qpy.load(fd)[0]
 
-with open('Zgate4dag.qpy', 'rb') as fd:
+with open('quantum_circuits/Zgate4dag.qpy', 'rb') as fd:
     Zgate4dag = qpy.load(fd)[0]
 
 class MemoryLimitExceeded(Exception):
