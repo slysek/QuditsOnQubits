@@ -1,3 +1,4 @@
+from pathlib import Path
 from qiskit.circuit import QuantumCircuit
 from qiskit.circuit.library import UnitaryGate
 from qiskit.quantum_info import Operator
@@ -5,6 +6,8 @@ import numpy as np
 from qiskit import qpy
 from igraph import Graph
 from qiskit.synthesis import TwoQubitWeylDecomposition
+
+_QC_DIR = Path(__file__).resolve().parent.parent / 'quantum_circuits'
 
 
 def create_ame_circuit(n=None, dim=3, graph_type='star', graph=None,
@@ -53,18 +56,18 @@ def create_ame_circuit(n=None, dim=3, graph_type='star', graph=None,
 def _create_circuit_from_graph(graph, dim, E_new=None):
 
     # Qutrits gates
-    with open('quantum_circuits/Fgate3.qpy', 'rb') as fd:
+    with open(_QC_DIR / 'Fgate3.qpy', 'rb') as fd:
         Fgate3 = qpy.load(fd)[0]
 
-    with open('quantum_circuits/CZgate3.qpy', 'rb') as fd:
+    with open(_QC_DIR / 'CZgate3.qpy', 'rb') as fd:
         CZgate3 = qpy.load(fd)[0]
 
     # Ququarts gates
 
-    with open('quantum_circuits/Fgate4.qpy', 'rb') as fd:
+    with open(_QC_DIR / 'Fgate4.qpy', 'rb') as fd:
         Fgate4 = qpy.load(fd)[0]
 
-    with open('quantum_circuits/CZgate4cor.qpy', 'rb') as fd:
+    with open(_QC_DIR / 'CZgate4cor.qpy', 'rb') as fd:
         CZgate4 = qpy.load(fd)[0]
 
     if dim == 3:

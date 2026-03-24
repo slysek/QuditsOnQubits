@@ -1,3 +1,4 @@
+from pathlib import Path
 from qiskit import qpy
 from qiskit.quantum_info import Operator, Statevector, SparsePauliOp
 from qiskit.circuit import QuantumCircuit
@@ -8,28 +9,30 @@ from QuditsOnQubits import create_ame_circuit
 from IPython.display import display, Math
 from fractions import Fraction
 
-with open('quantum_circuits/Xgate3.qpy', 'rb') as fd:
+_QC_DIR = Path(__file__).resolve().parent.parent / 'quantum_circuits'
+
+with open(_QC_DIR / 'Xgate3.qpy', 'rb') as fd:
     Xgate3 = qpy.load(fd)[0]
 
-with open('quantum_circuits/Zgate3.qpy', 'rb') as fd:
+with open(_QC_DIR / 'Zgate3.qpy', 'rb') as fd:
     Zgate3 = qpy.load(fd)[0]
 
-with open('quantum_circuits/Xgate4.qpy', 'rb') as fd:
+with open(_QC_DIR / 'Xgate4.qpy', 'rb') as fd:
     Xgate4 = qpy.load(fd)[0]
 
-with open('quantum_circuits/Zgate4.qpy', 'rb') as fd:
+with open(_QC_DIR / 'Zgate4.qpy', 'rb') as fd:
     Zgate4 = qpy.load(fd)[0]
 
-with open('quantum_circuits/Xgate3dag.qpy', 'rb') as fd:
+with open(_QC_DIR / 'Xgate3dag.qpy', 'rb') as fd:
     Xgate3dag = qpy.load(fd)[0]
 
-with open('quantum_circuits/Zgate3dag.qpy', 'rb') as fd:
+with open(_QC_DIR / 'Zgate3dag.qpy', 'rb') as fd:
     Zgate3dag = qpy.load(fd)[0]
 
-with open('quantum_circuits/Xgate4dag.qpy', 'rb') as fd:
+with open(_QC_DIR / 'Xgate4dag.qpy', 'rb') as fd:
     Xgate4dag = qpy.load(fd)[0]
 
-with open('quantum_circuits/Zgate4dag.qpy', 'rb') as fd:
+with open(_QC_DIR / 'Zgate4dag.qpy', 'rb') as fd:
     Zgate4dag = qpy.load(fd)[0]
 
 class MemoryLimitExceeded(Exception):
