@@ -90,6 +90,15 @@ Kazda sekcja dostanie tabele:
 - najlepszy kandydat w kazdej klasie,
 - tabele fidelity dla progow `fid085`, `fid090`, `fid095`.
 
+Tabele fidelity maja pokazywac nie tylko sam prog i osiagnieta fidelity, ale tez koszt obwodu przy danym progu. Dla kazdego progu w raporcie maja pojawic sie co najmniej:
+
+- `best_approx_degree`,
+- `best_fidelity`,
+- `best_depth`,
+- `best_two_qubit_gate_count`.
+
+Dzieki temu bedzie od razu widac, jaka glebokosc obwodu odpowiada kazdemu poziomowi fidelity, zamiast tylko informacji o tym, czy prog zostal osiagniety.
+
 Na koncu raportu pojawi sie tabela porownawcza miedzy trzema stanami, pokazujaca dla kazdej klasy najlepszy kandydat i jego metryki, zeby latwo zobaczyc roznice miedzy `two_qutrit`, `ghz3` i `ame43`.
 
 ## Data flow
@@ -123,7 +132,7 @@ Testy maja objac:
 - poprawna budowe obwodu dla `ame43` przez `Graph`,
 - zapis obwodow do katalogow roznych stanow,
 - zapis CSV do sciezek zaleznych od stanu,
-- generowanie wspolnego markdowna zawierajacego sekcje `two_qutrit`, `ghz3`, `ame43` oraz tabele fidelity.
+- generowanie wspolnego markdowna zawierajacego sekcje `two_qutrit`, `ghz3`, `ame43` oraz tabele fidelity z kolumnami `best_fidelity`, `best_depth` i `best_two_qubit_gate_count` dla kazdego progu.
 
 ## Non-goals
 
