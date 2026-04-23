@@ -3,7 +3,7 @@ import os
 import tempfile
 import time
 import uuid
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import pandas as pd
 
@@ -169,9 +169,36 @@ def _extract_fidelity_circuits_from_worker_row(row, class_name, candidate_name):
     return fidelity_circuits
 
 
+def _format_progress_suffix(row):
+    if row["status"] == "ok":
+        code_space = "old" if row["uses_old_codespace_only"] else "NEW"
+        return (
+            f"best_d={row['best_depth']:5d}  "
+            f"mean_d={row['mean_depth']:7.1f}  "
+            f"best_2q={row['best_two_qubit_gate_count']:5d}  "
+            f"ent={row['avg_codeword_entanglement']:.3f}  "
+            f"[{code_space}]"
+        )
+    return f"[{row['status']}]"
+
+
+def _print_progress_update(index, total, class_name, candidate_name, row):
+    print(
+        f"  [{index:4d}/{total}]  {class_name:28s}  {candidate_name:30s}  "
+        f"{_format_progress_suffix(row)}",
+        flush=True,
+    )
+
+
 def _run_tasks_in_pool(tasks, max_workers):
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        yield from executor.map(_benchmark_candidate_worker, tasks, chunksize=1)
+        future_to_task = {
+            executor.submit(_benchmark_candidate_worker, task): (idx, task)
+            for idx, task in enumerate(tasks)
+        }
+        for completed_index, future in enumerate(as_completed(future_to_task), start=1):
+            task_index, task = future_to_task[future]
+            yield completed_index, task_index, task, future.result()
 
 
 def run_single_state_parallel_benchmark(
@@ -221,14 +248,24 @@ def run_single_state_parallel_benchmark(
     results = []
     fidelity_circuits = []
     t0 = time.time()
+    ordered_rows = [None] * len(tasks)
 
-    for task, row in zip(tasks, _run_tasks_in_pool(tasks, max_workers=max_workers)):
+    for completed_index, task_index, task, row in _run_tasks_in_pool(tasks, max_workers=max_workers):
         fidelity_circuits.extend(
             _extract_fidelity_circuits_from_worker_row(
                 row, task["class_name"], task["candidate_name"]
             )
         )
-        results.append(row)
+        ordered_rows[task_index] = row
+        _print_progress_update(
+            index=completed_index,
+            total=len(tasks),
+            class_name=task["class_name"],
+            candidate_name=task["candidate_name"],
+            row=row,
+        )
+
+    results = ordered_rows
 
     elapsed = time.time() - t0
     print(f"\nCzas benchmarku [{state_name}, parallel]: {elapsed:.1f} s")
@@ -295,13 +332,23 @@ def run_prepared_w_parallel_benchmark(
     results = []
     fidelity_circuits = []
     t0 = time.time()
-    for task, row in zip(tasks, _run_tasks_in_pool(tasks, max_workers=max_workers)):
+    ordered_rows = [None] * len(tasks)
+    for completed_index, task_index, task, row in _run_tasks_in_pool(tasks, max_workers=max_workers):
         fidelity_circuits.extend(
             _extract_fidelity_circuits_from_worker_row(
                 row, task["class_name"], task["candidate_name"]
             )
         )
-        results.append(row)
+        ordered_rows[task_index] = row
+        _print_progress_update(
+            index=completed_index,
+            total=len(tasks),
+            class_name=task["class_name"],
+            candidate_name=task["candidate_name"],
+            row=row,
+        )
+
+    results = ordered_rows
 
     elapsed = time.time() - t0
     print(f"\nCzas benchmarku [prepared_w, {state_name}, parallel]: {elapsed:.1f} s")

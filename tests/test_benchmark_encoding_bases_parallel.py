@@ -10,7 +10,7 @@ import QuditsOnQubits.benchmark_encoding_bases_parallel as parallel_bench
 
 class _FakeExecutor:
     last_max_workers = None
-    last_chunksize = None
+    submitted_candidates = []
 
     def __init__(self, max_workers=None):
         type(self).last_max_workers = max_workers
@@ -21,20 +21,33 @@ class _FakeExecutor:
     def __exit__(self, exc_type, exc, tb):
         return False
 
-    def map(self, fn, iterable, chunksize=1):
-        type(self).last_chunksize = chunksize
-        for item in iterable:
-            yield fn(item)
+    def submit(self, fn, item):
+        type(self).submitted_candidates.append(item["candidate_name"])
+        return _FakeFuture(fn(item))
+
+
+class _FakeFuture:
+    def __init__(self, result):
+        self._result = result
+
+    def result(self):
+        return self._result
+
+
+def _fake_as_completed(futures):
+    for future in reversed(list(futures)):
+        yield future
 
 
 class TestParallelBenchmark(unittest.TestCase):
     def tearDown(self):
         _FakeExecutor.last_max_workers = None
-        _FakeExecutor.last_chunksize = None
+        _FakeExecutor.submitted_candidates = []
 
-    def test_run_single_state_parallel_benchmark_uses_requested_worker_count_and_preserves_order(self):
+    def test_run_single_state_parallel_benchmark_uses_requested_worker_count_and_reports_completed_progress(self):
         tmpdir = parallel_bench._workspace_tempdir()
         csv_path = os.path.join(tmpdir, "parallel_results.csv")
+        progress_updates = []
 
         def fake_worker(task):
             return {
@@ -56,10 +69,15 @@ class TestParallelBenchmark(unittest.TestCase):
 
         try:
             with patch.object(parallel_bench, "ProcessPoolExecutor", _FakeExecutor), patch.object(
+                parallel_bench, "as_completed", side_effect=_fake_as_completed
+            ), patch.object(
                 parallel_bench, "_generate_candidates_for_mode",
                 return_value=[("baseline", "first", None), ("baseline", "second", None)],
             ), patch.object(parallel_bench, "_benchmark_candidate_worker", side_effect=fake_worker), patch.object(
                 parallel_bench, "_print_single_state_summary"
+            ), patch.object(
+                parallel_bench, "_print_progress_update",
+                side_effect=lambda **kwargs: progress_updates.append(kwargs["candidate_name"]),
             ):
                 df, saved_csv = parallel_bench.run_single_state_parallel_benchmark(
                     state_name="ghz3",
@@ -70,7 +88,8 @@ class TestParallelBenchmark(unittest.TestCase):
 
             self.assertEqual(saved_csv, csv_path)
             self.assertEqual(_FakeExecutor.last_max_workers, 32)
-            self.assertEqual(_FakeExecutor.last_chunksize, 1)
+            self.assertEqual(_FakeExecutor.submitted_candidates, ["first", "second"])
+            self.assertEqual(progress_updates, ["second", "first"])
             self.assertEqual(list(df["candidate_name"]), ["first", "second"])
             self.assertTrue(os.path.exists(csv_path))
         finally:
