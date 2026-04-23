@@ -436,6 +436,7 @@ def _benchmark_approximation_sweep(
     approximation_values=None,
     fidelity_thresholds=DEFAULT_FIDELITY_THRESHOLDS,
     seed_transpiler=0,
+    keep_circuits=False,
 ):
     """Benchmark approximation_degree sweep against a max-fidelity reference."""
     if basis_gates is None:
@@ -489,6 +490,8 @@ def _benchmark_approximation_sweep(
                 "depth": depth,
                 "two_q": two_q,
             }
+            if keep_circuits:
+                candidate["qc"] = qctest
             if best is None or (depth, two_q) < (best["depth"], best["two_q"]):
                 best_hits[threshold] = candidate
 
@@ -501,6 +504,8 @@ def _benchmark_approximation_sweep(
         result[f"{label}_best_fidelity"] = best["fidelity"]
         result[f"{label}_best_depth"] = best["depth"]
         result[f"{label}_best_two_qubit_gate_count"] = best["two_q"]
+        if keep_circuits and "qc" in best:
+            result[f"_{label}_best_qc"] = best["qc"]
 
     return result
 
@@ -998,6 +1003,7 @@ def benchmark_basis(E_new, class_name, candidate_name,
                 approximation_values=approximation_values,
                 fidelity_thresholds=fidelity_thresholds,
                 seed_transpiler=approximation_seed,
+                keep_circuits=(circuits_output_dir is not None),
             )
         )
     except Exception:
@@ -1235,6 +1241,127 @@ def write_multi_state_benchmark_report(state_frames, output_path):
         fd.write("\n".join(lines).strip() + "\n")
 
 
+# ══════════════════ TOP-3 FIDELITY CIRCUITS ═══════════════════
+
+def _save_top3_fidelity_circuits(fidelity_circuits, output_root):
+    """Save top-3-per-class transpiled circuits for each fidelity threshold."""
+    from collections import defaultdict
+
+    by_threshold = defaultdict(list)
+    for entry in fidelity_circuits:
+        by_threshold[entry["label"]].append(entry)
+
+    saved = 0
+    for label, entries in sorted(by_threshold.items()):
+        by_class = defaultdict(list)
+        for e in entries:
+            by_class[e["class_name"]].append(e)
+
+        for class_name, class_entries in sorted(by_class.items()):
+            ranked = sorted(
+                class_entries,
+                key=lambda e: (
+                    e["two_q"] if e["two_q"] is not None else float("inf"),
+                    e["depth"] if e["depth"] is not None else float("inf"),
+                ),
+            )
+            for rank, entry in enumerate(ranked[:3], start=1):
+                try:
+                    _save_benchmark_circuit(
+                        entry["qc"],
+                        class_name=class_name,
+                        candidate_name=entry["candidate_name"],
+                        output_root=output_root,
+                        suffix=f"{label}_rank{rank}",
+                    )
+                    saved += 1
+                except Exception:
+                    pass
+
+    if saved:
+        print(f"  Zapisano {saved} obwodów fidelity → {output_root}")
+
+
+# ══════════════════════ TOP-3 PER CLASS CSV ═══════════════════
+
+def _save_top3_per_class_csvs(df, csv_path, fidelity_thresholds=DEFAULT_FIDELITY_THRESHOLDS):
+    """Generate top-3-per-class summary CSVs next to the main results file.
+
+    Produces:
+      *_top3_exact.csv           — sorted by (best_two_qubit_gate_count, best_depth)
+      *_top3_fid{NNN}.csv        — one per threshold, sorted by (fidNNN 2Q, fidNNN depth)
+    """
+    if df.empty or "status" not in df.columns:
+        return
+
+    df_ok = df[df["status"] == "ok"].copy()
+    if df_ok.empty:
+        return
+
+    base, ext = os.path.splitext(csv_path)
+
+    # ── exact transpilation ──
+    parts = []
+    for _, group in df_ok.groupby("class_name", sort=True):
+        top = group.sort_values(
+            by=["best_two_qubit_gate_count", "best_depth"],
+            ascending=True,
+        ).head(3)
+        parts.append(top)
+
+    if parts:
+        exact_df = pd.concat(parts, ignore_index=True)[
+            ["class_name", "candidate_name", "best_depth",
+             "best_size", "best_two_qubit_gate_count"]
+        ].sort_values(
+            by=["class_name", "best_two_qubit_gate_count", "best_depth"],
+            ascending=True,
+        )
+        exact_path = f"{base}_top3_exact{ext}"
+        exact_df.to_csv(exact_path, index=False)
+        print(f"  Top-3 exact → {exact_path}")
+
+    # ── fidelity thresholds ──
+    for threshold in fidelity_thresholds:
+        label = _fidelity_label(threshold)
+        depth_col = f"{label}_best_depth"
+        twoq_col = f"{label}_best_two_qubit_gate_count"
+        fid_col = f"{label}_best_fidelity"
+
+        cols_needed = [depth_col, twoq_col]
+        if not all(c in df_ok.columns for c in cols_needed):
+            continue
+
+        df_fid = df_ok.dropna(subset=cols_needed)
+        if df_fid.empty:
+            continue
+
+        parts = []
+        for _, group in df_fid.groupby("class_name", sort=True):
+            top = group.sort_values(
+                by=[twoq_col, depth_col],
+                ascending=True,
+            ).head(3)
+            parts.append(top)
+
+        if not parts:
+            continue
+
+        keep_cols = ["class_name", "candidate_name"]
+        if fid_col in df_fid.columns:
+            keep_cols.append(fid_col)
+        keep_cols.extend([depth_col, twoq_col])
+
+        fid_df = pd.concat(parts, ignore_index=True)[keep_cols].sort_values(
+            by=["class_name", twoq_col, depth_col],
+            ascending=True,
+        )
+        fid_path = f"{base}_top3_{label}{ext}"
+        fid_df.to_csv(fid_path, index=False)
+        pct = int(round(float(threshold) * 100))
+        print(f"  Top-3 fidelity>={pct}% → {fid_path}")
+
+
 # ══════════════════════════ SINGLE-STATE BENCHMARK ═══════════
 
 def _print_single_state_summary(df, state_name):
@@ -1387,7 +1514,10 @@ def _run_single_state_benchmark(
     print("-" * 80)
 
     results = []
+    fidelity_circuits = []
     t0 = time.time()
+
+    resolved_circuits_dir = _resolve_circuits_output_dir(state_name, circuits_output_dir)
 
     for idx, (cls, name, E_new) in enumerate(all_candidates):
         print(
@@ -1406,6 +1536,19 @@ def _run_single_state_benchmark(
             fidelity_thresholds=fidelity_thresholds,
             approximation_seed=approximation_seed,
         )
+
+        # Extract fidelity circuit objects before DataFrame creation
+        for key in list(row.keys()):
+            if key.startswith("_fid") and key.endswith("_best_qc"):
+                label = key[1:].replace("_best_qc", "")
+                fidelity_circuits.append({
+                    "class_name": cls,
+                    "candidate_name": name,
+                    "label": label,
+                    "two_q": row.get(f"{label}_best_two_qubit_gate_count"),
+                    "depth": row.get(f"{label}_best_depth"),
+                    "qc": row.pop(key),
+                })
 
         if row["status"] == "ok":
             cs = "old" if row["uses_old_codespace_only"] else "NEW"
@@ -1431,6 +1574,11 @@ def _run_single_state_benchmark(
         os.makedirs(csv_dir, exist_ok=True)
     df.to_csv(csv_path, index=False)
     print(f"Wyniki zapisane do: {csv_path}")
+
+    _save_top3_per_class_csvs(df, csv_path, fidelity_thresholds=fidelity_thresholds)
+
+    if resolved_circuits_dir is not None and fidelity_circuits:
+        _save_top3_fidelity_circuits(fidelity_circuits, resolved_circuits_dir)
 
     _print_single_state_summary(df, state_name)
 
