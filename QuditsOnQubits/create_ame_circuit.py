@@ -1,4 +1,5 @@
 from qiskit.circuit import QuantumCircuit
+from qiskit.circuit.library import UnitaryGate
 import numpy as np
 from qiskit import qpy
 from igraph import Graph
@@ -16,9 +17,8 @@ def create_ame_circuit(n=None, dim=3, graph_type="star", graph=None,
     ---------
     E_new : np.ndarray, shape (4,3), optional
         Nowa mapa kodowania qutrytu (izometria C^3 -> C^4).
-        Jesli podana, obwod dostaje poczatkowa warstwe W na kazdym qutrycie,
-        a nastepnie kazda bramka Fgate i CZgate jest realizowana jawnie jako
-        blok zlozony z W, bramki bazowej i Wdag.
+        Jesli podana, obwod jest budowany w bazowym kodowaniu, a na koncu
+        kazdego qutrytu dodawana jest bramka zmiany kodowania W.
         Dziala tylko dla dim=3.
     """
 
@@ -52,18 +52,16 @@ def create_ame_circuit(n=None, dim=3, graph_type="star", graph=None,
     return qc, graph
 
 
+def _load_qpy_gate(filename):
+    with open(quantum_circuits_path(filename), "rb") as fd:
+        return qpy.load(fd)[0]
+
+
 def _create_circuit_from_graph(graph, dim, E_new=None):
-    with open(quantum_circuits_path("Fgate3.qpy"), "rb") as fd:
-        Fgate3 = qpy.load(fd)[0]
-
-    with open(quantum_circuits_path("CZgate3.qpy"), "rb") as fd:
-        CZgate3 = qpy.load(fd)[0]
-
-    with open(quantum_circuits_path("Fgate4.qpy"), "rb") as fd:
-        Fgate4 = qpy.load(fd)[0]
-
-    with open(quantum_circuits_path("CZgate4cor.qpy"), "rb") as fd:
-        CZgate4 = qpy.load(fd)[0]
+    Fgate3 = _load_qpy_gate("Fgate3.qpy")
+    CZgate3 = _load_qpy_gate("CZgate3.qpy")
+    Fgate4 = _load_qpy_gate("Fgate4.qpy")
+    CZgate4 = _load_qpy_gate("CZgate4cor.qpy")
 
     if dim == 3:
         Fgate = Fgate3
@@ -75,9 +73,8 @@ def _create_circuit_from_graph(graph, dim, E_new=None):
         raise ValueError(f"Nieobslugiwany wymiar: {dim}")
 
     W_qc = None
-    Wdag_qc = None
     if E_new is not None:
-        _, W_qc, Wdag_qc = _build_encoding_change_circuits(E_new)
+        _, W_qc, _ = _build_encoding_change_circuits(E_new)
 
     n = graph.vcount()
     qubit_list = [[2 * i, 2 * i + 1] for i in range(n)]
@@ -94,57 +91,32 @@ def _create_circuit_from_graph(graph, dim, E_new=None):
 
     qc = QuantumCircuit(2 * n)
 
+    for pair in qubit_list:
+        qc.append(Fgate, pair)
+
+    for edge in edge_list:
+        qc.append(CZgate, edge)
+
     if W_qc is not None:
         for pair in qubit_list:
             qc.append(W_qc, pair)
-
-    for pair in qubit_list:
-        if W_qc is None:
-            qc.append(Fgate, pair)
-        else:
-            _append_encoded_fgate(qc, pair, Fgate, W_qc, Wdag_qc)
-
-    for edge in edge_list:
-        if W_qc is None:
-            qc.append(CZgate, edge)
-        else:
-            _append_encoded_czgate(qc, edge, CZgate, W_qc, Wdag_qc)
 
     return qc
 
 
 def _build_encoding_change_circuits(E_new):
-    """Build W together with decomposed circuit blocks for W and Wdag."""
+    """Build W together with unitary gate blocks for W and Wdag."""
     from encoding_change_unitary import build_encoding_change_unitary
 
     W = build_encoding_change_unitary(E_new)
     assert W.shape == (4, 4), f"W ma wymiar {W.shape}, oczekiwano (4, 4)"
 
-    W_qc = TwoQubitWeylDecomposition(W).circuit()
-    Wdag_qc = TwoQubitWeylDecomposition(W.conj().T).circuit()
+    W_qc = UnitaryGate(W, label="W")
+    Wdag_qc = UnitaryGate(W.conj().T, label="Wdag")
 
     W_qc.name = "W"
-    Wdag_qc.name = "W†"
+    Wdag_qc.name = "Wdag"
     return W, W_qc, Wdag_qc
-
-
-def _append_encoded_fgate(qc, pair, Fgate, W_qc, Wdag_qc):
-    """Append the explicit W -> Fgate -> Wdag block for one encoded qutrit."""
-    qc.append(W_qc, pair)
-    qc.append(Fgate, pair)
-    qc.append(Wdag_qc, pair)
-
-
-def _append_encoded_czgate(qc, edge, CZgate, W_qc, Wdag_qc):
-    """Append the explicit encoded CZ block across two encoded qutrits."""
-    left_pair = edge[:2]
-    right_pair = edge[2:]
-
-    qc.append(W_qc, left_pair)
-    qc.append(W_qc, right_pair)
-    qc.append(CZgate, edge)
-    qc.append(Wdag_qc, left_pair)
-    qc.append(Wdag_qc, right_pair)
 
 
 def change_basis(mtx, dim):

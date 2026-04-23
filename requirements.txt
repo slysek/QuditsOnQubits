@@ -1,0 +1,8 @@
+qiskit
+qiskit-ibm-runtime
+numpy
+sympy
+igraph
+matplotlib
+pandas
+ipython
