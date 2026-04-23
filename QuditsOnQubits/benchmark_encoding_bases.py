@@ -20,14 +20,28 @@ Klasy testowanych baz — NOWE (ogólne izometrie 4×3, pełna C⁴):
 Wyniki zapisywane do CSV i wypisywane w terminalu.
 """
 
+import os
 import numpy as np
 import pandas as pd
 import traceback
 import time
 from itertools import product as iter_product
 
-from qiskit import transpile
+from igraph import Graph
+
+from qiskit import qpy, transpile
+from qiskit.converters import circuit_to_dag, dag_to_circuit
+from qiskit.quantum_info import DensityMatrix, state_fidelity
+from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from QuditsOnQubits import create_ame_circuit
+from QuditsOnQubits.project_paths import (
+    benchmark_circuits_dir,
+    benchmark_docs_dir,
+    benchmark_results_path,
+    benchmark_state_circuits_dir,
+    benchmark_state_results_path,
+    multi_state_benchmark_report_path,
+)
 from encoding_change_unitary import validate_encoding_map
 
 # ═══════════════════════════ STAŁE ═══════════════════════════
@@ -46,6 +60,10 @@ P_OLD_CODESPACE = E_OLD @ E_OLD.conj().T  # 4×4
 OMEGA = np.exp(2j * np.pi / 3)
 
 BASIS_GATES = ["cz", "id", "rx", "rz", "rzz", "sx", "x"]
+DEFAULT_APPROXIMATION_VALUES = tuple(round(x, 2) for x in np.linspace(0.90, 0.99, 10))
+DEFAULT_FIDELITY_THRESHOLDS = (0.85, 0.90, 0.95)
+TWO_Q_GATES = {"cz", "rzz", "cx", "ecr", "swap"}
+_DEFAULT_CIRCUITS_OUTPUT_DIR = object()
 
 COUPLING_MAP = [
     # poziome
@@ -201,6 +219,155 @@ def compute_encoding_metadata(E_new):
     }
 
 
+def _save_benchmark_circuit(qc, class_name, candidate_name, output_root=None):
+    """Save the pre-transpile benchmark circuit under its class-name folder."""
+    if output_root is None:
+        output_root = benchmark_circuits_dir()
+
+    class_dir = os.path.join(output_root, class_name)
+    os.makedirs(class_dir, exist_ok=True)
+
+    output_path = os.path.join(class_dir, f"{candidate_name}.qpy")
+    with open(output_path, "wb") as fd:
+        qpy.dump(qc, fd)
+
+    return output_path
+
+
+def _build_state_circuit(state_name, E_new):
+    """Build the base circuit for the given benchmark state."""
+    if state_name == "two_qutrit":
+        return create_ame_circuit(n=2, dim=3, graph_type="star", E_new=E_new)
+    if state_name == "ghz3":
+        return create_ame_circuit(n=3, dim=3, graph_type="star", E_new=E_new)
+    if state_name == "ame43":
+        game43 = Graph(n=4, edges=[[0, 1], [0, 1], [1, 2], [2, 3], [3, 0]])
+        return create_ame_circuit(dim=3, graph=game43, E_new=E_new)
+    raise ValueError(f"Unknown benchmark state: {state_name}")
+
+
+def _resolve_circuits_output_dir(state_name, circuits_output_dir):
+    """Return the correct circuits output directory for a given state."""
+    if circuits_output_dir is _DEFAULT_CIRCUITS_OUTPUT_DIR:
+        return benchmark_state_circuits_dir(state_name)
+    if circuits_output_dir is None:
+        return None
+    return os.path.join(circuits_output_dir, state_name)
+
+
+def _count_two_qubit_gates(ops):
+    """Count two-qubit gates from a count_ops dictionary."""
+    return int(sum(v for k, v in ops.items() if k in TWO_Q_GATES))
+
+
+def _strip_idle_qubits(qc):
+    """Remove idle qubits so state construction only uses active wires."""
+    qc_state = qc.remove_final_measurements(inplace=False)
+    dag = circuit_to_dag(qc_state)
+    idle_qubits = [wire for wire in dag.idle_wires() if wire in dag.qubits]
+    if idle_qubits:
+        dag.remove_qubits(*idle_qubits)
+    return dag_to_circuit(dag)
+
+
+def _fidelity_label(threshold):
+    return f"fid{int(round(float(threshold) * 100)):03d}"
+
+
+def _make_approximation_result_fields(fidelity_thresholds):
+    fields = {
+        "approx_ref_depth": None,
+        "approx_ref_two_qubit_gate_count": None,
+        "approx_status": "not_run",
+        "approx_error_message": "",
+    }
+
+    for threshold in fidelity_thresholds:
+        label = _fidelity_label(threshold)
+        fields[f"{label}_best_approx_degree"] = None
+        fields[f"{label}_best_fidelity"] = None
+        fields[f"{label}_best_depth"] = None
+        fields[f"{label}_best_two_qubit_gate_count"] = None
+
+    return fields
+
+
+def _benchmark_approximation_sweep(
+    qc,
+    basis_gates=None,
+    coupling_map=None,
+    approximation_values=None,
+    fidelity_thresholds=DEFAULT_FIDELITY_THRESHOLDS,
+    seed_transpiler=0,
+):
+    """Benchmark approximation_degree sweep against a max-fidelity reference."""
+    if basis_gates is None:
+        basis_gates = BASIS_GATES
+    if approximation_values is None:
+        approximation_values = DEFAULT_APPROXIMATION_VALUES
+    if fidelity_thresholds is None:
+        fidelity_thresholds = DEFAULT_FIDELITY_THRESHOLDS
+
+    fidelity_thresholds = tuple(float(t) for t in fidelity_thresholds)
+    approximation_values = tuple(float(a) for a in approximation_values)
+
+    result = _make_approximation_result_fields(fidelity_thresholds)
+    result["approx_status"] = "ok"
+
+    pm_ref = generate_preset_pass_manager(
+        basis_gates=basis_gates,
+        optimization_level=3,
+        approximation_degree=1.0,
+        seed_transpiler=seed_transpiler,
+    )
+    qcmax = pm_ref.run(qc)
+    ref_ops = qcmax.count_ops()
+    result["approx_ref_depth"] = qcmax.depth()
+    result["approx_ref_two_qubit_gate_count"] = _count_two_qubit_gates(ref_ops)
+    rho_max = DensityMatrix(_strip_idle_qubits(qcmax))
+
+    best_hits = {threshold: None for threshold in fidelity_thresholds}
+
+    for approx_degree in approximation_values:
+        pm = generate_preset_pass_manager(
+            basis_gates=basis_gates,
+            optimization_level=3,
+            approximation_degree=approx_degree,
+            seed_transpiler=seed_transpiler,
+        )
+        qctest = pm.run(qc)
+        ops = qctest.count_ops()
+        depth = qctest.depth()
+        two_q = _count_two_qubit_gates(ops)
+        fidelity = float(state_fidelity(DensityMatrix(_strip_idle_qubits(qctest)), rho_max))
+
+        for threshold in fidelity_thresholds:
+            if fidelity < threshold:
+                continue
+
+            best = best_hits[threshold]
+            candidate = {
+                "approx_degree": round(float(approx_degree), 2),
+                "fidelity": round(fidelity, 12),
+                "depth": depth,
+                "two_q": two_q,
+            }
+            if best is None or (depth, two_q) < (best["depth"], best["two_q"]):
+                best_hits[threshold] = candidate
+
+    for threshold, best in best_hits.items():
+        if best is None:
+            continue
+
+        label = _fidelity_label(threshold)
+        result[f"{label}_best_approx_degree"] = best["approx_degree"]
+        result[f"{label}_best_fidelity"] = best["fidelity"]
+        result[f"{label}_best_depth"] = best["depth"]
+        result[f"{label}_best_two_qubit_gate_count"] = best["two_q"]
+
+    return result
+
+
 # ════════════════ GENERATORY BAZ — STARA CODE SPACE ═════════
 
 def generate_baseline():
@@ -208,7 +375,7 @@ def generate_baseline():
     return [("baseline", "E_old", None)]  # E_new=None → domyślne kodowanie
 
 
-def generate_monomial_bases(max_candidates=120):
+def generate_monomial_bases(max_candidates=500):
     """
     Klasa 1: E_new = E_old @ D @ P
     Permutacja + diagonalne fazy z {1, ω, ω²}.
@@ -528,8 +695,12 @@ def generate_two_cz_ansatz(n_samples=50, seed=700):
 # ════════════════════ BENCHMARK JEDNEGO PRZYPADKU ════════════
 
 def benchmark_basis(E_new, class_name, candidate_name,
+                    state_name="ghz3",
                     n_qutrits=3, coupling_map=None, basis_gates=None,
-                    n_transpile_runs=20):
+                    n_transpile_runs=20, circuits_output_dir=_DEFAULT_CIRCUITS_OUTPUT_DIR,
+                    approximation_values=None,
+                    fidelity_thresholds=DEFAULT_FIDELITY_THRESHOLDS,
+                    approximation_seed=0):
     """
     Buduje obwód, transpiluje n_transpile_runs razy.
     Zbiera pełne statystyki: best, mean, std.
@@ -540,11 +711,16 @@ def benchmark_basis(E_new, class_name, candidate_name,
         coupling_map = COUPLING_MAP
     if basis_gates is None:
         basis_gates = BASIS_GATES
+    if fidelity_thresholds is None:
+        fidelity_thresholds = DEFAULT_FIDELITY_THRESHOLDS
+
+    circuits_output_dir = _resolve_circuits_output_dir(state_name, circuits_output_dir)
 
     # ── metryki kodowania ──
     meta = compute_encoding_metadata(E_new)
 
     row = {
+        "state_name":                  state_name,
         "class_name":                  class_name,
         "candidate_name":              candidate_name,
         "is_valid":                    True,
@@ -566,6 +742,7 @@ def benchmark_basis(E_new, class_name, candidate_name,
         "status":                      "ok",
         "error_message":               "",
     }
+    row.update(_make_approximation_result_fields(fidelity_thresholds))
 
     # ── walidacja ──
     if E_new is not None:
@@ -578,16 +755,34 @@ def benchmark_basis(E_new, class_name, candidate_name,
 
     # ── budowa obwodu ──
     try:
-        qc, _ = create_ame_circuit(
-            n=n_qutrits, dim=3, graph_type='star', E_new=E_new,
-        )
+        qc, _ = _build_state_circuit(state_name, E_new=E_new)
+        if circuits_output_dir is not None:
+            _save_benchmark_circuit(
+                qc,
+                class_name=class_name,
+                candidate_name=candidate_name,
+                output_root=circuits_output_dir,
+            )
     except Exception:
         row["status"] = "build_error"
         row["error_message"] = traceback.format_exc()
         return row
 
+    try:
+        row.update(
+            _benchmark_approximation_sweep(
+                qc,
+                basis_gates=basis_gates,
+                approximation_values=approximation_values,
+                fidelity_thresholds=fidelity_thresholds,
+                seed_transpiler=approximation_seed,
+            )
+        )
+    except Exception:
+        row["approx_status"] = "error"
+        row["approx_error_message"] = traceback.format_exc()
+
     # ── transpilacja × n_transpile_runs — zbieramy pełne statystyki ──
-    TWO_Q_GATES = {"cz", "rzz", "cx", "ecr", "swap"}
     depths = []
     sizes = []
     two_q_counts = []
@@ -605,7 +800,7 @@ def benchmark_basis(E_new, class_name, candidate_name,
             ops = qc_t.count_ops()
             depth = qc_t.depth()
             size = qc_t.size()
-            two_q = sum(v for k, v in ops.items() if k in TWO_Q_GATES)
+            two_q = _count_two_qubit_gates(ops)
 
             depths.append(depth)
             sizes.append(size)
@@ -637,36 +832,277 @@ def benchmark_basis(E_new, class_name, candidate_name,
     return row
 
 
-# ══════════════════════════ MAIN ═════════════════════════════
+# ══════════════════════════ MARKDOWN REPORT ═══════════════════
 
-def run_benchmark(n_qutrits=3, n_transpile_runs=20,
-                   csv_path="benchmark_encoding_bases_results.csv",
-                   mode="full"):
-    """
-    Uruchamia benchmark i zapisuje wyniki do CSV.
+def _markdown_table(headers, rows):
+    """Build a markdown table from headers and row data."""
+    lines = [
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join(["---"] * len(headers)) + " |",
+    ]
+    for row in rows:
+        lines.append("| " + " | ".join(str(value) for value in row) + " |")
+    return "\n".join(lines)
 
-    mode:
-        "full"      — wszystkie generatory (oryginalne + rozszerzone)
-        "original"  — tylko oryginalne generatory (klasy 0–9)
-        "extended"  — tylko nowe rozszerzone generatory (klasy 10–15)
-    """
 
+def _format_fidelity_cell(row, prefix, suffix):
+    value = row.get(f"{prefix}_{suffix}")
+    return "brak" if pd.isna(value) else value
+
+
+def write_multi_state_benchmark_report(state_frames, output_path):
+    """Generate a combined markdown report from per-state DataFrames."""
+    lines = ["# Multi-State Encoding Benchmark Analysis", ""]
+    comparison_rows = []
+
+    for state_name in ("two_qutrit", "ghz3", "ame43"):
+        df = state_frames[state_name]
+        df_ok = df[df["status"] == "ok"].copy()
+        top = df_ok.sort_values(
+            by=["best_depth", "best_two_qubit_gate_count", "best_size"],
+            ascending=True,
+        ).head(10)
+        per_class = (
+            df_ok.sort_values(
+                by=["best_depth", "best_two_qubit_gate_count", "best_size"],
+                ascending=True,
+            )
+            .groupby("class_name", as_index=False)
+            .first()
+        )
+
+        lines.extend([
+            f"## {state_name}",
+            "",
+            _markdown_table(
+                ["Metric", "Value"],
+                [
+                    ["Rows", len(df)],
+                    ["Successful rows", int((df["status"] == "ok").sum())],
+                    ["Failed rows", int((df["status"] != "ok").sum())],
+                ],
+            ),
+            "",
+            "### Top 10 candidates",
+            "",
+            _markdown_table(
+                ["Class", "Candidate", "best_depth", "best_2q", "mean_depth"],
+                [
+                    [
+                        row["class_name"],
+                        row["candidate_name"],
+                        row["best_depth"],
+                        row["best_two_qubit_gate_count"],
+                        row["mean_depth"],
+                    ]
+                    for _, row in top.iterrows()
+                ],
+            ),
+            "",
+            "### Best per class",
+            "",
+            _markdown_table(
+                ["Class", "Candidate", "best_depth", "best_2q", "mean_depth"],
+                [
+                    [
+                        row["class_name"],
+                        row["candidate_name"],
+                        row["best_depth"],
+                        row["best_two_qubit_gate_count"],
+                        row["mean_depth"],
+                    ]
+                    for _, row in per_class.iterrows()
+                ],
+            ),
+            "",
+            "### Fidelity thresholds",
+            "",
+            _markdown_table(
+                [
+                    "Class",
+                    "Candidate",
+                    "fid085 approx",
+                    "fid085 fidelity",
+                    "fid085 depth",
+                    "fid085 2Q",
+                    "fid090 approx",
+                    "fid090 fidelity",
+                    "fid090 depth",
+                    "fid090 2Q",
+                    "fid095 approx",
+                    "fid095 fidelity",
+                    "fid095 depth",
+                    "fid095 2Q",
+                ],
+                [
+                    [
+                        row["class_name"],
+                        row["candidate_name"],
+                        _format_fidelity_cell(row, "fid085", "best_approx_degree"),
+                        _format_fidelity_cell(row, "fid085", "best_fidelity"),
+                        _format_fidelity_cell(row, "fid085", "best_depth"),
+                        _format_fidelity_cell(row, "fid085", "best_two_qubit_gate_count"),
+                        _format_fidelity_cell(row, "fid090", "best_approx_degree"),
+                        _format_fidelity_cell(row, "fid090", "best_fidelity"),
+                        _format_fidelity_cell(row, "fid090", "best_depth"),
+                        _format_fidelity_cell(row, "fid090", "best_two_qubit_gate_count"),
+                        _format_fidelity_cell(row, "fid095", "best_approx_degree"),
+                        _format_fidelity_cell(row, "fid095", "best_fidelity"),
+                        _format_fidelity_cell(row, "fid095", "best_depth"),
+                        _format_fidelity_cell(row, "fid095", "best_two_qubit_gate_count"),
+                    ]
+                    for _, row in per_class.iterrows()
+                ],
+            ),
+            "",
+        ])
+
+        comparison_rows.extend([
+            [
+                state_name,
+                row["class_name"],
+                row["candidate_name"],
+                row["best_depth"],
+                row["best_two_qubit_gate_count"],
+                _format_fidelity_cell(row, "fid095", "best_depth"),
+            ]
+            for _, row in per_class.iterrows()
+        ])
+
+    lines.extend([
+        "## Cross-state comparison",
+        "",
+        _markdown_table(
+            ["State", "Class", "Candidate", "best_depth", "best_2q", "fid095 depth"],
+            comparison_rows,
+        ),
+    ])
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as fd:
+        fd.write("\n".join(lines).strip() + "\n")
+
+
+# ══════════════════════════ SINGLE-STATE BENCHMARK ═══════════
+
+def _print_single_state_summary(df, state_name):
+    """Print terminal summary for a single-state benchmark run."""
+    if df.empty or "status" not in df.columns:
+        print("\nBrak wyników do wyświetlenia.")
+        return
+    df_ok = df[df["status"] == "ok"].copy()
+    if df_ok.empty:
+        print("\nŻaden przypadek nie zakończył się sukcesem.")
+        return
+
+    df_ok = df_ok.sort_values(
+        by=["best_depth", "best_two_qubit_gate_count", "best_size"],
+        ascending=True,
+    )
+
+    print("\n" + "=" * 80)
+    print(f"  TOP 15 [{state_name}] (najniższa best_depth)")
     print("=" * 80)
-    print(f"  Benchmark baz kodowania qutrytu  (n_qutrits={n_qutrits})  [mode={mode}]")
+    top = df_ok.head(15)
+    for i, (_, r) in enumerate(top.iterrows()):
+        cs = "old" if r["uses_old_codespace_only"] else "NEW"
+        print(
+            f"  {i+1:2d}.  best_d={r['best_depth']:5d}  "
+            f"mean_d={r['mean_depth']:7.1f}±{r['std_depth']:5.1f}  "
+            f"best_2q={r['best_two_qubit_gate_count']:5d}  "
+            f"ent={r['avg_codeword_entanglement']:.3f}  "
+            f"ovlp={r['overlap_with_old_codespace']:.3f}  "
+            f"[{cs}]  "
+            f"{r['class_name']:28s}  {r['candidate_name']}"
+        )
+
+    print("\n" + "=" * 80)
+    print(f"  Statystyki wg klasy [{state_name}] (best_depth)")
+    print("=" * 80)
+    stats = df_ok.groupby("class_name")["best_depth"].agg(
+        ["count", "min", "mean", "max"]
+    )
+    print(stats.to_string())
+
+    print("\n" + "=" * 80)
+    print(f"  Porównanie [{state_name}]: stara code space vs ogólne izometrie")
+    print("=" * 80)
+    for label, mask in [("OLD codespace", df_ok["uses_old_codespace_only"] == True),
+                        ("NEW (general)", df_ok["uses_old_codespace_only"] == False)]:
+        sub = df_ok[mask]
+        if sub.empty:
+            print(f"  {label:18s}  brak wyników")
+        else:
+            print(
+                f"  {label:18s}  n={len(sub):4d}  "
+                f"best_depth: min={sub['best_depth'].min():5d}  "
+                f"mean={sub['best_depth'].mean():7.1f}  "
+                f"best_2q: min={sub['best_two_qubit_gate_count'].min():5d}  "
+                f"mean={sub['best_two_qubit_gate_count'].mean():7.1f}"
+            )
+
+
+ALL_CLASS_NAMES = (
+    "baseline",
+    "monomial",
+    "fourier_like",
+    "householder_random",
+    "clifford_wh",
+    "haar_random_isometry",
+    "perturbed_isometry",
+    "entangling_isometry",
+    "structured_entangling",
+    "local_ry_only",
+    "local_general_su2",
+    "real_orthogonal",
+    "near_identity",
+    "finer_structured",
+    "two_cz_ansatz",
+)
+
+
+def _run_single_state_benchmark(
+    state_name="ghz3",
+    n_transpile_runs=20,
+    csv_path=None,
+    mode="full",
+    circuits_output_dir=_DEFAULT_CIRCUITS_OUTPUT_DIR,
+    approximation_values=None,
+    fidelity_thresholds=DEFAULT_FIDELITY_THRESHOLDS,
+    approximation_seed=0,
+    class_filter=None,
+):
+    """Run the full benchmark pipeline for a single state and save results to CSV.
+
+    class_filter : str or collection of str, optional
+        If given, only candidates whose class_name matches are benchmarked.
+        Accepts a single name or a comma-separated string or a collection.
+    """
+
+    filter_set = None
+    if class_filter is not None:
+        if isinstance(class_filter, str):
+            filter_set = {c.strip() for c in class_filter.split(",")}
+        else:
+            filter_set = set(class_filter)
+
+    filter_label = ",".join(sorted(filter_set)) if filter_set else "all"
+    print("=" * 80)
+    print(f"  Benchmark baz kodowania qutrytu  [state={state_name}]  [mode={mode}]  [class={filter_label}]")
     print(f"  Transpilacja: {n_transpile_runs} prób na kandydata (best + mean ± std)")
     print("=" * 80)
+
+    if csv_path is None:
+        csv_path = benchmark_state_results_path(state_name, mode)
 
     all_candidates = []
 
     if mode in ("full", "original"):
-        # ── generuj kandydatów — stara code space ──
         all_candidates += generate_baseline()
-        all_candidates += generate_monomial_bases(max_candidates=120)
+        all_candidates += generate_monomial_bases(max_candidates=300)
         all_candidates += generate_fourier_like_bases(max_candidates=80)
         all_candidates += generate_householder_bases(n_samples=20, seed=42)
         all_candidates += generate_clifford_wh_bases()
-
-        # ── ogólne izometrie (pełna C⁴) ──
         all_candidates += generate_haar_random_isometries(n_samples=20, seed=100)
         all_candidates += generate_perturbed_isometries(n_samples_per_eps=8, seed=200)
         all_candidates += generate_entangling_isometries(n_samples=20, seed=300)
@@ -675,7 +1111,6 @@ def run_benchmark(n_qutrits=3, n_transpile_runs=20,
     n_orig = len(all_candidates)
 
     if mode in ("full", "extended"):
-        # ── ROZSZERZONY BENCHMARK — nowe klasy (10–15) ──
         all_candidates += generate_local_ry_only(n_grid=10)
         all_candidates += generate_local_general_su2(n_samples=30, seed=600)
         all_candidates += generate_real_orthogonal_isometries(n_samples=20, seed=400)
@@ -685,12 +1120,16 @@ def run_benchmark(n_qutrits=3, n_transpile_runs=20,
 
     n_ext = len(all_candidates) - n_orig
 
+    if filter_set:
+        all_candidates = [(cls, n, e) for cls, n, e in all_candidates if cls in filter_set]
+
     print(f"\n  Kandydaci (oryginalne):     {n_orig}")
     print(f"  Kandydaci (rozszerzone):    {n_ext}")
+    if filter_set:
+        print(f"  Po filtrze ({filter_label}): {len(all_candidates)}")
     print(f"  Razem:                      {len(all_candidates)}")
     print("-" * 80)
 
-    # ── benchmark ──
     results = []
     t0 = time.time()
 
@@ -702,10 +1141,14 @@ def run_benchmark(n_qutrits=3, n_transpile_runs=20,
 
         row = benchmark_basis(
             E_new, cls, name,
-            n_qutrits=n_qutrits,
+            state_name=state_name,
             coupling_map=COUPLING_MAP,
             basis_gates=BASIS_GATES,
             n_transpile_runs=n_transpile_runs,
+            circuits_output_dir=circuits_output_dir,
+            approximation_values=approximation_values,
+            fidelity_thresholds=fidelity_thresholds,
+            approximation_seed=approximation_seed,
         )
 
         if row["status"] == "ok":
@@ -723,81 +1166,149 @@ def run_benchmark(n_qutrits=3, n_transpile_runs=20,
         results.append(row)
 
     elapsed = time.time() - t0
-    print(f"\nCzas benchmarku: {elapsed:.1f} s")
+    print(f"\nCzas benchmarku [{state_name}]: {elapsed:.1f} s")
 
-    # ── dataframe ──
     df = pd.DataFrame(results)
 
-    # ── zapis CSV ──
+    csv_dir = os.path.dirname(csv_path)
+    if csv_dir:
+        os.makedirs(csv_dir, exist_ok=True)
     df.to_csv(csv_path, index=False)
     print(f"Wyniki zapisane do: {csv_path}")
 
-    # ── top 15 ──
-    df_ok = df[df["status"] == "ok"].copy()
-    if df_ok.empty:
-        print("\nŻaden przypadek nie zakończył się sukcesem.")
+    _print_single_state_summary(df, state_name)
+
+    return df, csv_path
+
+
+# ══════════════════════════ MAIN ═════════════════════════════
+
+def run_benchmark(n_qutrits=3, n_transpile_runs=20,
+                   csv_path=None,
+                   mode="full", circuits_output_dir=_DEFAULT_CIRCUITS_OUTPUT_DIR,
+                   approximation_values=None,
+                   fidelity_thresholds=DEFAULT_FIDELITY_THRESHOLDS,
+                   approximation_seed=0,
+                   state_name="ghz3",
+                   reuse_existing_ghz3=True,
+                   combined_report_path=None,
+                   class_filter=None):
+    """
+    Uruchamia benchmark i zapisuje wyniki do CSV.
+
+    mode:
+        "full"      — wszystkie generatory (oryginalne + rozszerzone)
+        "original"  — tylko oryginalne generatory (klasy 0–9)
+        "extended"  — tylko nowe rozszerzone generatory (klasy 10–15)
+
+    state_name:
+        "ghz3"       — 3-qutrytowy stan GHZ (star graph)
+        "two_qutrit" — 2-qutrytowy stan (star graph, n=2)
+        "ame43"      — stan AME(4,3) (specjalny graf z wielokrawędziami)
+        "all"        — uruchom benchmark dla wszystkich trzech stanów
+                       i wygeneruj wspólny raport markdown
+
+    class_filter:
+        None         — wszystkie klasy kandydatów
+        str          — jedna klasa lub wiele oddzielonych przecinkiem,
+                       np. "monomial" lub "monomial,baseline"
+    """
+    if state_name != "all":
+        df, _ = _run_single_state_benchmark(
+            state_name=state_name,
+            n_transpile_runs=n_transpile_runs,
+            csv_path=csv_path,
+            mode=mode,
+            circuits_output_dir=circuits_output_dir,
+            approximation_values=approximation_values,
+            fidelity_thresholds=fidelity_thresholds,
+            approximation_seed=approximation_seed,
+            class_filter=class_filter,
+        )
         return df
 
-    df_ok = df_ok.sort_values(
-        by=["best_depth", "best_two_qubit_gate_count", "best_size"],
-        ascending=True,
+    # ── tryb "all": trzy stany + wspólny raport ──
+    common_kwargs = dict(
+        n_transpile_runs=n_transpile_runs,
+        mode=mode,
+        circuits_output_dir=circuits_output_dir,
+        approximation_values=approximation_values,
+        fidelity_thresholds=fidelity_thresholds,
+        approximation_seed=approximation_seed,
+        class_filter=class_filter,
     )
 
-    print("\n" + "=" * 80)
-    print("  TOP 15 (najniższa best_depth)")
-    print("=" * 80)
-    top = df_ok.head(15)
-    for i, (_, r) in enumerate(top.iterrows()):
-        cs = "old" if r["uses_old_codespace_only"] else "NEW"
-        print(
-            f"  {i+1:2d}.  best_d={r['best_depth']:5d}  "
-            f"mean_d={r['mean_depth']:7.1f}±{r['std_depth']:5.1f}  "
-            f"best_2q={r['best_two_qubit_gate_count']:5d}  "
-            f"ent={r['avg_codeword_entanglement']:.3f}  "
-            f"ovlp={r['overlap_with_old_codespace']:.3f}  "
-            f"[{cs}]  "
-            f"{r['class_name']:28s}  {r['candidate_name']}"
+    state_frames = {}
+
+    print("\n" + "#" * 80)
+    print("  MULTI-STATE BENCHMARK: two_qutrit")
+    print("#" * 80)
+    state_frames["two_qutrit"], _ = _run_single_state_benchmark(
+        state_name="two_qutrit", **common_kwargs,
+    )
+
+    print("\n" + "#" * 80)
+    print("  MULTI-STATE BENCHMARK: ghz3")
+    print("#" * 80)
+    ghz_csv = benchmark_state_results_path("ghz3", mode)
+    if reuse_existing_ghz3 and os.path.exists(ghz_csv):
+        print(f"  Reusing existing GHZ3 results from: {ghz_csv}")
+        state_frames["ghz3"] = pd.read_csv(ghz_csv)
+    else:
+        state_frames["ghz3"], _ = _run_single_state_benchmark(
+            state_name="ghz3", **common_kwargs,
         )
 
-    # ── statystyki klas ──
-    print("\n" + "=" * 80)
-    print("  Statystyki wg klasy (best_depth)")
-    print("=" * 80)
-    stats = df_ok.groupby("class_name")["best_depth"].agg(
-        ["count", "min", "mean", "max"]
+    print("\n" + "#" * 80)
+    print("  MULTI-STATE BENCHMARK: ame43")
+    print("#" * 80)
+    state_frames["ame43"], _ = _run_single_state_benchmark(
+        state_name="ame43", **common_kwargs,
     )
-    print(stats.to_string())
 
-    # ── old vs new code space ──
-    print("\n" + "=" * 80)
-    print("  Porównanie: stara code space vs ogólne izometrie")
-    print("=" * 80)
-    for label, mask in [("OLD codespace", df_ok["uses_old_codespace_only"] == True),
-                        ("NEW (general)", df_ok["uses_old_codespace_only"] == False)]:
-        sub = df_ok[mask]
-        if sub.empty:
-            print(f"  {label:18s}  brak wyników")
-        else:
-            print(
-                f"  {label:18s}  n={len(sub):4d}  "
-                f"best_depth: min={sub['best_depth'].min():5d}  "
-                f"mean={sub['best_depth'].mean():7.1f}  "
-                f"best_2q: min={sub['best_two_qubit_gate_count'].min():5d}  "
-                f"mean={sub['best_two_qubit_gate_count'].mean():7.1f}"
-            )
+    report_path = combined_report_path or multi_state_benchmark_report_path()
+    write_multi_state_benchmark_report(state_frames, report_path)
+    print(f"\nRaport markdown zapisany do: {report_path}")
 
-    return df
+    return state_frames
 
 
 if __name__ == "__main__":
-    import sys
+    import argparse
 
-    # Domyślnie: tylko nowe klasy (extended); "full" lub "original" przez argument
-    _mode = sys.argv[1] if len(sys.argv) > 1 else "extended"
-    _csv = {
-        "full":     "benchmark_encoding_bases_full_results.csv",
-        "original": "benchmark_encoding_bases_results.csv",
-        "extended": "benchmark_encoding_bases_extended_results.csv",
-    }.get(_mode, f"benchmark_{_mode}_results.csv")
+    parser = argparse.ArgumentParser(
+        description="Benchmark encoding bases for qutrit states",
+    )
+    parser.add_argument(
+        "mode",
+        nargs="?",
+        default="extended",
+        choices=["full", "original", "extended"],
+        help="which candidate generators to use (default: extended)",
+    )
+    parser.add_argument(
+        "state",
+        nargs="?",
+        default="ghz3",
+        choices=["ghz3", "two_qutrit", "ame43", "all"],
+        help="which state to benchmark (default: ghz3)",
+    )
+    parser.add_argument(
+        "--class",
+        dest="class_filter",
+        default=None,
+        help=(
+            "comma-separated list of class names to benchmark, e.g. "
+            "'monomial' or 'monomial,baseline'. "
+            f"Available: {', '.join(ALL_CLASS_NAMES)}"
+        ),
+    )
+    args = parser.parse_args()
 
-    run_benchmark(n_qutrits=3, mode=_mode, csv_path=_csv)
+    _csv = None if args.state == "all" else benchmark_state_results_path(args.state, args.mode)
+    run_benchmark(
+        mode=args.mode,
+        csv_path=_csv,
+        state_name=args.state,
+        class_filter=args.class_filter,
+    )
