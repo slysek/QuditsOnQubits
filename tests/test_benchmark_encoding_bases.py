@@ -27,6 +27,8 @@ from QuditsOnQubits.benchmark_encoding_bases import (
     _filter_candidates_by_preselection,
     _validate_preselection_coverage,
     _write_topk_tables_to_output_dir,
+    _get_ame43_graph,
+    _get_cached_approximation_pass_manager,
 )
 from QuditsOnQubits.project_paths import (
     benchmark_state_results_path,
@@ -143,9 +145,24 @@ class TestBuildStateCircuit(unittest.TestCase):
         self.assertEqual(qc.num_qubits, 8)
         self.assertEqual(g.vcount(), 4)
 
+    def test_ame43_reuses_cached_graph_instance(self):
+        _, graph_a = _build_state_circuit("ame43", E_new=None)
+        _, graph_b = _build_state_circuit("ame43", E_new=None)
+
+        self.assertIs(graph_a, graph_b)
+        self.assertIs(graph_a, _get_ame43_graph())
+
     def test_unknown_state_raises(self):
         with self.assertRaises(ValueError):
             _build_state_circuit("nonsense", E_new=None)
+
+
+class TestBenchmarkCachingHelpers(unittest.TestCase):
+    def test_cached_approximation_pass_manager_reuses_same_instance(self):
+        pm_a = _get_cached_approximation_pass_manager(tuple(["cz", "rx", "rz"]), 1.0, 7)
+        pm_b = _get_cached_approximation_pass_manager(tuple(["cz", "rx", "rz"]), 1.0, 7)
+
+        self.assertIs(pm_a, pm_b)
 
 
 class TestBenchmarkBasisStateAware(unittest.TestCase):

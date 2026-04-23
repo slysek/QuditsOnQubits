@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 import traceback
 import time
+from functools import lru_cache
 from itertools import combinations, product as iter_product
 
 from igraph import Graph
@@ -93,6 +94,38 @@ COUPLING_MAP = [
 
 
 # ════════════════════ OPERATORY QUTRYTOWE (3×3) ══════════════
+
+@lru_cache(maxsize=None)
+def _get_state_graph(state_name):
+    """Return a cached graph object for a named benchmark state."""
+    if state_name == "two_qutrit":
+        return Graph(n=2, edges=[[0, 1]])
+    if state_name == "ghz3":
+        return Graph(n=3, edges=[[0, 1], [0, 2]])
+    if state_name == "ame43":
+        return Graph(n=4, edges=[[0, 1], [0, 1], [1, 2], [2, 3], [3, 0]])
+    raise ValueError(f"Unknown benchmark state: {state_name}")
+
+
+def _get_ame43_graph():
+    """Return the cached graph used for AME(4,3) benchmarks."""
+    return _get_state_graph("ame43")
+
+
+@lru_cache(maxsize=None)
+def _get_cached_approximation_pass_manager(
+    basis_gates,
+    approximation_degree,
+    seed_transpiler,
+):
+    """Reuse deterministic pass-manager instances across candidates."""
+    return generate_preset_pass_manager(
+        basis_gates=list(basis_gates),
+        optimization_level=3,
+        approximation_degree=approximation_degree,
+        seed_transpiler=seed_transpiler,
+    )
+
 
 def qutrit_X():
     """Cykliczny shift X₃:  |k⟩ → |k+1 mod 3⟩."""
@@ -377,14 +410,13 @@ def _build_encoding_change_circuit(E_new):
 def _build_state_circuit(state_name, E_new, encoding_strategy="append_w"):
     """Build the base circuit for the given benchmark state."""
     if state_name == "two_qutrit":
-        return create_ame_circuit(n=2, dim=3, graph_type="star", E_new=E_new,
+        return create_ame_circuit(dim=3, graph=_get_state_graph("two_qutrit"), E_new=E_new,
                                   encoding_strategy=encoding_strategy)
     if state_name == "ghz3":
-        return create_ame_circuit(n=3, dim=3, graph_type="star", E_new=E_new,
+        return create_ame_circuit(dim=3, graph=_get_state_graph("ghz3"), E_new=E_new,
                                   encoding_strategy=encoding_strategy)
     if state_name == "ame43":
-        game43 = Graph(n=4, edges=[[0, 1], [0, 1], [1, 2], [2, 3], [3, 0]])
-        return create_ame_circuit(dim=3, graph=game43, E_new=E_new,
+        return create_ame_circuit(dim=3, graph=_get_ame43_graph(), E_new=E_new,
                                   encoding_strategy=encoding_strategy)
     raise ValueError(f"Unknown benchmark state: {state_name}")
 
@@ -454,13 +486,13 @@ def _benchmark_approximation_sweep(
 
     fidelity_thresholds = tuple(float(t) for t in fidelity_thresholds)
     approximation_values = tuple(float(a) for a in approximation_values)
+    basis_gates = tuple(basis_gates)
 
     result = _make_approximation_result_fields(fidelity_thresholds)
     result["approx_status"] = "ok"
 
-    pm_ref = generate_preset_pass_manager(
+    pm_ref = _get_cached_approximation_pass_manager(
         basis_gates=basis_gates,
-        optimization_level=3,
         approximation_degree=1.0,
         seed_transpiler=seed_transpiler,
     )
@@ -473,9 +505,8 @@ def _benchmark_approximation_sweep(
     best_hits = {threshold: None for threshold in fidelity_thresholds}
 
     for approx_degree in approximation_values:
-        pm = generate_preset_pass_manager(
+        pm = _get_cached_approximation_pass_manager(
             basis_gates=basis_gates,
-            optimization_level=3,
             approximation_degree=approx_degree,
             seed_transpiler=seed_transpiler,
         )
