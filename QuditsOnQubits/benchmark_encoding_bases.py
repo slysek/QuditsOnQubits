@@ -25,11 +25,13 @@ import numpy as np
 import pandas as pd
 import traceback
 import time
-from itertools import product as iter_product
+from itertools import combinations, product as iter_product
 
 from igraph import Graph
 
 from qiskit import qpy, transpile
+from qiskit.circuit import QuantumCircuit
+from qiskit.circuit.library import UnitaryGate
 from qiskit.converters import circuit_to_dag, dag_to_circuit
 from qiskit.quantum_info import DensityMatrix, state_fidelity
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
@@ -42,7 +44,7 @@ from QuditsOnQubits.project_paths import (
     benchmark_state_results_path,
     multi_state_benchmark_report_path,
 )
-from encoding_change_unitary import validate_encoding_map
+from encoding_change_unitary import build_encoding_change_unitary, validate_encoding_map
 
 # ═══════════════════════════ STAŁE ═══════════════════════════
 
@@ -64,6 +66,7 @@ DEFAULT_APPROXIMATION_VALUES = tuple(round(x, 2) for x in np.linspace(0.90, 0.99
 DEFAULT_FIDELITY_THRESHOLDS = (0.85, 0.90, 0.95)
 TWO_Q_GATES = {"cz", "rzz", "cx", "ecr", "swap"}
 _DEFAULT_CIRCUITS_OUTPUT_DIR = object()
+_EXPORTED_TRANSPILED_CIRCUIT_COUNT = 3
 
 COUPLING_MAP = [
     # poziome
@@ -160,7 +163,117 @@ _PERMS_3 = [
 _PHASES_3 = [1, OMEGA, OMEGA**2]
 
 
+def _phase_label(phases):
+    """Zakoduj fazy z {1, ω, ω²} jako cyfry 0/1/2 do nazwy kandydata."""
+    return "".join(
+        str(int(round(np.angle(phase) * 3 / (2 * np.pi))) % 3)
+        for phase in phases
+    )
+
+
 # ────────────── metryki kodowania ──────────────
+
+def _single_qubit_product_library():
+    """Small discrete library of 1-qubit unitaries for product-basis candidates."""
+    identity = np.eye(2, dtype=complex)
+    x_gate = np.array([[0, 1], [1, 0]], dtype=complex)
+    z_gate = np.diag([1, -1]).astype(complex)
+    s_gate = np.diag([1, 1j]).astype(complex)
+    hadamard = np.array([[1, 1], [1, -1]], dtype=complex) / np.sqrt(2)
+    sx_gate = 0.5 * np.array(
+        [[1 + 1j, 1 - 1j], [1 - 1j, 1 + 1j]],
+        dtype=complex,
+    )
+
+    return [
+        ("I", identity),
+        ("X", x_gate),
+        ("SX", sx_gate),
+        ("SXdg", sx_gate.conj().T),
+        ("H", hadamard),
+        ("HS", hadamard @ s_gate),
+        ("SH", s_gate @ hadamard),
+        ("Z", z_gate),
+    ]
+
+
+def _single_qubit_product_angle_grid(angle_grid=None):
+    """Resolve the phase/polar angle lists used by the optional SU(2) grid."""
+    default_phase_angles = (0.0, np.pi / 2, np.pi, 3 * np.pi / 2)
+    default_polar_angles = (0.0, np.pi / 2, np.pi)
+
+    if angle_grid is None:
+        return default_phase_angles, default_polar_angles
+
+    if isinstance(angle_grid, dict):
+        def _pick_angle_values(keys):
+            for key in keys:
+                if key in angle_grid and angle_grid[key] is not None:
+                    return angle_grid[key]
+            return None
+
+        phase_angles = _pick_angle_values(
+            ("phase_angles", "phases", "alpha_gamma", "rz")
+        )
+        polar_angles = _pick_angle_values(
+            ("polar_angles", "betas", "beta", "rx")
+        )
+    else:
+        try:
+            phase_angles, polar_angles = angle_grid
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "angle_grid must be None, a dict, or a pair "
+                "(phase_angles, polar_angles)."
+            ) from exc
+
+    if phase_angles is None or polar_angles is None:
+        raise ValueError(
+            "angle_grid must define both phase angles and polar angles."
+        )
+
+    return tuple(phase_angles), tuple(polar_angles)
+
+
+def _single_qubit_rx(theta):
+    c, s = np.cos(theta / 2), np.sin(theta / 2)
+    return np.array([[c, -1j * s], [-1j * s, c]], dtype=complex)
+
+
+def _single_qubit_rz(theta):
+    half_theta = theta / 2
+    return np.diag(
+        [np.exp(-1j * half_theta), np.exp(1j * half_theta)]
+    ).astype(complex)
+
+
+def _single_qubit_su2(alpha, beta, gamma):
+    return _single_qubit_rz(alpha) @ _single_qubit_rx(beta) @ _single_qubit_rz(gamma)
+
+
+def _format_product_angle(theta):
+    if np.isclose(theta, 0.0, atol=1e-12):
+        theta = 0.0
+    return f"{theta:.2f}"
+
+
+def _single_qubit_product_grid(angle_grid=None):
+    """Return a named SU(2) grid based on the Rz-Rx-Rz parametrization."""
+    phase_angles, polar_angles = _single_qubit_product_angle_grid(angle_grid)
+    grid = []
+
+    for alpha in phase_angles:
+        for beta in polar_angles:
+            for gamma in phase_angles:
+                name = (
+                    f"a{_format_product_angle(alpha)}"
+                    f"_b{_format_product_angle(beta)}"
+                    f"_g{_format_product_angle(gamma)}"
+                )
+                grid.append((name, _single_qubit_su2(alpha, beta, gamma)))
+
+    return grid
+
 
 def _codeword_entanglement(col):
     """
@@ -219,19 +332,43 @@ def compute_encoding_metadata(E_new):
     }
 
 
-def _save_benchmark_circuit(qc, class_name, candidate_name, output_root=None):
-    """Save the pre-transpile benchmark circuit under its class-name folder."""
+def _benchmark_circuit_output_path(class_name, candidate_name, output_root=None, suffix=None):
+    """Return a candidate-scoped output path inside the class-name folder."""
     if output_root is None:
         output_root = benchmark_circuits_dir()
 
     class_dir = os.path.join(output_root, class_name)
     os.makedirs(class_dir, exist_ok=True)
 
-    output_path = os.path.join(class_dir, f"{candidate_name}.qpy")
+    stem = candidate_name if suffix is None else f"{candidate_name}__{suffix}"
+    return os.path.join(class_dir, f"{stem}.qpy")
+
+
+def _save_benchmark_circuit(qc, class_name, candidate_name, output_root=None, suffix=None):
+    """Save a benchmark-related circuit under its class-name folder."""
+    output_path = _benchmark_circuit_output_path(
+        class_name,
+        candidate_name,
+        output_root=output_root,
+        suffix=suffix,
+    )
     with open(output_path, "wb") as fd:
         qpy.dump(qc, fd)
 
     return output_path
+
+
+def _build_encoding_change_circuit(E_new):
+    """Build a standalone 2-qubit circuit containing only the encoding-change W gate."""
+    W = build_encoding_change_unitary(E_new)
+    assert W.shape == (4, 4), f"W ma wymiar {W.shape}, oczekiwano (4, 4)"
+
+    W_gate = UnitaryGate(W, label="W")
+    W_gate.name = "W"
+
+    qc = QuantumCircuit(2, name="W")
+    qc.append(W_gate, [0, 1])
+    return qc
 
 
 def _build_state_circuit(state_name, E_new):
@@ -375,7 +512,7 @@ def generate_baseline():
     return [("baseline", "E_old", None)]  # E_new=None → domyślne kodowanie
 
 
-def generate_monomial_bases(max_candidates=500):
+def generate_monomial_old_codespace_bases(max_candidates=500):
     """
     Klasa 1: E_new = E_old @ D @ P
     Permutacja + diagonalne fazy z {1, ω, ω²}.
@@ -387,10 +524,41 @@ def generate_monomial_bases(max_candidates=500):
             D = _phase_diag(ph)
             S = D @ P
             E_new = E_OLD @ S
-            name = f"P{''.join(map(str,perm))}_ph{''.join(str(int(round(np.angle(p)*3/(2*np.pi)))%3) for p in ph)}"
-            candidates.append(("monomial", name, E_new))
-            if len(candidates) >= max_candidates:
+            name = f"P{''.join(map(str, perm))}_ph{_phase_label(ph)}"
+            candidates.append(("monomial_old_codespace", name, E_new))
+            if max_candidates is not None and len(candidates) >= max_candidates:
                 return candidates
+    return candidates
+
+
+def generate_monomial_bases(max_candidates=500):
+    """Backward-compatible wrapper dla monomiali ograniczonych do E_old."""
+    return generate_monomial_old_codespace_bases(max_candidates=max_candidates)
+
+
+def generate_monomial_full_bases(max_candidates=500):
+    """
+    Pełna klasa monomialnych embeddingów qutrytu w 2 qubity.
+
+    Wybiera dowolny support 3 z 4 stanów bazowych |00>, |01>, |10>, |11>,
+    a następnie stosuje tę samą konwencję D @ P co w starej code space.
+    """
+    computational_basis = np.eye(4, dtype=complex)
+    candidates = []
+
+    for support in combinations(range(4), 3):
+        B = computational_basis[:, support]
+        support_label = "".join(map(str, support))
+        for perm in _PERMS_3:
+            P = _perm_matrix(perm)
+            for ph in iter_product(_PHASES_3, repeat=3):
+                D = _phase_diag(ph)
+                S = D @ P
+                E_new = B @ S
+                name = f"sup{support_label}_P{''.join(map(str, perm))}_ph{_phase_label(ph)}"
+                candidates.append(("monomial_full", name, E_new))
+                if max_candidates is not None and len(candidates) >= max_candidates:
+                    return candidates
     return candidates
 
 
@@ -541,6 +709,52 @@ def generate_structured_entangling_isometries():
 
 
 # ═══════ GENERATORY BAZ — ROZSZERZONY SEARCH (nowe klasy) ════
+
+def generate_product_bases(
+    max_candidates=500,
+    e_base=None,
+    mode="discrete",
+    include_grid=False,
+    angle_grid=None,
+):
+    """
+    Klasa "product": E_new = (U ⊗ V) @ E_base, gdzie U i V są lokalne 1-qubit unitary.
+
+    mode="discrete" używa małej, skończonej biblioteki bramek 1-qubitowych.
+    mode="grid" używa prostego gridu parametrów SU(2) w postaci Rz-Rx-Rz.
+    Jeśli include_grid=True przy mode="discrete", kandydaci gridowi są dopinani
+    po skończonej bibliotece dyskretnej.
+    """
+    if mode not in {"discrete", "grid"}:
+        raise ValueError("mode must be either 'discrete' or 'grid'.")
+
+    e_base_arr = get_E_old() if e_base is None else np.array(e_base, dtype=complex, copy=True)
+    vres = validate_encoding_map(e_base_arr)
+    if not vres["is_valid"]:
+        raise ValueError(f"Invalid e_base for generate_product_bases: {vres['message']}")
+
+    candidates = []
+
+    def _append_candidates(unitary_library, name_prefix=""):
+        for (u_name, u_gate), (v_name, v_gate) in iter_product(unitary_library, repeat=2):
+            e_new = np.kron(u_gate, v_gate) @ e_base_arr
+            candidate_name = f"{name_prefix}U_{u_name}__V_{v_name}"
+            candidates.append(("product", candidate_name, e_new))
+            if max_candidates is not None and len(candidates) >= max_candidates:
+                return True
+        return False
+
+    if mode == "discrete":
+        if _append_candidates(_single_qubit_product_library()):
+            return candidates
+        if not include_grid:
+            return candidates
+
+    if _append_candidates(_single_qubit_product_grid(angle_grid), name_prefix="grid__"):
+        return candidates
+
+    return candidates
+
 
 def generate_local_ry_only(n_grid=10):
     """
@@ -763,6 +977,14 @@ def benchmark_basis(E_new, class_name, candidate_name,
                 candidate_name=candidate_name,
                 output_root=circuits_output_dir,
             )
+            if E_new is not None:
+                _save_benchmark_circuit(
+                    _build_encoding_change_circuit(E_new),
+                    class_name=class_name,
+                    candidate_name=candidate_name,
+                    output_root=circuits_output_dir,
+                    suffix="W",
+                )
     except Exception:
         row["status"] = "build_error"
         row["error_message"] = traceback.format_exc()
@@ -786,7 +1008,7 @@ def benchmark_basis(E_new, class_name, candidate_name,
     depths = []
     sizes = []
     two_q_counts = []
-    best = None  # (depth, two_q_count, size, ops_dict)
+    successful_circuits = []
 
     for trial in range(n_transpile_runs):
         try:
@@ -807,8 +1029,17 @@ def benchmark_basis(E_new, class_name, candidate_name,
             two_q_counts.append(two_q)
             row["successful_trials"] += 1
 
-            if best is None or (depth, two_q, size) < (best[0], best[1], best[2]):
-                best = (depth, two_q, size, dict(ops), qc_t.num_qubits)
+            successful_circuits.append(
+                {
+                    "rank_key": (depth, two_q, size),
+                    "depth": depth,
+                    "two_q": two_q,
+                    "size": size,
+                    "ops": dict(ops),
+                    "num_qubits": qc_t.num_qubits,
+                    "qc": qc_t,
+                }
+            )
 
         except Exception:
             row["failed_trials"] += 1
@@ -819,15 +1050,36 @@ def benchmark_basis(E_new, class_name, candidate_name,
         return row
 
     # ── statystyki ──
-    row["best_depth"] = best[0]
+    ranked_circuits = sorted(successful_circuits, key=lambda item: item["rank_key"])
+    best = ranked_circuits[0]
+
+    if circuits_output_dir is not None:
+        try:
+            for rank, circuit_data in enumerate(
+                ranked_circuits[:_EXPORTED_TRANSPILED_CIRCUIT_COUNT],
+                start=1,
+            ):
+                _save_benchmark_circuit(
+                    circuit_data["qc"],
+                    class_name=class_name,
+                    candidate_name=candidate_name,
+                    output_root=circuits_output_dir,
+                    suffix=f"transpiled_{rank}",
+                )
+        except Exception:
+            row["status"] = "export_error"
+            row["error_message"] = traceback.format_exc()
+            return row
+
+    row["best_depth"] = best["depth"]
     row["mean_depth"] = round(float(np.mean(depths)), 2)
     row["std_depth"] = round(float(np.std(depths)), 2)
-    row["best_size"] = best[2]
+    row["best_size"] = best["size"]
     row["mean_size"] = round(float(np.mean(sizes)), 2)
-    row["best_two_qubit_gate_count"] = best[1]
+    row["best_two_qubit_gate_count"] = best["two_q"]
     row["mean_two_qubit_gate_count"] = round(float(np.mean(two_q_counts)), 2)
-    row["num_qubits"] = best[4]
-    row["best_count_ops"] = best[3]
+    row["num_qubits"] = best["num_qubits"]
+    row["best_count_ops"] = best["ops"]
 
     return row
 
@@ -1044,7 +1296,8 @@ def _print_single_state_summary(df, state_name):
 
 ALL_CLASS_NAMES = (
     "baseline",
-    "monomial",
+    "monomial_old_codespace",
+    "monomial_full",
     "fourier_like",
     "householder_random",
     "clifford_wh",
@@ -1052,6 +1305,7 @@ ALL_CLASS_NAMES = (
     "perturbed_isometry",
     "entangling_isometry",
     "structured_entangling",
+    "product",
     "local_ry_only",
     "local_general_su2",
     "real_orthogonal",
@@ -1099,7 +1353,8 @@ def _run_single_state_benchmark(
 
     if mode in ("full", "original"):
         all_candidates += generate_baseline()
-        all_candidates += generate_monomial_bases(max_candidates=300)
+        all_candidates += generate_monomial_old_codespace_bases(max_candidates=None)
+        all_candidates += generate_monomial_full_bases(max_candidates=None)
         all_candidates += generate_fourier_like_bases(max_candidates=80)
         all_candidates += generate_householder_bases(n_samples=20, seed=42)
         all_candidates += generate_clifford_wh_bases()
@@ -1111,6 +1366,7 @@ def _run_single_state_benchmark(
     n_orig = len(all_candidates)
 
     if mode in ("full", "extended"):
+        all_candidates += generate_product_bases(max_candidates=None)
         all_candidates += generate_local_ry_only(n_grid=10)
         all_candidates += generate_local_general_su2(n_samples=30, seed=600)
         all_candidates += generate_real_orthogonal_isometries(n_samples=20, seed=400)
@@ -1211,7 +1467,8 @@ def run_benchmark(n_qutrits=3, n_transpile_runs=20,
     class_filter:
         None         — wszystkie klasy kandydatów
         str          — jedna klasa lub wiele oddzielonych przecinkiem,
-                       np. "monomial" lub "monomial,baseline"
+                       np. "monomial_full" lub
+                       "monomial_old_codespace,baseline"
     """
     if state_name != "all":
         df, _ = _run_single_state_benchmark(
@@ -1299,7 +1556,7 @@ if __name__ == "__main__":
         default=None,
         help=(
             "comma-separated list of class names to benchmark, e.g. "
-            "'monomial' or 'monomial,baseline'. "
+            "'monomial_full' or 'monomial_old_codespace,baseline'. "
             f"Available: {', '.join(ALL_CLASS_NAMES)}"
         ),
     )

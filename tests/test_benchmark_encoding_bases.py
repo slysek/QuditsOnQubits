@@ -2,7 +2,9 @@ import os
 import shutil
 import tempfile
 import unittest
+import uuid
 
+import numpy as np
 import pandas as pd
 from igraph import Graph
 from unittest.mock import patch
@@ -11,8 +13,14 @@ from qiskit import qpy
 
 from QuditsOnQubits.create_ame_circuit import create_ame_circuit
 from QuditsOnQubits.benchmark_encoding_bases import (
+    E_OLD,
+    P_OLD_CODESPACE,
     benchmark_basis,
+    generate_monomial_full_bases,
+    generate_monomial_old_codespace_bases,
+    generate_product_bases,
     write_multi_state_benchmark_report,
+    _single_qubit_product_library,
     _run_single_state_benchmark,
     _build_state_circuit,
 )
@@ -24,7 +32,11 @@ from QuditsOnQubits.project_paths import (
 
 
 def _workspace_tempdir():
-    return tempfile.mkdtemp(prefix="bench_test_")
+    root = os.path.join(os.path.dirname(__file__), "_tmp_test_outputs")
+    os.makedirs(root, exist_ok=True)
+    path = os.path.join(root, f"bench_test_{uuid.uuid4().hex}")
+    os.makedirs(path, exist_ok=False)
+    return path
 
 
 def _sample_report_frame(state_name):
@@ -131,7 +143,7 @@ class TestBuildStateCircuit(unittest.TestCase):
 
 
 class TestBenchmarkBasisStateAware(unittest.TestCase):
-    def test_two_qutrit_saves_circuit_under_state_folder(self):
+    def test_two_qutrit_saves_raw_and_top3_transpiled_circuits_under_state_folder(self):
         tmpdir = _workspace_tempdir()
         try:
             row = benchmark_basis(
@@ -142,18 +154,29 @@ class TestBenchmarkBasisStateAware(unittest.TestCase):
                 coupling_map=[[0, 1], [1, 2], [2, 3]],
                 approximation_values=[1.0],
                 fidelity_thresholds=(0.95,),
-                n_transpile_runs=1,
+                n_transpile_runs=4,
                 circuits_output_dir=tmpdir,
             )
 
-            saved_path = os.path.join(tmpdir, "two_qutrit", "baseline", "E_old.qpy")
+            class_dir = os.path.join(tmpdir, "two_qutrit", "baseline")
+            saved_path = os.path.join(class_dir, "E_old.qpy")
+            transpiled_paths = [
+                os.path.join(class_dir, f"E_old__transpiled_{rank}.qpy")
+                for rank in range(1, 4)
+            ]
             self.assertEqual(row["status"], "ok")
             self.assertEqual(row["state_name"], "two_qutrit")
             self.assertTrue(os.path.exists(saved_path))
+            for path in transpiled_paths:
+                self.assertTrue(os.path.exists(path))
 
             with open(saved_path, "rb") as fd:
                 saved_qc = qpy.load(fd)[0]
             self.assertEqual(saved_qc.num_qubits, 4)
+
+            with open(transpiled_paths[0], "rb") as fd:
+                saved_transpiled_qc = qpy.load(fd)[0]
+            self.assertEqual(saved_transpiled_qc.num_qubits, 4)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
@@ -202,6 +225,39 @@ class TestBenchmarkBasisStateAware(unittest.TestCase):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
+    def test_nonbaseline_candidate_saves_w_circuit_next_to_exported_benchmarks(self):
+        tmpdir = _workspace_tempdir()
+        try:
+            class_name, candidate_name, e_new = generate_monomial_old_codespace_bases(
+                max_candidates=1
+            )[0]
+
+            row = benchmark_basis(
+                E_new=e_new,
+                class_name=class_name,
+                candidate_name=candidate_name,
+                state_name="two_qutrit",
+                coupling_map=[[0, 1], [1, 2], [2, 3]],
+                approximation_values=[1.0],
+                fidelity_thresholds=(0.95,),
+                n_transpile_runs=3,
+                circuits_output_dir=tmpdir,
+            )
+
+            class_dir = os.path.join(tmpdir, "two_qutrit", class_name)
+            w_path = os.path.join(class_dir, f"{candidate_name}__W.qpy")
+
+            self.assertEqual(row["status"], "ok")
+            self.assertTrue(os.path.exists(w_path))
+
+            with open(w_path, "rb") as fd:
+                w_qc = qpy.load(fd)[0]
+
+            self.assertEqual(w_qc.num_qubits, 2)
+            self.assertEqual([instruction.operation.label for instruction in w_qc.data], ["W"])
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
 
 class TestMarkdownReport(unittest.TestCase):
     def test_report_contains_all_sections_and_fidelity_columns(self):
@@ -228,6 +284,151 @@ class TestMarkdownReport(unittest.TestCase):
             self.assertIn("fid090 depth", content)
             self.assertIn("fid095 depth", content)
             self.assertIn("fid085 2Q", content)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+class TestMonomialGenerators(unittest.TestCase):
+    def test_old_codespace_candidates_stay_in_old_codespace(self):
+        candidates = generate_monomial_old_codespace_bases(max_candidates=None)
+
+        self.assertEqual(len(candidates), 162)
+        self.assertEqual(
+            {class_name for class_name, _, _ in candidates},
+            {"monomial_old_codespace"},
+        )
+
+        for _, _, E_new in candidates:
+            self.assertTrue(np.allclose(P_OLD_CODESPACE @ E_new, E_new))
+
+    def test_full_monomial_candidates_include_supports_with_state_11(self):
+        candidates = generate_monomial_full_bases(max_candidates=None)
+
+        self.assertEqual(
+            {class_name for class_name, _, _ in candidates},
+            {"monomial_full"},
+        )
+
+        supports = {
+            tuple(np.flatnonzero(np.linalg.norm(E_new, axis=1) > 1e-10))
+            for _, _, E_new in candidates
+        }
+
+        self.assertTrue(any(3 in support for support in supports))
+
+    def test_all_generated_monomial_candidates_are_isometries(self):
+        candidates = (
+            generate_monomial_old_codespace_bases(max_candidates=None)
+            + generate_monomial_full_bases(max_candidates=None)
+        )
+
+        for _, _, E_new in candidates:
+            gram = E_new.conj().T @ E_new
+            self.assertTrue(np.allclose(gram, np.eye(3), atol=1e-12))
+
+    def test_full_monomial_candidate_count_without_limit(self):
+        candidates = generate_monomial_full_bases(max_candidates=None)
+        self.assertEqual(len(candidates), 4 * 6 * 27)
+
+    def test_old_codespace_monomial_candidate_count_without_limit(self):
+        candidates = generate_monomial_old_codespace_bases(max_candidates=None)
+        self.assertEqual(len(candidates), 6 * 27)
+
+
+class TestProductGenerators(unittest.TestCase):
+    def test_discrete_product_candidates_have_expected_shape_and_are_isometries(self):
+        candidates = generate_product_bases(max_candidates=None)
+
+        self.assertEqual(
+            {class_name for class_name, _, _ in candidates},
+            {"product"},
+        )
+
+        for _, _, E_new in candidates:
+            self.assertEqual(E_new.shape, (4, 3))
+            gram = E_new.conj().T @ E_new
+            self.assertTrue(np.allclose(gram, np.eye(3), atol=1e-12))
+
+    def test_discrete_product_includes_identity_candidate_equal_to_e_old(self):
+        candidates = generate_product_bases(max_candidates=None)
+        identity_candidates = [
+            E_new
+            for _, candidate_name, E_new in candidates
+            if candidate_name == "U_I__V_I"
+        ]
+
+        self.assertEqual(len(identity_candidates), 1)
+        self.assertTrue(np.allclose(identity_candidates[0], E_OLD))
+
+    def test_discrete_product_candidate_count_matches_library_squared(self):
+        library_size = len(_single_qubit_product_library())
+        candidates = generate_product_bases(max_candidates=None)
+        limited_candidates = generate_product_bases(max_candidates=7)
+
+        self.assertEqual(len(candidates), library_size * library_size)
+        self.assertEqual(len(limited_candidates), 7)
+
+    def test_grid_product_mode_accepts_numpy_angle_grid(self):
+        candidates = generate_product_bases(
+            max_candidates=1,
+            mode="grid",
+            angle_grid={
+                "phase_angles": np.array([0.0]),
+                "polar_angles": np.array([0.0]),
+            },
+        )
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0][0], "product")
+        self.assertEqual(candidates[0][1], "grid__U_a0.00_b0.00_g0.00__V_a0.00_b0.00_g0.00")
+        self.assertTrue(np.allclose(candidates[0][2], E_OLD))
+
+    def test_single_state_benchmark_can_filter_only_product_class(self):
+        tmpdir = _workspace_tempdir()
+        csv_path = os.path.join(tmpdir, "product_only.csv")
+        circuits_output_dir = os.path.join(tmpdir, "circuits")
+
+        def fake_benchmark_basis(E_new, class_name, candidate_name, state_name, **kwargs):
+            return {
+                "state_name": state_name,
+                "class_name": class_name,
+                "candidate_name": candidate_name,
+                "status": "ok",
+                "best_depth": 1,
+                "mean_depth": 1.0,
+                "best_two_qubit_gate_count": 0,
+                "avg_codeword_entanglement": 0.0,
+                "uses_old_codespace_only": bool(
+                    np.allclose(P_OLD_CODESPACE @ E_new, E_new, atol=1e-12)
+                ),
+            }
+
+        try:
+            with patch(
+                "QuditsOnQubits.benchmark_encoding_bases.benchmark_basis",
+                side_effect=fake_benchmark_basis,
+            ), patch(
+                "QuditsOnQubits.benchmark_encoding_bases._print_single_state_summary"
+            ):
+                df, saved_csv_path = _run_single_state_benchmark(
+                    state_name="two_qutrit",
+                    n_transpile_runs=1,
+                    csv_path=csv_path,
+                    mode="extended",
+                    circuits_output_dir=circuits_output_dir,
+                    approximation_values=[1.0],
+                    fidelity_thresholds=(0.95,),
+                    class_filter="product",
+                )
+
+            self.assertEqual(saved_csv_path, csv_path)
+            self.assertTrue(os.path.exists(csv_path))
+            self.assertFalse(df.empty)
+            self.assertEqual(set(df["class_name"]), {"product"})
+            self.assertEqual(
+                len(df),
+                len(generate_product_bases(max_candidates=None)),
+            )
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
