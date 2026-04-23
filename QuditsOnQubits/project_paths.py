@@ -63,3 +63,15 @@ def benchmark_state_circuits_dir(state_name, *parts):
 
 def multi_state_benchmark_report_path():
     return benchmark_docs_dir("benchmark_encoding_bases_multi_state_analysis.md")
+
+
+def prepared_w_benchmark_data_dir(*parts):
+    """Output directory for 'prepared_w_then_conjugated_entanglers' benchmark results."""
+    return benchmark_data_dir("prepared_w_then_conjugated_entanglers_results", *parts)
+
+
+def prepared_w_benchmark_results_path(state_name, mode):
+    """CSV results path for the second-stage benchmark."""
+    slug = benchmark_state_slug(state_name)
+    filename = f"benchmark_prepared_w_{slug}_{mode}_results.csv"
+    return prepared_w_benchmark_data_dir(filename)

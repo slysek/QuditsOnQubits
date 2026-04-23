@@ -36,6 +36,7 @@ from qiskit.converters import circuit_to_dag, dag_to_circuit
 from qiskit.quantum_info import DensityMatrix, state_fidelity
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from QuditsOnQubits import create_ame_circuit
+from QuditsOnQubits.create_ame_circuit import VALID_ENCODING_STRATEGIES
 from QuditsOnQubits.project_paths import (
     benchmark_circuits_dir,
     benchmark_docs_dir,
@@ -43,6 +44,8 @@ from QuditsOnQubits.project_paths import (
     benchmark_state_circuits_dir,
     benchmark_state_results_path,
     multi_state_benchmark_report_path,
+    prepared_w_benchmark_data_dir,
+    prepared_w_benchmark_results_path,
 )
 from encoding_change_unitary import build_encoding_change_unitary, validate_encoding_map
 
@@ -371,15 +374,18 @@ def _build_encoding_change_circuit(E_new):
     return qc
 
 
-def _build_state_circuit(state_name, E_new):
+def _build_state_circuit(state_name, E_new, encoding_strategy="append_w"):
     """Build the base circuit for the given benchmark state."""
     if state_name == "two_qutrit":
-        return create_ame_circuit(n=2, dim=3, graph_type="star", E_new=E_new)
+        return create_ame_circuit(n=2, dim=3, graph_type="star", E_new=E_new,
+                                  encoding_strategy=encoding_strategy)
     if state_name == "ghz3":
-        return create_ame_circuit(n=3, dim=3, graph_type="star", E_new=E_new)
+        return create_ame_circuit(n=3, dim=3, graph_type="star", E_new=E_new,
+                                  encoding_strategy=encoding_strategy)
     if state_name == "ame43":
         game43 = Graph(n=4, edges=[[0, 1], [0, 1], [1, 2], [2, 3], [3, 0]])
-        return create_ame_circuit(dim=3, graph=game43, E_new=E_new)
+        return create_ame_circuit(dim=3, graph=game43, E_new=E_new,
+                                  encoding_strategy=encoding_strategy)
     raise ValueError(f"Unknown benchmark state: {state_name}")
 
 
@@ -609,7 +615,6 @@ def generate_householder_bases(n_samples=20, seed=42):
 def generate_clifford_wh_bases():
     """
     Klasa 4: E_new = E_old @ X3^a @ Z3^b @ F3^c
-    Kombinacje generatorów Weyl-Heisenberg.
     """
     X3 = qutrit_X()
     Z3 = qutrit_Z()
@@ -786,7 +791,7 @@ def generate_local_ry_only(n_grid=10):
 
 def generate_local_general_su2(n_samples=30, seed=600):
     """
-    Klasa 11: W = U₁ ⊗ U₂  gdzie U₁, U₂ ∈ SU(2) losowe (Haar).
+    Klasa 11: W = U₁ ⊗ U₂  gdzie U₁, U₂ ∈ SU(2) losowe.
     Zero dodatkowych bramek 2-qubitowych z W.
     """
     rng = np.random.default_rng(seed)
@@ -919,7 +924,8 @@ def benchmark_basis(E_new, class_name, candidate_name,
                     n_transpile_runs=20, circuits_output_dir=_DEFAULT_CIRCUITS_OUTPUT_DIR,
                     approximation_values=None,
                     fidelity_thresholds=DEFAULT_FIDELITY_THRESHOLDS,
-                    approximation_seed=0):
+                    approximation_seed=0,
+                    encoding_strategy="append_w"):
     """
     Buduje obwód, transpiluje n_transpile_runs razy.
     Zbiera pełne statystyki: best, mean, std.
@@ -974,7 +980,8 @@ def benchmark_basis(E_new, class_name, candidate_name,
 
     # ── budowa obwodu ──
     try:
-        qc, _ = _build_state_circuit(state_name, E_new=E_new)
+        qc, _ = _build_state_circuit(state_name, E_new=E_new,
+                                     encoding_strategy=encoding_strategy)
         if circuits_output_dir is not None:
             _save_benchmark_circuit(
                 qc,
@@ -1362,6 +1369,241 @@ def _save_top3_per_class_csvs(df, csv_path, fidelity_thresholds=DEFAULT_FIDELITY
         print(f"  Top-3 fidelity>={pct}% → {fid_path}")
 
 
+def _write_topk_tables_to_output_dir(df, output_dir, file_prefix,
+                                     fidelity_thresholds=DEFAULT_FIDELITY_THRESHOLDS):
+    """Write top-3-per-class CSVs to a given output directory.
+
+    Produces the same set of files as _save_top3_per_class_csvs but writes
+    into an explicitly chosen directory with a configurable file prefix.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    csv_path = os.path.join(output_dir, f"{file_prefix}_results.csv")
+    df.to_csv(csv_path, index=False)
+    print(f"  Wyniki → {csv_path}")
+    _save_top3_per_class_csvs(df, csv_path, fidelity_thresholds=fidelity_thresholds)
+
+
+# ═══════════════ PRESELECTED CANDIDATES (second stage) ═══════
+
+def _load_preselected_candidates(csv_path):
+    """Load a CSV file with preselected candidates and return a set of
+    (class_name, candidate_name) tuples.
+
+    The CSV must contain at least 'class_name' and 'candidate_name' columns.
+    Column values are stripped of leading/trailing whitespace.
+    """
+    if not os.path.isfile(csv_path):
+        raise FileNotFoundError(
+            f"Plik z preselekcja kandydatow nie istnieje: {csv_path}"
+        )
+
+    df = pd.read_csv(csv_path)
+    df.columns = [c.strip() for c in df.columns]
+
+    for required_col in ("class_name", "candidate_name"):
+        if required_col not in df.columns:
+            raise ValueError(
+                f"Plik preselekcji {csv_path!r} nie zawiera kolumny "
+                f"'{required_col}'. Dostepne kolumny: {list(df.columns)}"
+            )
+
+    df["class_name"] = df["class_name"].astype(str).str.strip()
+    df["candidate_name"] = df["candidate_name"].astype(str).str.strip()
+
+    return set(zip(df["class_name"], df["candidate_name"]))
+
+
+def _filter_candidates_by_preselection(all_candidates, preselected_set):
+    """Filter candidate triples (class_name, name, E_new) to only those
+    present in the preselected set of (class_name, candidate_name)."""
+    filtered = [
+        (cls, name, e_new)
+        for cls, name, e_new in all_candidates
+        if (cls, name) in preselected_set
+    ]
+    return filtered
+
+
+def _validate_preselection_coverage(preselected_set, filtered_candidates, csv_path):
+    """Warn if some preselected candidates were not found in the generator."""
+    found = {(cls, name) for cls, name, _ in filtered_candidates}
+    missing = preselected_set - found
+    if missing:
+        import warnings
+        msg = (
+            f"Nastepujace kandydaty z pliku preselekcji ({csv_path}) "
+            f"nie zostaly znalezione w aktualnym generatorze:\n"
+        )
+        for cls, name in sorted(missing):
+            msg += f"  - class_name={cls!r}, candidate_name={name!r}\n"
+        msg += (
+            "Upewnij sie, ze plik preselekcji odpowiada temu samemu "
+            "stanowi / eksperymentowi i trybowi generowania kandydatow."
+        )
+        warnings.warn(msg, stacklevel=2)
+
+
+def _run_prepared_w_benchmark(
+    state_name="ghz3",
+    preselected_candidates_file=None,
+    n_transpile_runs=20,
+    csv_path=None,
+    mode="full",
+    circuits_output_dir=_DEFAULT_CIRCUITS_OUTPUT_DIR,
+    approximation_values=None,
+    fidelity_thresholds=DEFAULT_FIDELITY_THRESHOLDS,
+    approximation_seed=0,
+    class_filter=None,
+    output_dir=None,
+):
+    """Run the second-stage benchmark using 'prepared_w_then_conjugated_entanglers'.
+
+    This must be given a preselected_candidates_file (CSV from the first-stage
+    append_w benchmark) so that only the best candidates are re-evaluated
+    with the more expensive conjugated-entangler architecture.
+
+    WARNING: The preselected_candidates_file must correspond to the same
+    state_name / experiment.  This function does NOT assume that a file
+    generated for GHZ3 is valid for AME(4,3) or any other state.
+    """
+    if preselected_candidates_file is None:
+        raise ValueError(
+            "Tryb 'prepared_w_then_conjugated_entanglers' wymaga podania "
+            "--preselected-candidates-file z wynikami pierwszego etapu (append_w)."
+        )
+
+    preselected_set = _load_preselected_candidates(preselected_candidates_file)
+    print(f"  Zaladowano {len(preselected_set)} preselekcjonowanych kandydatow "
+          f"z: {preselected_candidates_file}")
+
+    filter_set = None
+    if class_filter is not None:
+        if isinstance(class_filter, str):
+            filter_set = {c.strip() for c in class_filter.split(",")}
+        else:
+            filter_set = set(class_filter)
+
+    filter_label = ",".join(sorted(filter_set)) if filter_set else "all"
+    print("=" * 80)
+    print(f"  Benchmark [prepared_w_then_conjugated_entanglers]  "
+          f"[state={state_name}]  [mode={mode}]  [class={filter_label}]")
+    print(f"  Transpilacja: {n_transpile_runs} prób na kandydata (best + mean ± std)")
+    print("=" * 80)
+
+    all_candidates = []
+    if mode in ("full", "original"):
+        all_candidates += generate_baseline()
+        all_candidates += generate_monomial_old_codespace_bases(max_candidates=None)
+        all_candidates += generate_monomial_full_bases(max_candidates=None)
+        all_candidates += generate_fourier_like_bases(max_candidates=80)
+        all_candidates += generate_householder_bases(n_samples=20, seed=42)
+        all_candidates += generate_clifford_wh_bases()
+        all_candidates += generate_haar_random_isometries(n_samples=20, seed=100)
+        all_candidates += generate_perturbed_isometries(n_samples_per_eps=8, seed=200)
+        all_candidates += generate_entangling_isometries(n_samples=20, seed=300)
+        all_candidates += generate_structured_entangling_isometries()
+
+    if mode in ("full", "extended"):
+        all_candidates += generate_product_bases(max_candidates=None)
+        all_candidates += generate_local_ry_only(n_grid=10)
+        all_candidates += generate_local_general_su2(n_samples=30, seed=600)
+        all_candidates += generate_real_orthogonal_isometries(n_samples=20, seed=400)
+        all_candidates += generate_near_identity_isometries(n_samples_per_eps=10, seed=500)
+        all_candidates += generate_finer_structured_grid()
+        all_candidates += generate_two_cz_ansatz(n_samples=50, seed=700)
+
+    if filter_set:
+        all_candidates = [(cls, n, e) for cls, n, e in all_candidates if cls in filter_set]
+
+    filtered = _filter_candidates_by_preselection(all_candidates, preselected_set)
+    _validate_preselection_coverage(preselected_set, filtered, preselected_candidates_file)
+
+    if not filtered:
+        print("  UWAGA: Zaden kandydat z preselekcji nie zostal znaleziony "
+              "w aktualnym generatorze. Przerywam.")
+        return pd.DataFrame(), None
+
+    print(f"\n  Kandydaci (wygenerowani):     {len(all_candidates)}")
+    print(f"  Kandydaci (po preselekcji):   {len(filtered)}")
+    print("-" * 80)
+
+    results = []
+    fidelity_circuits = []
+    t0 = time.time()
+
+    resolved_circuits_dir = _resolve_circuits_output_dir(state_name, circuits_output_dir)
+
+    for idx, (cls, name, E_new) in enumerate(filtered):
+        print(
+            f"  [{idx+1:4d}/{len(filtered)}]  {cls:28s}  {name:30s}",
+            end="  ", flush=True,
+        )
+
+        row = benchmark_basis(
+            E_new, cls, name,
+            state_name=state_name,
+            coupling_map=COUPLING_MAP,
+            basis_gates=BASIS_GATES,
+            n_transpile_runs=n_transpile_runs,
+            circuits_output_dir=circuits_output_dir,
+            approximation_values=approximation_values,
+            fidelity_thresholds=fidelity_thresholds,
+            approximation_seed=approximation_seed,
+            encoding_strategy="prepared_w_then_conjugated_entanglers",
+        )
+
+        for key in list(row.keys()):
+            if key.startswith("_fid") and key.endswith("_best_qc"):
+                label = key[1:].replace("_best_qc", "")
+                fidelity_circuits.append({
+                    "class_name": cls,
+                    "candidate_name": name,
+                    "label": label,
+                    "two_q": row.get(f"{label}_best_two_qubit_gate_count"),
+                    "depth": row.get(f"{label}_best_depth"),
+                    "qc": row.pop(key),
+                })
+
+        if row["status"] == "ok":
+            cs = "old" if row["uses_old_codespace_only"] else "NEW"
+            print(
+                f"best_d={row['best_depth']:5d}  "
+                f"mean_d={row['mean_depth']:7.1f}  "
+                f"best_2q={row['best_two_qubit_gate_count']:5d}  "
+                f"ent={row['avg_codeword_entanglement']:.3f}  "
+                f"[{cs}]"
+            )
+        else:
+            print(f"[{row['status']}]")
+
+        results.append(row)
+
+    elapsed = time.time() - t0
+    print(f"\nCzas benchmarku [prepared_w, {state_name}]: {elapsed:.1f} s")
+
+    df = pd.DataFrame(results)
+
+    if output_dir is None:
+        output_dir = prepared_w_benchmark_data_dir()
+    os.makedirs(output_dir, exist_ok=True)
+
+    if csv_path is None:
+        csv_path = prepared_w_benchmark_results_path(state_name, mode)
+
+    _write_topk_tables_to_output_dir(
+        df, output_dir,
+        file_prefix=f"benchmark_prepared_w_{state_name}_{mode}",
+        fidelity_thresholds=fidelity_thresholds,
+    )
+
+    if resolved_circuits_dir is not None and fidelity_circuits:
+        _save_top3_fidelity_circuits(fidelity_circuits, resolved_circuits_dir)
+
+    _print_single_state_summary(df, f"{state_name} [prepared_w]")
+
+    return df, csv_path
+
+
 # ══════════════════════════ SINGLE-STATE BENCHMARK ═══════════
 
 def _print_single_state_summary(df, state_name):
@@ -1596,7 +1838,10 @@ def run_benchmark(n_qutrits=3, n_transpile_runs=20,
                    state_name="ghz3",
                    reuse_existing_ghz3=True,
                    combined_report_path=None,
-                   class_filter=None):
+                   class_filter=None,
+                   encoding_strategy="append_w",
+                   preselected_candidates_file=None,
+                   output_dir=None):
     """
     Uruchamia benchmark i zapisuje wyniki do CSV.
 
@@ -1612,12 +1857,43 @@ def run_benchmark(n_qutrits=3, n_transpile_runs=20,
         "all"        — uruchom benchmark dla wszystkich trzech stanów
                        i wygeneruj wspólny raport markdown
 
+    encoding_strategy:
+        "append_w"  — standardowy obwod + lokalne W na koncu (domyslnie)
+        "prepared_w_then_conjugated_entanglers"
+                    — W|+> local preparation + (W⊗W)CZ(W†⊗W†) entanglery;
+                      wymaga preselected_candidates_file
+
+    preselected_candidates_file : str or None
+        Sciezka do CSV z preselekcjonowanymi kandydatami z pierwszego etapu.
+        Wymagana dla encoding_strategy="prepared_w_then_conjugated_entanglers".
+        UWAGA: plik musi odpowiadac temu samemu state_name / eksperymentowi.
+
+    output_dir : str or None
+        Katalog wyjsciowy dla drugiego etapu. Jesli None, uzyty zostanie
+        domyslny folder prepared_w_then_conjugated_entanglers_results/.
+
     class_filter:
         None         — wszystkie klasy kandydatów
         str          — jedna klasa lub wiele oddzielonych przecinkiem,
                        np. "monomial_full" lub
                        "monomial_old_codespace,baseline"
     """
+    if encoding_strategy == "prepared_w_then_conjugated_entanglers":
+        df, csv = _run_prepared_w_benchmark(
+            state_name=state_name,
+            preselected_candidates_file=preselected_candidates_file,
+            n_transpile_runs=n_transpile_runs,
+            csv_path=csv_path,
+            mode=mode,
+            circuits_output_dir=circuits_output_dir,
+            approximation_values=approximation_values,
+            fidelity_thresholds=fidelity_thresholds,
+            approximation_seed=approximation_seed,
+            class_filter=class_filter,
+            output_dir=output_dir,
+        )
+        return df
+
     if state_name != "all":
         df, _ = _run_single_state_benchmark(
             state_name=state_name,
@@ -1708,6 +1984,38 @@ if __name__ == "__main__":
             f"Available: {', '.join(ALL_CLASS_NAMES)}"
         ),
     )
+    parser.add_argument(
+        "--encoding-strategy",
+        dest="encoding_strategy",
+        default="append_w",
+        choices=list(VALID_ENCODING_STRATEGIES),
+        help=(
+            "Circuit build strategy: 'append_w' (default, stage 1) or "
+            "'prepared_w_then_conjugated_entanglers' (stage 2, requires "
+            "--preselected-candidates-file)"
+        ),
+    )
+    parser.add_argument(
+        "--preselected-candidates-file",
+        dest="preselected_candidates_file",
+        default=None,
+        help=(
+            "Path to CSV with preselected candidates from the first stage "
+            "(append_w benchmark).  Required when --encoding-strategy is "
+            "'prepared_w_then_conjugated_entanglers'.  The file MUST correspond "
+            "to the same state_name / experiment — do NOT use GHZ3 rankings "
+            "for AME(4,3)."
+        ),
+    )
+    parser.add_argument(
+        "--output-dir",
+        dest="output_dir",
+        default=None,
+        help=(
+            "Custom output directory for second-stage results.  If not given, "
+            "defaults to data/benchmarks/prepared_w_then_conjugated_entanglers_results/."
+        ),
+    )
     args = parser.parse_args()
 
     _csv = None if args.state == "all" else benchmark_state_results_path(args.state, args.mode)
@@ -1716,4 +2024,7 @@ if __name__ == "__main__":
         csv_path=_csv,
         state_name=args.state,
         class_filter=args.class_filter,
+        encoding_strategy=args.encoding_strategy,
+        preselected_candidates_file=args.preselected_candidates_file,
+        output_dir=args.output_dir,
     )

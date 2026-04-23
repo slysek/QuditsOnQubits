@@ -23,11 +23,17 @@ from QuditsOnQubits.benchmark_encoding_bases import (
     _single_qubit_product_library,
     _run_single_state_benchmark,
     _build_state_circuit,
+    _load_preselected_candidates,
+    _filter_candidates_by_preselection,
+    _validate_preselection_coverage,
+    _write_topk_tables_to_output_dir,
 )
 from QuditsOnQubits.project_paths import (
     benchmark_state_results_path,
     multi_state_benchmark_report_path,
     benchmark_results_path,
+    prepared_w_benchmark_data_dir,
+    prepared_w_benchmark_results_path,
 )
 
 
@@ -431,6 +437,142 @@ class TestProductGenerators(unittest.TestCase):
             )
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+class TestPreparedWPaths(unittest.TestCase):
+    def test_prepared_w_data_dir_is_under_benchmarks(self):
+        path = prepared_w_benchmark_data_dir()
+        self.assertIn("prepared_w_then_conjugated_entanglers_results", path)
+        self.assertIn(os.path.join("data", "benchmarks"), path)
+
+    def test_prepared_w_results_path_contains_state_and_mode(self):
+        path = prepared_w_benchmark_results_path("ghz3", "full")
+        self.assertIn("ghz3", path)
+        self.assertIn("full", path)
+        self.assertIn("prepared_w", path)
+
+
+class TestLoadPreselectedCandidates(unittest.TestCase):
+    def test_load_valid_csv(self):
+        tmpdir = _workspace_tempdir()
+        try:
+            csv_path = os.path.join(tmpdir, "top3.csv")
+            pd.DataFrame([
+                {"class_name": "baseline", "candidate_name": "E_old"},
+                {"class_name": "product", "candidate_name": "U_I__V_I"},
+            ]).to_csv(csv_path, index=False)
+
+            result = _load_preselected_candidates(csv_path)
+            self.assertEqual(result, {
+                ("baseline", "E_old"),
+                ("product", "U_I__V_I"),
+            })
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_load_csv_with_whitespace_in_columns(self):
+        tmpdir = _workspace_tempdir()
+        try:
+            csv_path = os.path.join(tmpdir, "top3_ws.csv")
+            with open(csv_path, "w") as f:
+                f.write("class_name            , candidate_name        , best_depth\n")
+                f.write("baseline              , E_old                 , 47\n")
+
+            result = _load_preselected_candidates(csv_path)
+            self.assertEqual(result, {("baseline", "E_old")})
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_load_missing_file_raises(self):
+        with self.assertRaises(FileNotFoundError):
+            _load_preselected_candidates("/nonexistent/path/file.csv")
+
+    def test_load_csv_missing_column_raises(self):
+        tmpdir = _workspace_tempdir()
+        try:
+            csv_path = os.path.join(tmpdir, "bad.csv")
+            pd.DataFrame([{"class_name": "baseline", "score": 42}]).to_csv(csv_path, index=False)
+
+            with self.assertRaises(ValueError):
+                _load_preselected_candidates(csv_path)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+class TestFilterCandidatesByPreselection(unittest.TestCase):
+    def test_filters_correctly(self):
+        candidates = [
+            ("baseline", "E_old", None),
+            ("product", "U_I__V_I", None),
+            ("product", "U_SX__V_SXdg", None),
+        ]
+        preselected = {("baseline", "E_old"), ("product", "U_SX__V_SXdg")}
+        filtered = _filter_candidates_by_preselection(candidates, preselected)
+
+        self.assertEqual(len(filtered), 2)
+        self.assertEqual(
+            {(cls, name) for cls, name, _ in filtered},
+            preselected,
+        )
+
+    def test_empty_preselection_gives_empty(self):
+        candidates = [("baseline", "E_old", None)]
+        filtered = _filter_candidates_by_preselection(candidates, set())
+        self.assertEqual(len(filtered), 0)
+
+
+class TestValidatePreselectionCoverage(unittest.TestCase):
+    def test_warns_on_missing_candidates(self):
+        preselected = {("baseline", "E_old"), ("mystery", "unknown")}
+        filtered = [("baseline", "E_old", None)]
+
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            _validate_preselection_coverage(preselected, filtered, "fake.csv")
+            self.assertEqual(len(w), 1)
+            self.assertIn("mystery", str(w[0].message))
+
+    def test_no_warning_when_all_found(self):
+        preselected = {("baseline", "E_old")}
+        filtered = [("baseline", "E_old", None)]
+
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            _validate_preselection_coverage(preselected, filtered, "fake.csv")
+            self.assertEqual(len(w), 0)
+
+
+class TestWriteTopkTables(unittest.TestCase):
+    def test_creates_output_files(self):
+        tmpdir = _workspace_tempdir()
+        try:
+            df = _sample_report_frame("ghz3")
+            _write_topk_tables_to_output_dir(
+                df, tmpdir, "test_prefix", fidelity_thresholds=(0.95,),
+            )
+
+            expected_main = os.path.join(tmpdir, "test_prefix_results.csv")
+            self.assertTrue(os.path.exists(expected_main))
+
+            top3_exact = os.path.join(tmpdir, "test_prefix_results_top3_exact.csv")
+            self.assertTrue(os.path.exists(top3_exact))
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+class TestPreparedWRequiresPreselection(unittest.TestCase):
+    def test_run_benchmark_prepared_w_without_file_raises(self):
+        from QuditsOnQubits.benchmark_encoding_bases import run_benchmark
+
+        with self.assertRaises(ValueError) as ctx:
+            run_benchmark(
+                encoding_strategy="prepared_w_then_conjugated_entanglers",
+                preselected_candidates_file=None,
+                state_name="ghz3",
+            )
+        self.assertIn("preselected", str(ctx.exception).lower())
 
 
 if __name__ == "__main__":
