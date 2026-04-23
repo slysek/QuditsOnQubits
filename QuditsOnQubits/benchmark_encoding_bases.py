@@ -1985,6 +1985,108 @@ def run_benchmark(n_qutrits=3, n_transpile_runs=20,
     return state_frames
 
 
+def _save_top3_per_class_csvs(df, csv_path, fidelity_thresholds=DEFAULT_FIDELITY_THRESHOLDS):
+    """Generate top-3-per-class summary CSVs next to the main results file.
+
+    Produces:
+      *_top3_by_depth.csv        - sorted by (best_depth, best_two_qubit_gate_count, best_size)
+      *_top3_by_2q.csv           - sorted by (best_two_qubit_gate_count, best_depth)
+      *_top3_exact.csv           - compatibility alias of *_top3_by_2q.csv
+      *_top3_fid{NNN}.csv        - one per threshold, sorted by (fidNNN 2Q, fidNNN depth)
+    """
+    if df.empty or "status" not in df.columns:
+        return
+
+    df_ok = df[df["status"] == "ok"].copy()
+    if df_ok.empty:
+        return
+
+    base, ext = os.path.splitext(csv_path)
+
+    parts = []
+    for _, group in df_ok.groupby("class_name", sort=True):
+        top = group.sort_values(
+            by=["best_depth", "best_two_qubit_gate_count", "best_size"],
+            ascending=True,
+        ).head(3)
+        parts.append(top)
+
+    if parts:
+        depth_df = pd.concat(parts, ignore_index=True)[
+            ["class_name", "candidate_name", "best_depth",
+             "best_size", "best_two_qubit_gate_count"]
+        ].sort_values(
+            by=["class_name", "best_depth", "best_two_qubit_gate_count", "best_size"],
+            ascending=True,
+        )
+        depth_path = f"{base}_top3_by_depth{ext}"
+        depth_df.to_csv(depth_path, index=False)
+        print(f"  Top-3 by depth -> {depth_path}")
+
+    parts = []
+    for _, group in df_ok.groupby("class_name", sort=True):
+        top = group.sort_values(
+            by=["best_two_qubit_gate_count", "best_depth"],
+            ascending=True,
+        ).head(3)
+        parts.append(top)
+
+    if parts:
+        twoq_df = pd.concat(parts, ignore_index=True)[
+            ["class_name", "candidate_name", "best_depth",
+             "best_size", "best_two_qubit_gate_count"]
+        ].sort_values(
+            by=["class_name", "best_two_qubit_gate_count", "best_depth"],
+            ascending=True,
+        )
+        twoq_path = f"{base}_top3_by_2q{ext}"
+        twoq_df.to_csv(twoq_path, index=False)
+        print(f"  Top-3 by 2Q -> {twoq_path}")
+
+        exact_path = f"{base}_top3_exact{ext}"
+        twoq_df.to_csv(exact_path, index=False)
+        print(f"  Top-3 exact -> {exact_path}")
+
+    for threshold in fidelity_thresholds:
+        label = _fidelity_label(threshold)
+        depth_col = f"{label}_best_depth"
+        twoq_col = f"{label}_best_two_qubit_gate_count"
+        fid_col = f"{label}_best_fidelity"
+
+        cols_needed = [depth_col, twoq_col]
+        if not all(c in df_ok.columns for c in cols_needed):
+            continue
+
+        df_fid = df_ok.dropna(subset=cols_needed)
+        if df_fid.empty:
+            continue
+
+        parts = []
+        for _, group in df_fid.groupby("class_name", sort=True):
+            top = group.sort_values(
+                by=[twoq_col, depth_col],
+                ascending=True,
+            ).head(3)
+            parts.append(top)
+
+        if not parts:
+            continue
+
+        keep_cols = ["class_name", "candidate_name"]
+        if fid_col in df_fid.columns:
+            keep_cols.append(fid_col)
+        keep_cols.extend([depth_col, twoq_col])
+
+        fid_df = pd.concat(parts, ignore_index=True)[keep_cols].sort_values(
+            by=["class_name", twoq_col, depth_col],
+            ascending=True,
+        )
+        fid_path = f"{base}_top3_{label}{ext}"
+        fid_df.to_csv(fid_path, index=False)
+        pct = int(round(float(threshold) * 100))
+        print(f"  Top-3 fidelity>={pct}% -> {fid_path}")
+
+
 if __name__ == "__main__":
     import argparse
 

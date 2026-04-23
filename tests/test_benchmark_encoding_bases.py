@@ -575,6 +575,12 @@ class TestWriteTopkTables(unittest.TestCase):
 
             top3_exact = os.path.join(tmpdir, "test_prefix_results_top3_exact.csv")
             self.assertTrue(os.path.exists(top3_exact))
+
+            top3_depth = os.path.join(tmpdir, "test_prefix_results_top3_by_depth.csv")
+            self.assertTrue(os.path.exists(top3_depth))
+
+            top3_twoq = os.path.join(tmpdir, "test_prefix_results_top3_by_2q.csv")
+            self.assertTrue(os.path.exists(top3_twoq))
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
