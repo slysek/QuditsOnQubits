@@ -95,13 +95,82 @@ COUPLING_MAP = [
 
 # ════════════════════ OPERATORY QUTRYTOWE (3×3) ══════════════
 
-@lru_cache(maxsize=None)
-def _get_state_graph(state_name):
-    """Return a cached graph object for a named benchmark state."""
+_GHZ_STAR_STATE_PREFIXES = ("ghz_star_", "ghz_n_")
+
+
+def _parse_ghz_star_n_from_name(state_name):
+    for prefix in _GHZ_STAR_STATE_PREFIXES:
+        if state_name.startswith(prefix):
+            suffix = state_name[len(prefix):]
+            if suffix.isdigit():
+                return int(suffix)
+    return None
+
+
+def _validate_star_n(state_name, n_qutrits):
+    n = int(n_qutrits)
+    if n < 2:
+        raise ValueError(f"{state_name} requires n_qutrits >= 2, got {n}.")
+    return n
+
+
+def _resolve_star_graph_n(state_name, n_qutrits=None):
+    """Return n for states represented by a qutrit star graph, else None."""
     if state_name == "two_qutrit":
-        return Graph(n=2, edges=[[0, 1]])
+        if n_qutrits is not None and int(n_qutrits) != 2:
+            raise ValueError(f"two_qutrit has fixed n_qutrits=2, got {n_qutrits}.")
+        return 2
     if state_name == "ghz3":
-        return Graph(n=3, edges=[[0, 1], [0, 2]])
+        if n_qutrits is not None and int(n_qutrits) != 3:
+            raise ValueError(f"ghz3 has fixed n_qutrits=3, got {n_qutrits}.")
+        return 3
+    if state_name in ("ghz_star", "ghz_n"):
+        if n_qutrits is None:
+            raise ValueError(f"{state_name} requires n_qutrits.")
+        return _validate_star_n(state_name, n_qutrits)
+
+    n_from_name = _parse_ghz_star_n_from_name(state_name)
+    if n_from_name is not None:
+        if n_qutrits is not None and int(n_qutrits) != n_from_name:
+            raise ValueError(
+                f"{state_name} already encodes n_qutrits={n_from_name}, got {n_qutrits}."
+            )
+        return _validate_star_n(state_name, n_from_name)
+
+    return None
+
+
+def _normalize_state_name(state_name, n_qutrits=None):
+    """Return the stable benchmark state id used in result rows and paths."""
+    n = _resolve_star_graph_n(state_name, n_qutrits)
+    if state_name in ("ghz_star", "ghz_n"):
+        return f"ghz_star_{n}"
+    if _parse_ghz_star_n_from_name(state_name) is not None:
+        return f"ghz_star_{n}"
+    return state_name
+
+
+def _state_family(state_name):
+    if state_name == "ghz3" or _parse_ghz_star_n_from_name(state_name) is not None:
+        return "ghz_star"
+    return state_name
+
+
+def _state_num_qutrits(state_name, n_qutrits=None):
+    star_n = _resolve_star_graph_n(state_name, n_qutrits)
+    if star_n is not None:
+        return star_n
+    if state_name == "ame43":
+        return 4
+    return n_qutrits
+
+
+@lru_cache(maxsize=None)
+def _get_state_graph(state_name, n_qutrits=None):
+    """Return a cached graph object for a named benchmark state."""
+    star_n = _resolve_star_graph_n(state_name, n_qutrits)
+    if star_n is not None:
+        return Graph(n=star_n, edges=[[0, i] for i in range(1, star_n)])
     if state_name == "ame43":
         return Graph(n=4, edges=[[0, 1], [0, 1], [1, 2], [2, 3], [3, 0]])
     raise ValueError(f"Unknown benchmark state: {state_name}")
@@ -407,13 +476,11 @@ def _build_encoding_change_circuit(E_new):
     return qc
 
 
-def _build_state_circuit(state_name, E_new, encoding_strategy="append_w"):
+def _build_state_circuit(state_name, E_new, encoding_strategy="append_w", n_qutrits=None):
     """Build the base circuit for the given benchmark state."""
-    if state_name == "two_qutrit":
-        return create_ame_circuit(dim=3, graph=_get_state_graph("two_qutrit"), E_new=E_new,
-                                  encoding_strategy=encoding_strategy)
-    if state_name == "ghz3":
-        return create_ame_circuit(dim=3, graph=_get_state_graph("ghz3"), E_new=E_new,
+    star_n = _resolve_star_graph_n(state_name, n_qutrits)
+    if star_n is not None:
+        return create_ame_circuit(n=star_n, dim=3, graph_type="star", E_new=E_new,
                                   encoding_strategy=encoding_strategy)
     if state_name == "ame43":
         return create_ame_circuit(dim=3, graph=_get_ame43_graph(), E_new=E_new,
@@ -951,7 +1018,7 @@ def generate_two_cz_ansatz(n_samples=50, seed=700):
 
 def benchmark_basis(E_new, class_name, candidate_name,
                     state_name="ghz3",
-                    n_qutrits=3, coupling_map=None, basis_gates=None,
+                    n_qutrits=None, coupling_map=None, basis_gates=None,
                     n_transpile_runs=20, circuits_output_dir=_DEFAULT_CIRCUITS_OUTPUT_DIR,
                     approximation_values=None,
                     fidelity_thresholds=DEFAULT_FIDELITY_THRESHOLDS,
@@ -970,6 +1037,8 @@ def benchmark_basis(E_new, class_name, candidate_name,
     if fidelity_thresholds is None:
         fidelity_thresholds = DEFAULT_FIDELITY_THRESHOLDS
 
+    resolved_n_qutrits = _state_num_qutrits(state_name, n_qutrits)
+    state_name = _normalize_state_name(state_name, resolved_n_qutrits)
     circuits_output_dir = _resolve_circuits_output_dir(state_name, circuits_output_dir)
 
     # ── metryki kodowania ──
@@ -977,6 +1046,8 @@ def benchmark_basis(E_new, class_name, candidate_name,
 
     row = {
         "state_name":                  state_name,
+        "state_family":                _state_family(state_name),
+        "n_qutrits":                   resolved_n_qutrits,
         "class_name":                  class_name,
         "candidate_name":              candidate_name,
         "is_valid":                    True,
@@ -1012,7 +1083,8 @@ def benchmark_basis(E_new, class_name, candidate_name,
     # ── budowa obwodu ──
     try:
         qc, _ = _build_state_circuit(state_name, E_new=E_new,
-                                     encoding_strategy=encoding_strategy)
+                                     encoding_strategy=encoding_strategy,
+                                     n_qutrits=resolved_n_qutrits)
         if circuits_output_dir is not None:
             _save_benchmark_circuit(
                 qc,
@@ -1476,6 +1548,7 @@ def _validate_preselection_coverage(preselected_set, filtered_candidates, csv_pa
 
 def _run_prepared_w_benchmark(
     state_name="ghz3",
+    n_qutrits=None,
     preselected_candidates_file=None,
     n_transpile_runs=20,
     csv_path=None,
@@ -1497,6 +1570,9 @@ def _run_prepared_w_benchmark(
     state_name / experiment.  This function does NOT assume that a file
     generated for GHZ3 is valid for AME(4,3) or any other state.
     """
+    resolved_n_qutrits = _state_num_qutrits(state_name, n_qutrits)
+    state_name = _normalize_state_name(state_name, resolved_n_qutrits)
+
     if preselected_candidates_file is None:
         raise ValueError(
             "Tryb 'prepared_w_then_conjugated_entanglers' wymaga podania "
@@ -1573,6 +1649,7 @@ def _run_prepared_w_benchmark(
         row = benchmark_basis(
             E_new, cls, name,
             state_name=state_name,
+            n_qutrits=resolved_n_qutrits,
             coupling_map=COUPLING_MAP,
             basis_gates=BASIS_GATES,
             n_transpile_runs=n_transpile_runs,
@@ -1717,6 +1794,7 @@ ALL_CLASS_NAMES = (
 
 def _run_single_state_benchmark(
     state_name="ghz3",
+    n_qutrits=None,
     n_transpile_runs=20,
     csv_path=None,
     mode="full",
@@ -1732,6 +1810,8 @@ def _run_single_state_benchmark(
         If given, only candidates whose class_name matches are benchmarked.
         Accepts a single name or a comma-separated string or a collection.
     """
+    resolved_n_qutrits = _state_num_qutrits(state_name, n_qutrits)
+    state_name = _normalize_state_name(state_name, resolved_n_qutrits)
 
     filter_set = None
     if class_filter is not None:
@@ -1801,6 +1881,7 @@ def _run_single_state_benchmark(
         row = benchmark_basis(
             E_new, cls, name,
             state_name=state_name,
+            n_qutrits=resolved_n_qutrits,
             coupling_map=COUPLING_MAP,
             basis_gates=BASIS_GATES,
             n_transpile_runs=n_transpile_runs,
@@ -1860,7 +1941,7 @@ def _run_single_state_benchmark(
 
 # ══════════════════════════ MAIN ═════════════════════════════
 
-def run_benchmark(n_qutrits=3, n_transpile_runs=20,
+def run_benchmark(n_qutrits=None, n_transpile_runs=20,
                    csv_path=None,
                    mode="full", circuits_output_dir=_DEFAULT_CIRCUITS_OUTPUT_DIR,
                    approximation_values=None,
@@ -1883,6 +1964,8 @@ def run_benchmark(n_qutrits=3, n_transpile_runs=20,
 
     state_name:
         "ghz3"       — 3-qutrytowy stan GHZ (star graph)
+        "ghz_star"   — GHZ/star graph dla n_qutrits qutrytow
+        "ghz_star_N" — to samo z N zakodowanym w nazwie wynikow
         "two_qutrit" — 2-qutrytowy stan (star graph, n=2)
         "ame43"      — stan AME(4,3) (specjalny graf z wielokrawędziami)
         "all"        — uruchom benchmark dla wszystkich trzech stanów
@@ -1912,6 +1995,7 @@ def run_benchmark(n_qutrits=3, n_transpile_runs=20,
     if encoding_strategy == "prepared_w_then_conjugated_entanglers":
         df, csv = _run_prepared_w_benchmark(
             state_name=state_name,
+            n_qutrits=n_qutrits,
             preselected_candidates_file=preselected_candidates_file,
             n_transpile_runs=n_transpile_runs,
             csv_path=csv_path,
@@ -1928,6 +2012,7 @@ def run_benchmark(n_qutrits=3, n_transpile_runs=20,
     if state_name != "all":
         df, _ = _run_single_state_benchmark(
             state_name=state_name,
+            n_qutrits=n_qutrits,
             n_transpile_runs=n_transpile_runs,
             csv_path=csv_path,
             mode=mode,
@@ -2104,8 +2189,18 @@ if __name__ == "__main__":
         "state",
         nargs="?",
         default="ghz3",
-        choices=["ghz3", "two_qutrit", "ame43", "all"],
-        help="which state to benchmark (default: ghz3)",
+        help=(
+            "which state to benchmark: ghz3, two_qutrit, ame43, all, "
+            "or ghz_star/ghz_n with --n-qutrits"
+        ),
+    )
+    parser.add_argument(
+        "--n-qutrits",
+        "--num-qutrits",
+        dest="n_qutrits",
+        type=int,
+        default=None,
+        help="number of qutrits for state ghz_star / ghz_n",
     )
     parser.add_argument(
         "--class",
@@ -2151,8 +2246,9 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    _csv = None if args.state == "all" else benchmark_state_results_path(args.state, args.mode)
+    _csv = None
     run_benchmark(
+        n_qutrits=args.n_qutrits,
         mode=args.mode,
         csv_path=_csv,
         state_name=args.state,

@@ -167,6 +167,8 @@ def write_result_bundle(
     )
     core_cols = [
         "state_name",
+        "state_family",
+        "n_qutrits",
         "class_name",
         "candidate_name",
         "best_depth",
@@ -205,7 +207,16 @@ def write_result_bundle(
         else:
             top3_fid = df.head(0).copy()
 
-        keep_cols = ["state_name", "class_name", "candidate_name", fid_col, depth_col, twoq_col]
+        keep_cols = [
+            "state_name",
+            "state_family",
+            "n_qutrits",
+            "class_name",
+            "candidate_name",
+            fid_col,
+            depth_col,
+            twoq_col,
+        ]
         paths[f"top3_{label}_csv"] = _write_csv(
             _select_columns(top3_fid, keep_cols),
             os.path.join(output_dir, f"{file_prefix}_top3_{label}.csv"),

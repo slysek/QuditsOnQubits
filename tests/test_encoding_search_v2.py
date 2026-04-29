@@ -1,3 +1,5 @@
+import contextlib
+import io
 import os
 import shutil
 import unittest
@@ -13,6 +15,7 @@ from encoding_search_v2.candidates import (
     filter_candidates_for_stage2,
     generate_stage1_candidates,
 )
+from encoding_search_v2.cli import main as cli_main
 from encoding_search_v2.paths import stage_output_dir
 from encoding_search_v2.preselection import load_preselected_candidates
 from encoding_search_v2.reports import write_state_report
@@ -24,6 +27,7 @@ from encoding_search_v2.runner import (
     run_stage1,
     run_stage2,
 )
+from encoding_search_v2.states import parse_n_values, resolve_benchmark_state, star_graph_edges
 from encoding_search_v2.triviality import (
     _filter_trivial_candidates,
     _is_baseline_equivalent_candidate,
@@ -154,6 +158,37 @@ class TestEncodingSearchV2Triviality(unittest.TestCase):
         )
         self.assertTrue(all(row["is_baseline_equivalent"] for row in skipped))
         self.assertTrue(all(row["status"] == "skipped_baseline_equivalent" for row in skipped))
+
+
+class TestEncodingSearchV2States(unittest.TestCase):
+    def test_star_graph_edges_are_center_zero_to_all_leaves(self):
+        self.assertEqual(star_graph_edges(5), [(0, 1), (0, 2), (0, 3), (0, 4)])
+
+    def test_ghz3_spec_matches_star_graph_n3_edges(self):
+        ghz3 = resolve_benchmark_state("ghz3")
+        star3 = resolve_benchmark_state("ghz_star", n_qutrits=3)
+
+        self.assertEqual(ghz3.num_qutrits, 3)
+        self.assertEqual(ghz3.edges, [(0, 1), (0, 2)])
+        self.assertEqual(star3.edges, ghz3.edges)
+        self.assertEqual(star3.state_id, "ghz_star_3")
+
+    def test_ghz_star_state_uses_n_in_stable_result_id(self):
+        spec = resolve_benchmark_state("ghz_star", n_qutrits=5)
+
+        self.assertEqual(spec.state_name, "ghz_star")
+        self.assertEqual(spec.state_id, "ghz_star_5")
+        self.assertEqual(spec.num_qutrits, 5)
+        self.assertEqual(spec.graph_type, "star")
+
+    def test_ghz_star_requires_valid_n(self):
+        with self.assertRaises(ValueError):
+            resolve_benchmark_state("ghz_star")
+        with self.assertRaises(ValueError):
+            resolve_benchmark_state("ghz_star", n_qutrits=1)
+
+    def test_parse_n_values_accepts_comma_separated_ints(self):
+        self.assertEqual(parse_n_values("3, 4,5"), (3, 4, 5))
 
 
 class TestEncodingSearchV2Preselection(unittest.TestCase):
@@ -351,6 +386,35 @@ class TestEncodingSearchV2Runner(unittest.TestCase):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
+    def test_stage1_for_ghz_star_uses_state_id_and_passes_n_to_benchmark(self):
+        tmpdir = _tmpdir()
+        calls = []
+
+        def fake_benchmark_basis(E_new, class_name, candidate_name, **kwargs):
+            calls.append(kwargs)
+            return _sample_row(kwargs["state_name"], class_name, candidate_name, 10, 5)
+
+        try:
+            config = PipelineConfig(
+                state_name="ghz_star",
+                n_qutrits=5,
+                stage=1,
+                output_root=tmpdir,
+                jobs=1,
+                n_transpile_runs=1,
+                limit_candidates=1,
+            )
+
+            with patch("encoding_search_v2.runner.benchmark_basis", side_effect=fake_benchmark_basis):
+                df, paths = run_stage1(config)
+
+            self.assertEqual(calls[0]["state_name"], "ghz_star_5")
+            self.assertEqual(calls[0]["n_qutrits"], 5)
+            self.assertEqual(set(df["state_name"]), {"ghz_star_5"})
+            self.assertTrue(paths["results_csv"].startswith(os.path.join(tmpdir, "ghz_star_5", "stage1")))
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
     def test_stage2_requires_ranking_csv(self):
         tmpdir = _tmpdir()
         try:
@@ -447,6 +511,29 @@ class TestEncodingSearchV2Runner(unittest.TestCase):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
+    def test_benchmark_tasks_for_ghz_star_include_resolved_state_and_n(self):
+        tmpdir = _tmpdir()
+        try:
+            config = PipelineConfig(
+                state_name="ghz_star",
+                n_qutrits=4,
+                stage=2,
+                output_root=tmpdir,
+                export_circuits=True,
+            )
+            tasks = _build_benchmark_tasks(
+                [("baseline", "E_old", None)],
+                config,
+                encoding_strategy="prepared_w_then_conjugated_entanglers",
+            )
+
+            self.assertEqual(tasks[0]["state_name"], "ghz_star_4")
+            self.assertEqual(tasks[0]["n_qutrits"], 4)
+            self.assertEqual(tasks[0]["state_family"], "ghz_star")
+            self.assertIn(os.path.join("ghz_star_4", "stage2", "circuits"), tasks[0]["circuits_output_dir"])
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
 
 class TestEncodingSearchV2Report(unittest.TestCase):
     def test_report_compares_baseline_against_nontrivial_candidates_only(self):
@@ -532,6 +619,30 @@ class TestEncodingSearchV2Report(unittest.TestCase):
             self.assertEqual([row["candidate_name"] for row in rows], ["first", "second"])
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+class TestEncodingSearchV2Cli(unittest.TestCase):
+    def test_dry_run_accepts_ghz_star_n_values_range(self):
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            code = cli_main(
+                [
+                    "--state",
+                    "ghz_star",
+                    "--stage",
+                    "1",
+                    "--n-values",
+                    "3,4",
+                    "--limit-candidates",
+                    "1",
+                    "--dry-run",
+                ]
+            )
+
+        self.assertEqual(code, 0)
+        output = stream.getvalue()
+        self.assertIn("Dry run [ghz_star_3, stage 1]", output)
+        self.assertIn("Dry run [ghz_star_4, stage 1]", output)
 
 
 if __name__ == "__main__":

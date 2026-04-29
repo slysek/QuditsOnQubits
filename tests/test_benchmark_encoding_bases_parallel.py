@@ -99,6 +99,7 @@ class TestParallelBenchmark(unittest.TestCase):
         tasks = parallel_bench._build_candidate_tasks(
             candidates=[("baseline", "first", None)],
             state_name="ame43",
+            n_qutrits=4,
             n_transpile_runs=5,
             circuits_output_dir=None,
             approximation_values=(1.0,),
@@ -110,6 +111,7 @@ class TestParallelBenchmark(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
         self.assertIsNone(tasks[0]["circuits_output_dir"])
         self.assertEqual(tasks[0]["state_name"], "ame43")
+        self.assertEqual(tasks[0]["n_qutrits"], 4)
         self.assertEqual(tasks[0]["approximation_seed"], 11)
 
 

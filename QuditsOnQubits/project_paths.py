@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -42,12 +43,16 @@ def benchmark_docs_dir(*parts):
 
 
 _VALID_STATE_NAMES = {"two_qutrit", "ghz3", "ame43"}
+_GHZ_STAR_STATE_RE = re.compile(r"^ghz_star_\d+$")
 
 
 def benchmark_state_slug(state_name):
+    if state_name in _VALID_STATE_NAMES:
+        return state_name
+    if _GHZ_STAR_STATE_RE.match(str(state_name)):
+        return state_name
     if state_name not in _VALID_STATE_NAMES:
         raise ValueError(f"Unknown benchmark state: {state_name}")
-    return state_name
 
 
 def benchmark_state_results_path(state_name, mode):

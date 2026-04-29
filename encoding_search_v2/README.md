@@ -33,6 +33,8 @@ Examples:
 ```powershell
 python -m encoding_search_v2 --state two_qutrit --stage 1 --jobs 32
 python -m encoding_search_v2 --state ghz3 --stage 1 --jobs 32
+python -m encoding_search_v2 --state ghz_star --n-qutrits 5 --stage 1 --jobs 32
+python -m encoding_search_v2 --state ghz_star --n-values 3,4,5,6 --stage 1 --jobs 32
 python -m encoding_search_v2 --state ame43 --stage 1 --jobs 32
 ```
 
@@ -40,10 +42,19 @@ Then run Stage 2 from the Stage 1 ranking:
 
 ```powershell
 python -m encoding_search_v2 --state ghz3 --stage 2 --jobs 32 --top-k 30 --ranking-csv encoding_search_v2\results\ghz3\stage1\encoding_search_v2_ghz3_stage1_top30_by_depth.csv
+python -m encoding_search_v2 --state ghz_star --n-qutrits 5 --stage 2 --jobs 32 --top-k 30 --ranking-csv encoding_search_v2\results\ghz_star_5\stage1\encoding_search_v2_ghz_star_5_stage1_top30_by_depth.csv
+python -m encoding_search_v2 --state ghz_star --n-values 3,4,5,6 --stage 2 --jobs 32 --top-k 30 --ranking-csv "encoding_search_v2\results\ghz_star_{n}\stage1\encoding_search_v2_ghz_star_{n}_stage1_top30_by_depth.csv"
 ```
 
 For a quick candidate-count check without transpilation:
 
 ```powershell
 python -m encoding_search_v2 --state ghz3 --stage 1 --dry-run
+python -m encoding_search_v2 --state ghz_star --n-qutrits 5 --stage 1 --dry-run
 ```
+
+GHZ-star states use the existing `create_ame_circuit(n=N, graph_type="star")`
+builder. Result folders use stable state ids:
+`encoding_search_v2/results/ghz_star_5/stage1/` and
+`encoding_search_v2/results/ghz_star_5/stage2/`. The legacy `ghz3` name is
+preserved, while `--state ghz_star --n-qutrits 3` writes to `ghz_star_3`.

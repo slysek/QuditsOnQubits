@@ -36,10 +36,12 @@ from QuditsOnQubits.benchmark_encoding_bases import (
     _DEFAULT_CIRCUITS_OUTPUT_DIR,
     _filter_candidates_by_preselection,
     _load_preselected_candidates,
+    _normalize_state_name,
     _print_single_state_summary,
     _resolve_circuits_output_dir,
     _save_top3_fidelity_circuits,
     _save_top3_per_class_csvs,
+    _state_num_qutrits,
     _validate_preselection_coverage,
     _write_topk_tables_to_output_dir,
 )
@@ -109,6 +111,7 @@ def _normalize_circuits_output_root(circuits_output_dir):
 def _build_candidate_tasks(
     candidates,
     state_name,
+    n_qutrits,
     n_transpile_runs,
     circuits_output_dir,
     approximation_values,
@@ -123,6 +126,7 @@ def _build_candidate_tasks(
             "class_name": cls,
             "candidate_name": name,
             "state_name": state_name,
+            "n_qutrits": n_qutrits,
             "coupling_map": COUPLING_MAP,
             "basis_gates": BASIS_GATES,
             "n_transpile_runs": n_transpile_runs,
@@ -142,6 +146,7 @@ def _benchmark_candidate_worker(task):
         task["class_name"],
         task["candidate_name"],
         state_name=task["state_name"],
+        n_qutrits=task["n_qutrits"],
         coupling_map=task["coupling_map"],
         basis_gates=task["basis_gates"],
         n_transpile_runs=task["n_transpile_runs"],
@@ -203,6 +208,7 @@ def _run_tasks_in_pool(tasks, max_workers):
 
 def run_single_state_parallel_benchmark(
     state_name="ghz3",
+    n_qutrits=None,
     n_transpile_runs=20,
     csv_path=None,
     mode="full",
@@ -214,6 +220,9 @@ def run_single_state_parallel_benchmark(
     encoding_strategy="append_w",
     max_workers=None,
 ):
+    resolved_n_qutrits = _state_num_qutrits(state_name, n_qutrits)
+    state_name = _normalize_state_name(state_name, resolved_n_qutrits)
+
     filter_set = _normalize_class_filter(class_filter)
     filter_label = ",".join(sorted(filter_set)) if filter_set else "all"
     print("=" * 80)
@@ -237,6 +246,7 @@ def run_single_state_parallel_benchmark(
     tasks = _build_candidate_tasks(
         candidates=all_candidates,
         state_name=state_name,
+        n_qutrits=resolved_n_qutrits,
         n_transpile_runs=n_transpile_runs,
         circuits_output_dir=circuits_output_dir,
         approximation_values=approximation_values,
@@ -291,6 +301,7 @@ def run_single_state_parallel_benchmark(
 
 def run_prepared_w_parallel_benchmark(
     state_name="ghz3",
+    n_qutrits=None,
     n_transpile_runs=20,
     csv_path=None,
     mode="full",
@@ -303,6 +314,9 @@ def run_prepared_w_parallel_benchmark(
     output_dir=None,
     max_workers=None,
 ):
+    resolved_n_qutrits = _state_num_qutrits(state_name, n_qutrits)
+    state_name = _normalize_state_name(state_name, resolved_n_qutrits)
+
     if preselected_candidates_file is None:
         raise ValueError(
             "Tryb 'prepared_w_then_conjugated_entanglers' wymaga podania "
@@ -321,6 +335,7 @@ def run_prepared_w_parallel_benchmark(
     tasks = _build_candidate_tasks(
         candidates=filtered,
         state_name=state_name,
+        n_qutrits=resolved_n_qutrits,
         n_transpile_runs=n_transpile_runs,
         circuits_output_dir=circuits_output_dir,
         approximation_values=approximation_values,
@@ -381,6 +396,7 @@ def run_prepared_w_parallel_benchmark(
 def run_parallel_benchmark(
     mode="full",
     state_name="ghz3",
+    n_qutrits=None,
     n_transpile_runs=20,
     csv_path=None,
     circuits_output_dir=_DEFAULT_CIRCUITS_OUTPUT_DIR,
@@ -398,6 +414,7 @@ def run_parallel_benchmark(
     if encoding_strategy == "prepared_w_then_conjugated_entanglers":
         return run_prepared_w_parallel_benchmark(
             state_name=state_name,
+            n_qutrits=n_qutrits,
             n_transpile_runs=n_transpile_runs,
             csv_path=csv_path,
             mode=mode,
@@ -414,6 +431,7 @@ def run_parallel_benchmark(
     if state_name != "all":
         return run_single_state_parallel_benchmark(
             state_name=state_name,
+            n_qutrits=n_qutrits,
             n_transpile_runs=n_transpile_runs,
             csv_path=csv_path,
             mode=mode,
@@ -467,8 +485,18 @@ if __name__ == "__main__":
         "state",
         nargs="?",
         default="ghz3",
-        choices=["ghz3", "two_qutrit", "ame43", "all"],
-        help="which state to benchmark (default: ghz3)",
+        help=(
+            "which state to benchmark: ghz3, two_qutrit, ame43, all, "
+            "or ghz_star/ghz_n with --n-qutrits"
+        ),
+    )
+    parser.add_argument(
+        "--n-qutrits",
+        "--num-qutrits",
+        dest="n_qutrits",
+        type=int,
+        default=None,
+        help="number of qutrits for state ghz_star / ghz_n",
     )
     parser.add_argument(
         "--class",
@@ -514,10 +542,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     circuits_output_dir = None if args.no_circuit_export else _DEFAULT_CIRCUITS_OUTPUT_DIR
-    csv = None if args.state == "all" else benchmark_state_results_path(args.state, args.mode)
+    csv = None
     run_parallel_benchmark(
         mode=args.mode,
         state_name=args.state,
+        n_qutrits=args.n_qutrits,
         csv_path=csv,
         circuits_output_dir=circuits_output_dir,
         class_filter=args.class_filter,
