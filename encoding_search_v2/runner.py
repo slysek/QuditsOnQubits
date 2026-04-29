@@ -17,6 +17,12 @@ from encoding_search_v2.candidates import (
 from encoding_search_v2.paths import stage_file_prefix, stage_output_dir
 from encoding_search_v2.preselection import load_preselected_candidates, select_preselected_rows
 from encoding_search_v2.results import write_result_bundle
+from encoding_search_v2.triviality import (
+    DEFAULT_ATOL,
+    DEFAULT_RTOL,
+    _filter_trivial_candidates,
+    candidate_metadata_fields,
+)
 
 
 DEFAULT_FIDELITY_THRESHOLDS = (0.85, 0.90, 0.95)
@@ -52,6 +58,8 @@ class PipelineConfig:
     near_identity_samples_per_eps: int = 2
     near_identity_seed: int = 500
     limit_candidates: Optional[int] = None
+    atol: float = DEFAULT_ATOL
+    rtol: float = DEFAULT_RTOL
 
     def candidate_config(self) -> CandidateSearchConfig:
         return CandidateSearchConfig(
@@ -97,6 +105,13 @@ def _build_benchmark_tasks(
             "fidelity_thresholds": tuple(config.fidelity_thresholds),
             "approximation_seed": config.approximation_seed,
             "encoding_strategy": encoding_strategy,
+            "candidate_metadata": candidate_metadata_fields(
+                class_name,
+                candidate_name,
+                e_new,
+                atol=config.atol,
+                rtol=config.rtol,
+            ),
         }
         for class_name, candidate_name, e_new in candidates
     ]
@@ -125,6 +140,7 @@ def _benchmark_candidate_worker(task: dict) -> dict:
         approximation_seed=task["approximation_seed"],
         encoding_strategy=task["encoding_strategy"],
     )
+    row.update(task["candidate_metadata"])
     return _strip_internal_circuit_objects(row)
 
 
@@ -191,14 +207,24 @@ def _warn_on_missing_preselected(
 
 def run_stage1(config: PipelineConfig):
     candidates = generate_stage1_candidates(config.candidate_config())
-    print(f"Stage 1 [{config.state_name}]: {len(candidates)} candidates")
-    print(f"Classes: {format_candidate_counts(candidates)}")
+    benchmark_candidates, skipped_rows = _filter_trivial_candidates(
+        candidates,
+        state_name=config.state_name,
+        stage=1,
+        atol=config.atol,
+        rtol=config.rtol,
+    )
+    print(
+        f"Stage 1 [{config.state_name}]: {len(benchmark_candidates)} benchmarked "
+        f"candidates, {len(skipped_rows)} baseline-equivalent skipped"
+    )
+    print(f"Classes: {format_candidate_counts(benchmark_candidates)}")
     started = time.time()
-    rows = run_candidate_benchmarks(candidates, config, encoding_strategy="append_w")
+    rows = run_candidate_benchmarks(benchmark_candidates, config, encoding_strategy="append_w")
     elapsed = time.time() - started
     print(f"Stage 1 [{config.state_name}] benchmark time: {elapsed:.1f}s")
 
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(rows + skipped_rows)
     output_dir = stage_output_dir(config.state_name, 1, output_root=config.output_root)
     paths = write_result_bundle(
         df,
@@ -223,21 +249,31 @@ def run_stage2(config: PipelineConfig):
     candidates = generate_stage1_candidates(config.candidate_config())
     filtered = filter_candidates_for_stage2(candidates, preselected)
     _warn_on_missing_preselected(preselected, filtered, config.ranking_csv)
+    benchmark_candidates, skipped_rows = _filter_trivial_candidates(
+        filtered,
+        state_name=config.state_name,
+        stage=2,
+        atol=config.atol,
+        rtol=config.rtol,
+    )
 
-    print(f"Stage 2 [{config.state_name}]: {len(filtered)} selected candidates")
-    print(f"Selected classes: {format_candidate_counts(filtered)}")
+    print(
+        f"Stage 2 [{config.state_name}]: {len(benchmark_candidates)} benchmarked "
+        f"selected candidates, {len(skipped_rows)} baseline-equivalent skipped"
+    )
+    print(f"Selected classes: {format_candidate_counts(benchmark_candidates)}")
     preselected_path = _write_preselected_rows(config)
 
     started = time.time()
     rows = run_candidate_benchmarks(
-        filtered,
+        benchmark_candidates,
         config,
         encoding_strategy="prepared_w_then_conjugated_entanglers",
     )
     elapsed = time.time() - started
     print(f"Stage 2 [{config.state_name}] benchmark time: {elapsed:.1f}s")
 
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(rows + skipped_rows)
     output_dir = stage_output_dir(config.state_name, 2, output_root=config.output_root)
     paths = write_result_bundle(
         df,

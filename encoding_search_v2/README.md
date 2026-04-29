@@ -20,6 +20,14 @@ pairs, and benchmarks only those candidates with
 `prepared_w_then_conjugated_entanglers`: local `W|+>` state preparation plus
 explicit `(W kron W) CZ (Wdag kron Wdag)` entangler blocks.
 
+Before either stage benchmarks candidates, the pipeline keeps the explicit
+`baseline / E_old` reference and skips other candidates that are equivalent to
+baseline within `--atol` / `--rtol`. The practical checks cover exact embedding
+equality, equality up to one global phase, and `W` equal to identity up to
+tolerance. Skipped rows remain in the full results CSV with
+`status=skipped_baseline_equivalent`, `is_trivial_identity`,
+`is_baseline_equivalent`, and `skip_reason`.
+
 Examples:
 
 ```powershell

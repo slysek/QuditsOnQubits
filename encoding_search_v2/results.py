@@ -14,6 +14,55 @@ def _ok_rows(df: pd.DataFrame) -> pd.DataFrame:
     return df[df["status"].astype(str) == "ok"].copy()
 
 
+def _truthy_series(df: pd.DataFrame, column: str) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series(False, index=df.index)
+    values = df[column]
+    if values.dtype == bool:
+        return values.fillna(False)
+    return values.astype(str).str.lower().isin({"true", "1", "yes"})
+
+
+def _baseline_reference_rows(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+    if "is_baseline_reference" in df.columns:
+        return df[_truthy_series(df, "is_baseline_reference")].copy()
+    return df[
+        (df["class_name"].astype(str) == "baseline")
+        & (df["candidate_name"].astype(str) == "E_old")
+    ].copy()
+
+
+def _skipped_baseline_equivalent_rows(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+    return df[
+        (df.get("status", pd.Series("", index=df.index)).astype(str) == "skipped_baseline_equivalent")
+        | (
+            _truthy_series(df, "is_baseline_equivalent")
+            & ~_truthy_series(df, "is_baseline_reference")
+        )
+    ].copy()
+
+
+def _nontrivial_ok_rows(df: pd.DataFrame) -> pd.DataFrame:
+    df_ok = _ok_rows(df)
+    if df_ok.empty:
+        return df_ok
+    if "is_baseline_equivalent" not in df_ok.columns:
+        return df_ok[
+            ~(
+                (df_ok["class_name"].astype(str) == "baseline")
+                & (df_ok["candidate_name"].astype(str) == "E_old")
+            )
+        ].copy()
+    return df_ok[
+        ~_truthy_series(df_ok, "is_baseline_equivalent")
+        & ~_truthy_series(df_ok, "is_baseline_reference")
+    ].copy()
+
+
 def _sort_existing(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
     existing = [column for column in columns if column in df.columns]
     if not existing:
@@ -65,6 +114,7 @@ def write_result_bundle(
     paths["results_csv"] = _write_csv(df, results_csv)
 
     df_ok = _ok_rows(df)
+    df_nontrivial = _nontrivial_ok_rows(df)
     by_depth = _sort_existing(
         df_ok,
         ["best_depth", "best_two_qubit_gate_count", "best_size"],
@@ -81,6 +131,28 @@ def write_result_bundle(
     paths["top_by_2q_csv"] = _write_csv(
         by_2q,
         os.path.join(output_dir, f"{file_prefix}_top{int(top_k)}_by_2q.csv"),
+    )
+    paths["baseline_reference_csv"] = _write_csv(
+        _baseline_reference_rows(df),
+        os.path.join(output_dir, f"{file_prefix}_baseline_reference.csv"),
+    )
+    paths["top_nontrivial_by_depth_csv"] = _write_csv(
+        _sort_existing(
+            df_nontrivial,
+            ["best_depth", "best_two_qubit_gate_count", "best_size"],
+        ).head(int(top_k)),
+        os.path.join(output_dir, f"{file_prefix}_top{int(top_k)}_nontrivial_by_depth.csv"),
+    )
+    paths["top_nontrivial_by_2q_csv"] = _write_csv(
+        _sort_existing(
+            df_nontrivial,
+            ["best_two_qubit_gate_count", "best_depth", "best_size"],
+        ).head(int(top_k)),
+        os.path.join(output_dir, f"{file_prefix}_top{int(top_k)}_nontrivial_by_2q.csv"),
+    )
+    paths["skipped_baseline_equivalent_csv"] = _write_csv(
+        _skipped_baseline_equivalent_rows(df),
+        os.path.join(output_dir, f"{file_prefix}_skipped_baseline_equivalent.csv"),
     )
 
     top3_depth = _top_per_class(
@@ -103,6 +175,10 @@ def write_result_bundle(
         "mean_depth",
         "std_depth",
         "mean_two_qubit_gate_count",
+        "is_baseline_reference",
+        "is_trivial_identity",
+        "is_baseline_equivalent",
+        "skip_reason",
     ]
     paths["top3_by_depth_csv"] = _write_csv(
         _select_columns(top3_depth, core_cols),

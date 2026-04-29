@@ -4,15 +4,18 @@ import unittest
 import warnings
 from unittest.mock import patch
 
+import numpy as np
 import pandas as pd
 
 from encoding_search_v2.candidates import (
     CandidateSearchConfig,
+    E_OLD,
     filter_candidates_for_stage2,
     generate_stage1_candidates,
 )
 from encoding_search_v2.paths import stage_output_dir
 from encoding_search_v2.preselection import load_preselected_candidates
+from encoding_search_v2.reports import write_state_report
 from encoding_search_v2.results import write_result_bundle
 from encoding_search_v2.runner import (
     PipelineConfig,
@@ -20,6 +23,11 @@ from encoding_search_v2.runner import (
     run_candidate_benchmarks,
     run_stage1,
     run_stage2,
+)
+from encoding_search_v2.triviality import (
+    _filter_trivial_candidates,
+    _is_baseline_equivalent_candidate,
+    _is_embedding_equal_up_to_global_phase,
 )
 
 
@@ -97,6 +105,55 @@ class TestEncodingSearchV2Candidates(unittest.TestCase):
             [(class_name, name) for class_name, name, _ in filtered],
             [("baseline", "E_old"), ("product", "U_H__V_H")],
         )
+
+
+class TestEncodingSearchV2Triviality(unittest.TestCase):
+    def test_embedding_equal_up_to_global_phase_detects_baseline_phase(self):
+        phased = np.exp(0.37j) * E_OLD
+
+        self.assertTrue(_is_embedding_equal_up_to_global_phase(phased, E_OLD))
+
+    def test_baseline_equivalent_candidate_marks_exact_duplicate(self):
+        meta = _is_baseline_equivalent_candidate(
+            "product",
+            "U_I__V_I",
+            E_OLD.copy(),
+        )
+
+        self.assertFalse(meta.is_baseline_reference)
+        self.assertTrue(meta.is_trivial_identity)
+        self.assertTrue(meta.is_baseline_equivalent)
+        self.assertIn("embedding", meta.skip_reason)
+
+    def test_filter_trivial_candidates_preserves_baseline_and_skips_duplicate_only(self):
+        nontrivial = np.array(
+            [
+                [1, 0, 0],
+                [0, 1, 0],
+                [0, 0, 0],
+                [0, 0, 1],
+            ],
+            dtype=complex,
+        )
+        candidates = [
+            ("baseline", "E_old", None),
+            ("product", "U_I__V_I", E_OLD.copy()),
+            ("product", "global_phase", np.exp(0.2j) * E_OLD),
+            ("monomial_full", "uses_11", nontrivial),
+        ]
+
+        kept, skipped = _filter_trivial_candidates(candidates, state_name="ghz3", stage=1)
+
+        self.assertEqual(
+            [(class_name, name) for class_name, name, _ in kept],
+            [("baseline", "E_old"), ("monomial_full", "uses_11")],
+        )
+        self.assertEqual(
+            {(row["class_name"], row["candidate_name"]) for row in skipped},
+            {("product", "U_I__V_I"), ("product", "global_phase")},
+        )
+        self.assertTrue(all(row["is_baseline_equivalent"] for row in skipped))
+        self.assertTrue(all(row["status"] == "skipped_baseline_equivalent" for row in skipped))
 
 
 class TestEncodingSearchV2Preselection(unittest.TestCase):
@@ -191,6 +248,9 @@ class TestEncodingSearchV2Results(unittest.TestCase):
                 "results_csv",
                 "top_by_depth_csv",
                 "top_by_2q_csv",
+                "baseline_reference_csv",
+                "top_nontrivial_by_depth_csv",
+                "skipped_baseline_equivalent_csv",
                 "top3_by_depth_csv",
                 "top3_by_2q_csv",
                 "top3_exact_csv",
@@ -201,6 +261,9 @@ class TestEncodingSearchV2Results(unittest.TestCase):
             self.assertTrue(expected.issubset(paths))
             for key in expected:
                 self.assertTrue(os.path.exists(paths[key]), key)
+
+            nontrivial = pd.read_csv(paths["top_nontrivial_by_depth_csv"])
+            self.assertEqual(list(nontrivial["candidate_name"]), ["U_H__V_H"])
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
@@ -272,7 +335,17 @@ class TestEncodingSearchV2Runner(unittest.TestCase):
                 df, paths = run_stage1(config)
 
             self.assertFalse(df.empty)
+            self.assertEqual(
+                [(class_name, candidate_name) for class_name, candidate_name, _ in calls],
+                [("baseline", "E_old")],
+            )
             self.assertEqual({strategy for _, _, strategy in calls}, {"append_w"})
+            skipped = df[df["status"] == "skipped_baseline_equivalent"]
+            self.assertEqual(
+                set(skipped["candidate_name"]),
+                {"sup012_P012_ph000", "U_I__V_I"},
+            )
+            self.assertTrue(bool(df.loc[df["candidate_name"] == "E_old", "is_baseline_reference"].iloc[0]))
             self.assertTrue(paths["results_csv"].startswith(os.path.join(tmpdir, "two_qutrit", "stage1")))
             self.assertTrue(os.path.exists(paths["results_csv"]))
         finally:
@@ -314,6 +387,42 @@ class TestEncodingSearchV2Runner(unittest.TestCase):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
+    def test_stage2_does_not_benchmark_preselected_baseline_equivalent_candidate(self):
+        tmpdir = _tmpdir()
+        calls = []
+
+        def fake_benchmark_basis(E_new, class_name, candidate_name, **kwargs):
+            calls.append((class_name, candidate_name))
+            return _sample_row(kwargs["state_name"], class_name, candidate_name, 10, 5)
+
+        try:
+            ranking_csv = os.path.join(tmpdir, "stage1_results.csv")
+            pd.DataFrame(
+                [
+                    _sample_row("ghz3", "baseline", "E_old", 50, 20),
+                    _sample_row("ghz3", "monomial_full", "sup012_P012_ph000", 40, 10),
+                ]
+            ).to_csv(ranking_csv, index=False)
+
+            config = PipelineConfig(
+                state_name="ghz3",
+                stage=2,
+                output_root=tmpdir,
+                ranking_csv=ranking_csv,
+                top_k=2,
+                max_monomial_full=1,
+            )
+
+            with patch("encoding_search_v2.runner.benchmark_basis", side_effect=fake_benchmark_basis):
+                df, paths = run_stage2(config)
+
+            self.assertEqual(calls, [("baseline", "E_old")])
+            skipped = df[df["status"] == "skipped_baseline_equivalent"]
+            self.assertEqual(list(skipped["candidate_name"]), ["sup012_P012_ph000"])
+            self.assertTrue(os.path.exists(paths["skipped_baseline_equivalent_csv"]))
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
     def test_stage2_tasks_use_prepared_w_strategy(self):
         tmpdir = _tmpdir()
         try:
@@ -335,6 +444,55 @@ class TestEncodingSearchV2Runner(unittest.TestCase):
                 "prepared_w_then_conjugated_entanglers",
             )
             self.assertIn(os.path.join("ame43", "stage2", "circuits"), tasks[0]["circuits_output_dir"])
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+class TestEncodingSearchV2Report(unittest.TestCase):
+    def test_report_compares_baseline_against_nontrivial_candidates_only(self):
+        tmpdir = _tmpdir()
+        try:
+            stage1_dir = os.path.join(tmpdir, "ghz3", "stage1")
+            os.makedirs(stage1_dir, exist_ok=True)
+            csv_path = os.path.join(stage1_dir, "encoding_search_v2_ghz3_stage1_results.csv")
+            skipped = _sample_row("ghz3", "product", "U_I__V_I", 1, 1)
+            skipped.update(
+                {
+                    "status": "skipped_baseline_equivalent",
+                    "is_baseline_reference": False,
+                    "is_baseline_equivalent": True,
+                    "is_trivial_identity": True,
+                    "skip_reason": "same embedding as baseline",
+                }
+            )
+            baseline = _sample_row("ghz3", "baseline", "E_old", 50, 20)
+            baseline.update(
+                {
+                    "is_baseline_reference": True,
+                    "is_baseline_equivalent": True,
+                    "is_trivial_identity": True,
+                    "skip_reason": "",
+                }
+            )
+            nontrivial = _sample_row("ghz3", "product", "U_H__V_H", 60, 25)
+            nontrivial.update(
+                {
+                    "is_baseline_reference": False,
+                    "is_baseline_equivalent": False,
+                    "is_trivial_identity": False,
+                    "skip_reason": "",
+                }
+            )
+            pd.DataFrame([skipped, baseline, nontrivial]).to_csv(csv_path, index=False)
+
+            report_path = write_state_report("ghz3", output_root=tmpdir)
+
+            with open(report_path, "r", encoding="utf-8") as handle:
+                content = handle.read()
+
+            self.assertIn("Best nontrivial stage 1: product / U_H__V_H", content)
+            self.assertIn("Stage 1 nontrivial better than baseline: no better basis found", content)
+            self.assertIn("Skipped baseline-equivalent candidates: 1", content)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 

@@ -21,6 +21,38 @@ def _ok(df: Optional[pd.DataFrame]) -> pd.DataFrame:
     return df.copy()
 
 
+def _truthy_series(df: pd.DataFrame, column: str) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series(False, index=df.index)
+    values = df[column]
+    if values.dtype == bool:
+        return values.fillna(False)
+    return values.astype(str).str.lower().isin({"true", "1", "yes"})
+
+
+def _nontrivial_ok(df: Optional[pd.DataFrame]) -> pd.DataFrame:
+    df_ok = _ok(df)
+    if df_ok.empty:
+        return df_ok
+    if "is_baseline_equivalent" not in df_ok.columns:
+        return df_ok[
+            ~(
+                (df_ok["class_name"].astype(str) == "baseline")
+                & (df_ok["candidate_name"].astype(str) == "E_old")
+            )
+        ].copy()
+    return df_ok[
+        ~_truthy_series(df_ok, "is_baseline_equivalent")
+        & ~_truthy_series(df_ok, "is_baseline_reference")
+    ].copy()
+
+
+def _skipped_count(df: Optional[pd.DataFrame]) -> int:
+    if df is None or df.empty or "status" not in df.columns:
+        return 0
+    return int((df["status"].astype(str) == "skipped_baseline_equivalent").sum())
+
+
 def _best_exact(df: pd.DataFrame) -> Optional[pd.Series]:
     if df.empty:
         return None
@@ -104,12 +136,18 @@ def write_state_report(
 ) -> str:
     stage1_csv = stage1_csv or stage_results_csv_path(state_name, 1, output_root=output_root)
     stage2_csv = stage2_csv or stage_results_csv_path(state_name, 2, output_root=output_root)
-    stage1 = _ok(_read_if_exists(stage1_csv))
-    stage2 = _ok(_read_if_exists(stage2_csv))
+    stage1_full = _read_if_exists(stage1_csv)
+    stage2_full = _read_if_exists(stage2_csv)
+    stage1 = _ok(stage1_full)
+    stage2 = _ok(stage2_full)
+    stage1_nontrivial = _nontrivial_ok(stage1_full)
+    stage2_nontrivial = _nontrivial_ok(stage2_full)
 
     baseline = _baseline(stage1)
     best_stage1 = _best_exact(stage1)
     best_stage2 = _best_exact(stage2)
+    best_nontrivial_stage1 = _best_exact(stage1_nontrivial)
+    best_nontrivial_stage2 = _best_exact(stage2_nontrivial)
 
     lines = [
         f"# Encoding Search v2 Report: {state_name}",
@@ -121,17 +159,20 @@ def write_state_report(
         "",
         f"- Baseline: {_fmt_row(baseline)}",
         f"- Best stage 1: {_fmt_row(best_stage1)}",
+        f"- Best nontrivial stage 1: {_fmt_row(best_nontrivial_stage1)}",
         f"- Best stage 2: {_fmt_row(best_stage2)}",
-        f"- Stage 1 better than baseline: {_improvement(baseline, best_stage1)}",
-        f"- Stage 2 better than baseline: {_improvement(baseline, best_stage2)}",
+        f"- Best nontrivial stage 2: {_fmt_row(best_nontrivial_stage2)}",
+        f"- Stage 1 nontrivial better than baseline: {_improvement(baseline, best_nontrivial_stage1)}",
+        f"- Stage 2 nontrivial better than baseline: {_improvement(baseline, best_nontrivial_stage2)}",
+        f"- Skipped baseline-equivalent candidates: {_skipped_count(stage1_full) + _skipped_count(stage2_full)}",
         "",
         "## Fidelity Threshold Bests",
         "",
     ]
-    lines.extend(_fidelity_lines(stage1, fidelity_thresholds) or ["- Stage 1: not available"])
-    if not stage2.empty:
+    lines.extend(_fidelity_lines(stage1_nontrivial, fidelity_thresholds) or ["- Stage 1 nontrivial: not available"])
+    if not stage2_nontrivial.empty:
         lines.append("")
-        lines.extend(_fidelity_lines(stage2, fidelity_thresholds) or ["- Stage 2: not available"])
+        lines.extend(_fidelity_lines(stage2_nontrivial, fidelity_thresholds) or ["- Stage 2 nontrivial: not available"])
 
     output_dir = stage_output_dir(state_name, "report", output_root=output_root)
     os.makedirs(output_dir, exist_ok=True)

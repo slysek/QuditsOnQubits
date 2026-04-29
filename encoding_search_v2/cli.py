@@ -3,6 +3,7 @@ import argparse
 from encoding_search_v2.candidates import generate_stage1_candidates
 from encoding_search_v2.reports import write_state_report
 from encoding_search_v2.runner import PipelineConfig, run_stage1, run_stage2
+from encoding_search_v2.triviality import _filter_trivial_candidates
 
 
 STATES = ("two_qutrit", "ghz3", "ame43")
@@ -40,6 +41,18 @@ def build_parser():
     parser.add_argument("--max-product-grid", type=int, default=None)
     parser.add_argument("--limit-candidates", type=int, default=None)
     parser.add_argument(
+        "--atol",
+        type=float,
+        default=1e-10,
+        help="absolute tolerance for baseline-equivalence checks",
+    )
+    parser.add_argument(
+        "--rtol",
+        type=float,
+        default=1e-10,
+        help="relative tolerance for baseline-equivalence checks",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="print candidate count and exit without transpilation",
@@ -69,6 +82,8 @@ def _config_from_args(args) -> PipelineConfig:
         include_near_identity=args.include_near_identity,
         near_identity_samples_per_eps=args.near_identity_samples_per_eps,
         limit_candidates=args.limit_candidates,
+        atol=args.atol,
+        rtol=args.rtol,
     )
 
 
@@ -84,7 +99,18 @@ def main(argv=None):
     config = _config_from_args(args)
     if args.dry_run:
         candidates = generate_stage1_candidates(config.candidate_config())
-        print(f"Dry run [{args.state}, stage {args.stage}]: {len(candidates)} candidates")
+        benchmarked, skipped = _filter_trivial_candidates(
+            candidates,
+            state_name=args.state,
+            stage=int(args.stage),
+            atol=config.atol,
+            rtol=config.rtol,
+        )
+        print(
+            f"Dry run [{args.state}, stage {args.stage}]: "
+            f"{len(candidates)} generated, {len(benchmarked)} benchmarked, "
+            f"{len(skipped)} baseline-equivalent skipped"
+        )
         return 0
 
     if args.stage == "1":

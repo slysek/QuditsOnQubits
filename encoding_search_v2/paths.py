@@ -16,6 +16,8 @@ def default_results_root():
 def stage_label(stage):
     if isinstance(stage, str) and stage.startswith("stage"):
         return stage
+    if isinstance(stage, str) and not stage.isdigit():
+        return stage
     return f"stage{int(stage)}"
 
 
