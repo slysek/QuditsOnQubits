@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -134,6 +135,67 @@ def _strip_internal_circuit_objects(row: dict) -> dict:
     return clean
 
 
+def _format_duration(seconds: float) -> str:
+    if seconds < 0 or seconds != seconds:  # NaN guard
+        return "?"
+    seconds = int(round(seconds))
+    hours, rem = divmod(seconds, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return f"{hours}h{minutes:02d}m{secs:02d}s"
+    if minutes:
+        return f"{minutes}m{secs:02d}s"
+    return f"{secs}s"
+
+
+class _BenchmarkProgressReporter:
+    """Streams `[done/total] ... elapsed=... eta=...` lines as benchmarks finish."""
+
+    def __init__(self, total: int, label: str, *, stream=None):
+        self.total = total
+        self.label = label
+        self.completed = 0
+        self.started = time.time()
+        self.stream = stream if stream is not None else sys.stdout
+
+    def start(self) -> None:
+        print(
+            f"[{self.label}] starting benchmarks: 0/{self.total}",
+            file=self.stream,
+            flush=True,
+        )
+
+    def update(self, task: dict) -> None:
+        self.completed += 1
+        elapsed = time.time() - self.started
+        avg = elapsed / self.completed if self.completed else 0.0
+        remaining = max(self.total - self.completed, 0)
+        eta = avg * remaining
+        percent = 100.0 * self.completed / self.total if self.total else 100.0
+        class_name = task.get("class_name", "?")
+        candidate_name = task.get("candidate_name", "?")
+        print(
+            f"[{self.label}] {self.completed}/{self.total} ({percent:5.1f}%) "
+            f"done {class_name}/{candidate_name} "
+            f"elapsed={_format_duration(elapsed)} "
+            f"avg={avg:.2f}s/cand "
+            f"eta={_format_duration(eta)} "
+            f"remaining={remaining}",
+            file=self.stream,
+            flush=True,
+        )
+
+    def finish(self) -> None:
+        elapsed = time.time() - self.started
+        avg = elapsed / self.completed if self.completed else 0.0
+        print(
+            f"[{self.label}] finished {self.completed}/{self.total} "
+            f"in {_format_duration(elapsed)} (avg {avg:.2f}s/cand)",
+            file=self.stream,
+            flush=True,
+        )
+
+
 def _benchmark_candidate_worker(task: dict) -> dict:
     row = benchmark_basis(
         task["E_new"],
@@ -161,10 +223,17 @@ def run_candidate_benchmarks(
     candidates: list[Candidate],
     config: PipelineConfig,
     encoding_strategy: str,
+    *,
+    progress_label: Optional[str] = None,
 ) -> list[dict]:
     tasks = _build_benchmark_tasks(candidates, config, encoding_strategy=encoding_strategy)
     if not tasks:
         return []
+
+    state_id = config.state_spec().state_id
+    label = progress_label or f"stage{config.stage} {state_id}"
+    reporter = _BenchmarkProgressReporter(len(tasks), label)
+    reporter.start()
 
     jobs = int(config.jobs or 1)
     rows: list[Optional[dict]] = [None] * len(tasks)
@@ -172,6 +241,8 @@ def run_candidate_benchmarks(
     if jobs <= 1:
         for index, task in enumerate(tasks):
             rows[index] = _benchmark_candidate_worker(task)
+            reporter.update(task)
+        reporter.finish()
         return [row for row in rows if row is not None]
 
     with ProcessPoolExecutor(max_workers=jobs) as executor:
@@ -180,8 +251,11 @@ def run_candidate_benchmarks(
             for index, task in enumerate(tasks)
         }
         for future in as_completed(future_to_index):
-            rows[future_to_index[future]] = _strip_internal_circuit_objects(future.result())
+            index = future_to_index[future]
+            rows[index] = _strip_internal_circuit_objects(future.result())
+            reporter.update(tasks[index])
 
+    reporter.finish()
     return [row for row in rows if row is not None]
 
 
