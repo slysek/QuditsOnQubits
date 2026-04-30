@@ -1,0 +1,8 @@
+state_name,class_name,candidate_name,best_depth,best_size,best_two_qubit_gate_count,mean_depth,std_depth,mean_two_qubit_gate_count,is_baseline_reference,is_trivial_identity,is_baseline_equivalent,skip_reason
+ghz3,baseline,E_old,47,141,32,53.9,9.75,33.05,True,True,True,
+ghz3,monomial_full,sup012_P012_ph110,57,134,38,65.25,4.72,36.5,False,False,False,
+ghz3,monomial_full,sup012_P012_ph220,57,135,38,65.9,5.69,36.15,False,False,False,
+ghz3,monomial_full,sup012_P012_ph012,59,125,35,65.75,5.5,36.15,False,False,False,
+ghz3,product,U_SX__V_SXdg,57,134,38,65.35,5.32,36.15,False,False,False,
+ghz3,product,U_SXdg__V_SX,58,134,38,65.55,5.64,36.15,False,False,False,
+ghz3,product,U_Z__V_Z,59,125,35,65.8,5.51,36.15,False,False,False,
