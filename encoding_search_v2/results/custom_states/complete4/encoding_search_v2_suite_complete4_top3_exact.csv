@@ -1,0 +1,8 @@
+state_name,state_family,n_qutrits,class_name,candidate_name,best_depth,best_size,best_two_qubit_gate_count,mean_depth,std_depth,mean_two_qubit_gate_count,is_baseline_reference,is_trivial_identity,is_baseline_equivalent,skip_reason
+complete4,complete,4,baseline,E_old,125.0,353.0,93.0,141.0,16.41,93.6,True,True,True,
+complete4,complete,4,monomial_full,sup012_P012_ph101,146.0,387.0,100.0,157.4,12.55,103.6,False,False,False,
+complete4,complete,4,monomial_full,sup012_P012_ph202,146.0,387.0,100.0,157.4,12.55,103.6,False,False,False,
+complete4,complete,4,monomial_full,sup012_P012_ph220,147.0,388.0,100.0,157.0,12.05,103.6,False,False,False,
+complete4,complete,4,product,U_SXdg__V_SX,145.0,390.0,100.0,157.0,12.55,103.6,False,False,False,
+complete4,complete,4,product,U_SX__V_SXdg,146.0,391.0,100.0,156.8,12.22,103.6,False,False,False,
+complete4,complete,4,product,U_Z__V_Z,147.0,389.0,100.0,157.8,12.22,103.6,False,False,False,

@@ -1,0 +1,8 @@
+state_name,state_family,n_qutrits,class_name,candidate_name,fid085_best_fidelity,fid085_best_depth,fid085_best_two_qubit_gate_count
+path4,path,4,baseline,E_old,0.987833544029,23.0,20.0
+path4,path,4,monomial_full,sup012_P012_ph012,0.987833544029,23.0,20.0
+path4,path,4,monomial_full,sup012_P012_ph021,0.987833544029,23.0,20.0
+path4,path,4,monomial_full,sup012_P012_ph101,0.921577429336,23.0,20.0
+path4,path,4,product,U_Z__V_Z,0.987833544029,23.0,20.0
+path4,path,4,product,U_X__V_SH,0.88670790976,24.0,20.0
+path4,path,4,product,U_SX__V_I,0.942340451466,24.0,20.0
