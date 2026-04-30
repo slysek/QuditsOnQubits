@@ -44,15 +44,20 @@ def benchmark_docs_dir(*parts):
 
 _VALID_STATE_NAMES = {"two_qutrit", "ghz3", "ame43"}
 _GHZ_STAR_STATE_RE = re.compile(r"^ghz_star_\d+$")
+_EXTENDED_STATE_RE = re.compile(
+    r"^(?:ghz|path|cycle|wheel|complete)\d+$|^cluster\d+x\d+$"
+)
 
 
 def benchmark_state_slug(state_name):
-    if state_name in _VALID_STATE_NAMES:
-        return state_name
-    if _GHZ_STAR_STATE_RE.match(str(state_name)):
-        return state_name
-    if state_name not in _VALID_STATE_NAMES:
-        raise ValueError(f"Unknown benchmark state: {state_name}")
+    name = str(state_name)
+    if name in _VALID_STATE_NAMES:
+        return name
+    if _GHZ_STAR_STATE_RE.match(name):
+        return name
+    if _EXTENDED_STATE_RE.match(name):
+        return name
+    raise ValueError(f"Unknown benchmark state: {state_name}")
 
 
 def benchmark_state_results_path(state_name, mode):
