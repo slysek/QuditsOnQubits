@@ -1,0 +1,8 @@
+state_name,class_name,candidate_name,fid090_best_fidelity,fid090_best_depth,fid090_best_two_qubit_gate_count
+ame43,baseline,E_old,0.987833544029,31,28
+ame43,monomial_full,sup012_P012_ph110,1.0,27,24
+ame43,monomial_full,sup012_P012_ph012,1.0,30,24
+ame43,monomial_full,sup012_P012_ph101,1.0,30,24
+ame43,product,U_SX__V_SXdg,0.909635976565,31,24
+ame43,product,U_SXdg__V_SX,1.0,31,24
+ame43,product,U_Z__V_Z,1.0,31,24

@@ -1,0 +1,8 @@
+state_name,class_name,candidate_name,fid090_best_fidelity,fid090_best_depth,fid090_best_two_qubit_gate_count
+ghz3,baseline,E_old,0.990861210065,19,14
+ghz3,monomial_full,sup012_P012_ph012,1.0,15,11
+ghz3,monomial_full,sup012_P012_ph021,0.984855922795,15,11
+ghz3,monomial_full,sup012_P012_ph101,0.912186753507,15,11
+ghz3,product,U_SX__V_SXdg,0.931431071549,15,11
+ghz3,product,U_SXdg__V_SX,1.0,15,11
+ghz3,product,U_Z__V_Z,1.0,15,11
