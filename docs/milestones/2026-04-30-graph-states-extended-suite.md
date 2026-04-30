@@ -176,7 +176,7 @@ python -m encoding_search_v2.suite_cli `
 ```powershell
 $env:OMP_NUM_THREADS=1
 $env:OPENBLAS_NUM_THREADS=1
-$env:MKL_NUM_THREADS=1
+$env:OPENBLAS_NUM_THREADS=1
 python -m encoding_search_v2.suite_cli `
     --suite graph_states_extended `
     --jobs 32 `
