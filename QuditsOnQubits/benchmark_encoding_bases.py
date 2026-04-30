@@ -38,6 +38,11 @@ from qiskit.quantum_info import DensityMatrix, state_fidelity
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from QuditsOnQubits import create_ame_circuit
 from QuditsOnQubits.create_ame_circuit import VALID_ENCODING_STRATEGIES
+from QuditsOnQubits.graph_states import (
+    GraphStateSpec,
+    is_known_graph_state,
+    resolve_graph_state,
+)
 from QuditsOnQubits.project_paths import (
     benchmark_circuits_dir,
     benchmark_docs_dir,
@@ -140,40 +145,61 @@ def _resolve_star_graph_n(state_name, n_qutrits=None):
     return None
 
 
+def _resolve_state_spec(state_name, n_qutrits=None):
+    """Internal: zwroc :class:`GraphStateSpec` dla rozpoznanej nazwy stanu.
+
+    Najpierw konsultuje ogolny rejestr w ``QuditsOnQubits.graph_states``
+    (ktory rozumie path/cycle/wheel/complete/cluster/ghz<n>),  a w razie
+    nieznanej nazwy zwraca ``None``, zachowujac dotychczasowe komunikaty
+    bledow w :func:`benchmark_basis`.
+    """
+    return resolve_graph_state(state_name, n_qutrits=n_qutrits)
+
+
 def _normalize_state_name(state_name, n_qutrits=None):
     """Return the stable benchmark state id used in result rows and paths."""
-    n = _resolve_star_graph_n(state_name, n_qutrits)
-    if state_name in ("ghz_star", "ghz_n"):
-        return f"ghz_star_{n}"
-    if _parse_ghz_star_n_from_name(state_name) is not None:
-        return f"ghz_star_{n}"
+    spec = _resolve_state_spec(state_name, n_qutrits)
+    if spec is not None:
+        return spec.state_id
     return state_name
 
 
 def _state_family(state_name):
-    if state_name == "ghz3" or _parse_ghz_star_n_from_name(state_name) is not None:
-        return "ghz_star"
+    spec = _resolve_state_spec(state_name)
+    if spec is not None:
+        return spec.state_family
     return state_name
 
 
 def _state_num_qutrits(state_name, n_qutrits=None):
-    star_n = _resolve_star_graph_n(state_name, n_qutrits)
-    if star_n is not None:
-        return star_n
-    if state_name == "ame43":
-        return 4
+    spec = _resolve_state_spec(state_name, n_qutrits)
+    if spec is not None:
+        return spec.num_qutrits
     return n_qutrits
 
 
 @lru_cache(maxsize=None)
+def _build_cached_graph(state_id, num_qutrits, edges_tuple):
+    """Internal cache by canonical state_id, niezalezny od formy argumentow."""
+    edges = [list(pair) for pair in edges_tuple]
+    return Graph(n=num_qutrits, edges=edges)
+
+
 def _get_state_graph(state_name, n_qutrits=None):
-    """Return a cached graph object for a named benchmark state."""
-    star_n = _resolve_star_graph_n(state_name, n_qutrits)
-    if star_n is not None:
-        return Graph(n=star_n, edges=[[0, i] for i in range(1, star_n)])
-    if state_name == "ame43":
-        return Graph(n=4, edges=[[0, 1], [0, 1], [1, 2], [2, 3], [3, 0]])
-    raise ValueError(f"Unknown benchmark state: {state_name}")
+    """Return a cached graph object for a named benchmark state.
+
+    Cache jest kluczowany po kanonicznym ``state_id``, dzieki czemu wywolania
+    ``_get_state_graph("ame43")`` oraz ``_get_state_graph("ame43", 4)``
+    zwroca *te sama* instancje :class:`igraph.Graph`.
+    """
+    spec = _resolve_state_spec(state_name, n_qutrits)
+    if spec is None:
+        raise ValueError(f"Unknown benchmark state: {state_name}")
+    return _build_cached_graph(
+        spec.state_id,
+        spec.num_qutrits,
+        tuple(tuple(edge) for edge in spec.edges),
+    )
 
 
 def _get_ame43_graph():
@@ -478,14 +504,13 @@ def _build_encoding_change_circuit(E_new):
 
 def _build_state_circuit(state_name, E_new, encoding_strategy="append_w", n_qutrits=None):
     """Build the base circuit for the given benchmark state."""
-    star_n = _resolve_star_graph_n(state_name, n_qutrits)
-    if star_n is not None:
-        return create_ame_circuit(n=star_n, dim=3, graph_type="star", E_new=E_new,
-                                  encoding_strategy=encoding_strategy)
-    if state_name == "ame43":
-        return create_ame_circuit(dim=3, graph=_get_ame43_graph(), E_new=E_new,
-                                  encoding_strategy=encoding_strategy)
-    raise ValueError(f"Unknown benchmark state: {state_name}")
+    graph = _get_state_graph(state_name, n_qutrits)
+    return create_ame_circuit(
+        dim=3,
+        graph=graph,
+        E_new=E_new,
+        encoding_strategy=encoding_strategy,
+    )
 
 
 def _resolve_circuits_output_dir(state_name, circuits_output_dir):
