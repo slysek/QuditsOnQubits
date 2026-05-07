@@ -1,0 +1,1055 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[polish]{babel}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{microtype}
+
+\geometry{margin=2.4cm}
+
+% ---------- skróty matematyczne ----------
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\id}{\mathbb{I}}
+\newcommand{\1}{\mathbf{1}}
+\newcommand{\bigO}{\mathcal{O}}
+\newcommand{\diag}{\operatorname{diag}}
+\newcommand{\popcount}{\operatorname{popcount}}
+\newcommand{\supp}{\operatorname{supp}}
+\newcommand{\sgn}{\operatorname{sgn}}
+\newcommand{\ket}[1]{\left|#1\right\rangle}
+\newcommand{\bra}[1]{\left\langle#1\right|}
+\newcommand{\braket}[2]{\left\langle#1\,\middle|\,#2\right\rangle}
+\newcommand{\w}{\omega}
+\newcommand{\Alphabet}{\mathcal{A}}
+\newcommand{\Cspace}{\mathcal{C}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+% ---------- styl listingów ----------
+\definecolor{codebg}{rgb}{0.97,0.97,0.97}
+\definecolor{kw}{rgb}{0.10,0.10,0.55}
+\definecolor{cmt}{rgb}{0.30,0.55,0.30}
+\definecolor{str}{rgb}{0.55,0.10,0.10}
+
+\lstdefinestyle{py}{%
+  language=Python,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{kw}\bfseries,
+  commentstyle=\color{cmt}\itshape,
+  stringstyle=\color{str},
+  backgroundcolor=\color{codebg},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=6pt,
+  frame=single,
+  framesep=3pt,
+  framerule=0.2pt,
+  rulecolor=\color{gray!40},
+  xleftmargin=12pt,
+  xrightmargin=2pt,
+  literate=%
+    {ą}{{\k a}}1 {ć}{{\'c}}1 {ę}{{\k e}}1 {ł}{{\l{}}}1
+    {ń}{{\'n}}1 {ó}{{\'o}}1 {ś}{{\'s}}1 {ź}{{\'z}}1 {ż}{{\.z}}1
+    {Ą}{{\k A}}1 {Ć}{{\'C}}1 {Ę}{{\k E}}1 {Ł}{{\L{}}}1
+    {Ń}{{\'N}}1 {Ó}{{\'O}}1 {Ś}{{\'S}}1 {Ź}{{\'Z}}1 {Ż}{{\.Z}}1,
+}
+\lstset{style=py}
+
+\hypersetup{%
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  urlcolor=blue!60!black,
+  citecolor=blue!50!black,
+  pdftitle={d6\_diagonal\_optimizer.py --- dokumentacja po polsku},
+}
+
+\title{\texttt{d6\_diagonal\_optimizer.py}\\[2pt]
+       \large Optymalizacja diagonalnych bramek na dwóch ququdytach $d=6$\\
+       w kodowaniu binarnym na 6 kubitach}
+\author{Dokumentacja techniczna (po polsku, ze szczegółowymi wyjaśnieniami)}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Niniejszy dokument jest pełnym, polskojęzycznym opisem modułu
+\code{d6\_diagonal\_optimizer.py}. Moduł syntetyzuje 6\nobreakdash-kubitową
+realizację diagonalnej bramki $D[\Lambda]$ działającej na parze
+ququdytów wymiaru $d=6$. Wykorzystuje fakt, że spośród $2^{6}=64$ stanów
+bazowych przestrzeni Hilberta tylko $36$ leży w kodowej podprzestrzeni
+qudytowej, a pozostałe $28$ to stany \emph{nielegalne} (\emph{don't-care}),
+których fazy można wybrać dowolnie. Te 28 swobodnych faz jest
+optymalizowanych po to, by powstała sieć bramek \code{CNOT}+\code{RZ}
+była możliwie tania. Dokument tłumaczy każdą część modułu od podstaw:
+matematykę transformaty Walsha, konwencje kodowania i indeksowania,
+strukturę pipeline'u optymalizacyjnego (Random Search, Simulated
+Annealing, relaksacja LP, Greedy, 2\nobreakdash-opt, polerowanie
+\code{transpile}), pełne API wraz z opisem wszystkich argumentów oraz
+wyniki empiryczne na dwóch przykładowych wektorach.
+\end{abstract}
+
+\tableofcontents
+\bigskip\hrule\bigskip
+
+% =====================================================================
+\section{Sformułowanie problemu}
+\label{sec:problem}
+% =====================================================================
+
+\subsection{Bramka diagonalna na dwóch ququdytach $d=6$}
+
+Chcemy zaimplementować unitarną bramkę diagonalną
+\begin{equation}
+\label{eq:Dlambda}
+D[\Lambda] \;=\; \diag\!\bigl(e^{i\theta_{0}},\,e^{i\theta_{1}},\,\dots,\,
+                              e^{i\theta_{35}}\bigr)
+\end{equation}
+działającą na dwóch qudytach wymiaru $d=6$. Operator $D[\Lambda]$ jest
+$36\times 36$, wstępnie określony przez 36 rzeczywistych faz
+$\theta_{0},\dots,\theta_{35}$. Każdy poziom qudytowy
+$a\in\{0,1,2,3,4,5\}$ jest kodowany w trzech kubitach fizycznych za pomocą
+zwykłego kodu binarnego:
+\begin{equation}
+\label{eq:encoding}
+\begin{aligned}
+0 &\;\mapsto\; \ket{000}, &
+1 &\;\mapsto\; \ket{001}, &
+2 &\;\mapsto\; \ket{010}, \\[1pt]
+3 &\;\mapsto\; \ket{011}, &
+4 &\;\mapsto\; \ket{100}, &
+5 &\;\mapsto\; \ket{101}.
+\end{aligned}
+\end{equation}
+Dwa stany $\ket{110}$ oraz $\ket{111}$ każdego trójkubitowego bloku
+\emph{nie} należą do przestrzeni kodowej. Łącznie spośród $2^{6}=64$
+stanów bazowych przestrzeni 6\nobreakdash-kubitowej $36$ jest
+\emph{legalnych} (te, które kodują parę $(a,b)\in\{0,\dots,5\}^{2}$),
+a $28$ jest \emph{nielegalnych} (\emph{don't-care}).
+
+\subsection{Stopnie swobody i cel optymalizacji}
+
+Bramka $D[\Lambda]$ musi działać poprawnie tylko na 36 stanach
+legalnych. Na 28 stanach nielegalnych może działać dowolnie -- w
+szczególności wolno jej tam mieć \emph{dowolne} fazy. Dobrze dobrane
+fazy nielegalne potrafią drastycznie uprościć obwód (zob.\
+sekcja~\ref{sec:why-helps}).
+
+Zadanie modułu rozkłada się na cztery kroki:
+\begin{enumerate}[leftmargin=*]
+  \item dobrać 28 faz \emph{nielegalnych}, traktując je jako parametry
+        rzeczywiste,
+  \item zsyntetyzować unitarną diagonalną dla powstałego wektora długości
+        64 jako sieć \emph{phase gadgets} (\code{CNOT}+\code{RZ}),
+  \item porównać uzyskany obwód z baseline'em z biblioteki Qiskit
+        (\code{DiagonalGate}),
+  \item zwrócić oba obwody wraz z ich kosztami zasobowymi (głębokość,
+        liczba \code{CX}, liczba \code{RZ}).
+\end{enumerate}
+
+% =====================================================================
+\section{Konwencje}
+\label{sec:conventions}
+% =====================================================================
+
+Wszystkie konwencje poniżej są ustalone i konsekwentnie stosowane w
+całym module.
+
+\subsection{Endianness i indeks bazy}
+\label{sec:endianness}
+
+Indeks stanu bazowego pary $(a,b)$ definiujemy jako
+\begin{equation}
+\label{eq:index}
+\mathrm{index}(a,b) \;=\; (a \ll 3) \,\lor\, b \;=\; 8a+b,
+\qquad a,b\in\{0,\dots,5\}.
+\end{equation}
+Tutaj $\ll$ to przesunięcie bitowe w lewo, a $\lor$ to bitowe \emph{or}
+(równoważnie dodawanie, bo bity nie kolidują). Oznacza to, że:
+\begin{itemize}[leftmargin=*]
+  \item kubity numerowane jako \textbf{5, 4, 3} przenoszą trzybitowy
+        kod binarny qudytu $a$ (kubit~5 jest najbardziej znaczący),
+  \item kubity numerowane jako \textbf{2, 1, 0} przenoszą trzybitowy
+        kod binarny qudytu $b$.
+\end{itemize}
+W konwencji Qiskit-a indeks $k\in\{0,\dots,63\}$ stanu bazowego
+odpowiada konfiguracji, w której fizyczny kubit $i$ przyjmuje wartość
+$(k \gg i)\,\&\,1$ (gdzie $\gg$ to przesunięcie w prawo, a~$\&$ to bitowe
+\emph{and}). Innymi słowy, najmłodszy bit $k$ to wartość kubitu~0.
+
+\paragraph{Indeksy legalne i nielegalne.} Zbiór indeksów legalnych to
+dokładnie obrazy~\eqref{eq:index} dla $a,b\in\{0,\dots,5\}$:
+\begin{equation}
+\label{eq:legal}
+L \;=\; \bigl\{\,8a+b\;:\;0\le a,b\le 5\,\bigr\},\qquad |L|=36.
+\end{equation}
+Pozostałe $28$ indeksów stanowi $L^{c}\subset\{0,\dots,63\}$:
+\begin{lstlisting}
+from d6_diagonal_optimizer import legal_indices, illegal_indices
+assert len(legal_indices()) == 36
+assert len(illegal_indices()) == 28
+assert set(legal_indices()).isdisjoint(illegal_indices())
+\end{lstlisting}
+
+\subsection{Kolejność wektora \texttt{diag36}}
+\label{sec:order}
+
+\code{diag36} jest płaskim wektorem długości 36 zawierającym fazy faz
+legalnych. Moduł obsługuje dwa porządki:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{\code{order="row-major"}} (domyślnie): \\
+        \code{diag36[6*a + b]} jest fazą stanu $\ket{a,b}$. Odpowiada
+        to czytaniu tabeli $6\times6$ wierszami (indeksowanej przez
+        $a$ w wierszach, $b$ w kolumnach), zgodnie z notacją artykułu
+        AME(4,6).
+  \item \textbf{\code{order="col-major"}}: \\
+        \code{diag36[a + 6*b]} jest fazą stanu $\ket{a,b}$.
+\end{itemize}
+Wybór tej opcji wpływa wyłącznie na to, w jaki sposób użytkownik
+indeksuje wejście; wszystkie obliczenia wewnętrzne korzystają z
+indeksu~\eqref{eq:index}.
+
+\subsection{Format wejściowy}
+
+\code{diag36} może być podany jako:
+\begin{itemize}[leftmargin=*]
+  \item tablica długości 36 \textbf{liczb zespolonych} o module 1
+        (np.\ \code{[1, omega, omega.conjugate(), \dots]}); moduł
+        wyciąga z nich kąt fazowy przez \code{np.angle}, \emph{albo}
+  \item tablica długości 36 \textbf{rzeczywistych faz w radianach}.
+\end{itemize}
+
+\paragraph{Auto-detekcja typu (funkcja \code{\_phases\_from\_diag36}).}
+Algorytm rozpoznawania typu wejścia działa następująco:
+\begin{enumerate}[leftmargin=*]
+  \item jeżeli \code{dtype} jest zespolony lub którakolwiek z części
+        urojonych jest niezerowa $\Rightarrow$ traktujemy wejście jako
+        zespolone i bierzemy $\theta_{j}=\arg(\code{diag36}[j])$;
+  \item w przeciwnym razie, jeśli wszystkie wpisy mają wartość
+        bezwzględną równą $1$ z tolerancją numeryczną
+        $\Rightarrow$ traktujemy wejście jako rzeczywiste $\pm 1$
+        i ponownie bierzemy fazę;
+  \item w pozostałych przypadkach $\Rightarrow$ traktujemy wpisy jako
+        \emph{surowe kąty} fazowe w radianach.
+\end{enumerate}
+
+\subsection{Normalizacja faz}
+\label{sec:normalize}
+
+Przed transformatą Walsha wszystkie fazy są \emph{zawijane} do
+półotwartego przedziału $(-\pi,\pi]$ funkcją \code{normalize\_phase}.
+Każde \emph{podniesienie} $\theta+2\pi k(x)$ dla całkowitoliczbowego
+$k(x)$ nie zmienia $e^{i\theta(x)}$ -- jest to swobodny wybór, ale
+różny wybór $k(\cdot)$ daje różne współczynniki Walsha (a więc różne
+syntezy). Moduł zawsze stosuje \emph{kanoniczną} reprezentację z
+wartością główną.
+
+\subsection{Konwencja \texttt{RZ} w Qiskicie}
+\label{sec:rz-convention}
+
+W Qiskicie obowiązuje
+\begin{equation}
+\label{eq:rz}
+\mathrm{RZ}(\varphi) \;=\; e^{-\,i\,\varphi\,Z/2}
+\;=\; \diag\!\bigl(e^{-i\varphi/2},\,e^{i\varphi/2}\bigr).
+\end{equation}
+Aby $e^{i\,c\,Z}$ pokrywało się z~\eqref{eq:rz}, trzeba mieć
+$\varphi=-2c$. Wielokubitowy operator
+$\exp(i\,c\,Z_{S})$, gdzie $Z_{S}=\bigotimes_{i\in S}Z_{i}$, jest
+realizowany jako:
+\begin{enumerate}[leftmargin=*]
+  \item drabinka \code{CNOT} przenosząca parzystość bitów na ostatni
+        kubit nośnika $S$ (\emph{target}),
+  \item pojedyncza bramka $\mathrm{RZ}(-2c)$ na tym kubicie,
+  \item odwrócona drabinka \code{CNOT} odkomputowująca parzystość.
+\end{enumerate}
+Dla $|S|=1$ drabinka jest pusta i emitujemy tylko \code{RZ}. Zgodność
+ze \code{qiskit.circuit.library.DiagonalGate} jest weryfikowana
+numerycznie w \code{\_self\_tests}.
+
+% =====================================================================
+\section{Rozwinięcie Walsha (wielomian fazowy)}
+\label{sec:walsh}
+% =====================================================================
+
+\subsection{Definicja i interpretacja}
+
+Dla unitarnej diagonalnej $D=\diag\bigl(e^{i\theta_{0}},\dots,
+e^{i\theta_{N-1}}\bigr)$ na $n$ kubitach, $N=2^{n}$, każdą fazę
+zapisujemy w bazie znaków grupy $\F_{2}^{\,n}$:
+\begin{equation}
+\label{eq:walsh-expansion}
+\theta(x) \;=\; \sum_{S\in\{0,1\}^{n}} c_{S}\,(-1)^{\popcount(S \,\&\, x)},
+\qquad x\in\{0,\dots,N-1\}.
+\end{equation}
+Tutaj $S\,\&\, x$ to bitowe \emph{and}, a $\popcount(\cdot)$ to liczba
+jedynek w zapisie binarnym (\emph{Hamming weight}). Współczynniki
+$c_{S}\in\R$ to transformata Walsha--Hadamarda funkcji $\theta(\cdot)$:
+\begin{equation}
+\label{eq:walsh-coeff}
+c_{S} \;=\; \frac{1}{N}\sum_{x=0}^{N-1}\theta(x)\,(-1)^{\popcount(S\,\&\, x)}.
+\end{equation}
+Równoważnie:
+\begin{equation}
+\label{eq:walsh-D}
+D \;=\; e^{i c_{0}}\cdot\id\,\cdot\;\prod_{S\neq 0}\,e^{\,i\,c_{S}\,Z^{S}},
+\qquad
+Z^{S}\;=\;\bigotimes_{i\in S} Z_{i}.
+\end{equation}
+Każdy niezerowy współczynnik $c_{S}$ odpowiada jednemu \emph{phase
+gadgetowi} (sekcja~\ref{sec:rz-convention}): drabince \code{CNOT}
+liczącej parzystość $\bigoplus_{i\in S} x_{i}$, jednej rotacji
+\code{RZ($-2 c_{S}$)} na targecie i odwróconej drabince. Wyraz $c_{0}$
+to globalna faza -- w obwodzie zwijamy ją do \code{qc.global\_phase}
+i nigdy nie syntetyzujemy.
+
+\subsection{Implementacja transformaty}
+
+Transformata Walsha jest liczona w miejscu \emph{butterfly}-em w
+$\bigO(N\log N)$ ze znakową konwencją
+$h[m]=\sum_{k}(-1)^{\popcount(m\&k)}\theta_{k}$, a następnie skalowana
+przez $1/N$. Tolerancja numeryczna na obcięcie małych współczynników
+(parametr \code{tol}) wynosi domyślnie $10^{-10}$. Test \emph{round-trip}
+\code{theta -> walsh -> theta} jest wykonywany w
+\code{\_self\_tests}.
+
+% =====================================================================
+\section{Dlaczego optymalizacja faz \emph{don't-care} pomaga?}
+\label{sec:why-helps}
+% =====================================================================
+
+\subsection{Koszt syntezy zależy od liczby niezerowych $c_{S}$}
+
+Zarówno synteza Qiskit-owa (\code{DiagonalGate}) jak i synteza poprzez
+\emph{phase gadgety} płacą jedną bramkę \code{RZ} (oraz pewną liczbę
+\code{CX}) za \emph{każdy} niezerowy współczynnik Walsha $c_{S}$.
+Konkretnie:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Phase gadgets}: drabinka \code{CNOT} dla nośnika
+        $S\subseteq\{0,\dots,n-1\}$ kosztuje $2(|S|-1)$ bramek
+        \code{CX} (drabinka i jej odwrócenie) oraz jedną \code{RZ}.
+  \item \textbf{\code{DiagonalGate}}: Qiskit używa konstrukcji typu
+        Shende (rząd $2^{n}-2$ bramek \code{CX} w najgorszym razie),
+        natomiast późniejszy \code{transpile} eliminuje wszystkie
+        rotacje o kącie dokładnie zerowym, co często oszczędza
+        bardzo wiele \code{CX}.
+\end{itemize}
+W obu przypadkach: \emph{im mniej niezerowych $c_{S}$, tym tańszy
+obwód.}
+
+\subsection{Afiniczna zależność od faz nielegalnych}
+
+Fazy 36 indeksów \emph{legalnych} są ustalone przez $D[\Lambda]$.
+Pozostałych 28 faz \emph{nielegalnych}
+$\theta^{\mathrm{ill}}\in\R^{28}$
+to swobodne parametry. Z definicji
+transformaty~\eqref{eq:walsh-coeff} każdy współczynnik $c_{S}$ jest
+\emph{afiniczną} funkcją $\theta^{\mathrm{ill}}$:
+\begin{equation}
+\label{eq:cS-affine}
+c_{S} \;=\; \mathrm{const}_{S} \;+\; \sum_{i=0}^{27}
+B_{S,i}\,\theta^{\mathrm{ill}}_{i},
+\qquad
+B_{S,i} \;=\; \frac{(-1)^{\popcount(S\,\&\, k^{\mathrm{ill}}_{i})}}{N},
+\end{equation}
+gdzie $k^{\mathrm{ill}}_{i}$ jest $i$-tym indeksem nielegalnym, a
+$\mathrm{const}_{S}$ to wkład 36 indeksów legalnych. Macierz $B$ ma
+rozmiar $63\times 28$ (bez wiersza $S=0$, bo ten jest globalną fazą),
+a jej wpisy są równe $\pm 1/N$.
+
+\paragraph{Przestrzeń poszukiwań.} Wektory $(c_{S})_{S\neq 0}$ leżą
+w 28-wymiarowej afinicznej podprzestrzeni $\R^{63}$. Po ograniczeniu do
+dyskretnego alfabetu (np.\ $\Alphabet=\{0,\,2\pi/3,\,-2\pi/3\}$) zostaje
+\emph{krata} $|\Alphabet|^{28}=3^{28}\approx 2{,}3\times 10^{13}$
+konfiguracji. Cel: znaleźć punkt o jak najmniejszej liczbie niezerowych
+$c_{S}$ (równoważnie, najrzadszy punkt w afinicznej podprzestrzeni).
+
+\subsection{Trudność problemu}
+
+To w ogólności trudny problem kombinatoryczny / odzyskiwania rzadkiego
+sygnału ($\ell_{0}$-minimalizacji). Moduł atakuje go \emph{stosem
+heurystyk}: random search $\to$ multi-restart simulated annealing $\to$
+relaksacja LP $\to$ greedy coordinate descent $\to$ pairwise 2-opt,
+i opcjonalnie poleruje wynik metryką, którą obliczamy faktycznym
+\code{transpile}'em (sekcja~\ref{sec:pipeline}).
+
+% =====================================================================
+\section{Pipeline optymalizatora}
+\label{sec:pipeline}
+% =====================================================================
+
+W trybie domyślnym \code{method="best\_of"} etapy są wykonywane w
+następującej kolejności i każdy aktualizuje wspólny rekord
+$(\theta^{\mathrm{ill}}_{\mathrm{best}}, \mathrm{cost}_{\mathrm{best}})$:
+
+\begin{equation*}
+\boxed{\;
+\begin{array}{l}
+\text{(1) random\_search}\\
+\;\;\downarrow\\
+\text{(2) multi\_restart\_simulated\_annealing}\;\;(n_\mathrm{restarts}=6)\\
+\;\;\downarrow\\
+\text{(3) lp\_relax\_walsh\_l1}\;+\;\text{projekcja na alfabet}\\
+\;\;\downarrow\\
+\text{(4) lp(rounded)}\;\to\;\text{greedy\_coordinate\_descent}\\
+\;\;\downarrow\\
+\text{(5) multi\_restart\_greedy}\;\;(n_\mathrm{restarts}=6)\\
+\;\;\downarrow\\
+\text{(6) two\_opt\_descent}\;\;(\text{finalny pairwise local search})\\
+\;\;\downarrow\\
+\text{(7) opcjonalny polish\_target z transpile()}
+\end{array}\;}
+\end{equation*}
+
+Każdy etap dostaje \emph{cały} budżet \code{max\_iters}; dodawanie
+nowych etapów może co najwyżej wzmocnić wyszukiwanie (kosztem czasu) --
+nigdy go nie osłabi. Poniżej szczegółowy opis każdego etapu.
+
+% ---------------------------------------------------------------------
+\subsection{Random search (RS)}
+\label{sec:rs}
+
+Funkcja \code{random\_search(legal\_phases, ..., alphabet, max\_iters,
+seed)}. Algorytm:
+\begin{enumerate}[leftmargin=*]
+  \item w każdej iteracji losujemy 28 faz nielegalnych \emph{i.i.d.}
+        z dyskretnego alfabetu $\Alphabet$;
+  \item budujemy pełen wektor $\theta\in\R^{64}$ przez wstawienie 36
+        legalnych faz na pozycje legalne i 28 wylosowanych na pozycje
+        nielegalne (\code{\_build\_theta64});
+  \item liczymy \code{phase\_polynomial\_cost} (zob.\
+        sekcja~\ref{sec:cost});
+  \item zapamiętujemy konfigurację o najmniejszym koszcie.
+\end{enumerate}
+Tania, deterministyczna (przy ustalonym \code{seed}) baseline'owa
+strategia. Dla naturalnego alfabetu
+$\Alphabet=\{0,\,2\pi/3,\,-2\pi/3\}$ przestrzeń ma $3^{28}\approx
+2{,}3\times 10^{13}$ punktów -- nawet 4000 losowań wyłapuje rozsądne
+\emph{baseny przyciągania} dla późniejszych etapów.
+
+% ---------------------------------------------------------------------
+\subsection{Multi-restart simulated annealing}
+\label{sec:sa}
+
+Funkcja \code{multi\_restart\_simulated\_annealing(...)} uruchamia
+\code{simulated\_annealing} $n_{\mathrm{restarts}}$ razy:
+\begin{itemize}[leftmargin=*]
+  \item \emph{pierwszy} restart startuje \emph{na ciepło} z dotychczas
+        najlepszej konfiguracji (typowo z RS),
+  \item kolejne restarty startują z nowych losowych konfiguracji.
+\end{itemize}
+Każdy pojedynczy SA wykonuje ruchy \emph{pojedynczych zmian} (single-flip
+Metropolis): w każdej iteracji wybieramy losowy indeks $i\in\{0,\dots,27\}$
+i losową wartość $a'\in\Alphabet$; akceptujemy zmianę
+$\theta^{\mathrm{ill}}_{i}\leftarrow a'$ z prawdopodobieństwem
+$\min(1, e^{-\Delta/T})$, gdzie $\Delta$ to przyrost kosztu, a $T$ to
+aktualna temperatura. Schemat chłodzenia jest geometryczny od
+$T_{\mathrm{start}}=\max(2,\,0{,}5\cdot\mathrm{cost})$ do
+$T_{\mathrm{end}}=0{,}05$.
+
+\paragraph{Po co restarty.} Restarty są głównym lekarstwem na
+tendencję pojedynczego SA do utykania w tym samym lokalnym minimum,
+w którym leży RS-warmstart. Sześć restartów jest tanim, dobrze
+zbadanym kompromisem.
+
+% ---------------------------------------------------------------------
+\subsection{Relaksacja LP $\min \|c\|_{1}$}
+\label{sec:lp}
+
+Funkcja \code{lp\_relax\_walsh\_l1(legal\_phases, legal\_idx,
+illegal\_idx)} rozwiązuje \emph{ciągłą} wypukłą relaksację
+\begin{equation}
+\label{eq:lp}
+\min_{\theta^{\mathrm{ill}}\in[-\pi,\pi]^{28}}\;
+\sum_{S\neq 0}\;\bigl|\,\mathrm{const}_{S}+B_{S,:}\,\theta^{\mathrm{ill}}\,\bigr|.
+\end{equation}
+Po standardowej linearyzacji modułu wprowadzamy zmienne pomocnicze
+$u_{S}\ge 0$ takie, że
+$-u_{S}\le\mathrm{const}_{S}+B_{S,:}\theta^{\mathrm{ill}}\le u_{S}$.
+W rezultacie mamy LP w
+\begin{itemize}[leftmargin=*]
+  \item $28+63=91$ zmiennych ($\theta^{\mathrm{ill}}$ + zmienne $u$),
+  \item $2\cdot 63=126$ nierównościach ograniczających moduł,
+  \item plus pudełkowe ograniczenia $[-\pi,\pi]$ na $\theta^{\mathrm{ill}}$.
+\end{itemize}
+Rozwiązanie: solver HiGHS przez \code{scipy.optimize.linprog}.
+
+\paragraph{Dlaczego $\ell_{1}$.} Minimalizacja $\ell_{1}$ jest
+standardową \emph{wypukłą} relaksacją problemu $\ell_{0}$ (liczby
+niezerowych) i sprzyja rzadkim rozwiązaniom (zob.\ teorię
+\emph{compressed sensing}). Po znalezieniu rozwiązania ciągłego
+projektujemy je per-koordynata na najbliższy punkt alfabetu (funkcja
+\code{\_project\_to\_alphabet}, dystans cykliczny
+$\bmod 2\pi$), a następnie polerujemy \code{greedy\_coordinate\_descent}.
+
+\paragraph{Praktyka.} Dla wektorów z sekcji~\ref{sec:results}
+\emph{zaokrąglony} punkt LP nie jest dyskretnym optimum -- legalne fazy
+żyją w podkratownicy \emph{trzecich pierwiastków z 1}, a LP nie widzi
+struktury dyskretnej. Niemniej dostarcza \emph{innego} startu, co bywa
+istotne, gdy etapy losowe i SA skleiły się w jednym basenie.
+
+% ---------------------------------------------------------------------
+\subsection{Greedy coordinate descent (1-opt)}
+\label{sec:greedy}
+
+Funkcja \code{greedy\_coordinate\_descent(legal\_phases, ...,
+init\_phases, eval\_cost, max\_passes=12)}. Algorytm:
+\begin{enumerate}[leftmargin=*]
+  \item rozpoczynamy z \code{init\_phases};
+  \item w każdym \emph{przebiegu} chodzimy po 28 indeksach nielegalnych
+        kolejno; dla każdego sprawdzamy \emph{wszystkie} wartości
+        alfabetu i przyjmujemy tę o najmniejszym koszcie;
+  \item kończymy, gdy w pełnym przebiegu żaden indeks nie poprawił
+        kosztu (lub po \code{max\_passes} przebiegach).
+\end{enumerate}
+Przy $|\Alphabet|=3$ i 28 indeksach pojedynczy przebieg wymaga
+$28\cdot 3=84$ ewaluacji kosztu; konwergencja wymaga zazwyczaj 3--5
+przebiegów. Tani, w pełni deterministyczny, niezawodnie schodzi do
+lokalnego minimum (1-opt).
+
+Funkcja \code{multi\_restart\_greedy(...)} uruchamia 6 \emph{greedy}-ów
+z losowych startów (i opcjonalnie jeden \emph{warm-start} z bieżącego
+najlepszego), zachowując konfigurację o najmniejszym koszcie.
+
+% ---------------------------------------------------------------------
+\subsection{Pairwise 2-opt local search}
+\label{sec:2opt}
+
+Funkcja \code{two\_opt\_descent(legal\_phases, ..., init\_phases,
+eval\_cost, max\_passes=3)}. Algorytm:
+\begin{enumerate}[leftmargin=*]
+  \item dla każdej \emph{nieuporządkowanej} pary $(i,j)$ indeksów
+        nielegalnych, $i<j$;
+  \item dla każdego \emph{wspólnego} przypisania
+        $(a_{i}, a_{j})\in\Alphabet\times\Alphabet$;
+  \item przyjmujemy parę o najmniejszym koszcie (jeśli poprawia
+        bieżący stan).
+\end{enumerate}
+Koszt pojedynczego przebiegu przy $|\Alphabet|=3$:
+$\binom{28}{2}\cdot 9 = 378\cdot 9 = 3402$ ewaluacji.
+
+\paragraph{Dlaczego 2-opt jest ważny.} W eksperymentach to ten etap
+\emph{przesuwa najwięcej} (na wektorze \code{D\_Lambda\_23}: liczba
+wyrazów Walsha $45\to 33$, głębokość baseline'u $94\to 80$). Greedy
+1-opt schodzi do takiego minimum, w którym żadna \emph{pojedyncza}
+zmiana nie poprawi kosztu, ale wiele takich minimów daje się jeszcze
+opuścić zmieniając \emph{dwa} indeksy jednocześnie. 2-opt pokrywa
+dokładnie te kierunki. 3-opt i wyższe nie są zaimplementowane, bo
+sześcienny narzut rzadko się opłaca.
+
+% ---------------------------------------------------------------------
+\subsection{Opcjonalne polerowanie z \texttt{transpile}}
+\label{sec:polish}
+
+Parametr \code{polish\_target} (domyślnie \code{"cx\_then\_depth"})
+włącza ostatnią rundę \code{greedy\_coordinate\_descent}, w której
+funkcja kosztu jest wyliczana \emph{realnym} \code{transpile}'em:
+\begin{lstlisting}
+def polish_eval(theta64):
+    return transpile_metric(
+        theta64,
+        target=polish_target,           # "depth" / "cx" / "weighted" / "cx_then_depth"
+        via=polish_via,                 # "diagonal_gate" lub "phase_gadget"
+        basis_gates=qiskit_basis,
+        optimization_level=optimization_level,
+        seed_transpiler=seed,
+    )
+\end{lstlisting}
+
+\paragraph{Cele polerowania (\code{polish\_target}).}
+\begin{itemize}[leftmargin=*]
+  \item \code{"depth"} -- minimalizujemy głębokość obwodu po
+        \code{transpile},
+  \item \code{"cx"} -- minimalizujemy liczbę bramek \code{CX},
+  \item \code{"weighted"} -- ważona kombinacja \code{cx} i głębokości,
+  \item \code{"cx\_then\_depth"} -- leksykograficznie:
+        najpierw \code{cx}, w razie remisu głębokość.
+\end{itemize}
+Polerowanie jest wolne (jedno \code{transpile} na ewaluację, $\sim$50
+ms), ale optymalizuje \emph{dokładnie} tę metrykę, na której zależy
+użytkownikowi. Na obu przykładowych wektorach z sekcji~\ref{sec:results}
+polerowanie nie znajduje poprawy poza minimum kosztu Walshowego --
+zastępczy koszt Walsha jest wystarczająco \emph{ciasny}. Polerowanie
+domyślnie pozostaje włączone jako siatka bezpieczeństwa dla
+przypadków, w których zastępczy koszt jest luźny. Można je wyłączyć
+ustawiając \code{polish\_target=None}.
+
+% ---------------------------------------------------------------------
+\subsection{Funkcja kosztu}
+\label{sec:cost}
+
+\code{phase\_polynomial\_cost(theta64, ...)} zwraca
+\code{CostBreakdown} o czterech polach skalarnych:
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}l p{0.62\linewidth}}
+\toprule
+\rmfamily\textbf{Składnik} & \textbf{Znaczenie}\\
+\midrule
+num\_nonzero\_terms & liczba niezerowych współczynników Walsha (bez $S=0$)\\
+cx\_estimate        & naiwny koszt \code{CX} dla phase gadgets:
+                       $\displaystyle \sum_{S\,:\,c_{S}\neq 0} 2(\popcount(S)-1)$\\
+weighted\_terms     & $\displaystyle \sum_{S\,:\,c_{S}\neq 0} \popcount(S)$\\
+max\_support        & $\displaystyle \max_{S\,:\,c_{S}\neq 0} \popcount(S)$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+Łączny skalar (domyślne wagi):
+\begin{equation}
+\label{eq:cost}
+\mathrm{cost} \;=\; 1{,}0\cdot\code{cx\_estimate}
+\;+\; 0{,}1\cdot\code{num\_nonzero\_terms}
+\;+\; 0{,}05\cdot\code{max\_support}.
+\end{equation}
+Wagi można nadpisać argumentem
+\code{cost\_weights=\{"cx":..., "terms":..., "support":..., "weighted":...\}}.
+Optymalizator minimalizuje \eqref{eq:cost}; etap polerujący opcjonalnie
+minimalizuje metrykę pochodzącą z \code{transpile}.
+
+% =====================================================================
+\section{Synteza phase gadgetów}
+\label{sec:gadgets}
+% =====================================================================
+
+\code{synthesize\_phase\_gadgets(theta64, tol=1e-10, num\_qubits=6)}
+buduje obiekt \code{QuantumCircuit(6)} zawierający wyłącznie bramki
+\code{CX} oraz \code{RZ}, plus globalną fazę. Algorytm:
+\begin{enumerate}[leftmargin=*]
+  \item liczymy współczynniki Walsha $\{S\mapsto c_{S}\}$
+        z tolerancją \code{tol};
+  \item ustawiamy \code{qc.global\_phase = $c_{0}$} (tego wyrazu nie
+        syntetyzujemy);
+  \item sortujemy pozostałe pary $(S,c_{S})$ po
+        $(\popcount(S),S)$ -- to czyni listę ładnie czytelną;
+  \item dla każdego $(S,c_{S})$ liczymy nośnik $\supp(S)=
+        [q_{0},\dots,q_{k-1}]$, ustawiamy target $t=q_{k-1}$ i
+        emitujemy:
+        \begin{itemize}
+          \item drabinkę \code{CX}: $\code{cx}(q_{0},t),
+                \code{cx}(q_{1},t),\dots,\code{cx}(q_{k-2},t)$,
+          \item \code{rz($-2 c_{S}$, $t$)},
+          \item odwróconą drabinkę \code{CX}.
+        \end{itemize}
+        Dla $k=1$ emitujemy tylko \code{rz}.
+\end{enumerate}
+Wynik jest \emph{ściśle} unitarną diagonalną; jest to weryfikowane w
+\code{\_self\_tests} i w funkcji \code{extract\_diagonal\_from\_circuit},
+która rzuca wyjątkiem, jeśli unitarne nie jest diagonalne w obrębie
+tolerancji.
+
+% =====================================================================
+\section{Publiczne API}
+\label{sec:api}
+% =====================================================================
+
+Po imporcie modułu dostępne są następujące nazwy:
+
+\begin{lstlisting}
+from d6_diagonal_optimizer import (
+    # kodowanie / indeksowanie
+    encode_qudit_level, pair_to_qubit_index, qubit_index_to_pair,
+    legal_indices, illegal_indices,
+    # obsluga wektora faz
+    diag36_to_theta64, normalize_phase,
+    # wielomian fazowy / koszt
+    walsh_coefficients, phase_polynomial_cost,
+    # synteza
+    synthesize_phase_gadgets,
+    # walidacja
+    verify_on_code_space, extract_diagonal_from_circuit,
+    # bloki budulcowe optymalizatora
+    random_search, simulated_annealing,
+    multi_restart_simulated_annealing,
+    greedy_coordinate_descent, multi_restart_greedy,
+    two_opt_descent, lp_relax_walsh_l1, transpile_metric,
+    # glowny entry point
+    optimize_d6_diagonal,
+)
+\end{lstlisting}
+
+% ---------------------------------------------------------------------
+\subsection{\texttt{optimize\_d6\_diagonal} -- główny punkt wejścia}
+\label{sec:optimize-api}
+
+\begin{lstlisting}
+optimize_d6_diagonal(
+    diag36,
+    phase_alphabet="default",      # "default" | None | iterowalne float-ow
+    max_iters=4000,
+    seed=12345,
+    qiskit_basis=None,             # domyslnie ["rz","sx","x","cx"]
+    optimization_level=3,
+    order="row-major",             # lub "col-major"
+    method="best_of",              # "random"|"sa"|"greedy"|"lp"|"both"|"best_of"
+    cost_weights=None,
+    tol=1e-10,
+    verbose=False,
+    n_restarts=6,
+    polish_target="cx_then_depth", # None | "depth" | "cx" | "weighted" | "cx_then_depth"
+    polish_via="diagonal_gate",    # lub "phase_gadget"
+    polish_max_passes=6,
+) -> dict
+\end{lstlisting}
+
+\paragraph{\texttt{phase\_alphabet}.}
+\begin{itemize}[leftmargin=*]
+  \item \code{"default"} $\to$ alfabet $\{0,\,2\pi/3,\,-2\pi/3\}$.
+        Naturalny dla wejść o wartościach w $\w_{3}$ (np.\ AME(4,6)).
+  \item \code{None} $\to$ \emph{unikalne} fazy występujące we wpisach
+        legalnych (zaokrąglone do 12 cyfr po przecinku). Trzymamy się
+        wtedy alfabetu wejścia.
+  \item dowolny iterowalny obiekt z liczbami zmiennoprzecinkowymi
+        $\to$ używany dosłownie.
+\end{itemize}
+
+\paragraph{\texttt{method}.}
+\begin{itemize}[leftmargin=*]
+  \item \code{"random"} $\to$ tylko Random Search,
+  \item \code{"sa"} $\to$ tylko (multi-restart) SA,
+  \item \code{"greedy"} $\to$ tylko (multi-restart) Greedy,
+  \item \code{"lp"} $\to$ LP $\to$ projekcja $\to$ greedy,
+  \item \code{"both"} $\to$ RS $\to$ multi-restart SA (poprzedni
+        domyślny),
+  \item \code{"best\_of"} $\to$ pełen pipeline z sekcji~\ref{sec:pipeline}
+        (obecny domyślny).
+\end{itemize}
+
+\paragraph{Wartość zwracana.}
+Funkcja zwraca słownik z artefaktami:
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}l p{0.62\linewidth}}
+\toprule
+\rmfamily\textbf{Klucz} & \textbf{Znaczenie}\\
+\midrule
+best\_theta64           & wektor faz długości 64 (legalne z \code{diag36},
+                          nielegalne dobrane przez optymalizator)\\
+best\_diag64            & \code{np.exp(1j * best\_theta64)}\\
+best\_illegal\_phases   & lista długości 28 -- wybrane fazy \emph{don't-care}\\
+legal\_indices,
+illegal\_indices        & listy 36 i 28 indeksów\\
+walsh\_coeffs           & słownik \code{\{mask: c\_S\}} po obcięciu tolerancją\\
+num\_nonzero\_terms,
+cx\_estimate,
+max\_support            & podsumowujące liczby z \code{phase\_polynomial\_cost}\\
+alphabet                & faktycznie użyty alfabet\\
+method,
+polish\_target,
+polished                & co zostało uruchomione i czy polerowanie pomogło\\
+phase\_gadget\_circuit  & naiwny obwód \code{CX}+\code{RZ} (przed transpile)\\
+transpiled\_circuit     & ten sam po \code{transpile} do żądanej bazy\\
+baseline\_circuit       & Qiskitowy \code{DiagonalGate(64)} -> \code{transpile},
+                          z fazami \emph{don't-care} dobranymi przez optymalizator\\
+metrics                 & głębokość/\code{cx}/\code{rz} oraz rozkład
+                          per-bramka dla wszystkich trzech obwodów\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ---------------------------------------------------------------------
+\subsection{Funkcje walidujące}
+\label{sec:validate}
+
+\paragraph{\texttt{verify\_on\_code\_space(qc, diag36, order="row-major")}.}
+Zwraca \emph{największy} z modułów odchyleń pomiędzy diagonalą obwodu na
+36 indeksach legalnych a celem \code{diag36}, po wyrównaniu globalnej
+fazy w punkcie referencyjnym o największej wartości bezwzględnej.
+Indeksy \emph{don't-care} są ignorowane. Próg
+$<10^{-7}$ jest stosowany jako rygorystyczna asercja w testach.
+
+\paragraph{\texttt{extract\_diagonal\_from\_circuit(qc, atol=1e-9)}.}
+Zwraca diagonalę macierzy \code{Operator(qc).data}. Rzuca
+\code{ValueError}, jeśli unitarne nie jest diagonalne w obrębie
+\code{atol}.
+
+% ---------------------------------------------------------------------
+\subsection{Self-testy}
+\label{sec:tests}
+
+Funkcja \code{\_self\_tests()} (uruchamiana z bloku \code{\_\_main\_\_})
+sprawdza:
+\begin{enumerate}[leftmargin=*]
+  \item helpery kodowania/indeksów: zbiory legalnych i nielegalnych
+        są rozłączne, ich suma to \code{range(64)}, każdy indeks
+        legalny rozkłada się na $(a,b)$ z $a,b<6$;
+  \item \emph{round-trip} transformaty Walsha--Hadamarda na losowym
+        wektorze;
+  \item zgodność \code{synthesize\_phase\_gadgets} z
+        \code{qiskit.DiagonalGate} z dokładnością do globalnej fazy
+        na losowej diagonali;
+  \item \code{verify\_on\_code\_space} $<10^{-7}$ na losowym
+        \code{diag36}.
+\end{enumerate}
+
+% =====================================================================
+\section{Wyniki empiryczne}
+\label{sec:results}
+% =====================================================================
+
+Wszystkie liczby poniżej są dla parametrów domyślnych:
+\begin{itemize}[leftmargin=*]
+  \item \code{phase\_alphabet="default"},
+  \item \code{max\_iters=4000}, \code{seed=2024},
+  \item \code{method="best\_of"}, \code{polish\_target="cx\_then\_depth"},
+  \item \code{basis\_gates=["rz","sx","x","cx"]},
+        \code{optimization\_level=3},
+\end{itemize}
+na Qiskit 2.3.1.
+
+% ---------------------------------------------------------------------
+\subsection{Wektor A -- oryginalne $D[\Lambda_{2,3}]$
+            (\texttt{\_example\_d\_lambda\_2\_3})}
+\label{sec:vec-A}
+
+\begin{lstlisting}
+omega3     = np.exp(2j * np.pi / 3)
+omega3_bar = np.conj(omega3)
+diag = np.array([
+     1, omega3, omega3_bar, omega3, omega3_bar, 1,
+     1,      1,      omega3,      1, omega3_bar, 1,
+     1, omega3,           1, omega3_bar,         1, 1,
+     1, omega3_bar,       1, omega3, omega3, omega3,
+     omega3_bar, omega3_bar, omega3_bar, omega3_bar, 1, 1,
+     omega3, omega3, omega3_bar, 1, 1, omega3_bar,
+])
+\end{lstlisting}
+
+\begin{center}
+\begin{tabular}{l r r r r}
+\toprule
+\textbf{obwód} & \textbf{depth} & \textbf{cx} & \textbf{rz} &
+\textbf{niez.\ wyr.\ Walsha}\\
+\midrule
+naiwny baseline (\emph{don't-care} = 1) & --- & --- & --- & ---\\
+phase-gadget (raw)                       & 173 & 150 & 41 & 41\\
+phase-gadget po \code{transpile}         & 125 & 102 & 41 & 41\\
+\code{DiagonalGate} baseline
+   (z optymalizowanymi \emph{don't-care}) & \textbf{85} & \textbf{50} & 41 & 41\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+\code{verify\_on\_code\_space} $\approx 1{,}5\times 10^{-15}$ dla
+wszystkich trzech wariantów. Wszystkie etapy optymalizatora skupiły się
+na tym samym koszcie Walshowym
+(\code{cost}$=154{,}350$, \code{cx\_estimate}$=150$,
+\code{terms}$=41$, \code{max\_support}$=5$); 2-opt i polerowanie
+\code{transpile} nie znalazły poprawy. Lokalne optimum jest dla tego
+wejścia wyraźnie ciasne.
+
+% ---------------------------------------------------------------------
+\subsection{Wektor B -- \texttt{D\_Lambda\_23} dostarczony przez
+            użytkownika}
+\label{sec:vec-B}
+
+\begin{lstlisting}
+D_Lambda_23 = np.array([
+    1,
+    omega3_bar, omega3_bar, omega3_bar, omega3_bar,
+    1, 1, 1,
+    omega3, 1, omega3, 1, 1, omega3, 1, omega3,
+    1, 1, 1, omega3, 1,
+    omega3_bar, omega3, omega3_bar, omega3_bar,
+    omega3, omega3, omega3_bar,
+    1, 1,
+    omega3, omega3, omega3_bar,
+    1, 1, omega3_bar,
+])
+\end{lstlisting}
+
+\begin{center}
+\begin{tabular}{l r r r r}
+\toprule
+\textbf{wariant} & \textbf{depth} & \textbf{cx} & \textbf{rz} &
+\textbf{niez.\ wyr.\ Walsha}\\
+\midrule
+naiwny baseline (\emph{don't-care} = 1, bez optymalizacji) & 107 & 60 & 53 & 53\\
+\code{method="both"} (RS + multi-restart SA)               &  94 & 56 & 45 & 45\\
+\code{method="best\_of"} (dodaje LP, greedy, 2-opt)        & \textbf{80} & \textbf{52} & 33 & \textbf{33}\\
+phase-gadget po \code{transpile} (\code{best\_of})         &  98 & 92 & 33 & 33\\
+phase-gadget raw (\code{best\_of})                          & 139 &130 & 33 & 33\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+\code{verify\_on\_code\_space} $\approx 1{,}4\times 10^{-15}$ dla
+wszystkich trzech wariantów.
+
+\paragraph{Rozkład „kto co znalazł” (przy domyślnym budżecie).}
+\begin{lstlisting}
+random_search             cost = 190.600  cx_est=186  terms=43  max_supp=6
+sa(x6)                    cost = 186.750  cx_est=182  terms=45  max_supp=5
+lp(continuous->alphabet)  cost = 264.600  cx_est=258  terms=63  max_supp=6
+lp + greedy               cost = 192.650  cx_est=188  terms=44  max_supp=5
+greedy(x6)                cost = 186.750  cx_est=182  terms=45  max_supp=5
+two_opt(walsh)            cost = 133.550  cx_est=130  terms=33  max_supp=5  <-- zwyciezca
+polish_target='cx_then_depth': brak poprawy
+\end{lstlisting}
+
+\noindent
+Duży skok pochodzi od 2-opt: SA, greedy i zaokrąglony LP utykają
+w okolicy $\sim$45 wyrazów Walsha; 2-opt znajduje basen 33-wyrazowy w
+\emph{jednym} przebiegu. Łączna poprawa na tym wektorze:
+\[
+\begin{array}{rcccc}
+\mathrm{depth} & : & 107 \to 80         & (-25\%) \\
+\code{cx}      & : &  60 \to 52         & (-13\%) \\
+\code{rz}      & : &  53 \to 33         & (-38\%) \\
+\text{wyr.\ Walsha} & : & 53 \to 33     & (-38\%)
+\end{array}
+\]
+
+% ---------------------------------------------------------------------
+\subsection{Reprodukcja obu tabel wyników}
+
+\begin{lstlisting}
+import numpy as np
+from d6_diagonal_optimizer import (
+    optimize_d6_diagonal, verify_on_code_space, _example_d_lambda_2_3
+)
+
+omega3 = np.exp(2j * np.pi / 3); omega3_bar = np.conjugate(omega3)
+D_Lambda_23 = np.array([
+    1,
+    omega3_bar, omega3_bar, omega3_bar, omega3_bar,
+    1, 1, 1,
+    omega3, 1, omega3, 1, 1, omega3, 1, omega3,
+    1, 1, 1, omega3, 1,
+    omega3_bar, omega3, omega3_bar, omega3_bar,
+    omega3, omega3, omega3_bar,
+    1, 1,
+    omega3, omega3, omega3_bar,
+    1, 1, omega3_bar,
+])
+
+for label, diag in [("vector A", _example_d_lambda_2_3()),
+                    ("vector B", D_Lambda_23)]:
+    res = optimize_d6_diagonal(
+        diag,
+        phase_alphabet="default",
+        max_iters=4000,
+        seed=2024,
+        order="row-major",
+        method="best_of",
+        verbose=False,
+    )
+    m = res["metrics"]
+    err = verify_on_code_space(res["baseline_circuit"], diag)
+    print(f"{label:9s}  baseline depth={m['baseline_depth']:>3} "
+          f"cx={m['baseline_cx']:>3} rz={m['baseline_rz']:>3}  "
+          f"walsh_terms={res['num_nonzero_terms']:>2}  err={err:.1e}")
+\end{lstlisting}
+
+\noindent
+Spodziewane wyjście:
+\begin{lstlisting}
+vector A   baseline depth= 85 cx= 50 rz= 41  walsh_terms=41  err=1.5e-15
+vector B   baseline depth= 80 cx= 52 rz= 33  walsh_terms=33  err=1.4e-15
+\end{lstlisting}
+
+% =====================================================================
+\section{Wskazówki praktyczne}
+\label{sec:tips}
+% =====================================================================
+
+\begin{itemize}[leftmargin=*]
+  \item Dla wejść o wartościach w $\w_{3}$ (AME(4,6) i pochodne) zostaw
+        \code{phase\_alphabet="default"} = $\{0,\,2\pi/3,\,-2\pi/3\}$.
+        Poszerzanie alfabetu zwykle \emph{wprowadza} dodatkową treść
+        Walsha zamiast usuwać istniejącą.
+  \item Dla trudniejszych przypadków zwiększ \code{max\_iters} oraz
+        \code{n\_restarts}.
+  \item Ustaw \code{polish\_target=None}, jeśli polerowanie
+        \code{transpile} nie jest potrzebne (dodaje $\sim$1 sekundę;
+        przydatne tylko, gdy zastępczy koszt Walsha jest luźny).
+  \item Jeżeli chcesz obwód czysto \code{CX}+\code{RZ} (bez
+        \code{transpile}), użyj \code{result["phase\_gadget\_circuit"]}.
+        Pamiętaj, że dla obu wektorów przykładowych \emph{baseline}
+        \code{DiagonalGate} jest \emph{tańszy} niż naiwny phase-gadget,
+        bo Qiskit-owa synteza \code{DiagonalGate} stosuje
+        Gray-code-owe scalanie, którego nasza prosta implementacja nie
+        wykonuje.
+\end{itemize}
+
+% =====================================================================
+\section{Otwarte pomysły / dalsze prace}
+\label{sec:future}
+% =====================================================================
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{2-opt z metryką \code{transpile}.} Obecne polerowanie
+        to 1-opt nad \code{transpile()}. Pełne 2-opt to
+        $\binom{28}{2}\cdot 9 \approx 3{,}4$~tys.\ wywołań
+        \code{transpile} na przebieg ($\sim$3~min); czasem wyciska
+        kolejne kilka \code{cx}/głębokości. Można ograniczyć
+        rozważane pary do tych z największym wkładem w koszt Walshowy.
+  \item \textbf{Eksperymenty z szerszym alfabetem.} Spróbować
+        $\Alphabet=\{0,\,\pm\pi/3,\,\pm 2\pi/3,\,\pi\}$ dla obu wektorów.
+        Oczekiwanie: zazwyczaj \emph{gorsze} dla wejść o strukturze
+        $\w_{3}$, ale potencjalnie lepsze dla wejść o drobniejszej
+        strukturze fazowej.
+  \item \textbf{Ciaśniejsza dolna granica.} Przy 28 swobodnych
+        zmiennych rzeczywistych i 63 niezerowych współczynnikach
+        Walsha naiwna dolna granica liczby niezerowych wyrazów
+        wynosi $\sim 35$. Wynik 33 dla wektora B \emph{już to bije},
+        więc macierz $B$ ma efektywny rząd $<28$ dla wejść
+        $\w_{3}$ (znane zależności kolumnowe). Dokładny dyskretny
+        optimum znalazłoby małe MIP (28 zmiennych ternarnych),
+        rozwiązywane w sekundach przez CPLEX/Gurobi/SCIP.
+  \item \textbf{LP $\to$ MIP, warm start.} Punkt ciągły LP można
+        wykorzystać jako start dla MIP-a kodującego ograniczenia
+        alfabetu.
+  \item \textbf{Lepsza synteza phase gadgets.} Naiwna drabinka
+        \code{CNOT} kosztuje $2(k-1)$ \code{CX} na wyraz. Synteza
+        z grupowaniem Gray-code'owym lub \emph{ParityNetwork}
+        (Amy/Maslov) istotnie zmniejszyłaby \code{cx} surowego
+        obwodu phase-gadgetowego, prawdopodobnie do kilku procent
+        powyżej baseline'u \code{DiagonalGate}.
+\end{enumerate}
+
+% =====================================================================
+\section{Układ plików i status}
+\label{sec:layout}
+% =====================================================================
+
+\begin{lstlisting}
+QuditsOnQubits/QuditsOnQubits/
+|-- d6_diagonal_optimizer.py                # modul
+|-- docs/
+|   |-- d6_diagonal_optimizer_README.md     # README po angielsku
+|   |-- d6_diagonal_optimizer_README.tex    # ten dokument
+|   |-- d6_diagonal_optimizer_notes.md      # snapshot notatek z sesji
+`-- find_best_diagonal_decomposition.py     # pokrewny, ogolniejszy modul
+                                            # (bez optymalizacji don't-care)
+\end{lstlisting}
+
+\noindent
+Uruchomienie \code{python d6\_diagonal\_optimizer.py} wykonuje
+self-testy oraz domyślny przykład. Lint przechodzi czysto, moduł
+przechodzi self-testy, oba wektory przykładowe dają metryki podane w
+sekcji~\ref{sec:results} na Qiskit 2.3.1, NumPy z \code{bitwise\_count}
+(lub powolnym fallbackiem) oraz SciPy 1.x.
+
+\bigskip\hrule\bigskip
+\noindent
+\textbf{Powiązany dokument źródłowy:} \\
+\code{docs/d6\_diagonal\_optimizer\_README.md} (oryginał po angielsku).
+
+\end{document}

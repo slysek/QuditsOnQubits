@@ -2,7 +2,13 @@ state_name,state_family,n_qutrits,class_name,candidate_name,fid090_best_fidelity
 cluster2x2,cluster,4,baseline,E_old,0.987833544029,23.0,24.0
 cluster2x2,cluster,4,monomial_full,sup012_P012_ph012,0.987833544029,23.0,24.0
 cluster2x2,cluster,4,monomial_full,sup012_P012_ph021,0.987833544029,23.0,24.0
+<<<<<<< HEAD
 cluster2x2,cluster,4,monomial_full,sup012_P012_ph101,0.987833544029,23.0,24.0
 cluster2x2,cluster,4,product,U_Z__V_Z,0.987833544029,23.0,24.0
 cluster2x2,cluster,4,product,U_SX__V_I,0.924245179672,24.0,24.0
+=======
+cluster2x2,cluster,4,monomial_full,sup012_P012_ph101,0.921577429336,23.0,24.0
+cluster2x2,cluster,4,product,U_Z__V_Z,0.987833544029,23.0,24.0
+cluster2x2,cluster,4,product,U_SX__V_I,0.942340451466,24.0,24.0
+>>>>>>> 56d1b97fc704db955eabb92bdd6c524f29c5bf2d
 cluster2x2,cluster,4,product,U_SX__V_SXdg,0.987833544029,24.0,24.0
