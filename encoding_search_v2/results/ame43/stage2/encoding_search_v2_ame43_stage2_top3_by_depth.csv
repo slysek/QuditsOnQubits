@@ -1,8 +1,8 @@
-state_name,class_name,candidate_name,best_depth,best_size,best_two_qubit_gate_count,mean_depth,std_depth,mean_two_qubit_gate_count,is_baseline_reference,is_trivial_identity,is_baseline_equivalent,skip_reason
-ame43,baseline,E_old,114,298,77,128.0,8.85,79.85,True,True,True,
-ame43,monomial_full,sup023_P201_ph101,126,308,94,152.65,8.96,93.4,False,False,False,
-ame43,monomial_full,sup023_P201_ph211,126,311,94,152.65,8.83,93.4,False,False,False,
-ame43,monomial_full,sup013_P102_ph110,128,309,93,151.6,8.3,93.35,False,False,False,
-ame43,product,U_Z__V_X,129,311,93,151.95,8.0,93.35,False,False,False,
-ame43,product,U_Z__V_Z,134,328,86,156.6,9.11,86.9,False,False,False,
-ame43,product,U_SX__V_SXdg,135,333,86,156.9,8.95,86.9,False,False,False,
+state_name, class_name   , candidate_name   , best_depth, best_size, best_two_qubit_gate_count, mean_depth, std_depth, mean_two_qubit_gate_count, is_baseline_reference, is_trivial_identity, is_baseline_equivalent, skip_reason
+ame43     , baseline     , E_old            ,        114,       298,                        77,     128.0 ,      8.85,                     79.85, True                 , True               , True                  , 
+ame43     , monomial_full, sup023_P201_ph101,        126,       308,                        94,     152.65,      8.96,                     93.4 , False                , False              , False                 , 
+ame43     , monomial_full, sup023_P201_ph211,        126,       311,                        94,     152.65,      8.83,                     93.4 , False                , False              , False                 , 
+ame43     , monomial_full, sup013_P102_ph110,        128,       309,                        93,     151.6 ,      8.3 ,                     93.35, False                , False              , False                 , 
+ame43     , product      , U_Z__V_X         ,        129,       311,                        93,     151.95,      8.0 ,                     93.35, False                , False              , False                 , 
+ame43     , product      , U_Z__V_Z         ,        134,       328,                        86,     156.6 ,      9.11,                     86.9 , False                , False              , False                 , 
+ame43     , product      , U_SX__V_SXdg     ,        135,       333,                        86,     156.9 ,      8.95,                     86.9 , False                , False              , False                 , 

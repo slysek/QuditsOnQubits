@@ -76,10 +76,19 @@ from qiskit.quantum_info import Operator
 
 __all__ = [
     "encode_qudit_level",
+    "enc3",
+    "enc3_bits",
     "pair_to_qubit_index",
     "qubit_index_to_pair",
     "legal_indices",
     "illegal_indices",
+    "logical_indices",
+    "invalid_indices",
+    "build_embedded_diag64",
+    "embedded_diag64_matrix",
+    "trace_fidelity_64",
+    "logical_trace_fidelity_36",
+    "leakage_norms",
     "diag36_to_theta64",
     "normalize_phase",
     "walsh_coefficients",
@@ -96,6 +105,7 @@ __all__ = [
     "lp_relax_walsh_l1",
     "transpile_metric",
     "optimize_d6_diagonal",
+    "build_optimized_circuit",
 ]
 
 
@@ -164,6 +174,254 @@ def illegal_indices() -> list[int]:
 
 
 # ---------------------------------------------------------------------------
+# Explicit two-quhex code-space embedding
+# ---------------------------------------------------------------------------
+#
+# A single quhex (d = 6) is embedded into 3 qubits via the fixed encoding
+#
+#     |0> -> |000>, |1> -> |001>, |2> -> |010>, |3> -> |011>,
+#     |4> -> |100>, |5> -> |101>,
+#
+# while |110> and |111> are *invalid* (outside the code space).
+#
+# Two quhexes therefore live in a 36-dim code space embedded into the
+# 64-dim (C^2)^6 physical Hilbert space.  The embedding is a *product*
+# embedding C^6 (x) C^6 -> (C^2)^3 (x) (C^2)^3, so the 28 invalid
+# basis states of (C^2)^6 are NOT the last 28 indices of the basis: they
+# are interleaved with the logical states (e.g. indices 6 and 7 are
+# invalid and sit between legal indices 5 and 8).  Naively concatenating
+# `[lambda36] + [1]*28` to obtain a 64-vector is therefore *incorrect*;
+# the helpers below build the embedding explicitly and are covered by
+# regression tests in :func:`_self_tests`.
+#
+# Endianness convention.  We use Qiskit's per-qubit little-endian layout
+# throughout: the basis index of a 6-qubit computational state is
+#
+#     idx = sum_{q=0}^{5} bit_q * 2**q,
+#
+# matching ``Operator(qc).data``.  With this convention,
+# ``pair_to_qubit_index(a, b) = (a << 3) | b`` puts ``b`` on qubits
+# 0, 1, 2 (LSB first) and ``a`` on qubits 3, 4, 5.
+
+def enc3(level: int) -> int:
+    """Return the 3-bit binary encoding of a single quhex level.
+
+    Mapping (matches the AME(4,6) reference)::
+
+        0 -> 000, 1 -> 001, 2 -> 010, 3 -> 011,
+        4 -> 100, 5 -> 101.
+
+    Levels 6 and 7 are *not* in the quhex code space and are rejected.
+    The returned integer is in 0..5; combined with :func:`enc3_bits`
+    or :func:`pair_to_qubit_index` it gives the physical-basis index.
+    """
+    if not (0 <= level < QUDIT_DIM):
+        raise ValueError(
+            f"quhex level must be in 0..{QUDIT_DIM - 1}, got {level}"
+        )
+    return int(level)
+
+
+def enc3_bits(level: int) -> tuple[int, int, int]:
+    """Return ``(b0, b1, b2)`` of :func:`enc3`, with ``b0`` the LSB.
+
+    For example::
+
+        enc3_bits(5) == (1, 0, 1)   # because 5 = 0b101 (b2 b1 b0)
+    """
+    v = enc3(level)
+    return (v & 1, (v >> 1) & 1, (v >> 2) & 1)
+
+
+def logical_indices() -> list[int]:
+    """Return the sorted list of 36 physical-basis indices in the code space.
+
+    Alias of :func:`legal_indices` provided for clarity in the
+    "logical vs. invalid" terminology used by the embedding helpers.
+    """
+    return legal_indices()
+
+
+def invalid_indices() -> list[int]:
+    """Return the sorted list of 28 physical-basis indices NOT in the code space.
+
+    Alias of :func:`illegal_indices`.
+    """
+    return illegal_indices()
+
+
+def build_embedded_diag64(
+    lambda36,
+    endian: str = "qiskit",
+    order: str = "row-major",
+) -> np.ndarray:
+    """Embed a 36-dim diagonal D[Lambda] into the 64-dim two-quhex space.
+
+    Implements the product embedding
+
+        C^6 (x) C^6  -->  (C^2)^3 (x) (C^2)^3
+
+    by writing ``lambda36[a, b]`` at the physical-basis index of the
+    logical state ``enc(a) (x) enc(b)`` and leaving every invalid index
+    at ``+1`` (zero phase).  This is the *correct* target for the
+    diagonal gate D[Lambda_{2,3}] from the AME(4,6) construction; using
+    ``np.concatenate([lambda36, np.ones(28)])`` instead would put the
+    36 logical phases on indices ``0..35`` of the 64-vector, which is
+    wrong because invalid indices 6, 7, 14, 15, ... are interleaved
+    between logical ones.
+
+    Parameters
+    ----------
+    lambda36 : array-like, length 36
+        Diagonal entries of D[Lambda].  May be unit-modulus complex
+        numbers (e.g. roots of unity) or real phase angles in radians;
+        :func:`_phases_from_diag36` handles both.
+    endian : {"qiskit"}
+        Endianness convention; only Qiskit's per-qubit little-endian
+        layout is supported.  Calling with any other string raises.
+    order : {"row-major", "col-major"}
+        Layout of ``lambda36``.  ``"row-major"`` (default) means
+        ``lambda36[6 * a + b]`` is the entry for state ``|a, b>``.
+
+    Returns
+    -------
+    np.ndarray, shape (64,), dtype complex
+        The 64-dim diagonal vector ``diag64`` such that
+        ``diag64[k] = lambda36[a, b]`` on logical indices and
+        ``diag64[k] = 1`` on invalid indices.
+    """
+    if endian != "qiskit":
+        raise ValueError(
+            f"only endian='qiskit' is supported, got endian={endian!r}"
+        )
+    if order not in ("row-major", "col-major"):
+        raise ValueError("order must be 'row-major' or 'col-major'")
+
+    lam = _diag36_complex(lambda36)
+
+    diag64 = np.ones(NUM_TOTAL_STATES, dtype=complex)
+    for a in range(QUDIT_DIM):
+        for b in range(QUDIT_DIM):
+            src = a * QUDIT_DIM + b if order == "row-major" else a + QUDIT_DIM * b
+            dst = pair_to_qubit_index(a, b)
+            diag64[dst] = lam[src]
+    return diag64
+
+
+def embedded_diag64_matrix(
+    lambda36,
+    endian: str = "qiskit",
+    order: str = "row-major",
+) -> np.ndarray:
+    """Same as :func:`build_embedded_diag64` but returns a 64x64 matrix."""
+    return np.diag(build_embedded_diag64(lambda36, endian=endian, order=order))
+
+
+def trace_fidelity_64(
+    U_circuit: np.ndarray,
+    D64_embedded,
+) -> float:
+    """Trace fidelity ``F = |Tr(U^dagger D)| / 64`` on the full 64-dim space.
+
+    ``D64_embedded`` may be either the 64-vector returned by
+    :func:`build_embedded_diag64` or the corresponding 64x64 diagonal
+    matrix.  The fidelity is invariant under a global phase on
+    ``U_circuit`` and is ``1`` iff ``U_circuit`` matches the embedded
+    target up to a global phase.
+
+    Note: the don't-care phases on the 28 invalid indices are part of
+    this fidelity.  When the optimizer is free to pick those phases to
+    reduce gate count, the full-64 fidelity is generally < 1 even
+    though the logical-block fidelity is exactly 1.  In that regime use
+    :func:`logical_trace_fidelity_36` for the strict correctness check.
+    """
+    D = np.asarray(D64_embedded)
+    if D.ndim == 1:
+        if D.shape != (NUM_TOTAL_STATES,):
+            raise ValueError(
+                f"D64 vector must have length {NUM_TOTAL_STATES}, got {D.shape}"
+            )
+        D_mat = np.diag(D)
+    elif D.ndim == 2:
+        if D.shape != (NUM_TOTAL_STATES, NUM_TOTAL_STATES):
+            raise ValueError(
+                f"D64 matrix must be {NUM_TOTAL_STATES}x{NUM_TOTAL_STATES}, "
+                f"got {D.shape}"
+            )
+        D_mat = D
+    else:
+        raise ValueError(f"D64 must be 1-D or 2-D, got ndim={D.ndim}")
+
+    if U_circuit.shape != (NUM_TOTAL_STATES, NUM_TOTAL_STATES):
+        raise ValueError(
+            f"U_circuit must be {NUM_TOTAL_STATES}x{NUM_TOTAL_STATES}, "
+            f"got {U_circuit.shape}"
+        )
+
+    return float(np.abs(np.trace(U_circuit.conj().T @ D_mat)) / NUM_TOTAL_STATES)
+
+
+def logical_trace_fidelity_36(
+    U_circuit: np.ndarray,
+    lambda36,
+    order: str = "row-major",
+) -> float:
+    """Trace fidelity on the 36-dim quhex code space.
+
+    Restricts ``U_circuit`` to the 36 logical indices and compares with
+    ``diag(lambda36)``::
+
+        F = |Tr(U_logical^dagger * diag(lambda36))| / 36.
+
+    ``F = 1`` iff the synthesized circuit matches D[Lambda] on the code
+    space up to a global phase.  This is the cost-function variant
+    *option 2* in the spec (item 7); use it for the strict correctness
+    check whenever the optimizer is free to set don't-care phases on
+    the 28 invalid indices.
+    """
+    if U_circuit.shape != (NUM_TOTAL_STATES, NUM_TOTAL_STATES):
+        raise ValueError(
+            f"U_circuit must be {NUM_TOTAL_STATES}x{NUM_TOTAL_STATES}, "
+            f"got {U_circuit.shape}"
+        )
+    log_idx = np.asarray(logical_indices(), dtype=int)
+    U_log = U_circuit[np.ix_(log_idx, log_idx)]
+
+    lam = _diag36_complex(lambda36)
+    if order == "col-major":
+        lam = lam.reshape(QUDIT_DIM, QUDIT_DIM).T.reshape(-1)
+    elif order != "row-major":
+        raise ValueError("order must be 'row-major' or 'col-major'")
+
+    # logical_indices is sorted ascending and pair_to_qubit_index(a, b) =
+    # (a << 3) | b is monotone in (a, b) under the lex walk a outer / b
+    # inner, so U_log is already arranged in row-major (a, b) order
+    # consistent with diag(lam).
+    return float(np.abs(np.vdot(np.diag(U_log), lam)) / NUM_LEGAL_STATES)
+
+
+def leakage_norms(U_circuit: np.ndarray) -> tuple[float, float]:
+    """Return Frobenius norms of the off-block ``U_circuit`` couplings.
+
+    ``leakage_out = ||U_circuit[invalid_indices, logical_indices]||_F``
+    is the amplitude leaving the code space; ``leakage_in`` is the
+    amplitude that ends *inside* the code space starting from invalid
+    states.  For a correct realization of D[Lambda_{2,3}] (which is
+    diagonal in the computational basis) both should be ~0.
+    """
+    if U_circuit.shape != (NUM_TOTAL_STATES, NUM_TOTAL_STATES):
+        raise ValueError(
+            f"U_circuit must be {NUM_TOTAL_STATES}x{NUM_TOTAL_STATES}, "
+            f"got {U_circuit.shape}"
+        )
+    log_idx = np.asarray(logical_indices(), dtype=int)
+    inv_idx = np.asarray(invalid_indices(), dtype=int)
+    out_block = U_circuit[np.ix_(inv_idx, log_idx)]
+    in_block = U_circuit[np.ix_(log_idx, inv_idx)]
+    return float(np.linalg.norm(out_block)), float(np.linalg.norm(in_block))
+
+
+# ---------------------------------------------------------------------------
 # Input handling
 # ---------------------------------------------------------------------------
 
@@ -213,6 +471,16 @@ def diag36_to_theta64(
     order: str = "row-major",
 ) -> np.ndarray:
     """Embed a 36-dimensional diagonal into a 64-dimensional phase vector.
+
+    This is the *real-phase* twin of :func:`build_embedded_diag64`:
+    instead of returning ``exp(i theta)`` directly, it returns the
+    ``theta`` vector so the caller can do Walsh / phase-gadget
+    arithmetic on it.  The placement is identical to
+    :func:`build_embedded_diag64` -- the 36 logical phases live at
+    ``pair_to_qubit_index(a, b)``, the 28 invalid indices are zero
+    (i.e. ``D = +1`` there) unless ``illegal_phases`` is supplied.
+    The "naive" recipe ``theta64 = list(theta36) + [0] * 28`` is
+    *wrong* -- see the comment block above ``enc3``.
 
     Parameters
     ----------
@@ -1116,6 +1384,7 @@ def optimize_d6_diagonal(
     polish_target: Optional[str] = "cx_then_depth",
     polish_via: str = "diagonal_gate",
     polish_max_passes: int = 6,
+    pin_invalid_phases: bool = True,
 ) -> dict:
     """Optimize the don't-care phases and synthesize a ``CX``+``RZ`` circuit.
 
@@ -1174,6 +1443,24 @@ def optimize_d6_diagonal(
         Which synthesis to feed into ``transpile`` during the polish.
     polish_max_passes : int
         Max coordinate-descent passes during polish.
+    pin_invalid_phases : bool, default True
+        If True (default), the 28 don't-care phases are pinned to 0
+        so that ``D = +1`` on every invalid 6-qubit basis state.  The
+        synthesized circuit then realizes the *strict* embedded gate
+        ``D64_embedded = diag([D36 on logical] + [1 on invalid])`` --
+        i.e. acts as identity on the invalid subspace -- and its full
+        64-dim diagonal matches :func:`build_embedded_diag64` exactly.
+        This is the natural semantics for D[Lambda_{2,3}] from
+        AME(4,6).  Internally it overrides ``phase_alphabet`` with
+        ``[0.0]`` so every random / SA / greedy / LP stage is a no-op
+        and only the deterministic synthesis runs.
+
+        Pass ``pin_invalid_phases=False`` to re-enable don't-care
+        freedom: the optimizer is then allowed to assign non-zero
+        phases to invalid indices in order to shrink the synthesized
+        circuit's CX count.  The logical action stays identical
+        (``F36 = 1``, no leakage), but the full-64 diagonal will
+        differ from ``D64_embedded`` on the 28 invalid indices.
 
     Returns
     -------
@@ -1186,6 +1473,9 @@ def optimize_d6_diagonal(
         raise ValueError(
             "method must be 'random', 'sa', 'greedy', 'lp', 'both', or 'best_of'"
         )
+
+    if pin_invalid_phases:
+        phase_alphabet = [0.0]
 
     legal_idx = legal_indices()
     illegal_idx = illegal_indices()
@@ -1477,6 +1767,227 @@ def optimize_d6_diagonal(
 
 
 # ---------------------------------------------------------------------------
+# Convenience wrapper for notebooks / interactive use
+# ---------------------------------------------------------------------------
+
+def build_optimized_circuit(
+    diag36,
+    which: str = "best",
+    return_info: bool = False,
+    verify: bool = True,
+    verify_atol: float = 1e-7,
+    order: str = "row-major",
+    phase_alphabet: object = "default",
+    max_iters: int = 4000,
+    seed: int = 2024,
+    qiskit_basis: Optional[Sequence[str]] = None,
+    optimization_level: int = 3,
+    method: str = "best_of",
+    n_restarts: int = 6,
+    polish_target: Optional[str] = "cx_then_depth",
+    polish_via: str = "diagonal_gate",
+    polish_max_passes: int = 6,
+    cost_weights: Optional[dict] = None,
+    tol: float = 1e-10,
+    verbose: bool = False,
+    pin_invalid_phases: bool = True,
+):
+    """One-shot helper: optimize the don't-care phases and return a circuit.
+
+    Convenience wrapper around :func:`optimize_d6_diagonal` for use in
+    notebooks.  Runs the full optimizer pipeline and returns a single
+    ``QuantumCircuit`` ready to use.
+
+    Parameters
+    ----------
+    diag36 : array-like, length 36
+        The 36 phases / unit-modulus complex numbers of D[Lambda] on the
+        qudit code space.  Same input format as
+        :func:`optimize_d6_diagonal`.
+    which : {"best", "baseline", "transpiled", "phase_gadget"}
+        Which of the synthesized circuits to return.
+
+        * ``"best"`` (default) -- pick the cheapest of the three by
+          ``(cx, depth)`` (lex order).  Usually equals
+          ``"baseline"``, but stays robust if the relative cost
+          changes for a given input.
+        * ``"baseline"`` -- the Qiskit ``DiagonalGate`` synthesis,
+          transpiled to ``qiskit_basis``.  Typically the cheapest.
+        * ``"transpiled"`` -- the phase-gadget ``CX``+``RZ`` circuit
+          after Qiskit ``transpile``.
+        * ``"phase_gadget"`` -- the raw, untranspiled ``CX``+``RZ``
+          circuit (useful when you want to keep gates in that basis).
+    return_info : bool, default False
+        If True, return ``(circuit, info)`` where ``info`` is a dict
+        with diagnostic data:
+
+            - ``metrics``           : depth / cx / rz of the chosen circuit
+            - ``which``             : the variant that was returned
+            - ``best_theta64``      : 64-vector of phases used
+            - ``best_illegal_phases``: 28 chosen don't-care phases
+            - ``num_nonzero_terms`` : nonzero Walsh terms after optimize
+            - ``cx_estimate``       : naive CX cost of the phase gadgets
+            - ``alphabet``          : alphabet used by the optimizer
+            - ``polished``          : whether the transpile polish helped
+            - ``verify_error``      : ``verify_on_code_space`` result
+            - ``all_metrics``       : metrics for *all* three variants
+    verify : bool, default True
+        If True, verify that the returned circuit reproduces ``diag36``
+        on the code space within ``verify_atol``.  Raises
+        ``AssertionError`` on failure.
+    verify_atol : float, default 1e-7
+        Tolerance for the code-space verification.
+    order : {"row-major", "col-major"}
+        Layout of ``diag36``.  See :func:`optimize_d6_diagonal`.
+    phase_alphabet, max_iters, seed, qiskit_basis, optimization_level,
+    method, n_restarts, polish_target, polish_via, polish_max_passes,
+    cost_weights, tol, verbose, pin_invalid_phases
+        Forwarded to :func:`optimize_d6_diagonal`; see that function for
+        the full description.  By default ``pin_invalid_phases=True``
+        forces ``D = +1`` on every invalid 6-qubit basis state, so the
+        circuit's full 64-dim diagonal matches
+        :func:`build_embedded_diag64` exactly (strict embedding).
+        Pass ``pin_invalid_phases=False`` to opt into the legacy
+        don't-care optimization (smaller CX count, but non-trivial
+        phases on the 28 invalid indices).
+
+    Returns
+    -------
+    QuantumCircuit, or (QuantumCircuit, dict)
+        The optimized circuit, or ``(circuit, info)`` if
+        ``return_info=True``.
+
+    Examples
+    --------
+    Minimal usage in a notebook::
+
+        from d6_diagonal_optimizer import build_optimized_circuit
+        import numpy as np
+
+        omega3 = np.exp(2j * np.pi / 3)
+        diag36 = np.array([1, omega3, ..., 1], dtype=complex)  # length 36
+
+        qc = build_optimized_circuit(diag36)
+        qc.draw("mpl")
+
+    To inspect the resource counts as well::
+
+        qc, info = build_optimized_circuit(diag36, return_info=True)
+        print(info["metrics"])             # {"depth": 80, "cx": 52, ...}
+        print(info["num_nonzero_terms"])   # e.g. 33
+        print(f"err = {info['verify_error']:.2e}")
+
+    To get a pure ``CX``+``RZ`` circuit (no transpile)::
+
+        qc = build_optimized_circuit(diag36, which="phase_gadget")
+    """
+    valid = {"best", "baseline", "transpiled", "phase_gadget"}
+    if which not in valid:
+        raise ValueError(
+            f"which must be one of {sorted(valid)}, got {which!r}"
+        )
+
+    result = optimize_d6_diagonal(
+        diag36,
+        phase_alphabet=phase_alphabet,
+        max_iters=max_iters,
+        seed=seed,
+        qiskit_basis=qiskit_basis,
+        optimization_level=optimization_level,
+        order=order,
+        method=method,
+        cost_weights=cost_weights,
+        tol=tol,
+        verbose=verbose,
+        n_restarts=n_restarts,
+        polish_target=polish_target,
+        polish_via=polish_via,
+        polish_max_passes=polish_max_passes,
+        pin_invalid_phases=pin_invalid_phases,
+    )
+
+    metrics = result["metrics"]
+    candidates = {
+        "baseline": (
+            result["baseline_circuit"],
+            {
+                "depth": metrics["baseline_depth"],
+                "cx": metrics["baseline_cx"],
+                "rz": metrics["baseline_rz"],
+                "ops": metrics.get("baseline_ops", {}),
+            },
+        ),
+        "transpiled": (
+            result["transpiled_circuit"],
+            {
+                "depth": metrics["transpiled_depth"],
+                "cx": metrics["transpiled_cx"],
+                "rz": metrics["transpiled_rz"],
+                "ops": metrics.get("transpiled_ops", {}),
+            },
+        ),
+        "phase_gadget": (
+            result["phase_gadget_circuit"],
+            {
+                "depth": metrics["phase_gadget_depth"],
+                "cx": metrics["phase_gadget_cx"],
+                "rz": metrics["phase_gadget_rz"],
+                "ops": metrics.get("phase_gadget_ops", {}),
+            },
+        ),
+    }
+
+    if which == "best":
+        # Lex order by (cx, depth) so we always pick the cheapest in
+        # CX first; ties broken by depth.  Stable: among equal-cost
+        # candidates, prefer baseline > transpiled > phase_gadget.
+        ranking = ["baseline", "transpiled", "phase_gadget"]
+        chosen_key = min(
+            ranking,
+            key=lambda k: (candidates[k][1]["cx"], candidates[k][1]["depth"]),
+        )
+    else:
+        chosen_key = which
+
+    qc, chosen_metrics = candidates[chosen_key]
+
+    verify_err = float("nan")
+    if verify:
+        verify_err = verify_on_code_space(qc, diag36, order=order)
+        assert verify_err < verify_atol, (
+            f"build_optimized_circuit: returned circuit deviates from "
+            f"target diag36 by {verify_err:.3e} > atol={verify_atol:.1e} "
+            f"(which={chosen_key!r})"
+        )
+
+    if verbose:
+        print(
+            f"[build_optimized_circuit] returning '{chosen_key}' "
+            f"cx={chosen_metrics['cx']} depth={chosen_metrics['depth']} "
+            f"rz={chosen_metrics['rz']}  walsh_terms={result['num_nonzero_terms']} "
+            f"err={verify_err:.2e}"
+        )
+
+    if not return_info:
+        return qc
+
+    info = {
+        "which": chosen_key,
+        "metrics": chosen_metrics,
+        "all_metrics": {k: v[1] for k, v in candidates.items()},
+        "best_theta64": result["best_theta64"],
+        "best_illegal_phases": result["best_illegal_phases"],
+        "num_nonzero_terms": result["num_nonzero_terms"],
+        "cx_estimate": result["cx_estimate"],
+        "max_support": result["max_support"],
+        "alphabet": result["alphabet"],
+        "polished": result["polished"],
+        "verify_error": verify_err,
+    }
+    return qc, info
+
+
+# ---------------------------------------------------------------------------
 # Tests / sanity checks (run on import as part of __main__)
 # ---------------------------------------------------------------------------
 
@@ -1542,6 +2053,157 @@ def _self_tests() -> None:
     qc_test = synthesize_phase_gadgets(theta64_test)
     err = verify_on_code_space(qc_test, diag36_test)
     assert err < 1e-7, f"verify_on_code_space gave err={err:.3e}"
+
+    # ------------------------------------------------------------------
+    # Two-quhex code-space embedding tests (item 6 of the spec).
+    # ------------------------------------------------------------------
+    log_idx = logical_indices()
+    inv_idx = invalid_indices()
+
+    # (a) State counts and disjointness.
+    assert len(log_idx) == 36, f"expected 36 logical indices, got {len(log_idx)}"
+    assert len(inv_idx) == 28, f"expected 28 invalid indices, got {len(inv_idx)}"
+    assert set(log_idx).isdisjoint(set(inv_idx)), (
+        "logical and invalid indices must be disjoint"
+    )
+    assert sorted(log_idx + inv_idx) == list(range(NUM_TOTAL_STATES)), (
+        "logical | invalid must cover the full 64-dim physical basis"
+    )
+
+    # Sanity: invalid indices are NOT all on the high end -- proves the
+    # naive `[lambda36] + [1]*28` layout is wrong.
+    assert 6 in inv_idx and 7 in inv_idx, (
+        "indices 6 and 7 must be invalid (single-quhex |110>, |111> on b)"
+    )
+    assert max(log_idx) == pair_to_qubit_index(5, 5), (
+        f"max logical index should be {pair_to_qubit_index(5, 5)}, "
+        f"got {max(log_idx)}"
+    )
+
+    # (b) D64_embedded[idx] == 1 for every invalid idx.
+    lam36 = np.exp(1j * rng.normal(size=NUM_LEGAL_STATES))
+    D64_emb = build_embedded_diag64(lam36)
+    assert D64_emb.shape == (NUM_TOTAL_STATES,)
+    for k in inv_idx:
+        assert np.isclose(D64_emb[k], 1.0 + 0j, atol=1e-12), (
+            f"D64[{k}] = {D64_emb[k]} on invalid index, expected 1+0j"
+        )
+
+    # (c) Logical 36x36 block of diag(D64_embedded) equals diag(lambda36).
+    D64_mat = embedded_diag64_matrix(lam36)
+    log_arr = np.asarray(log_idx, dtype=int)
+    block = D64_mat[np.ix_(log_arr, log_arr)]
+    # logical_indices is sorted and pair_to_qubit_index(a, b) = (a<<3)|b is
+    # monotone in (a, b) under the lex walk a outer / b inner, so the
+    # block diagonal equals lam36 in row-major order.
+    expected36 = _diag36_complex(lam36)
+    assert np.allclose(np.diag(block), expected36, atol=1e-12), (
+        "logical 36x36 block does not equal diag(lambda36)"
+    )
+    # All off-diagonal entries of the logical block are zero.
+    assert np.max(np.abs(block - np.diag(np.diag(block)))) < 1e-12
+
+    # (d) The naive [lambda36] + [1]*28 layout is NOT the same embedding.
+    naive64 = np.concatenate(
+        [expected36, np.ones(NUM_ILLEGAL_STATES, dtype=complex)]
+    )
+    assert naive64.shape == D64_emb.shape
+    diff = float(np.max(np.abs(naive64 - D64_emb)))
+    # The two arrays disagree at every interior index where naive has a
+    # logical phase but the embedding has 1, or vice versa.  For a random
+    # phase vector the difference is order 1.
+    assert diff > 1e-3, (
+        f"naive concatenation accidentally agrees with product embedding "
+        f"(max diff = {diff:.3e})"
+    )
+
+    # (e) Trace fidelity against the embedded target is ~1 for a
+    # circuit synthesized from the same lambda36 with all don't-care
+    # phases pinned to 0.  Both the full-64 and logical-36 fidelities
+    # should hit 1 here; the logical-36 number stays at 1 even when the
+    # don't-care phases are chosen freely (item 8 covers the full-64
+    # mismatch case).
+    theta64_emb = diag36_to_theta64(lam36)
+    qc_emb = synthesize_phase_gadgets(theta64_emb)
+    U_emb = Operator(qc_emb).data
+    fid64 = trace_fidelity_64(U_emb, D64_emb)
+    fid36 = logical_trace_fidelity_36(U_emb, lam36)
+    assert fid64 > 1.0 - 1e-9, f"full-64 trace fidelity = {fid64:.6f}, expected ~1"
+    assert fid36 > 1.0 - 1e-9, f"logical-36 trace fidelity = {fid36:.6f}, expected ~1"
+
+    # Robustness: setting non-zero don't-care phases must NOT change the
+    # logical-36 fidelity (it cancels out on the logical block) but
+    # WILL change the full-64 fidelity.  This pins down the spec
+    # distinction between "compare against D64_embedded" and "compare
+    # only on the logical subspace".
+    rand_dont_care = list(rng.normal(size=NUM_ILLEGAL_STATES) * 0.7)
+    theta64_dc = diag36_to_theta64(lam36, illegal_phases=rand_dont_care)
+    qc_dc = synthesize_phase_gadgets(theta64_dc)
+    U_dc = Operator(qc_dc).data
+    fid36_dc = logical_trace_fidelity_36(U_dc, lam36)
+    fid64_dc = trace_fidelity_64(U_dc, D64_emb)
+    assert fid36_dc > 1.0 - 1e-9, (
+        f"logical-36 fidelity broke when don't-cares moved: {fid36_dc:.6f}"
+    )
+    assert fid64_dc < 0.999, (
+        "full-64 fidelity should drop when don't-cares are scrambled "
+        f"(got {fid64_dc:.6f})"
+    )
+
+    # No leakage: the synthesized unitary is diagonal in the
+    # computational basis, so logical<->invalid coupling blocks are 0.
+    leak_out, leak_in = leakage_norms(U_emb)
+    assert leak_out < 1e-10, f"leakage_out = {leak_out:.3e}"
+    assert leak_in < 1e-10, f"leakage_in  = {leak_in:.3e}"
+
+    # Cross-check: the diagonal of U_emb agrees with build_embedded_diag64
+    # entry-by-entry up to a global phase on the logical block.  This
+    # locks down the convention "Operator(qc).data uses Qiskit's
+    # little-endian bit ordering" against build_embedded_diag64 / pair_to_qubit_index.
+    diag_full = np.diag(U_emb)
+    lam_ref = D64_emb[log_arr][0] / diag_full[log_arr][0]
+    assert np.allclose(
+        diag_full[log_arr] * lam_ref, D64_emb[log_arr], atol=1e-9
+    ), "logical block of synthesized circuit disagrees with embedded target"
+
+    # ------------------------------------------------------------------
+    # pin_invalid_phases regression test.
+    # When the flag is True, the 28 don't-care indices must remain at
+    # phase 0 (i.e. diag = 1+0j) throughout the optimizer pipeline.
+    # ------------------------------------------------------------------
+    pinned = optimize_d6_diagonal(
+        lam36,
+        phase_alphabet="default",
+        max_iters=200,
+        seed=0,
+        method="best_of",
+        polish_target=None,
+        verbose=False,
+        pin_invalid_phases=True,
+    )
+    pinned_illegal = np.asarray(pinned["best_illegal_phases"])
+    assert pinned_illegal.shape == (NUM_ILLEGAL_STATES,)
+    assert np.allclose(pinned_illegal, 0.0, atol=1e-12), (
+        f"pin_invalid_phases=True did not zero all 28 don't-cares "
+        f"(max |phi| = {float(np.max(np.abs(pinned_illegal))):.3e})"
+    )
+    # The full-64 diagonal of the synthesized circuit must equal
+    # build_embedded_diag64 entry-by-entry (up to global phase + atol).
+    U_pinned = Operator(pinned["phase_gadget_circuit"]).data
+    diag_pinned = np.diag(U_pinned)
+    target_full = D64_emb
+    lam_full = target_full[0] / diag_pinned[0]
+    assert np.allclose(diag_pinned * lam_full, target_full, atol=1e-9), (
+        "pin_invalid_phases=True: synthesized full diagonal does not "
+        "match build_embedded_diag64 up to a global phase"
+    )
+    # And in particular, every invalid index has |D[k]| close to 1 with
+    # phase 0 after removing the global phase factor.
+    for k in inv_idx:
+        v = diag_pinned[k] * lam_full
+        assert np.isclose(v, 1.0 + 0j, atol=1e-9), (
+            f"pin_invalid_phases=True: diag[{k}] = {v} (expected ~1+0j)"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1649,6 +2311,70 @@ def main() -> None:
     assert err_pg < 1e-7, f"phase-gadget circuit failed code-space check ({err_pg:.3e})"
     assert err_t < 1e-7, f"transpiled circuit failed code-space check ({err_t:.3e})"
     assert err_b < 1e-7, f"baseline circuit failed code-space check ({err_b:.3e})"
+
+    # Trace fidelity + leakage against the *explicit* embedded target.
+    # By default pin_invalid_phases=True, so the full 64-dim diagonal
+    # of every synthesized circuit must equal build_embedded_diag64 up
+    # to a global phase.  Both fidelities should hit 1 and there must
+    # be zero leakage between logical and invalid subspaces.
+    D64_target = build_embedded_diag64(diag36, order="row-major")
+    print()
+    print("--- explicit embedded-target checks (strict mode) ---")
+    print("  F64 = |Tr(U^H D64_embedded)|/64   (full embedding)")
+    print("  F36 = |Tr(U_logical^H diag(lambda36))|/36   (logical block)")
+    for label, qc_kind in (
+        ("phase-gadget", "phase_gadget_circuit"),
+        ("transpiled  ", "transpiled_circuit"),
+        ("baseline    ", "baseline_circuit"),
+    ):
+        U = Operator(result[qc_kind]).data
+        F64 = trace_fidelity_64(U, D64_target)
+        F36 = logical_trace_fidelity_36(U, diag36, order="row-major")
+        leak_out, leak_in = leakage_norms(U)
+        print(
+            f"  {label}: F64={F64:.10f} F36={F36:.10f} "
+            f"leak_out={leak_out:.2e} leak_in={leak_in:.2e}"
+        )
+        assert F64 > 1.0 - 1e-9, (
+            f"{label.strip()} circuit full trace_fidelity = {F64:.6f} "
+            f"is not ~1 against D64_embedded (pin_invalid_phases default broken?)"
+        )
+        assert F36 > 1.0 - 1e-9, (
+            f"{label.strip()} circuit logical trace_fidelity = {F36:.6f} "
+            f"is not ~1 against diag(lambda36)"
+        )
+        assert leak_out < 1e-10 and leak_in < 1e-10, (
+            f"{label.strip()} circuit shows code-space leakage "
+            f"(out={leak_out:.2e}, in={leak_in:.2e})"
+        )
+
+    # Briefly also exercise the legacy don't-care mode for documentation
+    # (smaller CX, but F64 < 1 and diag[invalid] != 1).
+    print()
+    print("--- legacy don't-care mode (pin_invalid_phases=False) ---")
+    legacy = optimize_d6_diagonal(
+        diag36,
+        phase_alphabet="default",
+        max_iters=4000,
+        seed=2024,
+        order="row-major",
+        method="best_of",
+        pin_invalid_phases=False,
+        verbose=False,
+    )
+    legacy_metrics = legacy["metrics"]
+    legacy_qc = legacy["transpiled_circuit"]
+    U_legacy = Operator(legacy_qc).data
+    F64_legacy = trace_fidelity_64(U_legacy, D64_target)
+    F36_legacy = logical_trace_fidelity_36(U_legacy, diag36, order="row-major")
+    print(
+        f"  transpiled (legacy): cx={legacy_metrics['transpiled_cx']} "
+        f"depth={legacy_metrics['transpiled_depth']} "
+        f"F64={F64_legacy:.10f} F36={F36_legacy:.10f}"
+    )
+    assert F36_legacy > 1.0 - 1e-9, (
+        f"legacy mode broke logical action (F36={F36_legacy:.6f})"
+    )
 
     print()
     print("All checks passed.")

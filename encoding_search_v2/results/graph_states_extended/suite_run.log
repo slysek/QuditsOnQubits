@@ -1626,3 +1626,9 @@
 [suite graph_states_extended :: ghz5] 98/1513 (  6.5%) done monomial_old_codespace/P120_ph200 elapsed=5h04m17s avg=186.30s/cand eta=73h13m31s remaining=1415
 [suite graph_states_extended :: ghz5] 99/1513 (  6.5%) done monomial_old_codespace/P120_ph201 elapsed=5h09m08s avg=187.35s/cand eta=73h35m15s remaining=1414
 [suite graph_states_extended :: ghz5] 100/1513 (  6.6%) done monomial_old_codespace/P120_ph202 elapsed=5h13m15s avg=187.95s/cand eta=73h46m19s remaining=1413
+[suite graph_states_extended :: ghz5] 101/1513 (  6.7%) done monomial_old_codespace/P120_ph210 elapsed=5h17m42s avg=188.73s/cand eta=74h01m34s remaining=1412
+[suite graph_states_extended :: ghz5] 102/1513 (  6.7%) done monomial_old_codespace/P120_ph211 elapsed=5h22m24s avg=189.65s/cand eta=74h19m49s remaining=1411
+[suite graph_states_extended :: ghz5] 103/1513 (  6.8%) done monomial_old_codespace/P120_ph212 elapsed=5h26m21s avg=190.11s/cand eta=74h27m28s remaining=1410
+[suite graph_states_extended :: ghz5] 104/1513 (  6.9%) done monomial_old_codespace/P120_ph220 elapsed=5h30m17s avg=190.55s/cand eta=74h34m42s remaining=1409
+[suite graph_states_extended :: ghz5] 105/1513 (  6.9%) done monomial_old_codespace/P120_ph221 elapsed=5h34m38s avg=191.22s/cand eta=74h47m19s remaining=1408
+[suite graph_states_extended :: ghz5] 106/1513 (  7.0%) done monomial_old_codespace/P120_ph222 elapsed=5h38m33s avg=191.63s/cand eta=74h53m46s remaining=1407

@@ -2,7 +2,13 @@ state_name,state_family,n_qutrits,class_name,candidate_name,fid090_best_fidelity
 complete4,complete,4,baseline,E_old,0.987833544029,31.0,32.0
 complete4,complete,4,monomial_full,sup012_P012_ph012,0.987833544029,31.0,32.0
 complete4,complete,4,monomial_full,sup012_P012_ph021,0.987833544029,31.0,32.0
+<<<<<<< HEAD
+complete4,complete,4,monomial_full,sup012_P012_ph101,0.987833544029,31.0,32.0
+complete4,complete,4,product,U_Z__V_Z,0.987833544029,31.0,32.0
+complete4,complete,4,product,U_SX__V_I,0.920151351271,32.0,32.0
+=======
 complete4,complete,4,monomial_full,sup012_P012_ph101,0.921577429336,31.0,32.0
 complete4,complete,4,product,U_Z__V_Z,0.987833544029,31.0,32.0
 complete4,complete,4,product,U_SX__V_I,0.942340451466,32.0,32.0
+>>>>>>> 56d1b97fc704db955eabb92bdd6c524f29c5bf2d
 complete4,complete,4,product,U_SX__V_SXdg,0.987833544029,32.0,32.0
