@@ -419,6 +419,7 @@ class TestProductGenerators(unittest.TestCase):
                 "status": "ok",
                 "best_depth": 1,
                 "mean_depth": 1.0,
+                "best_size": 1,
                 "best_two_qubit_gate_count": 0,
                 "avg_codeword_entanglement": 0.0,
                 "uses_old_codespace_only": bool(

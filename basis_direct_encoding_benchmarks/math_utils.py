@@ -47,6 +47,13 @@ def is_unitary(matrix: np.ndarray, tol: float = 1e-10) -> bool:
     return bool(np.allclose(matrix.conj().T @ matrix, np.eye(matrix.shape[0]), atol=tol))
 
 
+def is_isometry(matrix: np.ndarray, tol: float = 1e-10) -> bool:
+    matrix = np.asarray(matrix, dtype=complex)
+    if matrix.ndim != 2:
+        return False
+    return bool(np.allclose(matrix.conj().T @ matrix, np.eye(matrix.shape[1]), atol=tol))
+
+
 def validate_unitary(matrix: np.ndarray, dimension: int, name: str = "matrix") -> np.ndarray:
     matrix = np.asarray(matrix, dtype=complex)
     if matrix.shape != (dimension, dimension):
@@ -56,16 +63,37 @@ def validate_unitary(matrix: np.ndarray, dimension: int, name: str = "matrix") -
     return matrix
 
 
+def validate_isometry(
+    matrix: np.ndarray,
+    rows: int,
+    columns: int,
+    name: str = "matrix",
+) -> np.ndarray:
+    matrix = np.asarray(matrix, dtype=complex)
+    if matrix.shape != (rows, columns):
+        raise ValueError(f"{name} must have shape {(rows, columns)}, got {matrix.shape}.")
+    if not is_isometry(matrix):
+        raise ValueError(f"{name} must be an isometry.")
+    return matrix
+
+
+def encoding_embedding(encoding: np.ndarray) -> np.ndarray:
+    """Return a physical 4x3 qutrit encoding from either W or E_new."""
+    encoding = np.asarray(encoding, dtype=complex)
+    if encoding.shape == (3, 3):
+        return direct_basis_embedding(encoding)
+    return validate_isometry(encoding, 4, 3, name="E_new")
+
+
 def direct_basis_embedding(w: np.ndarray) -> np.ndarray:
     """Return E_W = E_Z @ W for the direct W-defined qutrit basis."""
     w = validate_unitary(w, 3, name="W")
     return canonical_qutrit_embedding() @ w
 
 
-def local_plus_state_in_direct_basis(w: np.ndarray) -> np.ndarray:
-    """Return the physical two-qubit state E_Z @ W @ |+>."""
-    w = validate_unitary(w, 3, name="W")
-    state = canonical_qutrit_embedding() @ w @ qutrit_plus_state()
+def local_plus_state_in_direct_basis(encoding: np.ndarray) -> np.ndarray:
+    """Return the physical two-qubit state E_new @ |+>."""
+    state = encoding_embedding(encoding) @ qutrit_plus_state()
     return state / np.linalg.norm(state)
 
 
@@ -93,6 +121,35 @@ def conjugated_qutrit_cz(w: np.ndarray) -> np.ndarray:
     if not is_unitary(cz_w):
         raise ValueError("Conjugated qutrit CZ is not unitary.")
     return cz_w
+
+
+def physical_single_qutrit_gate_in_encoding(
+    qutrit_gate: np.ndarray,
+    encoding: np.ndarray,
+) -> np.ndarray:
+    """Embed a logical qutrit gate into two qubits for a 4x3 encoding."""
+    gate = validate_unitary(qutrit_gate, 3, name="qutrit_gate")
+    e_new = encoding_embedding(encoding)
+    projector = e_new @ e_new.conj().T
+    embedded = e_new @ gate @ e_new.conj().T + (np.eye(4, dtype=complex) - projector)
+    if not is_unitary(embedded):
+        raise ValueError("Encoded single-qutrit physical gate is not unitary.")
+    return embedded
+
+
+def physical_two_qutrit_gate_in_encoding(
+    two_qutrit_gate: np.ndarray,
+    encoding: np.ndarray,
+) -> np.ndarray:
+    """Embed a logical two-qutrit gate into four qubits for a 4x3 encoding."""
+    gate = validate_unitary(two_qutrit_gate, 9, name="two_qutrit_gate")
+    e_new = encoding_embedding(encoding)
+    e_pair = np.kron(e_new, e_new)
+    projector = e_pair @ e_pair.conj().T
+    embedded = e_pair @ gate @ e_pair.conj().T + (np.eye(16, dtype=complex) - projector)
+    if not is_unitary(embedded):
+        raise ValueError("Encoded two-qutrit physical gate is not unitary.")
+    return embedded
 
 
 def code_subspace_indices() -> tuple[int, ...]:

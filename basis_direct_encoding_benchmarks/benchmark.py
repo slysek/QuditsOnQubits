@@ -10,6 +10,7 @@ from typing import Iterable, Optional
 import numpy as np
 import pandas as pd
 from qiskit import qpy, transpile
+from qiskit.circuit.library import UnitaryGate
 from qiskit.quantum_info import Statevector
 
 from basis_direct_encoding_benchmarks.candidates import DirectBasisCandidate
@@ -20,7 +21,11 @@ from basis_direct_encoding_benchmarks.circuits import (
     gate_as_circuit,
     resolve_direct_state,
 )
-from basis_direct_encoding_benchmarks.math_utils import is_unitary
+from basis_direct_encoding_benchmarks.math_utils import (
+    embed_single_qutrit_gate_identity_leakage,
+    is_isometry,
+    is_unitary,
+)
 from QuditsOnQubits.benchmark_encoding_bases import BASIS_GATES, COUPLING_MAP, TWO_Q_GATES
 
 
@@ -86,6 +91,7 @@ def _base_row(
         "class_name": class_name,
         "candidate_name": candidate_name,
         "basis_matrix_unitary": False,
+        "basis_matrix_isometry": False,
         "two_qubit_gate_count": None,
         "one_qubit_gate_count": None,
         "total_gate_count": None,
@@ -114,6 +120,9 @@ def _base_row(
         "f3_w_qpy": "",
         "cz3_w_qpy": "",
         "graph_state_qpy": "",
+        "graph_state_transpiled_qpy": "",
+        "basis_change_qpy": "",
+        "basis_change_matrix_npy": "",
     }
 
 
@@ -183,8 +192,7 @@ def benchmark_direct_basis(
     try:
         basis_matrix = np.asarray(basis_matrix, dtype=complex)
         row["basis_matrix_unitary"] = is_unitary(basis_matrix)
-        if not row["basis_matrix_unitary"]:
-            raise ValueError("basis_matrix is not unitary.")
+        row["basis_matrix_isometry"] = is_isometry(basis_matrix)
 
         qc = build_direct_basis_graph_state_circuit(
             state_name,
@@ -216,6 +224,7 @@ def benchmark_direct_basis(
     oneq_counts: list[int] = []
     successful = []
 
+    last_trial_error = ""
     for trial in range(int(n_transpile_runs)):
         try:
             qc_t = transpile(
@@ -248,13 +257,30 @@ def benchmark_direct_basis(
                     "qc": qc_t,
                 }
             )
-        except Exception:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as exc:
+            # Catch BaseException (not just Exception) because Qiskit's Rust
+            # backend can raise pyo3_runtime.PanicException (e.g. the known
+            # TwoQubitWeylDecomposition bug, qiskit-terra issue #4159) which
+            # does not inherit from Exception and would otherwise crash the
+            # entire benchmark run instead of being treated as a failed trial.
             row["failed_trials"] += 1
+            last_trial_error = f"{type(exc).__name__}: {exc}".splitlines()[0]
+            print(
+                f"  transpile trial {trial} failed: {last_trial_error}",
+                flush=True,
+            )
 
     row["compile_time_seconds"] = round(time.time() - started, 6)
     if row["successful_trials"] == 0:
         row["status"] = "all_transpile_failed"
-        row["error_message"] = "All transpilation trials failed."
+        row["error_message"] = (
+            f"All {n_transpile_runs} transpilation trials failed. "
+            f"Last error: {last_trial_error}"
+            if last_trial_error
+            else "All transpilation trials failed."
+        )
         return row
 
     best = sorted(successful, key=lambda item: item["rank_key"])[0]
@@ -272,6 +298,9 @@ def benchmark_direct_basis(
     row["one_qubit_gate_count"] = best["oneq"]
     row["total_gate_count"] = best["size"]
     row["circuit_depth"] = best["depth"]
+
+    if row["graph_state_transpiled_qpy"]:
+        _save_qpy(best["qc"], row["graph_state_transpiled_qpy"])
 
     if compute_fidelity:
         fidelity, fidelity_note = _safe_fidelity(qc, best["qc"], max_qubits=max_fidelity_qubits)
@@ -404,6 +433,12 @@ def _save_qpy(circuit, path: str) -> str:
     return path
 
 
+def _save_npy(matrix: np.ndarray, path: str) -> str:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    np.save(path, np.asarray(matrix, dtype=complex))
+    return path
+
+
 def export_direct_basis_candidate_circuits(
     *,
     quantum_circuits_dir: str,
@@ -414,8 +449,9 @@ def export_direct_basis_candidate_circuits(
     basis_matrix: np.ndarray,
     graph_state_circuit,
 ) -> dict[str, str]:
-    """Save F3^(W), CZ3^(W), and the full direct-basis graph circuit as QPY."""
+    """Save direct-basis circuit artifacts before a transpiled circuit is selected."""
     state = resolve_direct_state(state_name, n_qutrits=n_qutrits)
+    basis_matrix = np.asarray(basis_matrix, dtype=complex)
     output_dir = candidate_circuit_output_dir(
         quantum_circuits_dir,
         state_name=state.state_id,
@@ -432,14 +468,30 @@ def export_direct_basis_candidate_circuits(
         4,
         "CZ3_W",
     )
-
     paths = {
         "quantum_circuit_dir": output_dir,
         "f3_w_qpy": os.path.join(output_dir, "F3_W.qpy"),
         "cz3_w_qpy": os.path.join(output_dir, "CZ3_W.qpy"),
         "graph_state_qpy": os.path.join(output_dir, "graph_state_direct_basis.qpy"),
+        "graph_state_transpiled_qpy": os.path.join(output_dir, "graph_state_direct_basis_transpiled.qpy"),
+        "basis_change_qpy": "",
+        "basis_change_matrix_npy": os.path.join(output_dir, "W.npy" if basis_matrix.shape == (3, 3) else "E.npy"),
     }
     _save_qpy(f3_circuit, paths["f3_w_qpy"])
     _save_qpy(cz_circuit, paths["cz3_w_qpy"])
     _save_qpy(graph_state_circuit, paths["graph_state_qpy"])
+    _save_npy(basis_matrix, paths["basis_change_matrix_npy"])
+    if basis_matrix.shape == (3, 3) and is_unitary(basis_matrix):
+        basis_gate = UnitaryGate(
+            embed_single_qutrit_gate_identity_leakage(basis_matrix),
+            label="B_W",
+        )
+        basis_gate.name = "B_W"
+        basis_circuit = gate_as_circuit(
+            basis_gate,
+            2,
+            "B_W",
+        )
+        paths["basis_change_qpy"] = os.path.join(output_dir, "basis_change_gate.qpy")
+        _save_qpy(basis_circuit, paths["basis_change_qpy"])
     return paths

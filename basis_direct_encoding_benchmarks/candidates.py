@@ -11,12 +11,13 @@ from basis_direct_encoding_benchmarks.math_utils import (
     OMEGA,
     extract_qutrit_unitary_from_embedding,
     qutrit_fourier,
+    validate_isometry,
 )
 
 
 @dataclass(frozen=True)
 class DirectBasisCandidate:
-    """A qutrit U(3) basis candidate for direct-basis encoding."""
+    """A qutrit encoding candidate for direct-basis encoding."""
 
     name: str
     candidate_type: str
@@ -130,6 +131,26 @@ def _basis_type_from_legacy_class(class_name: str, candidate_name: str) -> str:
         return "monomial"
     if class_name == "product":
         return "product"
+    if class_name == "haar_random_isometry":
+        return "haar_random_isometry"
+    if class_name == "perturbed_isometry":
+        return "perturbed_isometry"
+    if class_name == "entangling_isometry":
+        return "entangling_isometry"
+    if class_name == "structured_entangling":
+        return "structured_entangling"
+    if class_name == "local_ry_only":
+        return "local_ry_only"
+    if class_name == "local_general_su2":
+        return "local_general_su2"
+    if class_name == "real_orthogonal":
+        return "real_orthogonal"
+    if class_name == "near_identity":
+        return "near_identity"
+    if class_name == "finer_structured":
+        return "finer_structured"
+    if class_name == "two_cz_ansatz":
+        return "two_cz_ansatz"
     return class_name
 
 
@@ -138,27 +159,33 @@ def direct_candidate_from_embedding(
     candidate_name: str,
     e_new,
 ) -> DirectBasisCandidate:
-    """Convert a legacy E_new candidate into a direct U(3) candidate if possible."""
+    """Convert a legacy E_new candidate into a direct encoding candidate."""
     try:
         matrix = extract_qutrit_unitary_from_embedding(e_new)
-        return DirectBasisCandidate(
-            name=candidate_name,
-            candidate_type=_basis_type_from_legacy_class(class_name, candidate_name),
-            matrix=matrix,
-            source_class_name=class_name,
-            source_candidate_name=candidate_name,
-            notes="Converted from legacy E_new = E_Z @ W candidate.",
-        )
-    except Exception as exc:
-        return DirectBasisCandidate(
-            name=candidate_name,
-            candidate_type=_basis_type_from_legacy_class(class_name, candidate_name),
-            matrix=None,
-            source_class_name=class_name,
-            source_candidate_name=candidate_name,
-            notes="Not benchmarked: candidate is not a qutrit U(3) basis in the canonical code space.",
-            error_message=str(exc),
-        )
+        notes = "Converted from legacy E_new = E_Z @ W candidate."
+    except Exception:
+        try:
+            matrix = validate_isometry(e_new, 4, 3, name="E_new")
+            notes = "Converted from legacy E_new 4x3 isometry candidate."
+        except Exception as exc:
+            return DirectBasisCandidate(
+                name=candidate_name,
+                candidate_type=_basis_type_from_legacy_class(class_name, candidate_name),
+                matrix=None,
+                source_class_name=class_name,
+                source_candidate_name=candidate_name,
+                notes="Not benchmarked: candidate is not a valid qutrit encoding isometry.",
+                error_message=str(exc),
+            )
+
+    return DirectBasisCandidate(
+        name=candidate_name,
+        candidate_type=_basis_type_from_legacy_class(class_name, candidate_name),
+        matrix=matrix,
+        source_class_name=class_name,
+        source_candidate_name=candidate_name,
+        notes=notes,
+    )
 
 
 def generate_legacy_qutrit_u3_candidates(mode: str = "original") -> list[DirectBasisCandidate]:
@@ -187,6 +214,86 @@ def generate_legacy_qutrit_u3_candidates(mode: str = "original") -> list[DirectB
     ]
 
 
+def generate_extended_legacy_candidates(
+    *,
+    include_monomial_full: bool = True,
+    include_haar_random: bool = True,
+    include_perturbed: bool = True,
+    include_entangling: bool = True,
+    include_structured_entangling: bool = True,
+    include_product: bool = True,
+    include_local_ry_only: bool = True,
+    include_local_general_su2: bool = True,
+    include_real_orthogonal: bool = True,
+    include_near_identity: bool = True,
+    include_finer_structured: bool = True,
+    include_two_cz_ansatz: bool = True,
+) -> list[DirectBasisCandidate]:
+    """Generate the extended encoding-change classes (klasy 5-15) from benchmark_encoding_bases.
+
+    These classes go beyond the old code space and include general 4x3 isometries,
+    entangling unitaries, product bases, and structured parametric families:
+
+      5.  monomial_full          – monomial embeddings over all 4 computational basis states
+      6.  haar_random_isometry   – random 4x3 isometry (Haar)
+      7.  perturbed_isometry     – E_old + small perturbation -> re-orthonormalisation
+      8.  entangling_isometry    – W_random(4x4) @ E_old
+      9.  structured_entangling  – (Ry x Ry) @ CZ @ (Rx x I) @ E_old
+      10. product                – (U x V) @ E_old, local 1-qubit unitaries
+      11. local_ry_only          – Ry(theta) x Ry(phi), dense grid
+      12. local_general_su2      – random SU(2) x SU(2), no 2-qubit overhead
+      13. real_orthogonal        – real orthogonal random 4x3 isometry
+      14. near_identity          – W = expm(i*eps*H) for small eps
+      15. finer_structured       – refined parameter grid around best structured_entangling results
+      16. two_cz_ansatz          – two CZ layers with random rotation parameters
+    """
+    from QuditsOnQubits.benchmark_encoding_bases import (
+        generate_entangling_isometries,
+        generate_finer_structured_grid,
+        generate_haar_random_isometries,
+        generate_local_general_su2,
+        generate_local_ry_only,
+        generate_monomial_full_bases,
+        generate_near_identity_isometries,
+        generate_perturbed_isometries,
+        generate_product_bases,
+        generate_real_orthogonal_isometries,
+        generate_structured_entangling_isometries,
+        generate_two_cz_ansatz,
+    )
+
+    raw = []
+    if include_monomial_full:
+        raw.extend(generate_monomial_full_bases(max_candidates=None))
+    if include_haar_random:
+        raw.extend(generate_haar_random_isometries())
+    if include_perturbed:
+        raw.extend(generate_perturbed_isometries())
+    if include_entangling:
+        raw.extend(generate_entangling_isometries())
+    if include_structured_entangling:
+        raw.extend(generate_structured_entangling_isometries())
+    if include_product:
+        raw.extend(generate_product_bases(max_candidates=None))
+    if include_local_ry_only:
+        raw.extend(generate_local_ry_only())
+    if include_local_general_su2:
+        raw.extend(generate_local_general_su2())
+    if include_real_orthogonal:
+        raw.extend(generate_real_orthogonal_isometries())
+    if include_near_identity:
+        raw.extend(generate_near_identity_isometries())
+    if include_finer_structured:
+        raw.extend(generate_finer_structured_grid())
+    if include_two_cz_ansatz:
+        raw.extend(generate_two_cz_ansatz())
+
+    return [
+        direct_candidate_from_embedding(class_name, candidate_name, e_new)
+        for class_name, candidate_name, e_new in raw
+    ]
+
+
 def generate_v2_stage1_direct_candidates(
     *,
     include_unsupported: bool = True,
@@ -204,6 +311,39 @@ def generate_v2_stage1_direct_candidates(
     if include_unsupported:
         return converted
     return [candidate for candidate in converted if candidate.is_supported]
+
+
+def _deduplicate_by_source_key(
+    candidates: Iterable[DirectBasisCandidate],
+) -> list[DirectBasisCandidate]:
+    seen: set[tuple[str, str]] = set()
+    unique: list[DirectBasisCandidate] = []
+    for candidate in candidates:
+        key = (candidate.class_name, candidate.candidate_name)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(candidate)
+    return unique
+
+
+def generate_all_qutrit_u3_candidates(candidate_config=None) -> list[DirectBasisCandidate]:
+    """Generate direct encoding candidates from v2, legacy, and extended pools."""
+    candidates: list[DirectBasisCandidate] = []
+    candidates.extend(
+        generate_v2_stage1_direct_candidates(
+            include_unsupported=False,
+            candidate_config=candidate_config,
+        )
+    )
+    candidates.extend(
+        candidate
+        for candidate in generate_legacy_qutrit_u3_candidates("old_qutrit")
+        # monomial_old_codespace is exactly the sup012 subset of monomial_full.
+        if candidate.class_name != "monomial_old_codespace"
+    )
+    candidates.extend(generate_extended_legacy_candidates())
+    return _deduplicate_by_source_key(candidates)
 
 
 def candidates_from_old_csv(

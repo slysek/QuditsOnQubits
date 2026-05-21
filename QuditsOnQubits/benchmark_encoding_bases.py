@@ -1151,6 +1151,7 @@ def benchmark_basis(E_new, class_name, candidate_name,
     two_q_counts = []
     successful_circuits = []
 
+    last_trial_error = ""
     for trial in range(n_transpile_runs):
         try:
             qc_t = transpile(
@@ -1182,12 +1183,25 @@ def benchmark_basis(E_new, class_name, candidate_name,
                 }
             )
 
-        except Exception:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as exc:
+            # Catch BaseException (not just Exception) because Qiskit's Rust
+            # backend can raise pyo3_runtime.PanicException (e.g. the known
+            # TwoQubitWeylDecomposition bug, qiskit-terra issue #4159) which
+            # does not inherit from Exception and would otherwise crash the
+            # entire benchmark run instead of being treated as a failed trial.
             row["failed_trials"] += 1
+            last_trial_error = f"{type(exc).__name__}: {exc}".splitlines()[0]
 
     if row["successful_trials"] == 0:
         row["status"] = "all_transpile_failed"
-        row["error_message"] = "Wszystkie próby transpilacji zakończyły się błędem."
+        row["error_message"] = (
+            f"Wszystkie próby transpilacji zakończyły się błędem. "
+            f"Ostatni błąd: {last_trial_error}"
+            if last_trial_error
+            else "Wszystkie próby transpilacji zakończyły się błędem."
+        )
         return row
 
     # ── statystyki ──

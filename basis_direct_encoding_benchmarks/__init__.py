@@ -10,12 +10,18 @@ from basis_direct_encoding_benchmarks.benchmark import (
 )
 from basis_direct_encoding_benchmarks.candidates import (
     DirectBasisCandidate,
+    generate_all_qutrit_u3_candidates,
+    generate_extended_legacy_candidates,
     generate_sanity_basis_candidates,
+    generate_v2_stage1_direct_candidates,
 )
 
 __all__ = [
     "DirectBasisCandidate",
     "benchmark_direct_basis",
     "benchmark_direct_basis_candidates",
+    "generate_all_qutrit_u3_candidates",
+    "generate_extended_legacy_candidates",
     "generate_sanity_basis_candidates",
+    "generate_v2_stage1_direct_candidates",
 ]

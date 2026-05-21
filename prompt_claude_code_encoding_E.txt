@@ -1,0 +1,164 @@
+Zrefaktoryzuj pakiet qutrit_bell_measurements/ tak, aby kodowanie qutrytu na 2 kubitach bylo w pelni okreslane przez macierz izometrii E (4x3), a nie przez zhardkodowane zalozenie kanonicznego kodowania |0>->|00>, |1>->|01>, |2>->|10>, leakage=|11>.
+
+KONTEKST PROBLEMU
+
+Obecnie:
+1. postprocessing.py::bit_pair_to_qutrit_outcome() ma na sztywno mapowanie:
+   (0,0)->0, (0,1)->1, (1,0)->2, (1,1)->leakage (None)
+2. basis.py::logical_part_from_matrix() przy konwersji obserwabli 4x4 -> 3x3 uzywa canonical_Ez(d) zamiast podanego E
+3. local_measurement_basis_unitary(E, ...) dostaje E, ale wewnetrznie wola logical_part_from_matrix(obs, d=d) bez przekazania E
+4. Pipeline budowania obwodow (sampler_circuits.py, qiskit_measurements.py) przekazuje E, ale postprocessing counts (compute_complex_expectation, leakage_rate, compute_bell_value_from_counts) nie dostaje E i zaklada kanoniczne kodowanie
+5. W notebooku notebooks/meas_settings_2qutryt.ipynb uzytkownik laduje wlasne E.npy z direct-basis encoding, ale postprocessing nadal dekoduje jak dla canonical_Ez()
+
+CEL
+
+Wszystkie operacje maja wynikac z podanej macierzy E:
+- podprzestrzen kodowa = span kolumn E
+- leakage = ortogonalny dopelnienie (dla 4x3: 1 wymiar)
+- mapowanie wynikow pomiaru 2 kubitow (00/01/10/11) -> wynik qutrytu 0/1/2/leakage ma byc wyprowadzone z E, nie zhardkodowane
+
+WYMAGANE ZMIANY
+
+1. qutrit_bell_measurements/basis.py
+
+Dodaj helpery (nazwy mozesz dopasowac, ale API musi byc jasne):
+
+def physical_index_from_bits(bit0: int, bit1: int) -> int:
+    """Map (bit0, bit1) to physical index in |00>,|01>,|10>,|11> order."""
+
+def bits_from_physical_index(index: int) -> tuple[int, int]:
+    """Inverse of physical_index_from_bits."""
+
+def encoding_leakage_subspace(E: np.ndarray, d: int = 3, tol: float = 1e-10) -> np.ndarray:
+    """Return orthonormal basis of leakage subspace (columns)."""
+
+def physical_to_logical_outcome_map(
+    E: np.ndarray,
+    d: int = 3,
+    tol: float = 1e-10,
+) -> dict[int, int | None]:
+    """
+    For each physical index k in {0,1,2,3}, return logical outcome 0..d-1 or None (leakage).
+
+    Algorytm:
+    - Dla kazdego logicznego j, znajdz k = argmax_k |E[k,j]| (unikalne)
+    - Zbuduj odwrotne mapowanie k -> j
+    - Indeksy k nie przypisane do zadnego j -> None (leakage)
+    - Jesli dwa logiczne j mapuja sie na ten sam k -> ValueError
+    - Waliduj, ze E jest izometria 4xd
+    """
+
+Zmien:
+
+def logical_part_from_matrix(O: np.ndarray, E: np.ndarray, d: int = 3) -> np.ndarray:
+    """Uzyj podanego E zamiast canonical_Ez()."""
+    # E^dagger @ O @ E dla O 4x4
+    # jesli O juz 3x3, zwroc bez zmian
+
+Zaktualizuj local_measurement_basis_unitary:
+- przekaz E do logical_part_from_matrix(obs, E, d=d)
+- leakage column nadal z complete_isometry_to_unitary(E), nie zakladaj |11>
+
+Zostaw canonical_Ez() jako helper/wartosc domyslna, ale nie jako jedyna sciezke.
+
+2. qutrit_bell_measurements/postprocessing.py
+
+Zmien API:
+
+def bit_pair_to_qutrit_outcome(
+    bit0: int,
+    bit1: int,
+    *,
+    E: np.ndarray | None = None,
+    outcome_map: dict[int, int | None] | None = None,
+    d: int = 3,
+) -> int | None:
+    """
+    Dekoduj pare bitow uzywajac outcome_map albo E.
+    Jesli podane oba, outcome_map ma pierwszenstwo.
+    Jesli zadne, uzyj canonical_Ez() dla backward compatibility.
+    """
+
+Analogicznie dodaj E / outcome_map do:
+- bitstring_to_qutrit_outcomes
+- leakage_rate
+- compute_complex_expectation
+- compute_bell_value_from_counts
+
+3. Propagacja E w metadata
+
+W sampler_circuits.py:
+- zapisuj w metadata pole "E": np.asarray(E) oraz "physical_to_logical_outcome_map": physical_to_logical_outcome_map(E, d=d)
+- opcjonalnie helper decoding_kwargs_from_metadata(metadata) -> dict zwracajacy argumenty do postprocessingu
+
+Upewnij sie, ze compute_bell_value_from_counts(..., E=metadata["E"]) dziala out-of-the-box po uruchomieniu Samplera.
+
+4. Testy (TDD)
+
+Rozszerz tests/test_basis.py i dodaj tests/test_postprocessing_encoding.py:
+
+Test A - canonical_Ez (regresja):
+- mapowanie nadal: 00->0, 01->1, 10->2, 11->leakage
+
+Test B - permuted encoding (kluczowy):
+
+# |0>->|00>, |1>->|01>, |2>->|11>  (|10> jest leakage)
+E_perm = np.array([
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 0],
+    [0, 0, 1],
+], dtype=complex)
+
+- 10 -> leakage
+- 11 -> 2
+- logical_part_from_matrix z tym E daje poprawny blok logiczny
+
+Test C - direct basis E = E_Z @ W:
+- uzyj przykladowego W (np. z basis_direct_encoding_benchmarks albo losowego unitary 3x3)
+- sprawdz, ze outcome map jest spojny z kolumnami E
+- compute_complex_expectation z counts i tym E daje poprawny wynik
+
+Test D - end-to-end:
+- build_sampler_circuits_for_candidate(..., E=E_custom) + symulacja counts + compute_bell_value_from_counts(..., E=E_custom) bez recznego remapowania
+
+5. Backward compatibility
+
+- Domyslnie (gdy E=None) zachowaj obecne zachowanie przez canonical_Ez()
+- Nie psuj istniejacych testow w tests/test_basis.py, tests/test_sampler_circuits.py
+- Nie zmieniaj notebookow ani examples, chyba ze trzeba pokazac nowy argument E=... w postprocessingu
+
+CZEGO NIE ROBIC
+
+- Nie hardkoduj |11> jako leakage nigdzie poza canonical_Ez() jako przyklad
+- Nie zmieniaj konwencji bit_order="qiskit" w postprocessingu
+- Nie refaktoryzuj graph_settings.py ani bell_functionals_qutrit - tylko encoding-aware decode
+- Nie commituj bez uruchomienia testow
+
+WERYFIKACJA
+
+Uruchom:
+
+pytest tests/test_basis.py tests/test_postprocessing_encoding.py tests/test_sampler_circuits.py -v
+
+Potwierdz, ze dla Esup (dowolna izometria 4x3 z pliku .npy) postprocessing poprawnie rozpoznaje leakage na podstawie E, a nie zaklada |11>.
+
+DELIVERABLES
+
+1. Zmiany w basis.py, postprocessing.py, sampler_circuits.py, __init__.py
+2. Nowe/rozszerzone testy
+3. Kroti komentarz w docstringu physical_to_logical_outcome_map wyjasniajacy konwencje |00>,|01>,|10>,|11>
+4. Podsumowanie: co bylo zhardkodowane, co teraz bierze sie z E, przyklad uzycia:
+
+from qutrit_bell_measurements import compute_bell_value_from_counts
+import numpy as np
+
+E = np.load("path/to/E.npy")
+value = compute_bell_value_from_counts(
+    counts_by_setting,
+    terms=metadata["terms"],
+    qutrit_bit_indices_by_setting=metadata["qutrit_bit_indices_by_setting"],
+    E=E,
+)
+
+Pracuj minimalnym diffem, zgodnie ze stylem repo. Najpierw napisz testy, potem implementacje.
