@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import time
@@ -11,6 +12,7 @@ import numpy as np
 import pandas as pd
 from qiskit import qpy, transpile
 from qiskit.circuit.library import UnitaryGate
+from qiskit.converters import circuit_to_dag, dag_to_circuit
 from qiskit.quantum_info import Statevector
 
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
@@ -41,6 +43,14 @@ def default_quantum_circuits_dir() -> str:
     return repo_path("artifacts", "direct_basis_runs", "raw", "quantum_circuits")
 
 
+def default_iqm_results_dir() -> str:
+    return repo_path("artifacts", "iqm_runs", "raw")
+
+
+def default_iqm_quantum_circuits_dir(iqm_backend_name: str) -> str:
+    return repo_path("artifacts", "iqm_runs", "raw", "quantum_circuits", str(iqm_backend_name))
+
+
 def timestamped_results_path(
     *,
     output_dir: Optional[str] = None,
@@ -64,6 +74,101 @@ def _count_one_qubit_gates(qc) -> int:
 
 def _count_two_qubit_gates_from_ops(ops) -> int:
     return int(sum(value for name, value in ops.items() if name in TWO_Q_GATES))
+
+
+def _count_native_ops(ops, operation_names) -> dict[str, int]:
+    native_names = sorted(str(name) for name in operation_names)
+    return {
+        name: int(ops[name])
+        for name in native_names
+        if int(ops.get(name, 0)) > 0
+    }
+
+
+def _operation_names_from_metadata(metadata) -> list[str]:
+    if not metadata:
+        return []
+    value = metadata.get("backend_operation_names")
+    if value is None:
+        return []
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+    try:
+        return [str(item) for item in value]
+    except TypeError:
+        return []
+
+
+def _strip_idle_qubits_with_indices(qc):
+    no_measurements = qc.remove_final_measurements(inplace=False)
+    dag = circuit_to_dag(no_measurements)
+    idle_qubits = [wire for wire in dag.idle_wires() if wire in dag.qubits]
+    active_original_indices = [
+        no_measurements.find_bit(qubit).index
+        for qubit in dag.qubits
+        if qubit not in idle_qubits
+    ]
+    if idle_qubits:
+        dag.remove_qubits(*idle_qubits)
+    return dag_to_circuit(dag), active_original_indices
+
+
+def _restore_stripped_input_order(
+    state: np.ndarray,
+    candidate_qc,
+    active_indices: list[int],
+    reference_qubits: int,
+) -> np.ndarray:
+    layout = getattr(candidate_qc, "layout", None)
+    if layout is None or getattr(layout, "final_layout", None) is None:
+        return state
+    try:
+        final_index_layout = layout.final_index_layout(filter_ancillas=True)
+    except Exception:
+        return state
+    input_to_output = [
+        final_index_layout[active_index]
+        for active_index in active_indices
+        if active_index < len(final_index_layout)
+    ]
+    if len(input_to_output) != reference_qubits:
+        return state
+    return _restore_input_qubit_order(state, input_to_output)
+
+
+def _transpile_one_trial(
+    qc,
+    *,
+    trial: int,
+    transpiler_backend=None,
+    basis_gates=None,
+    coupling_map=None,
+    optimization_level: int = 3,
+    layout_method: str | None = None,
+    routing_method: str | None = None,
+):
+    if transpiler_backend is None:
+        return transpile(
+            qc,
+            basis_gates=basis_gates,
+            coupling_map=coupling_map,
+            optimization_level=optimization_level,
+            seed_transpiler=trial,
+        )
+
+    from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import build_iqm_pass_manager
+
+    pass_manager = build_iqm_pass_manager(
+        transpiler_backend,
+        optimization_level=optimization_level,
+        seed_transpiler=trial,
+        layout_method=layout_method,
+        routing_method=routing_method,
+    )
+    return pass_manager.run(qc)
 
 
 def _base_row(
@@ -112,6 +217,20 @@ def _base_row(
         "mean_size": None,
         "best_two_qubit_gate_count": None,
         "mean_two_qubit_gate_count": None,
+        "best_one_qubit_gate_count": None,
+        "mean_one_qubit_gate_count": None,
+        "best_native_count_ops": "",
+        "transpiler_backend": "manual",
+        "iqm_backend_name": "",
+        "iqm_use_metrics": False,
+        "optimization_level": 3,
+        "layout_method": None,
+        "routing_method": None,
+        "backend_num_qubits": None,
+        "backend_operation_names": "",
+        "backend_coupling_map_size": None,
+        "backend_has_resonators": None,
+        "backend_calibration_set_id": "",
         "num_qubits": None,
         "best_count_ops": None,
         "n_transpile_runs": n_transpile_runs,
@@ -142,20 +261,47 @@ def _restore_input_qubit_order(state: np.ndarray, input_to_output: list[int]) ->
 
 
 def _safe_fidelity(reference_qc, candidate_qc, *, max_qubits: int) -> tuple[float | None, str]:
-    if candidate_qc.num_qubits > int(max_qubits):
-        return None, f"Fidelity skipped because transpiled circuit has {candidate_qc.num_qubits} qubits."
+    fidelity_qc = candidate_qc
+    active_indices = list(range(candidate_qc.num_qubits))
+    notes = []
+    if fidelity_qc.num_qubits > int(max_qubits):
+        stripped_qc, stripped_active_indices = _strip_idle_qubits_with_indices(fidelity_qc)
+        if stripped_qc.num_qubits < fidelity_qc.num_qubits:
+            notes.append(
+                f"Idle qubits stripped for fidelity: {fidelity_qc.num_qubits}->{stripped_qc.num_qubits}."
+            )
+            fidelity_qc = stripped_qc
+            active_indices = stripped_active_indices
+    if fidelity_qc.num_qubits > int(max_qubits):
+        notes.append(f"Fidelity skipped because transpiled circuit has {fidelity_qc.num_qubits} qubits.")
+        return None, " ".join(notes)
+    if fidelity_qc.num_qubits != reference_qc.num_qubits:
+        notes.append(
+            f"Fidelity skipped because active qubit count {fidelity_qc.num_qubits} "
+            f"differs from reference {reference_qc.num_qubits}."
+        )
+        return None, " ".join(notes)
     try:
         reference = Statevector.from_instruction(reference_qc)
-        candidate = Statevector.from_instruction(candidate_qc)
+        candidate = Statevector.from_instruction(fidelity_qc)
         candidate_data = candidate.data
-        layout = getattr(candidate_qc, "layout", None)
-        if layout is not None and getattr(layout, "final_layout", None) is not None:
-            final_index_layout = layout.final_index_layout(filter_ancillas=True)
-            if len(final_index_layout) == reference_qc.num_qubits == candidate_qc.num_qubits:
-                candidate_data = _restore_input_qubit_order(candidate_data, final_index_layout)
-        return float(abs(np.vdot(reference.data, candidate_data)) ** 2), ""
+        if fidelity_qc is candidate_qc:
+            layout = getattr(candidate_qc, "layout", None)
+            if layout is not None and getattr(layout, "final_layout", None) is not None:
+                final_index_layout = layout.final_index_layout(filter_ancillas=True)
+                if len(final_index_layout) == reference_qc.num_qubits == candidate_qc.num_qubits:
+                    candidate_data = _restore_input_qubit_order(candidate_data, final_index_layout)
+        else:
+            candidate_data = _restore_stripped_input_order(
+                candidate_data,
+                candidate_qc,
+                active_indices,
+                reference_qc.num_qubits,
+            )
+        return float(abs(np.vdot(reference.data, candidate_data)) ** 2), " ".join(notes)
     except Exception as exc:
-        return None, f"Fidelity skipped: {exc}"
+        notes.append(f"Fidelity skipped: {exc}")
+        return None, " ".join(notes)
 
 
 def benchmark_direct_basis(
@@ -174,6 +320,11 @@ def benchmark_direct_basis(
     max_fidelity_qubits: int = 10,
     notes: str = "",
     quantum_circuits_dir: str | None = None,
+    transpiler_backend=None,
+    transpiler_metadata: dict | None = None,
+    optimization_level: int = 3,
+    layout_method: str | None = None,
+    routing_method: str | None = None,
 ) -> dict:
     """Benchmark graph-state preparation using direct W-defined encoding."""
     class_name = source_class_name or basis_candidate_type
@@ -188,6 +339,11 @@ def benchmark_direct_basis(
         n_transpile_runs=n_transpile_runs,
         notes=notes,
     )
+    if transpiler_metadata:
+        row.update(transpiler_metadata)
+    row["optimization_level"] = int(optimization_level)
+    row["layout_method"] = layout_method
+    row["routing_method"] = routing_method
 
     started = time.time()
     try:
@@ -217,8 +373,14 @@ def benchmark_direct_basis(
         row["compile_time_seconds"] = round(time.time() - started, 6)
         return row
 
-    basis_gates = basis_gates or BASIS_GATES
-    coupling_map = coupling_map if coupling_map is not None else COUPLING_MAP
+    if transpiler_backend is None:
+        basis_gates = basis_gates or BASIS_GATES
+        coupling_map = coupling_map if coupling_map is not None else COUPLING_MAP
+        native_operation_names = []
+    else:
+        basis_gates = None
+        coupling_map = None
+        native_operation_names = _operation_names_from_metadata(row)
     depths: list[int] = []
     sizes: list[int] = []
     twoq_counts: list[int] = []
@@ -228,18 +390,22 @@ def benchmark_direct_basis(
     last_trial_error = ""
     for trial in range(int(n_transpile_runs)):
         try:
-            qc_t = transpile(
+            qc_t = _transpile_one_trial(
                 qc,
+                trial=trial,
+                transpiler_backend=transpiler_backend,
                 basis_gates=basis_gates,
                 coupling_map=coupling_map,
-                optimization_level=3,
-                seed_transpiler=trial,
+                optimization_level=int(optimization_level),
+                layout_method=layout_method,
+                routing_method=routing_method,
             )
             ops = qc_t.count_ops()
             depth = int(qc_t.depth())
             size = int(qc_t.size())
             twoq = _count_two_qubit_gates_from_ops(ops)
             oneq = _count_one_qubit_gates(qc_t)
+            native_ops = _count_native_ops(ops, native_operation_names)
 
             depths.append(depth)
             sizes.append(size)
@@ -248,12 +414,17 @@ def benchmark_direct_basis(
             row["successful_trials"] += 1
             successful.append(
                 {
-                    "rank_key": (depth, twoq, size),
+                    "rank_key": (
+                        (depth, twoq, oneq, size)
+                        if transpiler_backend is not None
+                        else (depth, twoq, size)
+                    ),
                     "depth": depth,
                     "size": size,
                     "twoq": twoq,
                     "oneq": oneq,
                     "ops": dict(ops),
+                    "native_ops": native_ops,
                     "num_qubits": qc_t.num_qubits,
                     "qc": qc_t,
                 }
@@ -292,6 +463,9 @@ def benchmark_direct_basis(
     row["mean_size"] = round(float(np.mean(sizes)), 2)
     row["best_two_qubit_gate_count"] = best["twoq"]
     row["mean_two_qubit_gate_count"] = round(float(np.mean(twoq_counts)), 2)
+    row["best_one_qubit_gate_count"] = best["oneq"]
+    row["mean_one_qubit_gate_count"] = round(float(np.mean(oneq_counts)), 2)
+    row["best_native_count_ops"] = json.dumps(best.get("native_ops", {}), sort_keys=True)
     row["num_qubits"] = best["num_qubits"]
     row["best_count_ops"] = best["ops"]
 
@@ -352,6 +526,11 @@ def benchmark_direct_basis_candidates(
     max_fidelity_qubits: int = 10,
     output_csv: str | None = None,
     quantum_circuits_dir: str | None = None,
+    transpiler_backend=None,
+    transpiler_metadata: dict | None = None,
+    optimization_level: int = 3,
+    layout_method: str | None = None,
+    routing_method: str | None = None,
 ) -> tuple[pd.DataFrame, str | None]:
     rows = []
     candidates = list(candidates)
@@ -384,6 +563,11 @@ def benchmark_direct_basis_candidates(
                 max_fidelity_qubits=max_fidelity_qubits,
                 notes=candidate.notes,
                 quantum_circuits_dir=quantum_circuits_dir,
+                transpiler_backend=transpiler_backend,
+                transpiler_metadata=transpiler_metadata,
+                optimization_level=optimization_level,
+                layout_method=layout_method,
+                routing_method=routing_method,
             )
 
         if row["success"]:
