@@ -77,6 +77,8 @@ def _count_two_qubit_gates_from_ops(ops) -> int:
 
 
 def _count_native_ops(ops, operation_names) -> dict[str, int]:
+    if not operation_names:
+        return {}
     native_names = sorted(str(name) for name in operation_names)
     return {
         name: int(ops[name])
@@ -129,13 +131,17 @@ def _restore_stripped_input_order(
         final_index_layout = layout.final_index_layout(filter_ancillas=True)
     except Exception:
         return state
-    input_to_output = [
-        final_index_layout[active_index]
-        for active_index in active_indices
-        if active_index < len(final_index_layout)
-    ]
-    if len(input_to_output) != reference_qubits:
+    if len(final_index_layout) != reference_qubits:
         return state
+    active_positions = {
+        physical_index: idx for idx, physical_index in enumerate(active_indices)
+    }
+    if not all(physical_index in active_positions for physical_index in final_index_layout):
+        return state
+    input_to_output = [
+        active_positions[physical_index]
+        for physical_index in final_index_layout
+    ]
     return _restore_input_qubit_order(state, input_to_output)
 
 
@@ -162,7 +168,7 @@ def _transpile_one_trial(
     from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import build_iqm_pass_manager
 
     pass_manager = build_iqm_pass_manager(
-        transpiler_backend,
+        backend=transpiler_backend,
         optimization_level=optimization_level,
         seed_transpiler=trial,
         layout_method=layout_method,
