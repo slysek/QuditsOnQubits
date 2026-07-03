@@ -12,6 +12,8 @@ if str(_SRC) not in sys.path:
 
 from qudits_on_qubits.benchmarks.direct_basis.benchmark import (
     benchmark_direct_basis_candidates,
+    default_iqm_quantum_circuits_dir,
+    default_iqm_results_dir,
     default_quantum_circuits_dir,
     timestamped_results_path,
 )
@@ -30,6 +32,11 @@ from qudits_on_qubits.benchmarks.direct_basis.candidates import (
     generate_sanity_basis_candidates,
     generate_v2_stage1_direct_candidates,
     limit_candidates,
+)
+from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import (
+    backend_metadata,
+    load_iqm_backend,
+    safe_backend_slug,
 )
 from qudits_on_qubits.encoding_search.candidates import CandidateSearchConfig
 from qudits_on_qubits.core.project_paths import repo_path, repo_root
@@ -78,6 +85,26 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--near-identity-samples-per-eps", type=int, default=2)
     parser.add_argument("--near-identity-seed", type=int, default=500)
     parser.add_argument("--n-transpile-runs", type=int, default=1)
+    parser.add_argument(
+        "--iqm-backend",
+        default=None,
+        help="IQM backend name to use for transpilation, for example garnet.",
+    )
+    parser.add_argument(
+        "--iqm-use-metrics",
+        action="store_true",
+        help="Load IQM calibration metrics when constructing the backend.",
+    )
+    parser.add_argument(
+        "--layout-method",
+        default=None,
+        help="Qiskit layout method passed to the backend transpiler.",
+    )
+    parser.add_argument(
+        "--routing-method",
+        default=None,
+        help="Qiskit routing method passed to the backend transpiler.",
+    )
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--output-csv", default=None)
     parser.add_argument(
@@ -159,11 +186,20 @@ def _default_results_prefix(args) -> str:
     from qudits_on_qubits.encoding_search.states import resolve_benchmark_state
 
     state = resolve_benchmark_state(args.state, n_qutrits=args.n_qutrits)
-    parts = [
-        "direct_basis",
-        _safe_filename_part(state.state_id),
-        _safe_filename_part(args.candidate_set),
-    ]
+    if getattr(args, "iqm_backend", None):
+        parts = [
+            "direct_basis",
+            "iqm",
+            safe_backend_slug(args.iqm_backend),
+            _safe_filename_part(state.state_id),
+            _safe_filename_part(args.candidate_set),
+        ]
+    else:
+        parts = [
+            "direct_basis",
+            _safe_filename_part(state.state_id),
+            _safe_filename_part(args.candidate_set),
+        ]
     candidate_classes = _candidate_classes_from_args(args)
     if candidate_classes:
         classes = "_".join(_safe_filename_part(class_name) for class_name in candidate_classes)
@@ -262,6 +298,10 @@ def _selection_labels_for_run(thresholds: tuple[float, ...]) -> tuple[str, ...]:
     return ("exact",) + tuple(selection_label(value) for value in thresholds)
 
 
+def _iqm_quantum_circuits_dir_from_args(args) -> str:
+    return default_iqm_quantum_circuits_dir(safe_backend_slug(args.iqm_backend))
+
+
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -272,8 +312,31 @@ def main(argv=None) -> int:
 
     approximation_thresholds = _resolved_approximation_thresholds(args)
     candidates = _load_candidates(args)
+    transpiler_backend = None
+    transpiler_metadata = None
+    output_dir = args.output_dir
+    quantum_circuits_dir = args.quantum_circuits_dir
+
+    if args.iqm_backend:
+        transpiler_backend = load_iqm_backend(
+            args.iqm_backend,
+            use_metrics=args.iqm_use_metrics,
+        )
+        transpiler_metadata = backend_metadata(
+            transpiler_backend,
+            iqm_backend_name=args.iqm_backend,
+            iqm_use_metrics=args.iqm_use_metrics,
+            optimization_level=3,
+            layout_method=args.layout_method,
+            routing_method=args.routing_method,
+        )
+        if output_dir is None:
+            output_dir = default_iqm_results_dir()
+        if quantum_circuits_dir is None:
+            quantum_circuits_dir = _iqm_quantum_circuits_dir_from_args(args)
+
     output_csv = args.output_csv or timestamped_results_path(
-        output_dir=args.output_dir,
+        output_dir=output_dir,
         prefix=_default_results_prefix(args),
     )
 
@@ -301,9 +364,14 @@ def main(argv=None) -> int:
         quantum_circuits_dir=(
             None
             if args.no_export_quantum_circuits
-            else (args.quantum_circuits_dir or default_quantum_circuits_dir())
+            else (quantum_circuits_dir or default_quantum_circuits_dir())
         ),
         approximation_degrees=approximation_thresholds or None,
+        transpiler_backend=transpiler_backend,
+        transpiler_metadata=transpiler_metadata,
+        optimization_level=3,
+        layout_method=args.layout_method,
+        routing_method=args.routing_method,
     )
     print(f"Done. Results saved to: {path}")
 

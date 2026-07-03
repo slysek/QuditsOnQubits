@@ -11,3 +11,5 @@ qiskit
 qiskit-aer
 qiskit-ibm-runtime
 qiskit-experiments
+python-dotenv
+iqm-client[qiskit]

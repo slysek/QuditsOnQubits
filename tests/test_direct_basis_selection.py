@@ -178,6 +178,40 @@ class DirectBasisSelectionRankingTests(unittest.TestCase):
         self.assertEqual(selected["candidate_name"].tolist(), ["low_fid_but_shallow"])
         self.assertEqual(selected["selection_rank"].tolist(), [1])
 
+    def test_selection_uses_one_qubit_count_before_size(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "selection_label": "exact",
+                    "status": "ok",
+                    "success": True,
+                    "class_name": "product",
+                    "candidate_name": "larger_size_fewer_1q",
+                    "best_depth": 8,
+                    "best_two_qubit_gate_count": 2,
+                    "best_one_qubit_gate_count": 4,
+                    "best_size": 40,
+                    "fidelity": 1.0,
+                },
+                {
+                    "selection_label": "exact",
+                    "status": "ok",
+                    "success": True,
+                    "class_name": "product",
+                    "candidate_name": "smaller_size_more_1q",
+                    "best_depth": 8,
+                    "best_two_qubit_gate_count": 2,
+                    "best_one_qubit_gate_count": 9,
+                    "best_size": 20,
+                    "fidelity": 1.0,
+                },
+            ]
+        )
+
+        selected = select_top_k(df, label="exact", top_k=1, fidelity_threshold=None)
+
+        self.assertEqual(selected["candidate_name"].tolist(), ["larger_size_fewer_1q"])
+
 
 class DirectBasisSelectionArtifactTests(unittest.TestCase):
     def test_materialize_selected_artifacts_copies_files_and_writes_manifest_with_relative_paths(self):
@@ -205,6 +239,7 @@ class DirectBasisSelectionArtifactTests(unittest.TestCase):
                         "success": True,
                         "best_depth": 7,
                         "best_two_qubit_gate_count": 3,
+                        "best_one_qubit_gate_count": 5,
                         "best_size": 12,
                         "fidelity": 0.995,
                         "approximation_degree": 0.99,

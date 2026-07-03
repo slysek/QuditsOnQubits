@@ -13,7 +13,12 @@ from qudits_on_qubits.benchmarks.direct_basis.math_utils import encoding_embeddi
 
 SUPPORTED_BELL_STATES = ("two_qutrit", "ghz3", "ame43")
 DEFAULT_APPROXIMATION_THRESHOLDS = (0.99, 0.95, 0.90)
-RANK_BY_DEPTH_COLUMNS = ("best_depth", "best_two_qubit_gate_count", "best_size")
+RANK_BY_DEPTH_COLUMNS = (
+    "best_depth",
+    "best_two_qubit_gate_count",
+    "best_one_qubit_gate_count",
+    "best_size",
+)
 
 
 @dataclass(frozen=True)
@@ -216,6 +221,7 @@ def _manifest_row(config: SelectionConfig, label: str, row: pd.Series, selected_
         "candidate_name": row.get("candidate_name", ""),
         "best_depth": row.get("best_depth", ""),
         "best_two_qubit_gate_count": row.get("best_two_qubit_gate_count", ""),
+        "best_one_qubit_gate_count": row.get("best_one_qubit_gate_count", ""),
         "best_size": row.get("best_size", ""),
         "fidelity": row.get("fidelity", ""),
         "graph_state_qpy": repo_relative(graph_state_qpy, config.repo_root),
