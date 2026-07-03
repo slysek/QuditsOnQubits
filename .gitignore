@@ -15,3 +15,5 @@ artifacts/direct_basis_runs/selected_best/**
 !artifacts/**/.gitkeep
 !artifacts/README.md
 !artifacts/MANIFEST.template.csv
+
+docs/

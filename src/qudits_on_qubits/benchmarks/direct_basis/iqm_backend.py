@@ -63,7 +63,6 @@ def load_iqm_backend(
     provider = IQMProvider(
         env.server_url,
         quantum_computer=quantum_computer,
-        token=env.token,
     )
     return provider.get_backend(use_metrics=bool(use_metrics))
 

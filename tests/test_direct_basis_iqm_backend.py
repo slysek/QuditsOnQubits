@@ -4,8 +4,10 @@ import json
 import os
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from qiskit import QuantumCircuit
 
@@ -18,6 +20,7 @@ from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import (
     IqmEnvironment,
     backend_metadata,
     build_iqm_pass_manager,
+    load_iqm_backend,
     load_iqm_environment,
     safe_backend_slug,
 )
@@ -71,6 +74,53 @@ class IqmBackendAdapterTests(unittest.TestCase):
                 )
                 self.assertEqual(os.environ["IQM_SERVER_URL"], "https://example.invalid/")
                 self.assertEqual(os.environ["IQM_TOKEN"], "secret-token")
+            finally:
+                if old_url is None:
+                    os.environ.pop("IQM_SERVER_URL", None)
+                else:
+                    os.environ["IQM_SERVER_URL"] = old_url
+                if old_token is None:
+                    os.environ.pop("IQM_TOKEN", None)
+                else:
+                    os.environ["IQM_TOKEN"] = old_token
+
+    def test_load_iqm_backend_uses_dotenv_auth_without_passing_duplicate_token(self):
+        class FakeIQMProvider:
+            def __init__(self, url, *, quantum_computer=None, **user_auth_args):
+                self.url = url
+                self.quantum_computer = quantum_computer
+                self.user_auth_args = user_auth_args
+
+            def get_backend(self, *, use_metrics=False):
+                if "token" in self.user_auth_args and os.environ.get("IQM_TOKEN"):
+                    raise RuntimeError("mixed token sources")
+                return {
+                    "url": self.url,
+                    "quantum_computer": self.quantum_computer,
+                    "use_metrics": use_metrics,
+                    "user_auth_args": self.user_auth_args,
+                    "env_token": os.environ.get("IQM_TOKEN"),
+                }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            env_path = Path(tmp) / ".env"
+            env_path.write_text(
+                "IQM_SERVER_URL=https://example.invalid/\n"
+                "IQM_TOKEN=secret-token\n",
+                encoding="utf-8",
+            )
+            fake_module = types.SimpleNamespace(IQMProvider=FakeIQMProvider)
+            old_url = os.environ.get("IQM_SERVER_URL")
+            old_token = os.environ.get("IQM_TOKEN")
+            try:
+                with patch.dict(sys.modules, {"iqm.qiskit_iqm": fake_module}):
+                    backend = load_iqm_backend("garnet", use_metrics=True, env_path=env_path)
+
+                self.assertEqual(backend["url"], "https://example.invalid/")
+                self.assertEqual(backend["quantum_computer"], "garnet")
+                self.assertEqual(backend["use_metrics"], True)
+                self.assertEqual(backend["user_auth_args"], {})
+                self.assertEqual(backend["env_token"], "secret-token")
             finally:
                 if old_url is None:
                     os.environ.pop("IQM_SERVER_URL", None)
