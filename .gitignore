@@ -17,3 +17,4 @@ artifacts/direct_basis_runs/selected_best/**
 !artifacts/MANIFEST.template.csv
 
 docs/
+.agents/
