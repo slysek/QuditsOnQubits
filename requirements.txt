@@ -1,0 +1,13 @@
+numpy
+scipy
+pandas
+sympy
+matplotlib
+igraph
+tqdm
+ipython
+jupyterlab
+qiskit
+qiskit-aer
+qiskit-ibm-runtime
+qiskit-experiments

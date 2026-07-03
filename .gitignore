@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+.env
+.env.*
+
+artifacts/iqm_runs/raw/**
+artifacts/iqm_runs/processed/**
+artifacts/direct_basis_runs/raw/**
+artifacts/direct_basis_runs/processed/**
+
+!artifacts/**/.gitkeep
+!artifacts/README.md
+!artifacts/MANIFEST.template.csv

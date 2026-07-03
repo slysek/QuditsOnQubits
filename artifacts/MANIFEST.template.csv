@@ -1,0 +1,1 @@
+state,candidate_id,candidate_class,backend_or_simulator,source_run,circuit_qpy,transpiled_qpy,E_npy,F_qpy,CZ_qpy,transpiled_depth,two_qubit_gate_count,bell_value,notes
