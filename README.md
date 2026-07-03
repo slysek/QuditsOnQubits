@@ -41,11 +41,12 @@ python scripts/run_direct_basis_benchmarks.py `
   --state ghz3 `
   --candidate-set all-qutrit-u3 `
   --n-transpile-runs 20 `
+  --jobs 4 `
   --approximation-thresholds 0.99,0.95,0.90 `
   --select-top-k 5
 ```
 
-This runs `exact`, `fid099`, `fid095`, and `fid090`. Threshold labels pass `approximation_degree` into Qiskit transpilation; selected threshold rows must also satisfy `fidelity >= threshold`. Selected circuits are written under `artifacts/direct_basis_runs/selected_best/<state>/<run_id>/`.
+This runs `exact`, `fid099`, `fid095`, and `fid090`. Threshold labels pass `approximation_degree` into Qiskit transpilation; selected threshold rows must also satisfy `fidelity >= threshold`. `--jobs` runs independent candidates concurrently while keeping each candidate's exact/threshold exports serialized. Selected circuits are written under `artifacts/direct_basis_runs/selected_best/<state>/<run_id>/`.
 
 For a fast smoke run:
 
@@ -55,6 +56,7 @@ python scripts/run_direct_basis_benchmarks.py `
   --candidate-set sanity `
   --limit-candidates 3 `
   --n-transpile-runs 1 `
+  --jobs 2 `
   --local-line-coupling `
   --approximation-thresholds 0.99,0.95,0.90 `
   --select-top-k 2
@@ -85,7 +87,7 @@ IQM_TOKEN=replace-with-your-iqm-api-token
 Run a small IQM-backed direct-basis benchmark:
 
 ```powershell
-python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet
+python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --jobs 4
 ```
 
 The `--iqm-backend` value is the IQM quantum computer name or alias. `garnet` is only an example. When this flag is present, the script loads one IQM backend for the whole run and compiles each candidate with Qiskit's preset pass manager using that backend:

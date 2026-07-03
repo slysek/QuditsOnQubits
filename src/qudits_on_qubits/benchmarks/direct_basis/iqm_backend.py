@@ -10,6 +10,7 @@ from dotenv import dotenv_values, load_dotenv
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
 REQUIRED_IQM_ENV_KEYS = ("IQM_SERVER_URL", "IQM_TOKEN")
+EXACT_RZ_SCHEDULING_METHOD = "move_routing_exact_global_phase"
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,7 @@ def build_iqm_pass_manager(
     seed_transpiler: int | None = None,
     layout_method: str | None = None,
     routing_method: str | None = None,
+    scheduling_method: str | None = EXACT_RZ_SCHEDULING_METHOD,
     approximation_degree: float | None = None,
 ) -> Any:
     kwargs: dict[str, Any] = {
@@ -84,6 +86,8 @@ def build_iqm_pass_manager(
         kwargs["layout_method"] = layout_method
     if routing_method is not None:
         kwargs["routing_method"] = routing_method
+    if scheduling_method is not None:
+        kwargs["scheduling_method"] = scheduling_method
     if approximation_degree is not None:
         kwargs["approximation_degree"] = float(approximation_degree)
     return generate_preset_pass_manager(**kwargs)
@@ -156,6 +160,7 @@ def backend_metadata(
     optimization_level: int,
     layout_method: str | None,
     routing_method: str | None,
+    scheduling_method: str | None = EXACT_RZ_SCHEDULING_METHOD,
 ) -> dict[str, Any]:
     return {
         "transpiler_backend": "iqm",
@@ -164,6 +169,7 @@ def backend_metadata(
         "optimization_level": optimization_level,
         "layout_method": layout_method,
         "routing_method": routing_method,
+        "scheduling_method": scheduling_method,
         "backend_num_qubits": _backend_num_qubits(backend),
         "backend_operation_names": json.dumps(_backend_operation_names(backend)),
         "backend_coupling_map_size": _backend_coupling_map_size(backend),

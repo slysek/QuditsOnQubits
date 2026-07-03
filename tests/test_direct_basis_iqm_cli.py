@@ -106,6 +106,8 @@ class DirectBasisIqmCliTests(unittest.TestCase):
                     "sabre",
                     "--routing-method",
                     "sabre",
+                    "--jobs",
+                    "3",
                     "--no-export-quantum-circuits",
                     "--no-fidelity",
                 ]
@@ -127,6 +129,7 @@ class DirectBasisIqmCliTests(unittest.TestCase):
         self.assertEqual(benchmark_kwargs["optimization_level"], 3)
         self.assertEqual(benchmark_kwargs["layout_method"], "sabre")
         self.assertEqual(benchmark_kwargs["routing_method"], "sabre")
+        self.assertEqual(benchmark_kwargs["jobs"], 3)
         self.assertIsNone(benchmark_kwargs["quantum_circuits_dir"])
 
     def test_main_uses_explicit_output_csv_override_for_iqm(self):

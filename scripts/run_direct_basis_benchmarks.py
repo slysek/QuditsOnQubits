@@ -86,6 +86,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--near-identity-seed", type=int, default=500)
     parser.add_argument("--n-transpile-runs", type=int, default=1)
     parser.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        help="Number of candidate benchmarks to run concurrently.",
+    )
+    parser.add_argument(
         "--iqm-backend",
         default=None,
         help="IQM backend name to use for transpilation, for example garnet.",
@@ -277,6 +283,8 @@ def _load_candidates(args):
 
 
 def _validate_cli_selection_args(args) -> None:
+    if int(args.jobs) < 1:
+        raise ValueError("--jobs must be positive.")
     if args.select_top_k is not None and int(args.select_top_k) < 1:
         raise ValueError("--select-top-k must be positive.")
     if args.select_top_k is not None:
@@ -342,7 +350,7 @@ def main(argv=None) -> int:
 
     print(
         f"Running direct_basis_encoding: state={args.state}, "
-        f"candidates={len(candidates)}, output={output_csv}"
+        f"candidates={len(candidates)}, jobs={int(args.jobs)}, output={output_csv}"
     )
     coupling_map = None
     if args.local_line_coupling:
@@ -372,6 +380,7 @@ def main(argv=None) -> int:
         optimization_level=3,
         layout_method=args.layout_method,
         routing_method=args.routing_method,
+        jobs=args.jobs,
     )
     print(f"Done. Results saved to: {path}")
 

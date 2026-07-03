@@ -4,6 +4,7 @@ import contextlib
 import io
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -398,6 +399,66 @@ class DirectBasisBenchmarkApproximationTests(unittest.TestCase):
         self.assertIsNone(mocked.call_args.kwargs["approximation_degree"])
         self.assertTrue(mocked.call_args.kwargs["legacy_exact_transpiled_filename"])
 
+    def test_parallel_candidate_jobs_preserve_output_order(self):
+        candidates = [
+            DirectBasisCandidate(
+                name="slow",
+                candidate_type="identity",
+                matrix=np.eye(3, dtype=complex),
+                source_class_name="baseline",
+                source_candidate_name="slow",
+            ),
+            DirectBasisCandidate(
+                name="fast",
+                candidate_type="identity",
+                matrix=np.eye(3, dtype=complex),
+                source_class_name="baseline",
+                source_candidate_name="fast",
+            ),
+        ]
+
+        def fake_benchmark_direct_basis(**kwargs):
+            if kwargs["source_candidate_name"] == "slow":
+                time.sleep(0.02)
+            return {
+                "selection_label": kwargs["selection_label"],
+                "approximation_degree": (
+                    "" if kwargs["approximation_degree"] is None else kwargs["approximation_degree"]
+                ),
+                "state_name": kwargs["state_name"],
+                "class_name": kwargs["source_class_name"],
+                "candidate_name": kwargs["source_candidate_name"],
+                "status": "ok",
+                "success": True,
+                "best_depth": 1,
+                "best_two_qubit_gate_count": 1,
+                "best_size": 1,
+            }
+
+        with patch(
+            "qudits_on_qubits.benchmarks.direct_basis.benchmark.benchmark_direct_basis",
+            side_effect=fake_benchmark_direct_basis,
+        ) as mocked:
+            df, _ = benchmark_direct_basis_candidates(
+                state_name="ghz3",
+                candidates=candidates,
+                n_transpile_runs=1,
+                compute_fidelity=True,
+                approximation_degrees=(0.99,),
+                jobs=2,
+            )
+
+        self.assertEqual(mocked.call_count, 4)
+        self.assertEqual(
+            list(zip(df["candidate_name"], df["selection_label"])),
+            [
+                ("slow", "exact"),
+                ("slow", "fid099"),
+                ("fast", "exact"),
+                ("fast", "fid099"),
+            ],
+        )
+
 
 class DirectBasisCliSelectionTests(unittest.TestCase):
     def test_parser_requires_state_and_defaults_candidate_set_to_all_qutrit_u3(self):
@@ -408,6 +469,13 @@ class DirectBasisCliSelectionTests(unittest.TestCase):
         args = parser.parse_args(["--state", "ghz3"])
         self.assertEqual(args.state, "ghz3")
         self.assertEqual(args.candidate_set, "all-qutrit-u3")
+        self.assertEqual(args.jobs, 1)
+
+    def test_jobs_must_be_positive(self):
+        parser = build_parser()
+        args = parser.parse_args(["--state", "ghz3", "--jobs", "0"])
+        with self.assertRaisesRegex(ValueError, "--jobs must be positive"):
+            _validate_cli_selection_args(args)
 
     def test_no_fidelity_rejects_thresholds(self):
         parser = build_parser()

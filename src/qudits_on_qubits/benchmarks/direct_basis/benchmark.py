@@ -5,6 +5,7 @@ import os
 import re
 import time
 import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Iterable, Optional
 
@@ -13,7 +14,7 @@ import pandas as pd
 from qiskit import qpy, transpile
 from qiskit.circuit.library import UnitaryGate
 from qiskit.converters import circuit_to_dag, dag_to_circuit
-from qiskit.quantum_info import Statevector
+from qiskit.quantum_info import Statevector, state_fidelity
 
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
 from qudits_on_qubits.benchmarks.direct_basis.circuits import (
@@ -252,6 +253,7 @@ def _base_row(
         "optimization_level": 3,
         "layout_method": None,
         "routing_method": None,
+        "scheduling_method": None,
         "backend_num_qubits": None,
         "backend_operation_names": "",
         "backend_coupling_map_size": None,
@@ -324,7 +326,8 @@ def _safe_fidelity(reference_qc, candidate_qc, *, max_qubits: int) -> tuple[floa
                 active_indices,
                 reference_qc.num_qubits,
             )
-        return float(abs(np.vdot(reference.data, candidate_data)) ** 2), " ".join(notes)
+        candidate_state = Statevector(candidate_data, dims=reference.dims())
+        return float(state_fidelity(reference, candidate_state)), " ".join(notes)
     except Exception as exc:
         notes.append(f"Fidelity skipped: {exc}")
         return None, " ".join(notes)
@@ -554,6 +557,120 @@ def failed_candidate_row(
     return row
 
 
+def _attach_transpiler_run_metadata(
+    row: dict,
+    *,
+    transpiler_backend=None,
+    transpiler_metadata: dict | None = None,
+    optimization_level: int = 3,
+    layout_method: str | None = None,
+    routing_method: str | None = None,
+) -> dict:
+    if transpiler_metadata:
+        row.update(transpiler_metadata)
+    elif transpiler_backend is not None:
+        row["transpiler_backend"] = "iqm"
+    row["optimization_level"] = int(optimization_level)
+    row["layout_method"] = layout_method
+    row["routing_method"] = routing_method
+    return row
+
+
+def _print_candidate_row_result(row: dict) -> None:
+    if row["success"]:
+        print(
+            "  ok "
+            f"depth={row.get('circuit_depth')} "
+            f"2q={row.get('two_qubit_gate_count')} "
+            f"size={row.get('total_gate_count')} "
+            f"time={float(row.get('compile_time_seconds', 0.0)):.3f}s",
+            flush=True,
+        )
+    else:
+        error = row["error_message"].splitlines()[0] if row["error_message"] else ""
+        print(f"  {row['status']}: {error}", flush=True)
+
+
+def _benchmark_direct_basis_candidate_group(
+    *,
+    state_name: str,
+    candidate_index: int,
+    total_candidates: int,
+    candidate: DirectBasisCandidate,
+    run_specs: list[tuple[float | None, str, bool]],
+    n_qutrits: int | None,
+    coupling_map=None,
+    basis_gates=None,
+    n_transpile_runs: int = 20,
+    compute_fidelity: bool = True,
+    max_fidelity_qubits: int = 10,
+    quantum_circuits_dir: str | None = None,
+    transpiler_backend=None,
+    transpiler_metadata: dict | None = None,
+    optimization_level: int = 3,
+    layout_method: str | None = None,
+    routing_method: str | None = None,
+) -> list[tuple[int, dict]]:
+    rows: list[tuple[int, dict]] = []
+    for spec_index, (
+        approximation_degree,
+        run_label,
+        legacy_exact_transpiled_filename,
+    ) in enumerate(run_specs):
+        print(
+            f"[direct_basis_encoding] {candidate_index}/{total_candidates} "
+            f"{state_name} {run_label} {candidate.class_name}/{candidate.candidate_name}",
+            flush=True,
+        )
+        if not candidate.is_supported:
+            row = failed_candidate_row(
+                state_name=state_name,
+                candidate=candidate,
+                n_qutrits=n_qutrits,
+                n_transpile_runs=n_transpile_runs,
+                approximation_degree=approximation_degree,
+                selection_label=run_label,
+            )
+            _attach_transpiler_run_metadata(
+                row,
+                transpiler_backend=transpiler_backend,
+                transpiler_metadata=transpiler_metadata,
+                optimization_level=optimization_level,
+                layout_method=layout_method,
+                routing_method=routing_method,
+            )
+        else:
+            row = benchmark_direct_basis(
+                state_name=state_name,
+                n_qutrits=n_qutrits,
+                basis_matrix=candidate.matrix,
+                basis_candidate_name=candidate.name,
+                basis_candidate_type=candidate.candidate_type,
+                source_class_name=candidate.class_name,
+                source_candidate_name=candidate.candidate_name,
+                coupling_map=coupling_map,
+                basis_gates=basis_gates,
+                n_transpile_runs=n_transpile_runs,
+                compute_fidelity=compute_fidelity,
+                max_fidelity_qubits=max_fidelity_qubits,
+                notes=candidate.notes,
+                quantum_circuits_dir=quantum_circuits_dir,
+                approximation_degree=approximation_degree,
+                selection_label=run_label,
+                legacy_exact_transpiled_filename=legacy_exact_transpiled_filename,
+                transpiler_backend=transpiler_backend,
+                transpiler_metadata=transpiler_metadata,
+                optimization_level=optimization_level,
+                layout_method=layout_method,
+                routing_method=routing_method,
+            )
+
+        _print_candidate_row_result(row)
+        row_index = (candidate_index - 1) * len(run_specs) + spec_index
+        rows.append((row_index, row))
+    return rows
+
+
 def benchmark_direct_basis_candidates(
     *,
     state_name: str,
@@ -572,72 +689,74 @@ def benchmark_direct_basis_candidates(
     optimization_level: int = 3,
     layout_method: str | None = None,
     routing_method: str | None = None,
+    jobs: int = 1,
 ) -> tuple[pd.DataFrame, str | None]:
-    rows = []
     candidates = list(candidates)
     run_specs = _direct_basis_run_specs(approximation_degrees)
-    for index, candidate in enumerate(candidates, start=1):
-        for approximation_degree, run_label, legacy_exact_transpiled_filename in run_specs:
-            print(
-                f"[direct_basis_encoding] {index}/{len(candidates)} "
-                f"{state_name} {run_label} {candidate.class_name}/{candidate.candidate_name}",
-                flush=True,
-            )
-            if not candidate.is_supported:
-                row = failed_candidate_row(
+    jobs = max(int(jobs or 1), 1)
+    row_slots: list[dict | None] = [None] * (len(candidates) * len(run_specs))
+
+    def store_group(group_rows: list[tuple[int, dict]]) -> None:
+        for row_index, row in group_rows:
+            row_slots[row_index] = row
+
+    if jobs <= 1 or len(candidates) <= 1:
+        for index, candidate in enumerate(candidates, start=1):
+            store_group(
+                _benchmark_direct_basis_candidate_group(
                     state_name=state_name,
+                    candidate_index=index,
+                    total_candidates=len(candidates),
                     candidate=candidate,
+                    run_specs=run_specs,
                     n_qutrits=n_qutrits,
-                    n_transpile_runs=n_transpile_runs,
-                    approximation_degree=approximation_degree,
-                    selection_label=run_label,
-                )
-                if transpiler_metadata:
-                    row.update(transpiler_metadata)
-                elif transpiler_backend is not None:
-                    row["transpiler_backend"] = "iqm"
-                row["optimization_level"] = int(optimization_level)
-                row["layout_method"] = layout_method
-                row["routing_method"] = routing_method
-            else:
-                row = benchmark_direct_basis(
-                    state_name=state_name,
-                    n_qutrits=n_qutrits,
-                    basis_matrix=candidate.matrix,
-                    basis_candidate_name=candidate.name,
-                    basis_candidate_type=candidate.candidate_type,
-                    source_class_name=candidate.class_name,
-                    source_candidate_name=candidate.candidate_name,
                     coupling_map=coupling_map,
                     basis_gates=basis_gates,
                     n_transpile_runs=n_transpile_runs,
                     compute_fidelity=compute_fidelity,
                     max_fidelity_qubits=max_fidelity_qubits,
-                    notes=candidate.notes,
                     quantum_circuits_dir=quantum_circuits_dir,
-                    approximation_degree=approximation_degree,
-                    selection_label=run_label,
-                    legacy_exact_transpiled_filename=legacy_exact_transpiled_filename,
                     transpiler_backend=transpiler_backend,
                     transpiler_metadata=transpiler_metadata,
                     optimization_level=optimization_level,
                     layout_method=layout_method,
                     routing_method=routing_method,
                 )
-
-            if row["success"]:
-                print(
-                    "  ok "
-                    f"depth={row.get('circuit_depth')} "
-                    f"2q={row.get('two_qubit_gate_count')} "
-                    f"size={row.get('total_gate_count')} "
-                    f"time={float(row.get('compile_time_seconds', 0.0)):.3f}s",
-                    flush=True,
+            )
+    else:
+        print(
+            f"[direct_basis_encoding] parallel candidate jobs={jobs}",
+            flush=True,
+        )
+        max_workers = min(jobs, len(candidates))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(
+                    _benchmark_direct_basis_candidate_group,
+                    state_name=state_name,
+                    candidate_index=index,
+                    total_candidates=len(candidates),
+                    candidate=candidate,
+                    run_specs=run_specs,
+                    n_qutrits=n_qutrits,
+                    coupling_map=coupling_map,
+                    basis_gates=basis_gates,
+                    n_transpile_runs=n_transpile_runs,
+                    compute_fidelity=compute_fidelity,
+                    max_fidelity_qubits=max_fidelity_qubits,
+                    quantum_circuits_dir=quantum_circuits_dir,
+                    transpiler_backend=transpiler_backend,
+                    transpiler_metadata=transpiler_metadata,
+                    optimization_level=optimization_level,
+                    layout_method=layout_method,
+                    routing_method=routing_method,
                 )
-            else:
-                error = row["error_message"].splitlines()[0] if row["error_message"] else ""
-                print(f"  {row['status']}: {error}", flush=True)
-            rows.append(row)
+                for index, candidate in enumerate(candidates, start=1)
+            ]
+            for future in as_completed(futures):
+                store_group(future.result())
+
+    rows = [row for row in row_slots if row is not None]
 
     df = pd.DataFrame(rows)
     if output_csv is not None:

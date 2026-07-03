@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
 from qiskit import QuantumCircuit
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -16,7 +17,10 @@ SRC = REPO_ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from qudits_on_qubits.benchmarks.direct_basis.benchmark import _safe_fidelity
+from qudits_on_qubits.benchmarks.direct_basis.circuits import build_direct_basis_graph_state_circuit
 from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import (
+    EXACT_RZ_SCHEDULING_METHOD,
     IqmEnvironment,
     backend_metadata,
     build_iqm_pass_manager,
@@ -147,6 +151,7 @@ class IqmBackendAdapterTests(unittest.TestCase):
         self.assertEqual(metadata["optimization_level"], 3)
         self.assertIsNone(metadata["layout_method"])
         self.assertEqual(metadata["routing_method"], "sabre")
+        self.assertEqual(metadata["scheduling_method"], EXACT_RZ_SCHEDULING_METHOD)
         self.assertGreaterEqual(metadata["backend_num_qubits"], 1)
         self.assertIn("r", json.loads(metadata["backend_operation_names"]))
         self.assertIn("cz", json.loads(metadata["backend_operation_names"]))
@@ -171,6 +176,28 @@ class IqmBackendAdapterTests(unittest.TestCase):
         self.assertIn("r", ops)
         self.assertIn("cz", ops)
         self.assertNotIn("cx", ops)
+
+    def test_build_iqm_pass_manager_preserves_state_fidelity(self):
+        backend = _fake_garnet()
+        circuit = build_direct_basis_graph_state_circuit(
+            "two_qutrit",
+            np.eye(3, dtype=complex),
+            n_qutrits=2,
+        )
+
+        pass_manager = build_iqm_pass_manager(
+            backend,
+            optimization_level=3,
+            seed_transpiler=0,
+            layout_method=None,
+            routing_method=None,
+        )
+        transpiled = pass_manager.run(circuit)
+
+        fidelity, notes = _safe_fidelity(circuit, transpiled, max_qubits=10)
+
+        self.assertIsNotNone(fidelity, notes)
+        self.assertGreater(float(fidelity), 0.999999)
 
 
 if __name__ == "__main__":

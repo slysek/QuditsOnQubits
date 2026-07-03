@@ -6,9 +6,11 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
-from qiskit import qpy
+from qiskit import QuantumCircuit, qpy
+from qiskit.quantum_info import Statevector
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "src"
@@ -16,6 +18,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from qudits_on_qubits.benchmarks.direct_basis.benchmark import (
+    _safe_fidelity,
     benchmark_direct_basis,
     benchmark_direct_basis_candidates,
     default_iqm_quantum_circuits_dir,
@@ -44,6 +47,25 @@ def _garnet_metadata(backend, *, optimization_level=3):
 
 
 class DirectBasisIqmBenchmarkTests(unittest.TestCase):
+    def test_safe_fidelity_uses_qiskit_state_fidelity(self):
+        reference = QuantumCircuit(1)
+        candidate = QuantumCircuit(1)
+
+        with patch(
+            "qudits_on_qubits.benchmarks.direct_basis.benchmark.state_fidelity",
+            create=True,
+        ) as mocked_state_fidelity:
+            mocked_state_fidelity.return_value = 0.25
+
+            fidelity, notes = _safe_fidelity(reference, candidate, max_qubits=10)
+
+        self.assertEqual(fidelity, 0.25)
+        self.assertEqual(notes, "")
+        mocked_state_fidelity.assert_called_once()
+        state1, state2 = mocked_state_fidelity.call_args.args
+        self.assertIsInstance(state1, Statevector)
+        self.assertIsInstance(state2, Statevector)
+
     def test_benchmark_direct_basis_accepts_iqm_backend(self):
         backend = _fake_garnet()
         metadata = _garnet_metadata(backend)
