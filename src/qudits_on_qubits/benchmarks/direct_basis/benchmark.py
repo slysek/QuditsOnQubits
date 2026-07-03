@@ -48,7 +48,15 @@ def default_iqm_results_dir() -> str:
 
 
 def default_iqm_quantum_circuits_dir(iqm_backend_name: str) -> str:
-    return repo_path("artifacts", "iqm_runs", "raw", "quantum_circuits", str(iqm_backend_name))
+    from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import safe_backend_slug
+
+    return repo_path(
+        "artifacts",
+        "iqm_runs",
+        "raw",
+        "quantum_circuits",
+        safe_backend_slug(str(iqm_backend_name)),
+    )
 
 
 def timestamped_results_path(
@@ -347,6 +355,8 @@ def benchmark_direct_basis(
     )
     if transpiler_metadata:
         row.update(transpiler_metadata)
+    elif transpiler_backend is not None:
+        row["transpiler_backend"] = "iqm"
     row["optimization_level"] = int(optimization_level)
     row["layout_method"] = layout_method
     row["routing_method"] = routing_method
@@ -553,6 +563,13 @@ def benchmark_direct_basis_candidates(
                 n_qutrits=n_qutrits,
                 n_transpile_runs=n_transpile_runs,
             )
+            if transpiler_metadata:
+                row.update(transpiler_metadata)
+            elif transpiler_backend is not None:
+                row["transpiler_backend"] = "iqm"
+            row["optimization_level"] = int(optimization_level)
+            row["layout_method"] = layout_method
+            row["routing_method"] = routing_method
         else:
             row = benchmark_direct_basis(
                 state_name=state_name,

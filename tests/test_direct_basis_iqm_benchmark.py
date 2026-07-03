@@ -18,6 +18,7 @@ if str(SRC) not in sys.path:
 from qudits_on_qubits.benchmarks.direct_basis.benchmark import (
     benchmark_direct_basis,
     benchmark_direct_basis_candidates,
+    default_iqm_quantum_circuits_dir,
 )
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
 from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import backend_metadata
@@ -93,6 +94,23 @@ class DirectBasisIqmBenchmarkTests(unittest.TestCase):
         self.assertIsInstance(row["best_one_qubit_gate_count"], int)
         self.assertIsInstance(row["mean_one_qubit_gate_count"], float)
 
+    def test_iqm_backend_without_metadata_marks_transpiler_backend(self):
+        backend = _fake_garnet()
+
+        row = benchmark_direct_basis(
+            state_name="two_qutrit",
+            n_qutrits=2,
+            basis_matrix=np.eye(3, dtype=complex),
+            basis_candidate_name="I",
+            basis_candidate_type="identity",
+            n_transpile_runs=1,
+            compute_fidelity=False,
+            transpiler_backend=backend,
+        )
+
+        self.assertTrue(row["success"], row["error_message"])
+        self.assertEqual(row["transpiler_backend"], "iqm")
+
     def test_iqm_export_writes_full_transpiled_qpy(self):
         backend = _fake_garnet()
         metadata = _garnet_metadata(backend)
@@ -144,6 +162,39 @@ class DirectBasisIqmBenchmarkTests(unittest.TestCase):
 
         self.assertEqual(list(df["transpiler_backend"]), ["iqm"])
         self.assertEqual(list(df["iqm_backend_name"]), ["garnet"])
+
+    def test_unsupported_candidates_keep_iqm_metadata(self):
+        backend = _fake_garnet()
+        metadata = _garnet_metadata(backend)
+        candidates = [
+            DirectBasisCandidate(
+                name="bad",
+                candidate_type="unsupported",
+                matrix=None,
+                error_message="unsupported",
+            )
+        ]
+
+        df, _ = benchmark_direct_basis_candidates(
+            state_name="two_qutrit",
+            n_qutrits=2,
+            candidates=candidates,
+            n_transpile_runs=1,
+            compute_fidelity=False,
+            transpiler_backend=backend,
+            transpiler_metadata=metadata,
+        )
+
+        row = df.iloc[0]
+        self.assertEqual(row["status"], "unsupported_direct_basis_candidate")
+        self.assertEqual(row["transpiler_backend"], "iqm")
+        self.assertEqual(row["iqm_backend_name"], "garnet")
+
+    def test_default_iqm_quantum_circuits_dir_sanitizes_backend_name(self):
+        path = default_iqm_quantum_circuits_dir("../bad name")
+
+        self.assertTrue(path.endswith(os.path.join("quantum_circuits", "bad_name")))
+        self.assertNotIn("..", Path(path).parts)
 
 
 if __name__ == "__main__":
