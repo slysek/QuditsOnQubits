@@ -26,6 +26,10 @@ from qudits_on_qubits.benchmarks.direct_basis.math_utils import (
     is_isometry,
     is_unitary,
 )
+from qudits_on_qubits.benchmarks.direct_basis.selection import (
+    selection_label as format_selection_label,
+    transpiled_qpy_filename,
+)
 from qudits_on_qubits.core.benchmark_encoding_bases import BASIS_GATES, COUPLING_MAP, TWO_Q_GATES
 from qudits_on_qubits.core.project_paths import repo_path
 
@@ -76,10 +80,14 @@ def _base_row(
     candidate_name: str,
     n_transpile_runs: int,
     notes: str,
+    approximation_degree: float | None = None,
+    selection_label: str = "exact",
 ) -> dict:
     state = resolve_direct_state(state_name, n_qutrits=n_qutrits)
     return {
         "method": METHOD_NAME,
+        "selection_label": selection_label,
+        "approximation_degree": "" if approximation_degree is None else float(approximation_degree),
         "state_name": state.state_id,
         "state_family": state.state_family,
         "graph_name": state.graph_type,
@@ -174,6 +182,9 @@ def benchmark_direct_basis(
     max_fidelity_qubits: int = 10,
     notes: str = "",
     quantum_circuits_dir: str | None = None,
+    approximation_degree: float | None = None,
+    selection_label: str = "exact",
+    legacy_exact_transpiled_filename: bool = True,
 ) -> dict:
     """Benchmark graph-state preparation using direct W-defined encoding."""
     class_name = source_class_name or basis_candidate_type
@@ -187,6 +198,8 @@ def benchmark_direct_basis(
         candidate_name=candidate_name,
         n_transpile_runs=n_transpile_runs,
         notes=notes,
+        approximation_degree=approximation_degree,
+        selection_label=selection_label,
     )
 
     started = time.time()
@@ -209,6 +222,8 @@ def benchmark_direct_basis(
                 candidate_name=candidate_name,
                 basis_matrix=basis_matrix,
                 graph_state_circuit=qc,
+                selection_label=selection_label,
+                legacy_exact_transpiled_filename=legacy_exact_transpiled_filename,
             )
             row.update(paths)
     except Exception:
@@ -228,13 +243,15 @@ def benchmark_direct_basis(
     last_trial_error = ""
     for trial in range(int(n_transpile_runs)):
         try:
-            qc_t = transpile(
-                qc,
-                basis_gates=basis_gates,
-                coupling_map=coupling_map,
-                optimization_level=3,
-                seed_transpiler=trial,
-            )
+            transpile_kwargs = {
+                "basis_gates": basis_gates,
+                "coupling_map": coupling_map,
+                "optimization_level": 3,
+                "seed_transpiler": trial,
+            }
+            if approximation_degree is not None:
+                transpile_kwargs["approximation_degree"] = float(approximation_degree)
+            qc_t = transpile(qc, **transpile_kwargs)
             ops = qc_t.count_ops()
             depth = int(qc_t.depth())
             size = int(qc_t.size())
@@ -323,6 +340,8 @@ def failed_candidate_row(
     candidate: DirectBasisCandidate,
     n_qutrits: int | None,
     n_transpile_runs: int,
+    approximation_degree: float | None = None,
+    selection_label: str = "exact",
 ) -> dict:
     row = _base_row(
         state_name=state_name,
@@ -333,6 +352,8 @@ def failed_candidate_row(
         candidate_name=candidate.candidate_name,
         n_transpile_runs=n_transpile_runs,
         notes=candidate.notes,
+        approximation_degree=approximation_degree,
+        selection_label=selection_label,
     )
     row["status"] = "unsupported_direct_basis_candidate"
     row["error_message"] = candidate.error_message
@@ -352,52 +373,61 @@ def benchmark_direct_basis_candidates(
     max_fidelity_qubits: int = 10,
     output_csv: str | None = None,
     quantum_circuits_dir: str | None = None,
+    approximation_degrees: Iterable[float] | None = None,
 ) -> tuple[pd.DataFrame, str | None]:
     rows = []
     candidates = list(candidates)
+    run_specs = _direct_basis_run_specs(approximation_degrees)
     for index, candidate in enumerate(candidates, start=1):
-        print(
-            f"[direct_basis_encoding] {index}/{len(candidates)} "
-            f"{state_name} {candidate.class_name}/{candidate.candidate_name}",
-            flush=True,
-        )
-        if not candidate.is_supported:
-            row = failed_candidate_row(
-                state_name=state_name,
-                candidate=candidate,
-                n_qutrits=n_qutrits,
-                n_transpile_runs=n_transpile_runs,
-            )
-        else:
-            row = benchmark_direct_basis(
-                state_name=state_name,
-                n_qutrits=n_qutrits,
-                basis_matrix=candidate.matrix,
-                basis_candidate_name=candidate.name,
-                basis_candidate_type=candidate.candidate_type,
-                source_class_name=candidate.class_name,
-                source_candidate_name=candidate.candidate_name,
-                coupling_map=coupling_map,
-                basis_gates=basis_gates,
-                n_transpile_runs=n_transpile_runs,
-                compute_fidelity=compute_fidelity,
-                max_fidelity_qubits=max_fidelity_qubits,
-                notes=candidate.notes,
-                quantum_circuits_dir=quantum_circuits_dir,
-            )
-
-        if row["success"]:
+        for approximation_degree, run_label, legacy_exact_transpiled_filename in run_specs:
             print(
-                "  ok "
-                f"depth={row['circuit_depth']} "
-                f"2q={row['two_qubit_gate_count']} "
-                f"size={row['total_gate_count']} "
-                f"time={row['compile_time_seconds']:.3f}s",
+                f"[direct_basis_encoding] {index}/{len(candidates)} "
+                f"{state_name} {run_label} {candidate.class_name}/{candidate.candidate_name}",
                 flush=True,
             )
-        else:
-            print(f"  {row['status']}: {row['error_message'].splitlines()[0] if row['error_message'] else ''}", flush=True)
-        rows.append(row)
+            if not candidate.is_supported:
+                row = failed_candidate_row(
+                    state_name=state_name,
+                    candidate=candidate,
+                    n_qutrits=n_qutrits,
+                    n_transpile_runs=n_transpile_runs,
+                    approximation_degree=approximation_degree,
+                    selection_label=run_label,
+                )
+            else:
+                row = benchmark_direct_basis(
+                    state_name=state_name,
+                    n_qutrits=n_qutrits,
+                    basis_matrix=candidate.matrix,
+                    basis_candidate_name=candidate.name,
+                    basis_candidate_type=candidate.candidate_type,
+                    source_class_name=candidate.class_name,
+                    source_candidate_name=candidate.candidate_name,
+                    coupling_map=coupling_map,
+                    basis_gates=basis_gates,
+                    n_transpile_runs=n_transpile_runs,
+                    compute_fidelity=compute_fidelity,
+                    max_fidelity_qubits=max_fidelity_qubits,
+                    notes=candidate.notes,
+                    quantum_circuits_dir=quantum_circuits_dir,
+                    approximation_degree=approximation_degree,
+                    selection_label=run_label,
+                    legacy_exact_transpiled_filename=legacy_exact_transpiled_filename,
+                )
+
+            if row["success"]:
+                print(
+                    "  ok "
+                    f"depth={row.get('circuit_depth')} "
+                    f"2q={row.get('two_qubit_gate_count')} "
+                    f"size={row.get('total_gate_count')} "
+                    f"time={float(row.get('compile_time_seconds', 0.0)):.3f}s",
+                    flush=True,
+                )
+            else:
+                error = row["error_message"].splitlines()[0] if row["error_message"] else ""
+                print(f"  {row['status']}: {error}", flush=True)
+            rows.append(row)
 
     df = pd.DataFrame(rows)
     if output_csv is not None:
@@ -405,6 +435,18 @@ def benchmark_direct_basis_candidates(
         df.to_csv(output_csv, index=False)
         print(f"[direct_basis_encoding] results CSV: {output_csv}", flush=True)
     return df, output_csv
+
+
+def _direct_basis_run_specs(
+    approximation_degrees: Iterable[float] | None,
+) -> list[tuple[float | None, str, bool]]:
+    if approximation_degrees is None:
+        return [(None, "exact", True)]
+    specs: list[tuple[float | None, str, bool]] = [(None, "exact", False)]
+    for degree in approximation_degrees:
+        value = float(degree)
+        specs.append((value, format_selection_label(value), False))
+    return specs
 
 
 def _safe_path_part(value: str) -> str:
@@ -449,6 +491,8 @@ def export_direct_basis_candidate_circuits(
     candidate_name: str,
     basis_matrix: np.ndarray,
     graph_state_circuit,
+    selection_label: str = "exact",
+    legacy_exact_transpiled_filename: bool = True,
 ) -> dict[str, str]:
     """Save direct-basis circuit artifacts before a transpiled circuit is selected."""
     state = resolve_direct_state(state_name, n_qutrits=n_qutrits)
@@ -474,7 +518,13 @@ def export_direct_basis_candidate_circuits(
         "f3_w_qpy": os.path.join(output_dir, "F3_W.qpy"),
         "cz3_w_qpy": os.path.join(output_dir, "CZ3_W.qpy"),
         "graph_state_qpy": os.path.join(output_dir, "graph_state_direct_basis.qpy"),
-        "graph_state_transpiled_qpy": os.path.join(output_dir, "graph_state_direct_basis_transpiled.qpy"),
+        "graph_state_transpiled_qpy": os.path.join(
+            output_dir,
+            transpiled_qpy_filename(
+                selection_label,
+                legacy_exact=legacy_exact_transpiled_filename,
+            ),
+        ),
         "basis_change_qpy": "",
         "basis_change_matrix_npy": os.path.join(output_dir, "W.npy" if basis_matrix.shape == (3, 3) else "E.npy"),
     }

@@ -1,8 +1,43 @@
-from .core.create_ame_circuit import create_ame_circuit
-from .core.draw_graph import draw_graph
-from .core.generate_b_ame import generate_b_ame
-from .core.prepare_op_to_ibm import prepare_op_to_ibm
-from .core.quditsonqubits import QuditsOnQubits
+from __future__ import annotations
+
+from importlib import import_module
+from typing import Any
+
+
+_CALLABLE_EXPORTS = {
+    "create_ame_circuit": "qudits_on_qubits.core.create_ame_circuit",
+    "draw_graph": "qudits_on_qubits.core.draw_graph",
+    "generate_b_ame": "qudits_on_qubits.core.generate_b_ame",
+    "prepare_op_to_ibm": "qudits_on_qubits.core.prepare_op_to_ibm",
+}
+_CLASS_EXPORTS = {
+    "QuditsOnQubits": ("qudits_on_qubits.core.quditsonqubits", "QuditsOnQubits"),
+}
+
+
+def _lazy_callable(name: str, module_name: str):
+    def wrapper(*args, **kwargs):
+        target = getattr(import_module(module_name), name)
+        return target(*args, **kwargs)
+
+    wrapper.__name__ = name
+    wrapper.__qualname__ = name
+    wrapper.__module__ = __name__
+    return wrapper
+
+
+def __getattr__(name: str) -> Any:
+    if name in _CALLABLE_EXPORTS:
+        value = _lazy_callable(name, _CALLABLE_EXPORTS[name])
+        globals()[name] = value
+        return value
+    if name in _CLASS_EXPORTS:
+        module_name, attr_name = _CLASS_EXPORTS[name]
+        value = getattr(import_module(module_name), attr_name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "QuditsOnQubits",

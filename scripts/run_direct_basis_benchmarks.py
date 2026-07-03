@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
 _SRC = Path(__file__).resolve().parents[1] / "src"
@@ -14,6 +15,14 @@ from qudits_on_qubits.benchmarks.direct_basis.benchmark import (
     default_quantum_circuits_dir,
     timestamped_results_path,
 )
+from qudits_on_qubits.benchmarks.direct_basis.selection import (
+    DEFAULT_APPROXIMATION_THRESHOLDS,
+    SelectionConfig,
+    materialize_selected_artifacts,
+    parse_approximation_thresholds,
+    require_supported_bell_state,
+    selection_label,
+)
 from qudits_on_qubits.benchmarks.direct_basis.candidates import (
     candidates_from_old_csv,
     generate_all_qutrit_u3_candidates,
@@ -23,18 +32,19 @@ from qudits_on_qubits.benchmarks.direct_basis.candidates import (
     limit_candidates,
 )
 from qudits_on_qubits.encoding_search.candidates import CandidateSearchConfig
+from qudits_on_qubits.core.project_paths import repo_path, repo_root
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run direct qutrit-basis encoding benchmarks.",
     )
-    parser.add_argument("--state", default="two_qutrit")
+    parser.add_argument("--state", required=True)
     parser.add_argument("--n-qutrits", type=int, default=None)
     parser.add_argument(
         "--candidate-set",
         choices=("sanity", "all-qutrit-u3", "old_qutrit", "v2-stage1", "from-old-csv"),
-        default="sanity",
+        default="all-qutrit-u3",
         help=(
             "sanity: I/F3/F3dg plus a small phase/permutation/random set; "
             "all-qutrit-u3: full encoding_search_v2 stage-1 pool plus non-duplicated legacy qutrit classes; "
@@ -85,6 +95,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--no-fidelity", action="store_true")
     parser.add_argument("--max-fidelity-qubits", type=int, default=10)
+    parser.add_argument(
+        "--approximation-thresholds",
+        default=None,
+        help=(
+            "Comma-separated approximation_degree thresholds. "
+            "When set, exact plus these threshold runs are benchmarked. "
+            "Default pipeline thresholds are 0.99,0.95,0.90."
+        ),
+    )
+    parser.add_argument(
+        "--select-top-k",
+        type=int,
+        default=None,
+        help="Copy Top-K selected circuits into artifacts/direct_basis_runs/selected_best.",
+    )
+    parser.add_argument(
+        "--selection-run-id",
+        default=None,
+        help="Timestamp/id for selected_best output. Defaults to current YYYYMMDD_HHMMSS.",
+    )
     parser.add_argument(
         "--local-line-coupling",
         action="store_true",
@@ -210,9 +240,37 @@ def _load_candidates(args):
     )
 
 
+def _validate_cli_selection_args(args) -> None:
+    if args.select_top_k is not None and int(args.select_top_k) < 1:
+        raise ValueError("--select-top-k must be positive.")
+    if args.select_top_k is not None:
+        require_supported_bell_state(args.state)
+    if args.no_fidelity and args.approximation_thresholds:
+        raise ValueError("--no-fidelity cannot be combined with --approximation-thresholds.")
+    if args.select_top_k is not None and args.no_export_quantum_circuits:
+        raise ValueError("--select-top-k requires quantum circuit exports.")
+
+
+def _resolved_approximation_thresholds(args) -> tuple[float, ...]:
+    if args.approximation_thresholds is None:
+        return ()
+    parsed = parse_approximation_thresholds(args.approximation_thresholds)
+    return parsed or DEFAULT_APPROXIMATION_THRESHOLDS
+
+
+def _selection_labels_for_run(thresholds: tuple[float, ...]) -> tuple[str, ...]:
+    return ("exact",) + tuple(selection_label(value) for value in thresholds)
+
+
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    try:
+        _validate_cli_selection_args(args)
+    except ValueError as exc:
+        parser.error(str(exc))
+
+    approximation_thresholds = _resolved_approximation_thresholds(args)
     candidates = _load_candidates(args)
     output_csv = args.output_csv or timestamped_results_path(
         output_dir=args.output_dir,
@@ -231,7 +289,7 @@ def main(argv=None) -> int:
         n_physical = 2 * state.num_qutrits
         coupling_map = [[idx, idx + 1] for idx in range(n_physical - 1)]
 
-    _, path = benchmark_direct_basis_candidates(
+    df, path = benchmark_direct_basis_candidates(
         state_name=args.state,
         n_qutrits=args.n_qutrits,
         candidates=candidates,
@@ -245,8 +303,28 @@ def main(argv=None) -> int:
             if args.no_export_quantum_circuits
             else (args.quantum_circuits_dir or default_quantum_circuits_dir())
         ),
+        approximation_degrees=approximation_thresholds or None,
     )
     print(f"Done. Results saved to: {path}")
+
+    if args.select_top_k is not None:
+        run_id = args.selection_run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
+        selection_output = materialize_selected_artifacts(
+            df,
+            SelectionConfig(
+                repo_root=Path(repo_root()),
+                state_name=args.state,
+                run_id=run_id,
+                top_k=int(args.select_top_k),
+                labels=_selection_labels_for_run(approximation_thresholds),
+                processed_dir=Path(repo_path("artifacts", "direct_basis_runs", "processed")),
+                selected_root=Path(repo_path("artifacts", "direct_basis_runs", "selected_best")),
+            ),
+        )
+        print(f"Selected manifest: {selection_output.manifest_csv}")
+        print(f"Processed selected manifest: {selection_output.processed_manifest_csv}")
+        for warning in selection_output.warnings:
+            print(f"WARNING: {warning}", flush=True)
     return 0
 
 
