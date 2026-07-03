@@ -158,7 +158,7 @@ def build_sampler_circuits_for_candidate(
 
     Supported candidates are ``"two_qutrit"``, ``"ghz3"``, and ``"ame43"``.
     The Bell terms and local observables are imported from the existing
-    ``bell_functionals_qutrit`` implementation, then converted to the counts
+    ``qudits_on_qubits.bell_functionals`` implementation, then converted to the counts
     postprocessing convention used by this package.
 
     This high-level API does not require ``observable_from_label``: the
@@ -425,14 +425,14 @@ def _candidate_bell_settings_data(
         raise ValueError("audited candidate Bell settings are implemented only for d=3")
 
     try:
-        from bell_functionals_qutrit.bell_builders import (
+        from qudits_on_qubits.bell_functionals.bell_builders import (
             bell_terms,
             num_qutrits_for_candidate,
         )
     except Exception as exc:
         raise ImportError(
             "build_sampler_circuits_for_candidate requires the local "
-            "bell_functionals_qutrit package"
+            "qudits_on_qubits.bell_functionals package"
         ) from exc
 
     num_qutrits = num_qutrits_for_candidate(candidate)
@@ -497,7 +497,7 @@ def _candidate_bell_settings_data(
 
 
 def _candidate_measurement_observables(candidate: str) -> dict[str, np.ndarray]:
-    from bell_functionals_qutrit.operators import (
+    from qudits_on_qubits.bell_functionals.operators import (
         make_XZ_qutrit,
         make_measurement_observables_qutrit_d3,
     )
