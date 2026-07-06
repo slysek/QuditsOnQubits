@@ -149,13 +149,13 @@ def _choose_baseline(
     if baseline_rows.empty:
         raise ValueError(f"{state_name} has no runnable baseline row")
     warnings: list[str] = []
-    e_old = baseline_rows[baseline_rows["candidate_name"].astype(str) == "E_old"].copy()
-    if not e_old.empty:
-        baseline_rows = e_old
     if len(baseline_rows) > 1:
         warnings.append(
             f"{state_name}: multiple baseline rows found; selected best ranked baseline"
         )
+    e_old = baseline_rows[baseline_rows["candidate_name"].astype(str) == "E_old"].copy()
+    if not e_old.empty:
+        baseline_rows = e_old
     return _sort_for_selection(baseline_rows).iloc[0], tuple(warnings)
 
 
@@ -257,6 +257,7 @@ def select_state_rerun_rows(
         & success_ok
         & equivalence_metadata_present
         & ~baseline_match
+        & ~baseline_class
         & ~equivalent_ok
     ].copy()
     selected = _sort_for_selection(candidate_pool).head(top_k).copy()

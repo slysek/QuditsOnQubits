@@ -23,7 +23,6 @@ from qudits_on_qubits.benchmarks.direct_basis.candidates import (
     candidates_from_old_csv,
 )
 from qudits_on_qubits.benchmarks.direct_basis.rerun_selection import (
-    OUTPUT_FIRST_COLUMNS,
     RerunSelectionConfig,
     load_input_csvs,
     select_state_rerun_rows,
@@ -438,10 +437,76 @@ class RerunSelectionRankingTests(unittest.TestCase):
 
         selected, warnings = select_state_rerun_rows(df, "ghz3", top_k=1)
 
-        warning = "ghz3: multiple baseline rows found; selected best ranked baseline"
-        self.assertIn(warnings, ((), (warning,)))
+        self.assertEqual(
+            warnings,
+            ("ghz3: multiple baseline rows found; selected best ranked baseline",),
+        )
         baseline_rows = selected[selected["selection_role"] == "baseline"]
         self.assertEqual(baseline_rows["candidate_name"].tolist(), ["E_old"])
+
+    def test_alternate_baseline_is_not_selected_as_candidate(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "ghz3",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                    "best_two_qubit_gate_count": 50,
+                    "mean_depth": 105,
+                    "std_depth": 2,
+                    "best_one_qubit_gate_count": 100,
+                    "best_size": 150,
+                    "is_baseline_reference": True,
+                    "is_baseline_equivalent": True,
+                },
+                {
+                    "state_name": "ghz3",
+                    "class_name": "baseline",
+                    "candidate_name": "alternate",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 1,
+                    "best_two_qubit_gate_count": 1,
+                    "mean_depth": 1,
+                    "std_depth": 0,
+                    "best_one_qubit_gate_count": 1,
+                    "best_size": 2,
+                    "is_baseline_reference": False,
+                    "is_baseline_equivalent": False,
+                },
+                {
+                    "state_name": "ghz3",
+                    "class_name": "monomial_full",
+                    "candidate_name": "real_candidate",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 80,
+                    "best_two_qubit_gate_count": 40,
+                    "mean_depth": 85,
+                    "std_depth": 3,
+                    "best_one_qubit_gate_count": 90,
+                    "best_size": 130,
+                    "is_baseline_reference": False,
+                    "is_baseline_equivalent": False,
+                },
+            ]
+        )
+
+        selected, warnings = select_state_rerun_rows(df, "ghz3", top_k=1)
+
+        self.assertEqual(
+            warnings,
+            ("ghz3: multiple baseline rows found; selected best ranked baseline",),
+        )
+        self.assertNotIn(
+            ["candidate", "alternate"],
+            selected[["selection_role", "candidate_name"]].values.tolist(),
+        )
+        candidate_rows = selected[selected["selection_role"] == "candidate"]
+        self.assertEqual(candidate_rows["candidate_name"].tolist(), ["real_candidate"])
 
     def test_multiple_alternate_baselines_select_best_ranked_with_warning(self):
         df = pd.DataFrame(
@@ -624,9 +689,30 @@ class RerunSelectionRankingTests(unittest.TestCase):
 
         self.assertEqual(warnings, ())
         expected_first = [
-            column for column in OUTPUT_FIRST_COLUMNS if column in selected.columns
+            "state_name",
+            "selection_role",
+            "selection_rank",
+            "class_name",
+            "candidate_name",
+            "is_baseline_reference",
+            "is_baseline_equivalent",
+            "baseline_equivalence_reason",
+            "best_depth",
+            "mean_depth",
+            "std_depth",
+            "best_two_qubit_gate_count",
+            "best_one_qubit_gate_count",
+            "best_size",
+            "baseline_best_depth",
+            "depth_delta_vs_baseline",
+            "depth_ratio_vs_baseline",
+            "baseline_relation",
+            "source_csv",
         ]
-        self.assertEqual(list(selected.columns[: len(expected_first)]), expected_first)
+        self.assertEqual(
+            list(selected.columns[: len(expected_first)]),
+            expected_first,
+        )
         by_candidate = {
             row["candidate_name"]: row for _, row in selected.iterrows()
         }
