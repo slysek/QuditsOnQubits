@@ -40,6 +40,17 @@ def _candidate(class_name: str, candidate_name: str) -> DirectBasisCandidate:
     )
 
 
+def _unsupported_candidate(class_name: str, candidate_name: str) -> DirectBasisCandidate:
+    return DirectBasisCandidate(
+        name=candidate_name,
+        candidate_type=class_name,
+        matrix=None,
+        source_class_name=class_name,
+        source_candidate_name=candidate_name,
+        error_message="candidate unavailable",
+    )
+
+
 class DirectBasisFromOldCsvRoleTests(unittest.TestCase):
     def test_selector_csv_reruns_only_baseline_and_candidate_roles(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -256,6 +267,89 @@ class RerunSelectionValidationTests(unittest.TestCase):
 
 
 class RerunSelectionRankingTests(unittest.TestCase):
+    def test_numeric_one_baseline_equivalence_is_excluded_from_top_k(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "ghz3",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                    "is_baseline_reference": 1.0,
+                    "is_baseline_equivalent": 1.0,
+                },
+                {
+                    "state_name": "ghz3",
+                    "class_name": "monomial_full",
+                    "candidate_name": "numeric_equiv",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 1,
+                    "is_baseline_reference": 0.0,
+                    "is_baseline_equivalent": 1.0,
+                    "skip_reason": "same embedding as baseline within tolerance",
+                },
+                {
+                    "state_name": "ghz3",
+                    "class_name": "monomial_full",
+                    "candidate_name": "candidate",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 80,
+                    "is_baseline_reference": 0.0,
+                    "is_baseline_equivalent": 0.0,
+                },
+            ]
+        )
+
+        selected, warnings = select_state_rerun_rows(df, "ghz3", top_k=1)
+
+        self.assertEqual(warnings, ())
+        self.assertEqual(
+            selected[["selection_role", "candidate_name"]].values.tolist(),
+            [
+                ["baseline", "E_old"],
+                ["candidate", "candidate"],
+                ["baseline_equivalent_excluded", "numeric_equiv"],
+            ],
+        )
+
+    def test_numeric_zero_baseline_equivalence_can_be_selected(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "ghz3",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                    "is_baseline_reference": 1.0,
+                    "is_baseline_equivalent": 1.0,
+                },
+                {
+                    "state_name": "ghz3",
+                    "class_name": "monomial_full",
+                    "candidate_name": "numeric_candidate",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 80,
+                    "is_baseline_reference": 0.0,
+                    "is_baseline_equivalent": 0.0,
+                },
+            ]
+        )
+
+        selected, warnings = select_state_rerun_rows(df, "ghz3", top_k=1)
+
+        self.assertEqual(warnings, ())
+        self.assertEqual(
+            selected[["selection_role", "candidate_name"]].values.tolist(),
+            [["baseline", "E_old"], ["candidate", "numeric_candidate"]],
+        )
+
     def test_select_state_excludes_baseline_equivalent_from_top_k_but_writes_diagnostic(self):
         df = pd.DataFrame(
             [
@@ -1199,6 +1293,58 @@ class RerunSelectionEquivalenceTests(unittest.TestCase):
             ],
         )
         self.assertIn("two_qutrit: selected 0 candidates, requested 1", warnings)
+
+    def test_unsupported_lookup_candidate_is_unresolved_and_helper_column_is_private(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                },
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "monomial_full",
+                    "candidate_name": "unavailable",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 1,
+                },
+            ]
+        )
+        lookup = {
+            ("baseline", "E_old"): _candidate("baseline", "E_old"),
+            ("monomial_full", "unavailable"): _unsupported_candidate(
+                "monomial_full",
+                "unavailable",
+            ),
+        }
+
+        annotated = annotate_baseline_equivalence(df, candidate_lookup=lookup)
+        selected, warnings = select_state_rerun_rows(annotated, "two_qutrit", top_k=1)
+
+        self.assertFalse(
+            bool(
+                annotated.loc[
+                    annotated["candidate_name"].eq("unavailable"),
+                    "is_baseline_equivalent",
+                ].iloc[0]
+            )
+        )
+        self.assertEqual(
+            selected[["selection_role", "candidate_name", "baseline_relation"]]
+            .values
+            .tolist(),
+            [
+                ["baseline", "E_old", "baseline"],
+                ["unresolved_candidate", "unavailable", "unresolved"],
+            ],
+        )
+        self.assertIn("two_qutrit: selected 0 candidates, requested 1", warnings)
+        self.assertNotIn("is_unresolved_candidate", selected.columns)
 
 
 if __name__ == "__main__":
