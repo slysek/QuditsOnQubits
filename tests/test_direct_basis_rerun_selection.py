@@ -22,6 +22,10 @@ from qudits_on_qubits.benchmarks.direct_basis.candidates import (
     DirectBasisCandidate,
     candidates_from_old_csv,
 )
+from qudits_on_qubits.benchmarks.direct_basis.rerun_selection import (
+    RerunSelectionConfig,
+    load_input_csvs,
+)
 
 
 def _candidate(class_name: str, candidate_name: str) -> DirectBasisCandidate:
@@ -118,6 +122,53 @@ class DirectBasisFromOldCsvRoleTests(unittest.TestCase):
                 ("monomial_full", "equiv"),
             ],
         )
+
+
+class RerunSelectionValidationTests(unittest.TestCase):
+    def test_config_rejects_invalid_top_k(self):
+        with self.assertRaisesRegex(ValueError, "--top-k must be positive"):
+            RerunSelectionConfig(
+                input_csvs=(Path("input.csv"),),
+                output_root=Path("out"),
+                run_id="run",
+                top_k=0,
+            )
+
+    def test_load_input_csvs_requires_core_columns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp) / "bad.csv"
+            pd.DataFrame([{"state_name": "ghz3"}]).to_csv(csv_path, index=False)
+
+            with self.assertRaisesRegex(ValueError, "class_name"):
+                load_input_csvs((csv_path,))
+
+    def test_load_input_csvs_adds_source_csv_and_filters_label(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp) / "raw.csv"
+            pd.DataFrame(
+                [
+                    {
+                        "selection_label": "exact",
+                        "state_name": "ghz3",
+                        "class_name": "baseline",
+                        "candidate_name": "E_old",
+                        "best_depth": 10,
+                    },
+                    {
+                        "selection_label": "fid099",
+                        "state_name": "ghz3",
+                        "class_name": "baseline",
+                        "candidate_name": "E_old",
+                        "best_depth": 11,
+                    },
+                ]
+            ).to_csv(csv_path, index=False)
+
+            df = load_input_csvs((csv_path,), include_label="exact")
+
+        self.assertEqual(len(df), 1)
+        self.assertEqual(df.loc[0, "selection_label"], "exact")
+        self.assertEqual(df.loc[0, "source_csv"], str(csv_path))
 
 
 if __name__ == "__main__":
