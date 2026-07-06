@@ -25,6 +25,7 @@ from qudits_on_qubits.benchmarks.direct_basis.candidates import (
 from qudits_on_qubits.benchmarks.direct_basis.rerun_selection import (
     RerunSelectionConfig,
     load_input_csvs,
+    select_state_rerun_rows,
 )
 
 
@@ -251,6 +252,137 @@ class RerunSelectionValidationTests(unittest.TestCase):
         self.assertEqual(len(df), 2)
         self.assertEqual(list(df["state_name"]), ["ghz3", "w3"])
         self.assertEqual(list(df["source_csv"]), [str(csv_path), str(csv_path)])
+
+
+class RerunSelectionRankingTests(unittest.TestCase):
+    def test_select_state_excludes_baseline_equivalent_from_top_k_but_writes_diagnostic(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "ghz3",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                    "mean_depth": 105,
+                    "std_depth": 2,
+                    "best_two_qubit_gate_count": 50,
+                    "best_one_qubit_gate_count": 100,
+                    "best_size": 150,
+                    "is_baseline_reference": True,
+                    "is_baseline_equivalent": True,
+                    "skip_reason": "",
+                    "source_csv": "raw.csv",
+                },
+                {
+                    "state_name": "ghz3",
+                    "class_name": "monomial_full",
+                    "candidate_name": "equiv",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 1,
+                    "mean_depth": 1,
+                    "std_depth": 0,
+                    "best_two_qubit_gate_count": 1,
+                    "best_one_qubit_gate_count": 1,
+                    "best_size": 2,
+                    "is_baseline_reference": False,
+                    "is_baseline_equivalent": True,
+                    "skip_reason": "same embedding as baseline within tolerance",
+                    "source_csv": "raw.csv",
+                },
+                {
+                    "state_name": "ghz3",
+                    "class_name": "monomial_full",
+                    "candidate_name": "better",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 80,
+                    "mean_depth": 85,
+                    "std_depth": 3,
+                    "best_two_qubit_gate_count": 40,
+                    "best_one_qubit_gate_count": 90,
+                    "best_size": 130,
+                    "is_baseline_reference": False,
+                    "is_baseline_equivalent": False,
+                    "skip_reason": "",
+                    "source_csv": "raw.csv",
+                },
+                {
+                    "state_name": "ghz3",
+                    "class_name": "monomial_full",
+                    "candidate_name": "equal",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                    "mean_depth": 100,
+                    "std_depth": 1,
+                    "best_two_qubit_gate_count": 45,
+                    "best_one_qubit_gate_count": 90,
+                    "best_size": 135,
+                    "is_baseline_reference": False,
+                    "is_baseline_equivalent": False,
+                    "skip_reason": "",
+                    "source_csv": "raw.csv",
+                },
+                {
+                    "state_name": "ghz3",
+                    "class_name": "product",
+                    "candidate_name": "failed",
+                    "status": "build_error",
+                    "success": False,
+                    "best_depth": 0,
+                    "mean_depth": 0,
+                    "std_depth": 0,
+                    "best_two_qubit_gate_count": 0,
+                    "best_one_qubit_gate_count": 0,
+                    "best_size": 0,
+                    "is_baseline_reference": False,
+                    "is_baseline_equivalent": False,
+                    "skip_reason": "",
+                    "source_csv": "raw.csv",
+                },
+            ]
+        )
+
+        selected, warnings = select_state_rerun_rows(df, "ghz3", top_k=2)
+
+        self.assertEqual(warnings, ())
+        selection_rows = selected[
+            ["selection_role", "selection_rank", "candidate_name"]
+        ].values.tolist()
+        self.assertEqual(selection_rows[:3], [
+            ["baseline", 0, "E_old"],
+            ["candidate", 1, "better"],
+            ["candidate", 2, "equal"],
+        ])
+        self.assertEqual(selection_rows[3][0], "baseline_equivalent_excluded")
+        self.assertTrue(pd.isna(selection_rows[3][1]))
+        self.assertEqual(selection_rows[3][2], "equiv")
+        self.assertEqual(selected.loc[1, "baseline_relation"], "better")
+        self.assertEqual(selected.loc[2, "baseline_relation"], "equal")
+        self.assertEqual(
+            selected.loc[3, "baseline_relation"], "excluded_baseline_equivalent"
+        )
+        self.assertNotIn("failed", selected["candidate_name"].tolist())
+
+    def test_missing_baseline_raises_clear_error(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "ame43",
+                    "class_name": "monomial_full",
+                    "candidate_name": "x",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 10,
+                }
+            ]
+        )
+
+        with self.assertRaisesRegex(ValueError, "ame43 has no baseline row"):
+            select_state_rerun_rows(df, "ame43", top_k=10)
 
 
 if __name__ == "__main__":
