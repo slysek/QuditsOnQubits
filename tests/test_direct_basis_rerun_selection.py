@@ -24,6 +24,7 @@ from qudits_on_qubits.benchmarks.direct_basis.candidates import (
 )
 from qudits_on_qubits.benchmarks.direct_basis.rerun_selection import (
     RerunSelectionConfig,
+    annotate_baseline_equivalence,
     load_input_csvs,
     select_state_rerun_rows,
 )
@@ -860,6 +861,133 @@ class RerunSelectionRankingTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "ghz3 has no runnable baseline row"):
             select_state_rerun_rows(df, "ghz3", top_k=1)
+
+
+class RerunSelectionEquivalenceTests(unittest.TestCase):
+    def test_existing_equivalence_columns_without_reason_get_blank_reason(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "best_depth": 100,
+                    "is_baseline_reference": True,
+                    "is_baseline_equivalent": True,
+                }
+            ]
+        )
+
+        annotated = annotate_baseline_equivalence(df, candidate_lookup={})
+
+        self.assertEqual(annotated.loc[0, "baseline_equivalence_reason"], "")
+
+    def test_missing_equivalence_columns_are_inferred_from_candidate_lookup(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                },
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "monomial_full",
+                    "candidate_name": "identity_like",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 1,
+                },
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "monomial_full",
+                    "candidate_name": "non_equiv",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 80,
+                },
+            ]
+        )
+        lookup = {
+            ("baseline", "E_old"): _candidate("baseline", "E_old"),
+            ("monomial_full", "identity_like"): _candidate(
+                "monomial_full", "identity_like"
+            ),
+            ("monomial_full", "non_equiv"): DirectBasisCandidate(
+                name="non_equiv",
+                candidate_type="monomial_full",
+                matrix=np.array(
+                    [
+                        [0, 1, 0],
+                        [1, 0, 0],
+                        [0, 0, 1],
+                    ],
+                    dtype=complex,
+                ),
+                source_class_name="monomial_full",
+                source_candidate_name="non_equiv",
+            ),
+        }
+
+        annotated = annotate_baseline_equivalence(df, candidate_lookup=lookup)
+        selected, _ = select_state_rerun_rows(annotated, "two_qutrit", top_k=1)
+
+        self.assertTrue(
+            bool(
+                annotated.loc[
+                    annotated["candidate_name"].eq("identity_like"),
+                    "is_baseline_equivalent",
+                ].iloc[0]
+            )
+        )
+        self.assertEqual(
+            selected[["selection_role", "candidate_name"]].values.tolist(),
+            [
+                ["baseline", "E_old"],
+                ["candidate", "non_equiv"],
+                ["baseline_equivalent_excluded", "identity_like"],
+            ],
+        )
+
+    def test_unresolved_candidate_is_kept_out_of_top_k(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                },
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "unknown",
+                    "candidate_name": "missing",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 1,
+                },
+            ]
+        )
+        lookup = {("baseline", "E_old"): _candidate("baseline", "E_old")}
+
+        annotated = annotate_baseline_equivalence(df, candidate_lookup=lookup)
+        selected, warnings = select_state_rerun_rows(annotated, "two_qutrit", top_k=1)
+
+        self.assertEqual(
+            selected[
+                ["selection_role", "candidate_name", "baseline_relation"]
+            ].values.tolist(),
+            [
+                ["baseline", "E_old", "baseline"],
+                ["unresolved_candidate", "missing", "unresolved"],
+            ],
+        )
+        self.assertIn("two_qutrit: selected 0 candidates, requested 1", warnings)
 
 
 if __name__ == "__main__":
