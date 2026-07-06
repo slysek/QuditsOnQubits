@@ -864,6 +864,161 @@ class RerunSelectionRankingTests(unittest.TestCase):
 
 
 class RerunSelectionEquivalenceTests(unittest.TestCase):
+    def test_select_state_infers_missing_equivalence_metadata_from_lookup(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                },
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "monomial_full",
+                    "candidate_name": "identity_like",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 1,
+                },
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "monomial_full",
+                    "candidate_name": "non_equiv",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 80,
+                },
+            ]
+        )
+        lookup = {
+            ("baseline", "E_old"): _candidate("baseline", "E_old"),
+            ("monomial_full", "identity_like"): _candidate(
+                "monomial_full", "identity_like"
+            ),
+            ("monomial_full", "non_equiv"): DirectBasisCandidate(
+                name="non_equiv",
+                candidate_type="monomial_full",
+                matrix=np.array(
+                    [
+                        [0, 1, 0],
+                        [1, 0, 0],
+                        [0, 0, 1],
+                    ],
+                    dtype=complex,
+                ),
+                source_class_name="monomial_full",
+                source_candidate_name="non_equiv",
+            ),
+        }
+
+        selected, warnings = select_state_rerun_rows(
+            df,
+            "two_qutrit",
+            top_k=1,
+            candidate_lookup=lookup,
+        )
+
+        self.assertEqual(warnings, ())
+        self.assertEqual(
+            selected[["selection_role", "candidate_name"]].values.tolist(),
+            [
+                ["baseline", "E_old"],
+                ["candidate", "non_equiv"],
+                ["baseline_equivalent_excluded", "identity_like"],
+            ],
+        )
+
+    def test_partial_equivalence_metadata_is_preserved(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "best_depth": 100,
+                    "is_baseline_equivalent": True,
+                    "skip_reason": "",
+                },
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "monomial_full",
+                    "candidate_name": "existing_equiv",
+                    "best_depth": 1,
+                    "is_baseline_equivalent": True,
+                    "skip_reason": "already known equivalent",
+                },
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "monomial_full",
+                    "candidate_name": "existing_candidate",
+                    "best_depth": 80,
+                    "is_baseline_equivalent": False,
+                    "skip_reason": "",
+                },
+            ]
+        )
+
+        annotated = annotate_baseline_equivalence(df, candidate_lookup={})
+
+        self.assertEqual(
+            annotated["is_baseline_equivalent"].tolist(),
+            [True, True, False],
+        )
+        self.assertEqual(
+            annotated["is_baseline_reference"].tolist(),
+            [True, False, False],
+        )
+        self.assertEqual(
+            annotated["baseline_equivalence_reason"].tolist(),
+            ["", "already known equivalent", ""],
+        )
+
+    def test_complete_metadata_selection_does_not_build_default_lookup(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                    "is_baseline_reference": True,
+                    "is_baseline_equivalent": True,
+                },
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "monomial_full",
+                    "candidate_name": "candidate",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 80,
+                    "is_baseline_reference": False,
+                    "is_baseline_equivalent": False,
+                },
+            ]
+        )
+
+        with patch(
+            "qudits_on_qubits.benchmarks.direct_basis.rerun_selection."
+            "build_default_candidate_lookup",
+            side_effect=AssertionError("default lookup should not be built"),
+        ):
+            selected, warnings = select_state_rerun_rows(
+                df,
+                "two_qutrit",
+                top_k=1,
+            )
+
+        self.assertEqual(warnings, ())
+        self.assertEqual(
+            selected[["selection_role", "candidate_name"]].values.tolist(),
+            [["baseline", "E_old"], ["candidate", "candidate"]],
+        )
+
     def test_existing_equivalence_columns_without_reason_get_blank_reason(self):
         df = pd.DataFrame(
             [

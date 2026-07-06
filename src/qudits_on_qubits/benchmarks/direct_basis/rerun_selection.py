@@ -212,6 +212,13 @@ def _order_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df[first + rest]
 
 
+def _has_complete_equivalence_columns(df: pd.DataFrame) -> bool:
+    return (
+        "is_baseline_equivalent" in df.columns
+        and "is_baseline_reference" in df.columns
+    )
+
+
 def load_input_csvs(
     input_csvs: Iterable[str | Path],
     *,
@@ -255,10 +262,12 @@ def annotate_baseline_equivalence(
     candidate_lookup: dict[tuple[str, str], DirectBasisCandidate] | None = None,
 ) -> pd.DataFrame:
     result = df.copy()
-    if (
-        "is_baseline_equivalent" in result.columns
-        and "is_baseline_reference" in result.columns
-    ):
+    if "is_baseline_equivalent" in result.columns:
+        if "is_baseline_reference" not in result.columns:
+            result["is_baseline_reference"] = (
+                result["class_name"].astype(str).eq("baseline")
+                & result["candidate_name"].astype(str).eq("E_old")
+            )
         if "baseline_equivalence_reason" not in result.columns:
             if "skip_reason" in result.columns:
                 result["baseline_equivalence_reason"] = result[
@@ -307,11 +316,16 @@ def select_state_rerun_rows(
     state_name: str,
     *,
     top_k: int,
+    candidate_lookup: dict[tuple[str, str], DirectBasisCandidate] | None = None,
 ) -> tuple[pd.DataFrame, tuple[str, ...]]:
     top_k = _validate_top_k(top_k)
-    state_df = _ensure_selection_columns(
-        df[df["state_name"].astype(str) == str(state_name)].copy()
-    )
+    state_df = df[df["state_name"].astype(str) == str(state_name)].copy()
+    if not _has_complete_equivalence_columns(state_df):
+        state_df = annotate_baseline_equivalence(
+            state_df,
+            candidate_lookup=candidate_lookup,
+        )
+    state_df = _ensure_selection_columns(state_df)
     baseline, warnings = _choose_baseline(state_df, state_name)
     baseline_depth = float(baseline["best_depth"])
 
