@@ -92,6 +92,35 @@ python scripts/load_best_circuit.py `
   --rank 1
 ```
 
+## Direct-Basis Rerun Candidate Selection
+
+Use preliminary benchmark CSVs to create per-state rerun inputs:
+
+```powershell
+python scripts/select_top_rerun_candidates.py `
+  --input-csv artifacts/iqm_runs/raw/direct_basis_iqm_garnet_two_qutrit_all_qutrit_u3_runs4_<timestamp>.csv `
+  --input-csv artifacts/iqm_runs/raw/direct_basis_iqm_garnet_ghz3_all_qutrit_u3_runs4_<timestamp>.csv `
+  --input-csv artifacts/iqm_runs/raw/direct_basis_iqm_garnet_ame43_all_qutrit_u3_runs1_<timestamp>.csv `
+  --top-k 10 `
+  --run-id stage2_20260706
+```
+
+By default this writes one CSV per `state_name` under `artifacts/iqm_runs/processed/rerun_selection/<run_id>/`. The `candidate` rows are the unique Top-K non-baseline-equivalent candidates by depth ranking. Baseline-equivalent and unresolved rows are still kept in the same file as diagnostics with `selection_role` values such as `baseline_equivalent_excluded` and `unresolved_candidate`; they are not rerun by `from-old-csv`.
+
+Rerun one state with the selected baseline plus candidates:
+
+```powershell
+python scripts/run_direct_basis_benchmarks.py `
+  --state ghz3 `
+  --candidate-set from-old-csv `
+  --old-csv artifacts/iqm_runs/processed/rerun_selection/stage2_20260706/direct_basis_ghz3_stage2_20260706_top10_rerun_candidates.csv `
+  --iqm-backend garnet `
+  --n-transpile-runs 20 `
+  --jobs 4
+```
+
+Repeat the rerun command for each generated state CSV. The rerun selector always includes the chosen baseline row, so each state is compared against its own rerun baseline.
+
 ## IQM Direct-Basis Transpilation
 
 Create `.env` in the repository root:
