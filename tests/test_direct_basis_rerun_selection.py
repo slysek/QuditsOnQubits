@@ -127,6 +127,42 @@ def _load_rerun_cli_module():
 
 
 class DirectBasisFromOldCsvRoleTests(unittest.TestCase):
+    def test_from_old_csv_regenerates_candidate_from_full_pool(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp) / "rerun.csv"
+            pd.DataFrame(
+                [
+                    {
+                        "selection_role": "candidate",
+                        "class_name": "entangling_isometry",
+                        "candidate_name": "ent_001",
+                    }
+                ]
+            ).to_csv(csv_path, index=False)
+
+            full_pool_candidate = _candidate("entangling_isometry", "ent_001")
+            with (
+                patch(
+                    "qudits_on_qubits.benchmarks.direct_basis.candidates.generate_legacy_qutrit_u3_candidates",
+                    return_value=[],
+                ),
+                patch(
+                    "qudits_on_qubits.benchmarks.direct_basis.candidates.generate_v2_stage1_direct_candidates",
+                    return_value=[],
+                ),
+                patch(
+                    "qudits_on_qubits.benchmarks.direct_basis.candidates.generate_all_qutrit_u3_candidates",
+                    return_value=[full_pool_candidate],
+                ) as generate_all,
+            ):
+                selected = candidates_from_old_csv(str(csv_path), include_unsupported=True)
+
+        self.assertEqual(generate_all.call_count, 1)
+        self.assertEqual(
+            [(candidate.class_name, candidate.candidate_name) for candidate in selected],
+            [("entangling_isometry", "ent_001")],
+        )
+
     def test_selector_csv_reruns_only_baseline_and_candidate_roles(self):
         with tempfile.TemporaryDirectory() as tmp:
             csv_path = Path(tmp) / "two_qutrit_top10_plus_baseline.csv"
@@ -240,6 +276,16 @@ class RerunSelectionValidationTests(unittest.TestCase):
                 output_root=Path("out"),
                 run_id="  ",
             )
+
+    def test_config_rejects_unsafe_run_id(self):
+        for run_id in ("bad/run", "bad\\run", "bad:name", "bad run", " run"):
+            with self.subTest(run_id=run_id):
+                with self.assertRaisesRegex(ValueError, "--run-id must be filesystem-safe"):
+                    RerunSelectionConfig(
+                        input_csvs=(Path("input.csv"),),
+                        output_root=Path("out"),
+                        run_id=run_id,
+                    )
 
     def test_load_input_csvs_requires_core_columns(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -678,6 +724,59 @@ class RerunSelectionRankingTests(unittest.TestCase):
         candidate_rows = selected[selected["selection_role"] == "candidate"]
         self.assertEqual(candidate_rows["candidate_name"].tolist(), ["real_candidate"])
 
+    def test_duplicate_candidate_rows_are_deduped_before_top_k(self):
+        df = pd.DataFrame(
+            [
+                _metadata_row(
+                    "ghz3",
+                    "baseline",
+                    "E_old",
+                    100,
+                    is_baseline_reference=True,
+                    is_baseline_equivalent=True,
+                ),
+                _metadata_row(
+                    "ghz3",
+                    "monomial_full",
+                    "dup",
+                    1,
+                    selection_label="exact",
+                ),
+                _metadata_row(
+                    "ghz3",
+                    "monomial_full",
+                    "dup",
+                    2,
+                    selection_label="fid099",
+                ),
+                _metadata_row(
+                    "ghz3",
+                    "product",
+                    "other",
+                    3,
+                    selection_label="exact",
+                ),
+            ]
+        )
+
+        selected, warnings = select_state_rerun_rows(df, "ghz3", top_k=2)
+
+        self.assertEqual(warnings, ())
+        candidate_rows = selected[selected["selection_role"] == "candidate"]
+        self.assertEqual(
+            candidate_rows[
+                ["class_name", "candidate_name", "best_depth"]
+            ].values.tolist(),
+            [
+                ["monomial_full", "dup", 1],
+                ["product", "other", 3],
+            ],
+        )
+        self.assertEqual(
+            candidate_rows[["class_name", "candidate_name"]].drop_duplicates().shape[0],
+            len(candidate_rows),
+        )
+
     def test_multiple_alternate_baselines_select_best_ranked_with_warning(self):
         df = pd.DataFrame(
             [
@@ -1033,6 +1132,43 @@ class RerunSelectionRankingTests(unittest.TestCase):
 
 
 class RerunSelectionWriterTests(unittest.TestCase):
+    def test_writer_rejects_sanitized_state_filename_collisions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            input_csv = Path(tmp) / "input.csv"
+            output_root = Path(tmp) / "out"
+            pd.DataFrame(
+                [
+                    _metadata_row(
+                        "state/a",
+                        "baseline",
+                        "E_old",
+                        100,
+                        is_baseline_reference=True,
+                        is_baseline_equivalent=True,
+                    ),
+                    _metadata_row("state/a", "monomial_full", "candidate_a", 80),
+                    _metadata_row(
+                        "state:a",
+                        "baseline",
+                        "E_old",
+                        100,
+                        is_baseline_reference=True,
+                        is_baseline_equivalent=True,
+                    ),
+                    _metadata_row("state:a", "monomial_full", "candidate_b", 80),
+                ]
+            ).to_csv(input_csv, index=False)
+
+            with self.assertRaisesRegex(ValueError, "state filename collision"):
+                rerun_selection_module.write_rerun_selection_files(
+                    RerunSelectionConfig(
+                        input_csvs=(input_csv,),
+                        output_root=output_root,
+                        run_id="run_1",
+                        top_k=1,
+                    )
+                )
+
     def test_writer_creates_separate_state_csvs_with_counts_and_diagnostics(self):
         with tempfile.TemporaryDirectory() as tmp:
             input_csv = Path(tmp) / "input.csv"
