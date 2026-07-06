@@ -694,6 +694,13 @@ def benchmark_direct_basis_candidates(
     candidates = list(candidates)
     run_specs = _direct_basis_run_specs(approximation_degrees)
     jobs = max(int(jobs or 1), 1)
+    if transpiler_backend is not None and jobs > 1:
+        print(
+            "[direct_basis_encoding] IQM transpiler backend is not thread-safe; "
+            "running candidate jobs serially.",
+            flush=True,
+        )
+        jobs = 1
     row_slots: list[dict | None] = [None] * (len(candidates) * len(run_specs))
 
     def store_group(group_rows: list[tuple[int, dict]]) -> None:

@@ -185,6 +185,54 @@ class DirectBasisIqmBenchmarkTests(unittest.TestCase):
         self.assertEqual(list(df["transpiler_backend"]), ["iqm"])
         self.assertEqual(list(df["iqm_backend_name"]), ["garnet"])
 
+    def test_iqm_candidate_jobs_run_serially_to_avoid_backend_thread_races(self):
+        backend = object()
+        candidates = [
+            DirectBasisCandidate(
+                name="first",
+                candidate_type="identity",
+                matrix=np.eye(3, dtype=complex),
+            ),
+            DirectBasisCandidate(
+                name="second",
+                candidate_type="identity",
+                matrix=np.eye(3, dtype=complex),
+            ),
+        ]
+
+        def fake_benchmark_direct_basis(**kwargs):
+            return {
+                "selection_label": kwargs["selection_label"],
+                "state_name": kwargs["state_name"],
+                "candidate_name": kwargs["basis_candidate_name"],
+                "status": "ok",
+                "success": True,
+            }
+
+        with (
+            patch(
+                "qudits_on_qubits.benchmarks.direct_basis.benchmark.ThreadPoolExecutor",
+                side_effect=AssertionError("IQM backend must not use candidate threads"),
+            ),
+            patch(
+                "qudits_on_qubits.benchmarks.direct_basis.benchmark.benchmark_direct_basis",
+                side_effect=fake_benchmark_direct_basis,
+            ) as mocked_benchmark,
+        ):
+            df, _ = benchmark_direct_basis_candidates(
+                state_name="two_qutrit",
+                n_qutrits=2,
+                candidates=candidates,
+                n_transpile_runs=1,
+                compute_fidelity=False,
+                jobs=4,
+                transpiler_backend=backend,
+                transpiler_metadata={"transpiler_backend": "iqm"},
+            )
+
+        self.assertEqual(mocked_benchmark.call_count, 2)
+        self.assertEqual(list(df["candidate_name"]), ["first", "second"])
+
     def test_unsupported_candidates_keep_iqm_metadata(self):
         backend = _fake_garnet()
         metadata = _garnet_metadata(backend)
