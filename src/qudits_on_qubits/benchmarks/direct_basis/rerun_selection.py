@@ -73,8 +73,11 @@ class RerunSelectionConfig:
         if not self.input_csvs:
             raise ValueError("at least one --input-csv is required")
         _validate_top_k(self.top_k)
-        if not str(self.run_id).strip():
+        run_id = str(self.run_id)
+        if not run_id.strip():
             raise ValueError("--run-id must not be empty")
+        if run_id != safe_path_part(run_id):
+            raise ValueError("--run-id must be filesystem-safe")
 
 
 @dataclass(frozen=True)
@@ -152,6 +155,18 @@ def _ensure_selection_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def _sort_for_selection(df: pd.DataFrame) -> pd.DataFrame:
     return df.sort_values(list(RANK_COLUMNS), ascending=True, na_position="last")
+
+
+def _dedupe_ranked_candidate_rows(df: pd.DataFrame) -> pd.DataFrame:
+    ranked = _sort_for_selection(df).copy()
+    unique_keys = pd.DataFrame(
+        {
+            "class_name": ranked["class_name"].astype(str),
+            "candidate_name": ranked["candidate_name"].astype(str),
+        },
+        index=ranked.index,
+    )
+    return ranked.loc[~unique_keys.duplicated()].copy()
 
 
 def _choose_baseline(
@@ -414,7 +429,7 @@ def select_state_rerun_rows(
         & ~unresolved_ok
         & equivalence_metadata_present
     ].copy()
-    selected = _sort_for_selection(candidate_pool).head(top_k).copy()
+    selected = _dedupe_ranked_candidate_rows(candidate_pool).head(top_k).copy()
     if len(selected) < top_k:
         warnings = warnings + (
             f"{state_name}: selected {len(selected)} candidates, requested {top_k}",
@@ -466,6 +481,22 @@ def _selection_role_count(df: pd.DataFrame, role: str) -> int:
     return int(df["selection_role"].astype(str).eq(role).sum())
 
 
+def _state_path_parts(state_names: Iterable[str]) -> dict[str, str]:
+    by_part: dict[str, str] = {}
+    path_parts: dict[str, str] = {}
+    for state_name in state_names:
+        path_part = safe_path_part(state_name)
+        previous = by_part.get(path_part)
+        if previous is not None and previous != state_name:
+            raise ValueError(
+                "state filename collision: "
+                f"{previous!r} and {state_name!r} both map to {path_part!r}"
+            )
+        by_part[path_part] = state_name
+        path_parts[state_name] = path_part
+    return path_parts
+
+
 def write_rerun_selection_files(
     config: RerunSelectionConfig,
 ) -> RerunSelectionOutput:
@@ -480,6 +511,7 @@ def write_rerun_selection_files(
     state_outputs: list[StateSelectionOutput] = []
     warnings: list[str] = []
     state_names = sorted(annotated["state_name"].dropna().astype(str).unique())
+    state_path_parts = _state_path_parts(state_names)
     for state_name in state_names:
         selected, state_warnings = select_state_rerun_rows(
             annotated,
@@ -489,7 +521,7 @@ def write_rerun_selection_files(
         csv_path = (
             output_dir
             / (
-                f"direct_basis_{safe_path_part(state_name)}_{config.run_id}"
+                f"direct_basis_{state_path_parts[state_name]}_{config.run_id}"
                 f"_top{int(config.top_k)}_rerun_candidates.csv"
             )
         )

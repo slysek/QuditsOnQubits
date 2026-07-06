@@ -372,6 +372,9 @@ def candidates_from_old_csv(
         lookup[(candidate.class_name, candidate.candidate_name)] = candidate
     for candidate in generate_v2_stage1_direct_candidates(include_unsupported=True):
         lookup[(candidate.class_name, candidate.candidate_name)] = candidate
+    if any(key not in lookup for key in requested):
+        for candidate in generate_all_qutrit_u3_candidates():
+            lookup.setdefault((candidate.class_name, candidate.candidate_name), candidate)
 
     selected: list[DirectBasisCandidate] = []
     for class_name, candidate_name in requested:
