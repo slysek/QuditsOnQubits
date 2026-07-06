@@ -27,7 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--output-root",
-        default="artifacts/direct_basis_runs/rerun_candidates",
+        default="artifacts/iqm_runs/processed/rerun_selection",
     )
     parser.add_argument(
         "--run-id",

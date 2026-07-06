@@ -53,12 +53,25 @@ RANK_COLUMNS = (
     "best_size",
     "candidate_name",
 )
+WINDOWS_RESERVED_PATH_NAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{index}" for index in range(1, 10)),
+    *(f"LPT{index}" for index in range(1, 10)),
+}
 
 
 def _validate_top_k(top_k: int) -> int:
     if isinstance(top_k, bool) or not isinstance(top_k, int) or top_k < 1:
         raise ValueError("--top-k must be positive")
     return top_k
+
+
+def _is_windows_reserved_path_name(value: str) -> bool:
+    stem = value.split(".", 1)[0].upper()
+    return stem in WINDOWS_RESERVED_PATH_NAMES
 
 
 @dataclass(frozen=True)
@@ -76,7 +89,7 @@ class RerunSelectionConfig:
         run_id = str(self.run_id)
         if not run_id.strip():
             raise ValueError("--run-id must not be empty")
-        if run_id != safe_path_part(run_id):
+        if run_id != safe_path_part(run_id) or _is_windows_reserved_path_name(run_id):
             raise ValueError("--run-id must be filesystem-safe")
 
 
