@@ -247,15 +247,16 @@ def select_state_rerun_rows(
         str(baseline["class_name"]),
         str(baseline["candidate_name"]),
     )
+    baseline_match = (
+        state_df["class_name"].astype(str).eq(baseline_key[0])
+        & state_df["candidate_name"].astype(str).eq(baseline_key[1])
+    )
 
     candidate_pool = state_df[
         status_ok
         & success_ok
         & equivalence_metadata_present
-        & ~(
-            state_df["class_name"].astype(str).eq(baseline_key[0])
-            & state_df["candidate_name"].astype(str).eq(baseline_key[1])
-        )
+        & ~baseline_match
         & ~equivalent_ok
     ].copy()
     selected = _sort_for_selection(candidate_pool).head(top_k).copy()
@@ -271,6 +272,7 @@ def select_state_rerun_rows(
         )
         & equivalence_metadata_present
         & equivalent_ok
+        & ~baseline_match
         & ~reference_ok
     ].copy()
     unresolved = state_df[

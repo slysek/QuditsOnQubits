@@ -384,6 +384,29 @@ class RerunSelectionRankingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "ame43 has no baseline row"):
             select_state_rerun_rows(df, "ame43", top_k=10)
 
+    def test_selected_alternate_baseline_is_not_duplicated_as_excluded_diagnostic(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "ghz3",
+                    "class_name": "baseline",
+                    "candidate_name": "alternate",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                    "is_baseline_reference": False,
+                    "is_baseline_equivalent": True,
+                }
+            ]
+        )
+
+        selected, warnings = select_state_rerun_rows(df, "ghz3", top_k=1)
+
+        self.assertEqual(warnings, ("ghz3: selected 0 candidates, requested 1",))
+        self.assertEqual(selected["candidate_name"].tolist(), ["alternate"])
+        self.assertEqual(selected["selection_role"].tolist(), ["baseline"])
+        self.assertEqual(selected.loc[0, "baseline_relation"], "baseline")
+
     def test_skipped_baseline_equivalent_row_is_written_as_diagnostic(self):
         df = pd.DataFrame(
             [
