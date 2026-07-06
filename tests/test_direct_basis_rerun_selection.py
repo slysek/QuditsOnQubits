@@ -384,6 +384,115 @@ class RerunSelectionRankingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "ame43 has no baseline row"):
             select_state_rerun_rows(df, "ame43", top_k=10)
 
+    def test_skipped_baseline_equivalent_row_is_written_as_diagnostic(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "ghz3",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                    "is_baseline_reference": True,
+                    "is_baseline_equivalent": True,
+                },
+                {
+                    "state_name": "ghz3",
+                    "class_name": "monomial_full",
+                    "candidate_name": "skipped_equiv",
+                    "status": "skipped_baseline_equivalent",
+                    "success": False,
+                    "best_depth": 1,
+                    "is_baseline_reference": False,
+                    "is_baseline_equivalent": True,
+                    "skip_reason": "same embedding as baseline within tolerance",
+                },
+            ]
+        )
+
+        selected, warnings = select_state_rerun_rows(df, "ghz3", top_k=1)
+
+        self.assertEqual(warnings, ("ghz3: selected 0 candidates, requested 1",))
+        self.assertEqual(
+            selected[["selection_role", "candidate_name"]].values.tolist(),
+            [
+                ["baseline", "E_old"],
+                ["baseline_equivalent_excluded", "skipped_equiv"],
+            ],
+        )
+        self.assertTrue(pd.isna(selected.loc[1, "selection_rank"]))
+        self.assertEqual(
+            selected.loc[1, "baseline_relation"], "excluded_baseline_equivalent"
+        )
+
+    def test_candidate_without_equivalence_metadata_is_not_selected_for_top_k(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "ghz3",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                    "is_baseline_reference": True,
+                },
+                {
+                    "state_name": "ghz3",
+                    "class_name": "monomial_full",
+                    "candidate_name": "missing_metadata",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 1,
+                    "is_baseline_reference": False,
+                },
+            ]
+        )
+
+        selected, warnings = select_state_rerun_rows(df, "ghz3", top_k=1)
+
+        self.assertEqual(warnings, ("ghz3: selected 0 candidates, requested 1",))
+        self.assertNotIn("candidate", selected["selection_role"].tolist())
+        missing_metadata = selected[
+            selected["candidate_name"].astype(str) == "missing_metadata"
+        ]
+        self.assertEqual(len(missing_metadata), 1)
+        self.assertEqual(
+            missing_metadata.iloc[0]["selection_role"], "unresolved_candidate"
+        )
+        self.assertTrue(pd.isna(missing_metadata.iloc[0]["selection_rank"]))
+        self.assertEqual(missing_metadata.iloc[0]["baseline_relation"], "unresolved")
+
+    def test_failed_baseline_is_not_emitted(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "ghz3",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "status": "build_error",
+                    "success": False,
+                    "best_depth": 100,
+                    "is_baseline_reference": True,
+                    "is_baseline_equivalent": True,
+                },
+                {
+                    "state_name": "ghz3",
+                    "class_name": "monomial_full",
+                    "candidate_name": "better",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 80,
+                    "is_baseline_reference": False,
+                    "is_baseline_equivalent": False,
+                },
+            ]
+        )
+
+        with self.assertRaisesRegex(ValueError, "ghz3 has no runnable baseline row"):
+            select_state_rerun_rows(df, "ghz3", top_k=1)
+
 
 if __name__ == "__main__":
     unittest.main()
