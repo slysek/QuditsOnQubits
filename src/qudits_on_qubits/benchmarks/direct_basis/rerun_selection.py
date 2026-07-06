@@ -18,6 +18,10 @@ from qudits_on_qubits.encoding_search.triviality import candidate_metadata_field
 
 REQUIRED_INPUT_COLUMNS = ("state_name", "class_name", "candidate_name", "best_depth")
 EQUIVALENCE_METADATA_PRESENT_COLUMN = "_has_baseline_equivalence_metadata"
+INTERNAL_OUTPUT_COLUMNS = {
+    EQUIVALENCE_METADATA_PRESENT_COLUMN,
+    "is_unresolved_candidate",
+}
 OUTPUT_FIRST_COLUMNS = (
     "state_name",
     "selection_role",
@@ -100,9 +104,13 @@ def _truthy_series(df: pd.DataFrame, column: str) -> pd.Series:
     if column not in df.columns:
         return pd.Series(False, index=df.index)
     values = df[column]
-    if values.dtype == bool:
-        return values.fillna(False)
-    return values.astype(str).str.lower().isin({"true", "1", "yes", "ok"})
+    if pd.api.types.is_bool_dtype(values):
+        return values.fillna(False).astype(bool)
+    string_truth = (
+        values.astype("string").str.strip().str.lower().isin({"true", "1", "yes", "ok"})
+    )
+    numeric_truth = pd.to_numeric(values, errors="coerce").eq(1)
+    return (string_truth | numeric_truth).fillna(False).astype(bool)
 
 
 def _numeric_column(df: pd.DataFrame, column: str) -> pd.Series:
@@ -207,7 +215,7 @@ def _order_columns(df: pd.DataFrame) -> pd.DataFrame:
     rest = [
         column
         for column in df.columns
-        if column not in first and column != EQUIVALENCE_METADATA_PRESENT_COLUMN
+        if column not in first and column not in INTERNAL_OUTPUT_COLUMNS
     ]
     return df[first + rest]
 
@@ -322,10 +330,23 @@ def annotate_baseline_equivalence(
             unresolved.append(not is_baseline_reference)
             continue
 
+        embedding = _candidate_embedding(candidate)
+        if embedding is None:
+            if reference_missing:
+                result.at[index, "is_baseline_reference"] = is_baseline_reference
+            result.at[index, "is_baseline_equivalent"] = is_baseline_reference
+            if reason_missing and not is_baseline_reference:
+                result.at[index, "baseline_equivalence_reason"] = (
+                    candidate.error_message
+                    or "candidate matrix unavailable for baseline-equivalence inference"
+                )
+            unresolved.append(not is_baseline_reference)
+            continue
+
         metadata = candidate_metadata_fields(
             class_name,
             candidate_name,
-            _candidate_embedding(candidate),
+            embedding,
         )
         if reference_missing:
             result.at[index, "is_baseline_reference"] = bool(
