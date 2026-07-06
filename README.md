@@ -26,6 +26,23 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
+For a fresh Codespace or virtual environment, prefer installing the package and
+its pinned dependency set in one resolver run:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e .
+python -c "from iqm.qiskit_iqm import IQMProvider; print('iqm qiskit adapter ok')"
+```
+
+If the IQM adapter import still fails in a reused environment, remove stale IQM
+packages first and reinstall the project:
+
+```bash
+python -m pip uninstall -y qiskit-iqm cirq-iqm iqm-client
+python -m pip install --force-reinstall -e .
+```
+
 Run smoke tests:
 
 ```powershell

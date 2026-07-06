@@ -1,4 +1,4 @@
-numpy
+numpy>=2,<3
 scipy
 pandas
 sympy
@@ -7,9 +7,9 @@ igraph
 tqdm
 ipython
 jupyterlab
-qiskit
-qiskit-aer
-qiskit-ibm-runtime
-qiskit-experiments
+qiskit>=1.4,<2.2
+qiskit-aer>=0.17,<0.18
+qiskit-ibm-runtime>=0.34,<0.44.1
+qiskit-experiments>=0.13,<0.14
 python-dotenv
-iqm-client[qiskit]
+iqm-client[qiskit]>=34,<35

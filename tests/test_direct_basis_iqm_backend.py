@@ -135,6 +135,18 @@ class IqmBackendAdapterTests(unittest.TestCase):
                 else:
                     os.environ["IQM_TOKEN"] = old_token
 
+    def test_load_iqm_backend_reports_missing_iqm_qiskit_adapter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_path = Path(tmp) / ".env"
+            env_path.write_text(
+                "IQM_SERVER_URL=https://example.invalid/\n"
+                "IQM_TOKEN=secret-token\n",
+                encoding="utf-8",
+            )
+            with patch.dict(sys.modules, {"iqm.qiskit_iqm": None}):
+                with self.assertRaisesRegex(RuntimeError, "iqm-client"):
+                    load_iqm_backend("garnet", env_path=env_path)
+
     def test_backend_metadata_for_fake_iqm_backend(self):
         backend = _fake_garnet()
         metadata = backend_metadata(

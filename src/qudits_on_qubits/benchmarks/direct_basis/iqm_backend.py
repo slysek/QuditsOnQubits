@@ -58,7 +58,17 @@ def load_iqm_backend(
     use_metrics: bool = False,
     env_path: str | Path | None = None,
 ) -> Any:
-    from iqm.qiskit_iqm import IQMProvider
+    try:
+        from iqm.qiskit_iqm import IQMProvider
+    except ModuleNotFoundError as exc:
+        if exc.name == "iqm.qiskit_iqm" or "iqm.qiskit_iqm" in str(exc):
+            raise RuntimeError(
+                "Missing IQM Qiskit adapter. Install the pinned project "
+                "dependencies with `python -m pip install -e .`, or reinstall "
+                "IQM with `python -m pip install --force-reinstall "
+                "\"iqm-client[qiskit]>=34,<35\"`."
+            ) from exc
+        raise
 
     env = load_iqm_environment(env_path)
     provider = IQMProvider(
