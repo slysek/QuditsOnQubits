@@ -278,7 +278,19 @@ class RerunSelectionValidationTests(unittest.TestCase):
             )
 
     def test_config_rejects_unsafe_run_id(self):
-        for run_id in ("bad/run", "bad\\run", "bad:name", "bad run", " run"):
+        invalid_run_ids = (
+            "bad/run",
+            "bad\\run",
+            "bad:name",
+            "bad run",
+            " run",
+            "CON",
+            "nul",
+            "AUX.txt",
+            "COM1",
+            "lpt9",
+        )
+        for run_id in invalid_run_ids:
             with self.subTest(run_id=run_id):
                 with self.assertRaisesRegex(ValueError, "--run-id must be filesystem-safe"):
                     RerunSelectionConfig(
@@ -1471,6 +1483,15 @@ class RerunSelectionWriterTests(unittest.TestCase):
                     / "direct_basis_two_qutrit_cli_run_top1_rerun_candidates.csv"
                 ).is_file()
             )
+
+    def test_cli_default_output_root_matches_iqm_processed_rerun_selection(self):
+        cli_module = _load_rerun_cli_module()
+        args = cli_module.build_parser().parse_args(["--input-csv", "input.csv"])
+
+        self.assertEqual(
+            args.output_root,
+            "artifacts/iqm_runs/processed/rerun_selection",
+        )
 
 
 class RerunSelectionEquivalenceTests(unittest.TestCase):
