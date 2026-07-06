@@ -4,7 +4,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+import numpy as np
 import pandas as pd
+
+from qudits_on_qubits.benchmarks.direct_basis.candidates import (
+    DirectBasisCandidate,
+    generate_all_qutrit_u3_candidates,
+    generate_legacy_qutrit_u3_candidates,
+)
+from qudits_on_qubits.benchmarks.direct_basis.math_utils import encoding_embedding
+from qudits_on_qubits.encoding_search.triviality import candidate_metadata_fields
 
 
 REQUIRED_INPUT_COLUMNS = ("state_name", "class_name", "candidate_name", "best_depth")
@@ -222,6 +231,77 @@ def load_input_csvs(
     return pd.concat(frames, ignore_index=True)
 
 
+def build_default_candidate_lookup() -> dict[tuple[str, str], DirectBasisCandidate]:
+    lookup: dict[tuple[str, str], DirectBasisCandidate] = {}
+    for candidate in generate_all_qutrit_u3_candidates():
+        lookup[(candidate.class_name, candidate.candidate_name)] = candidate
+    for candidate in generate_legacy_qutrit_u3_candidates("original"):
+        lookup.setdefault((candidate.class_name, candidate.candidate_name), candidate)
+    return lookup
+
+
+def _candidate_embedding(candidate: DirectBasisCandidate):
+    if candidate.matrix is None:
+        return None
+    matrix = np.asarray(candidate.matrix, dtype=complex)
+    if matrix.shape == (3, 3) or matrix.shape == (4, 3):
+        return encoding_embedding(matrix)
+    return matrix
+
+
+def annotate_baseline_equivalence(
+    df: pd.DataFrame,
+    *,
+    candidate_lookup: dict[tuple[str, str], DirectBasisCandidate] | None = None,
+) -> pd.DataFrame:
+    result = df.copy()
+    if (
+        "is_baseline_equivalent" in result.columns
+        and "is_baseline_reference" in result.columns
+    ):
+        if "baseline_equivalence_reason" not in result.columns:
+            if "skip_reason" in result.columns:
+                result["baseline_equivalence_reason"] = result[
+                    "skip_reason"
+                ].fillna("")
+            else:
+                result["baseline_equivalence_reason"] = ""
+        return result
+
+    lookup = candidate_lookup
+    if lookup is None:
+        lookup = build_default_candidate_lookup()
+    references: list[bool] = []
+    equivalents: list[bool] = []
+    reasons: list[str] = []
+    unresolved: list[bool] = []
+    for _, row in result.iterrows():
+        class_name = str(row["class_name"])
+        candidate_name = str(row["candidate_name"])
+        candidate = lookup.get((class_name, candidate_name))
+        if candidate is None:
+            references.append(False)
+            equivalents.append(False)
+            reasons.append("candidate not found in direct-basis candidate lookup")
+            unresolved.append(True)
+            continue
+        metadata = candidate_metadata_fields(
+            class_name,
+            candidate_name,
+            _candidate_embedding(candidate),
+        )
+        references.append(bool(metadata["is_baseline_reference"]))
+        equivalents.append(bool(metadata["is_baseline_equivalent"]))
+        reasons.append(str(metadata.get("skip_reason", "")))
+        unresolved.append(False)
+
+    result["is_baseline_reference"] = references
+    result["is_baseline_equivalent"] = equivalents
+    result["baseline_equivalence_reason"] = reasons
+    result["is_unresolved_candidate"] = unresolved
+    return result
+
+
 def select_state_rerun_rows(
     df: pd.DataFrame,
     state_name: str,
@@ -242,6 +322,7 @@ def select_state_rerun_rows(
     equivalence_metadata_present = _truthy_series(
         state_df, EQUIVALENCE_METADATA_PRESENT_COLUMN
     )
+    unresolved_ok = _truthy_series(state_df, "is_unresolved_candidate")
     baseline_class = state_df["class_name"].astype(str).eq("baseline")
     baseline_key = (
         str(baseline["class_name"]),
@@ -255,10 +336,11 @@ def select_state_rerun_rows(
     candidate_pool = state_df[
         status_ok
         & success_ok
-        & equivalence_metadata_present
         & ~baseline_match
         & ~baseline_class
         & ~equivalent_ok
+        & ~unresolved_ok
+        & equivalence_metadata_present
     ].copy()
     selected = _sort_for_selection(candidate_pool).head(top_k).copy()
     if len(selected) < top_k:
@@ -280,7 +362,7 @@ def select_state_rerun_rows(
         status_ok
         & success_ok
         & ~baseline_class
-        & ~equivalence_metadata_present
+        & (unresolved_ok | ~equivalence_metadata_present)
     ].copy()
 
     baseline_df = pd.DataFrame([baseline])
