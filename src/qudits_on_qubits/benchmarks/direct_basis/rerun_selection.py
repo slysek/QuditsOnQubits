@@ -21,7 +21,11 @@ class RerunSelectionConfig:
     def __post_init__(self) -> None:
         if not self.input_csvs:
             raise ValueError("at least one --input-csv is required")
-        if int(self.top_k) < 1:
+        if (
+            isinstance(self.top_k, bool)
+            or not isinstance(self.top_k, int)
+            or self.top_k < 1
+        ):
             raise ValueError("--top-k must be positive")
         if not str(self.run_id).strip():
             raise ValueError("--run-id must not be empty")

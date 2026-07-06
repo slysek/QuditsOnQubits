@@ -126,12 +126,31 @@ class DirectBasisFromOldCsvRoleTests(unittest.TestCase):
 
 class RerunSelectionValidationTests(unittest.TestCase):
     def test_config_rejects_invalid_top_k(self):
-        with self.assertRaisesRegex(ValueError, "--top-k must be positive"):
+        invalid_values = (0, -1, True, False, 1.5, "1.5", "not-a-number")
+        for top_k in invalid_values:
+            with self.subTest(top_k=top_k):
+                with self.assertRaisesRegex(ValueError, "--top-k must be positive"):
+                    RerunSelectionConfig(
+                        input_csvs=(Path("input.csv"),),
+                        output_root=Path("out"),
+                        run_id="run",
+                        top_k=top_k,
+                    )
+
+    def test_config_rejects_empty_input_csvs(self):
+        with self.assertRaisesRegex(ValueError, "at least one --input-csv is required"):
+            RerunSelectionConfig(
+                input_csvs=(),
+                output_root=Path("out"),
+                run_id="run",
+            )
+
+    def test_config_rejects_blank_run_id(self):
+        with self.assertRaisesRegex(ValueError, "--run-id must not be empty"):
             RerunSelectionConfig(
                 input_csvs=(Path("input.csv"),),
                 output_root=Path("out"),
-                run_id="run",
-                top_k=0,
+                run_id="  ",
             )
 
     def test_load_input_csvs_requires_core_columns(self):
@@ -169,6 +188,69 @@ class RerunSelectionValidationTests(unittest.TestCase):
         self.assertEqual(len(df), 1)
         self.assertEqual(df.loc[0, "selection_label"], "exact")
         self.assertEqual(df.loc[0, "source_csv"], str(csv_path))
+
+    def test_load_input_csvs_rejects_empty_inputs(self):
+        with self.assertRaisesRegex(ValueError, "at least one --input-csv is required"):
+            load_input_csvs(())
+
+    def test_load_input_csvs_concatenates_multiple_csvs_with_reset_index(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first_path = Path(tmp) / "first.csv"
+            second_path = Path(tmp) / "second.csv"
+            pd.DataFrame(
+                [
+                    {
+                        "state_name": "ghz3",
+                        "class_name": "baseline",
+                        "candidate_name": "E_old",
+                        "best_depth": 10,
+                    }
+                ],
+                index=[7],
+            ).to_csv(first_path, index=False)
+            pd.DataFrame(
+                [
+                    {
+                        "state_name": "w3",
+                        "class_name": "baseline",
+                        "candidate_name": "E_old",
+                        "best_depth": 12,
+                    }
+                ],
+                index=[9],
+            ).to_csv(second_path, index=False)
+
+            df = load_input_csvs((first_path, second_path))
+
+        self.assertEqual(list(df.index), [0, 1])
+        self.assertEqual(list(df["state_name"]), ["ghz3", "w3"])
+        self.assertEqual(list(df["source_csv"]), [str(first_path), str(second_path)])
+
+    def test_load_input_csvs_ignores_include_label_when_selection_label_absent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp) / "raw.csv"
+            pd.DataFrame(
+                [
+                    {
+                        "state_name": "ghz3",
+                        "class_name": "baseline",
+                        "candidate_name": "E_old",
+                        "best_depth": 10,
+                    },
+                    {
+                        "state_name": "w3",
+                        "class_name": "baseline",
+                        "candidate_name": "E_old",
+                        "best_depth": 11,
+                    },
+                ]
+            ).to_csv(csv_path, index=False)
+
+            df = load_input_csvs((csv_path,), include_label="exact")
+
+        self.assertEqual(len(df), 2)
+        self.assertEqual(list(df["state_name"]), ["ghz3", "w3"])
+        self.assertEqual(list(df["source_csv"]), [str(csv_path), str(csv_path)])
 
 
 if __name__ == "__main__":
