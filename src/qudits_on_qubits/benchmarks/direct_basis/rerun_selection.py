@@ -113,10 +113,10 @@ def _numeric_column(df: pd.DataFrame, column: str) -> pd.Series:
 
 def _ensure_selection_columns(df: pd.DataFrame) -> pd.DataFrame:
     result = df.copy()
-    if "is_baseline_equivalent" in result.columns:
-        result[EQUIVALENCE_METADATA_PRESENT_COLUMN] = result[
-            "is_baseline_equivalent"
-        ].notna()
+    if _has_complete_equivalence_columns(result):
+        result[EQUIVALENCE_METADATA_PRESENT_COLUMN] = _equivalence_metadata_present(
+            result
+        )
     else:
         result[EQUIVALENCE_METADATA_PRESENT_COLUMN] = False
     if "status" not in result.columns:
@@ -212,10 +212,23 @@ def _order_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df[first + rest]
 
 
-def _has_complete_equivalence_columns(df: pd.DataFrame) -> bool:
+def _equivalence_metadata_present(df: pd.DataFrame) -> pd.Series:
     return (
-        "is_baseline_equivalent" in df.columns
-        and "is_baseline_reference" in df.columns
+        df[["is_baseline_equivalent", "is_baseline_reference"]].notna().all(axis=1)
+    )
+
+
+def _has_complete_equivalence_columns(df: pd.DataFrame) -> bool:
+    if (
+        "is_baseline_equivalent" not in df.columns
+        or "is_baseline_reference" not in df.columns
+    ):
+        return False
+    return bool(
+        df[["is_baseline_equivalent", "is_baseline_reference"]]
+        .notna()
+        .all()
+        .all()
     )
 
 
@@ -262,51 +275,74 @@ def annotate_baseline_equivalence(
     candidate_lookup: dict[tuple[str, str], DirectBasisCandidate] | None = None,
 ) -> pd.DataFrame:
     result = df.copy()
-    if "is_baseline_equivalent" in result.columns:
-        if "is_baseline_reference" not in result.columns:
-            result["is_baseline_reference"] = (
-                result["class_name"].astype(str).eq("baseline")
-                & result["candidate_name"].astype(str).eq("E_old")
-            )
-        if "baseline_equivalence_reason" not in result.columns:
-            if "skip_reason" in result.columns:
-                result["baseline_equivalence_reason"] = result[
-                    "skip_reason"
-                ].fillna("")
-            else:
-                result["baseline_equivalence_reason"] = ""
+    if "baseline_equivalence_reason" not in result.columns:
+        result["baseline_equivalence_reason"] = pd.NA
+    if "skip_reason" in result.columns:
+        result["baseline_equivalence_reason"] = result[
+            "baseline_equivalence_reason"
+        ].where(result["baseline_equivalence_reason"].notna(), result["skip_reason"])
+    if _has_complete_equivalence_columns(result):
+        result["baseline_equivalence_reason"] = result[
+            "baseline_equivalence_reason"
+        ].fillna("")
         return result
 
+    if "is_baseline_reference" not in result.columns:
+        result["is_baseline_reference"] = pd.NA
+    if "is_baseline_equivalent" not in result.columns:
+        result["is_baseline_equivalent"] = pd.NA
+
+    needs_lookup = result["is_baseline_equivalent"].isna()
     lookup = candidate_lookup
-    if lookup is None:
+    if lookup is None and bool(needs_lookup.any()):
         lookup = build_default_candidate_lookup()
-    references: list[bool] = []
-    equivalents: list[bool] = []
-    reasons: list[str] = []
     unresolved: list[bool] = []
-    for _, row in result.iterrows():
+    for index, row in result.iterrows():
         class_name = str(row["class_name"])
         candidate_name = str(row["candidate_name"])
-        candidate = lookup.get((class_name, candidate_name))
-        if candidate is None:
-            references.append(False)
-            equivalents.append(False)
-            reasons.append("candidate not found in direct-basis candidate lookup")
-            unresolved.append(True)
+        is_baseline_reference = class_name == "baseline" and candidate_name == "E_old"
+        reference_missing = pd.isna(row["is_baseline_reference"])
+        equivalent_missing = pd.isna(row["is_baseline_equivalent"])
+        reason_missing = pd.isna(row["baseline_equivalence_reason"])
+        if not equivalent_missing:
+            if reference_missing:
+                result.at[index, "is_baseline_reference"] = is_baseline_reference
+            unresolved.append(False)
             continue
+
+        candidate = None if lookup is None else lookup.get((class_name, candidate_name))
+        if candidate is None:
+            if reference_missing:
+                result.at[index, "is_baseline_reference"] = is_baseline_reference
+            result.at[index, "is_baseline_equivalent"] = is_baseline_reference
+            if reason_missing and not is_baseline_reference:
+                result.at[
+                    index, "baseline_equivalence_reason"
+                ] = "candidate not found in direct-basis candidate lookup"
+            unresolved.append(not is_baseline_reference)
+            continue
+
         metadata = candidate_metadata_fields(
             class_name,
             candidate_name,
             _candidate_embedding(candidate),
         )
-        references.append(bool(metadata["is_baseline_reference"]))
-        equivalents.append(bool(metadata["is_baseline_equivalent"]))
-        reasons.append(str(metadata.get("skip_reason", "")))
+        if reference_missing:
+            result.at[index, "is_baseline_reference"] = bool(
+                metadata["is_baseline_reference"]
+            )
+        result.at[index, "is_baseline_equivalent"] = bool(
+            metadata["is_baseline_equivalent"]
+        )
+        if reason_missing:
+            result.at[index, "baseline_equivalence_reason"] = str(
+                metadata.get("skip_reason", "")
+            )
         unresolved.append(False)
 
-    result["is_baseline_reference"] = references
-    result["is_baseline_equivalent"] = equivalents
-    result["baseline_equivalence_reason"] = reasons
+    result["baseline_equivalence_reason"] = result[
+        "baseline_equivalence_reason"
+    ].fillna("")
     result["is_unresolved_candidate"] = unresolved
     return result
 

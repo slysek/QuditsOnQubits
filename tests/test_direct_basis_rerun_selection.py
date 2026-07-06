@@ -864,6 +864,62 @@ class RerunSelectionRankingTests(unittest.TestCase):
 
 
 class RerunSelectionEquivalenceTests(unittest.TestCase):
+    def test_select_state_infers_row_level_missing_equivalence_metadata(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "baseline",
+                    "candidate_name": "E_old",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 100,
+                    "is_baseline_reference": True,
+                    "is_baseline_equivalent": True,
+                },
+                {
+                    "state_name": "two_qutrit",
+                    "class_name": "monomial_full",
+                    "candidate_name": "non_equiv",
+                    "status": "ok",
+                    "success": True,
+                    "best_depth": 80,
+                    "is_baseline_reference": pd.NA,
+                    "is_baseline_equivalent": pd.NA,
+                },
+            ]
+        )
+        lookup = {
+            ("baseline", "E_old"): _candidate("baseline", "E_old"),
+            ("monomial_full", "non_equiv"): DirectBasisCandidate(
+                name="non_equiv",
+                candidate_type="monomial_full",
+                matrix=np.array(
+                    [
+                        [0, 1, 0],
+                        [1, 0, 0],
+                        [0, 0, 1],
+                    ],
+                    dtype=complex,
+                ),
+                source_class_name="monomial_full",
+                source_candidate_name="non_equiv",
+            ),
+        }
+
+        selected, warnings = select_state_rerun_rows(
+            df,
+            "two_qutrit",
+            top_k=1,
+            candidate_lookup=lookup,
+        )
+
+        self.assertEqual(warnings, ())
+        self.assertEqual(
+            selected[["selection_role", "candidate_name"]].values.tolist(),
+            [["baseline", "E_old"], ["candidate", "non_equiv"]],
+        )
+
     def test_select_state_infers_missing_equivalence_metadata_from_lookup(self):
         df = pd.DataFrame(
             [
