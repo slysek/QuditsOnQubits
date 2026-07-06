@@ -8,6 +8,7 @@ import pandas as pd
 
 
 REQUIRED_INPUT_COLUMNS = ("state_name", "class_name", "candidate_name", "best_depth")
+EQUIVALENCE_METADATA_PRESENT_COLUMN = "_has_baseline_equivalence_metadata"
 OUTPUT_FIRST_COLUMNS = (
     "state_name",
     "selection_role",
@@ -103,6 +104,12 @@ def _numeric_column(df: pd.DataFrame, column: str) -> pd.Series:
 
 def _ensure_selection_columns(df: pd.DataFrame) -> pd.DataFrame:
     result = df.copy()
+    if "is_baseline_equivalent" in result.columns:
+        result[EQUIVALENCE_METADATA_PRESENT_COLUMN] = result[
+            "is_baseline_equivalent"
+        ].notna()
+    else:
+        result[EQUIVALENCE_METADATA_PRESENT_COLUMN] = False
     if "status" not in result.columns:
         result["status"] = "ok"
     if "success" not in result.columns:
@@ -135,6 +142,12 @@ def _choose_baseline(
     baseline_rows = state_df[state_df["class_name"].astype(str) == "baseline"].copy()
     if baseline_rows.empty:
         raise ValueError(f"{state_name} has no baseline row")
+    baseline_rows = baseline_rows[
+        (baseline_rows["status"].astype(str) == "ok")
+        & _truthy_series(baseline_rows, "success")
+    ].copy()
+    if baseline_rows.empty:
+        raise ValueError(f"{state_name} has no runnable baseline row")
     warnings: list[str] = []
     e_old = baseline_rows[baseline_rows["candidate_name"].astype(str) == "E_old"].copy()
     if not e_old.empty:
@@ -182,7 +195,11 @@ def _with_baseline_comparison(
 
 def _order_columns(df: pd.DataFrame) -> pd.DataFrame:
     first = [column for column in OUTPUT_FIRST_COLUMNS if column in df.columns]
-    rest = [column for column in df.columns if column not in first]
+    rest = [
+        column
+        for column in df.columns
+        if column not in first and column != EQUIVALENCE_METADATA_PRESENT_COLUMN
+    ]
     return df[first + rest]
 
 
@@ -222,6 +239,10 @@ def select_state_rerun_rows(
     success_ok = _truthy_series(state_df, "success")
     reference_ok = _truthy_series(state_df, "is_baseline_reference")
     equivalent_ok = _truthy_series(state_df, "is_baseline_equivalent")
+    equivalence_metadata_present = _truthy_series(
+        state_df, EQUIVALENCE_METADATA_PRESENT_COLUMN
+    )
+    baseline_class = state_df["class_name"].astype(str).eq("baseline")
     baseline_key = (
         str(baseline["class_name"]),
         str(baseline["candidate_name"]),
@@ -230,6 +251,7 @@ def select_state_rerun_rows(
     candidate_pool = state_df[
         status_ok
         & success_ok
+        & equivalence_metadata_present
         & ~(
             state_df["class_name"].astype(str).eq(baseline_key[0])
             & state_df["candidate_name"].astype(str).eq(baseline_key[1])
@@ -243,10 +265,19 @@ def select_state_rerun_rows(
         )
 
     excluded = state_df[
-        status_ok
-        & success_ok
+        (
+            (status_ok & success_ok)
+            | state_df["status"].astype(str).eq("skipped_baseline_equivalent")
+        )
+        & equivalence_metadata_present
         & equivalent_ok
         & ~reference_ok
+    ].copy()
+    unresolved = state_df[
+        status_ok
+        & success_ok
+        & ~baseline_class
+        & ~equivalence_metadata_present
     ].copy()
 
     baseline_df = pd.DataFrame([baseline])
@@ -256,9 +287,17 @@ def select_state_rerun_rows(
     selected["selection_rank"] = range(1, len(selected) + 1)
     excluded["selection_role"] = "baseline_equivalent_excluded"
     excluded["selection_rank"] = pd.NA
+    unresolved["selection_role"] = "unresolved_candidate"
+    unresolved["selection_rank"] = pd.NA
 
     output = pd.concat(
-        [baseline_df, selected, _sort_for_selection(excluded)], ignore_index=True
+        [
+            baseline_df,
+            selected,
+            _sort_for_selection(excluded),
+            _sort_for_selection(unresolved),
+        ],
+        ignore_index=True,
     )
     output = _with_baseline_comparison(output, baseline_depth)
     return _order_columns(output), warnings
