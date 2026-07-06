@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import contextlib
+import importlib.util
+import io
 import sys
 import tempfile
 import unittest
@@ -22,6 +25,7 @@ from qudits_on_qubits.benchmarks.direct_basis.candidates import (
     DirectBasisCandidate,
     candidates_from_old_csv,
 )
+import qudits_on_qubits.benchmarks.direct_basis.rerun_selection as rerun_selection_module
 from qudits_on_qubits.benchmarks.direct_basis.rerun_selection import (
     RerunSelectionConfig,
     annotate_baseline_equivalence,
@@ -49,6 +53,77 @@ def _unsupported_candidate(class_name: str, candidate_name: str) -> DirectBasisC
         source_candidate_name=candidate_name,
         error_message="candidate unavailable",
     )
+
+
+def _non_equivalent_candidate(
+    class_name: str, candidate_name: str
+) -> DirectBasisCandidate:
+    return DirectBasisCandidate(
+        name=candidate_name,
+        candidate_type=class_name,
+        matrix=np.array(
+            [
+                [0, 1, 0],
+                [1, 0, 0],
+                [0, 0, 1],
+            ],
+            dtype=complex,
+        ),
+        source_class_name=class_name,
+        source_candidate_name=candidate_name,
+    )
+
+
+def _metadata_row(
+    state_name: str,
+    class_name: str,
+    candidate_name: str,
+    best_depth: int,
+    *,
+    is_baseline_reference: bool = False,
+    is_baseline_equivalent: bool = False,
+    is_unresolved_candidate: bool = False,
+    selection_label: str | None = None,
+) -> dict[str, object]:
+    row: dict[str, object] = {
+        "state_name": state_name,
+        "class_name": class_name,
+        "candidate_name": candidate_name,
+        "status": "ok",
+        "success": True,
+        "best_depth": best_depth,
+        "mean_depth": best_depth,
+        "std_depth": 0,
+        "best_two_qubit_gate_count": best_depth,
+        "best_one_qubit_gate_count": best_depth,
+        "best_size": best_depth,
+        "is_baseline_reference": is_baseline_reference,
+        "is_baseline_equivalent": is_baseline_equivalent,
+        "is_unresolved_candidate": is_unresolved_candidate,
+        "skip_reason": (
+            "same embedding as baseline within tolerance"
+            if is_baseline_equivalent and not is_baseline_reference
+            else ""
+        ),
+    }
+    if selection_label is not None:
+        row["selection_label"] = selection_label
+    return row
+
+
+def _load_rerun_cli_module():
+    script_path = REPO_ROOT / "scripts" / "select_top_rerun_candidates.py"
+    if not script_path.is_file():
+        raise AssertionError(f"missing CLI script: {script_path}")
+    spec = importlib.util.spec_from_file_location(
+        "select_top_rerun_candidates_under_test",
+        script_path,
+    )
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"could not load CLI script: {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class DirectBasisFromOldCsvRoleTests(unittest.TestCase):
@@ -955,6 +1030,311 @@ class RerunSelectionRankingTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "ghz3 has no runnable baseline row"):
             select_state_rerun_rows(df, "ghz3", top_k=1)
+
+
+class RerunSelectionWriterTests(unittest.TestCase):
+    def test_writer_creates_separate_state_csvs_with_counts_and_diagnostics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            input_csv = Path(tmp) / "input.csv"
+            output_root = Path(tmp) / "out"
+            rows = [
+                _metadata_row(
+                    "ghz3",
+                    "baseline",
+                    "E_old",
+                    100,
+                    is_baseline_reference=True,
+                    is_baseline_equivalent=True,
+                ),
+                _metadata_row(
+                    "ghz3",
+                    "monomial_full",
+                    "equiv",
+                    1,
+                    is_baseline_equivalent=True,
+                ),
+                _metadata_row("ghz3", "monomial_full", "good", 80),
+                _metadata_row(
+                    "ghz3",
+                    "unknown",
+                    "missing",
+                    2,
+                    is_unresolved_candidate=True,
+                ),
+                _metadata_row(
+                    "two_qutrit",
+                    "baseline",
+                    "E_old",
+                    100,
+                    is_baseline_reference=True,
+                    is_baseline_equivalent=True,
+                ),
+                _metadata_row(
+                    "two_qutrit",
+                    "monomial_full",
+                    "equiv",
+                    1,
+                    is_baseline_equivalent=True,
+                ),
+                _metadata_row(
+                    "two_qutrit",
+                    "unknown",
+                    "missing",
+                    2,
+                    is_unresolved_candidate=True,
+                ),
+            ]
+            pd.DataFrame(rows).to_csv(input_csv, index=False)
+
+            output = rerun_selection_module.write_rerun_selection_files(
+                RerunSelectionConfig(
+                    input_csvs=(input_csv,),
+                    output_root=output_root,
+                    run_id="run_1",
+                    top_k=1,
+                )
+            )
+
+            self.assertEqual(output.run_id, "run_1")
+            self.assertEqual(output.output_dir, output_root / "run_1")
+            self.assertEqual(
+                [state_output.state_name for state_output in output.state_outputs],
+                ["ghz3", "two_qutrit"],
+            )
+            by_state = {
+                state_output.state_name: state_output
+                for state_output in output.state_outputs
+            }
+            self.assertEqual(by_state["ghz3"].selected_count, 1)
+            self.assertEqual(by_state["ghz3"].baseline_equivalent_excluded_count, 1)
+            self.assertEqual(by_state["ghz3"].unresolved_count, 1)
+            self.assertEqual(by_state["ghz3"].warnings, ())
+            self.assertEqual(by_state["two_qutrit"].selected_count, 0)
+            self.assertEqual(
+                by_state["two_qutrit"].baseline_equivalent_excluded_count, 1
+            )
+            self.assertEqual(by_state["two_qutrit"].unresolved_count, 1)
+            self.assertEqual(
+                by_state["two_qutrit"].warnings,
+                ("two_qutrit: selected 0 candidates, requested 1",),
+            )
+            self.assertEqual(
+                output.warnings,
+                ("two_qutrit: selected 0 candidates, requested 1",),
+            )
+            self.assertEqual(
+                by_state["ghz3"].csv_path.name,
+                "direct_basis_ghz3_run_1_top1_rerun_candidates.csv",
+            )
+            self.assertEqual(
+                by_state["two_qutrit"].csv_path.name,
+                "direct_basis_two_qutrit_run_1_top1_rerun_candidates.csv",
+            )
+            self.assertTrue(by_state["ghz3"].csv_path.is_file())
+            self.assertTrue(by_state["two_qutrit"].csv_path.is_file())
+
+            ghz_output = pd.read_csv(by_state["ghz3"].csv_path)
+
+        candidate_rows = ghz_output[ghz_output["selection_role"] == "candidate"]
+        self.assertEqual(candidate_rows["candidate_name"].tolist(), ["good"])
+        roles = dict(zip(ghz_output["candidate_name"], ghz_output["selection_role"]))
+        self.assertEqual(roles["equiv"], "baseline_equivalent_excluded")
+        self.assertEqual(roles["missing"], "unresolved_candidate")
+
+    def test_writer_filters_input_rows_by_include_label(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            input_csv = Path(tmp) / "input.csv"
+            output_root = Path(tmp) / "out"
+            rows = [
+                _metadata_row(
+                    "ghz3",
+                    "baseline",
+                    "E_old",
+                    100,
+                    is_baseline_reference=True,
+                    is_baseline_equivalent=True,
+                    selection_label="exact",
+                ),
+                _metadata_row(
+                    "ghz3",
+                    "monomial_full",
+                    "good",
+                    80,
+                    selection_label="exact",
+                ),
+                _metadata_row(
+                    "w3",
+                    "baseline",
+                    "E_old",
+                    100,
+                    is_baseline_reference=True,
+                    is_baseline_equivalent=True,
+                    selection_label="fid099",
+                ),
+                _metadata_row(
+                    "w3",
+                    "monomial_full",
+                    "good",
+                    80,
+                    selection_label="fid099",
+                ),
+            ]
+            pd.DataFrame(rows).to_csv(input_csv, index=False)
+
+            output = rerun_selection_module.write_rerun_selection_files(
+                RerunSelectionConfig(
+                    input_csvs=(input_csv,),
+                    output_root=output_root,
+                    run_id="run_label",
+                    top_k=1,
+                    include_label="exact",
+                )
+            )
+            saved = pd.read_csv(output.state_outputs[0].csv_path)
+
+        self.assertEqual(
+            [state_output.state_name for state_output in output.state_outputs],
+            ["ghz3"],
+        )
+        self.assertEqual(output.state_outputs[0].selected_count, 1)
+        self.assertEqual(set(saved["selection_label"]), {"exact"})
+
+    def test_writer_annotates_equivalence_once_before_per_state_selection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            input_csv = Path(tmp) / "input.csv"
+            output_root = Path(tmp) / "out"
+            pd.DataFrame(
+                [
+                    {
+                        "state_name": "ghz3",
+                        "class_name": "baseline",
+                        "candidate_name": "E_old",
+                        "status": "ok",
+                        "success": True,
+                        "best_depth": 100,
+                    },
+                    {
+                        "state_name": "ghz3",
+                        "class_name": "monomial_full",
+                        "candidate_name": "non_equiv_ghz3",
+                        "status": "ok",
+                        "success": True,
+                        "best_depth": 80,
+                    },
+                    {
+                        "state_name": "two_qutrit",
+                        "class_name": "baseline",
+                        "candidate_name": "E_old",
+                        "status": "ok",
+                        "success": True,
+                        "best_depth": 100,
+                    },
+                    {
+                        "state_name": "two_qutrit",
+                        "class_name": "monomial_full",
+                        "candidate_name": "non_equiv_two_qutrit",
+                        "status": "ok",
+                        "success": True,
+                        "best_depth": 80,
+                    },
+                ]
+            ).to_csv(input_csv, index=False)
+            lookup = {
+                ("baseline", "E_old"): _candidate("baseline", "E_old"),
+                ("monomial_full", "non_equiv_ghz3"): _non_equivalent_candidate(
+                    "monomial_full", "non_equiv_ghz3"
+                ),
+                ("monomial_full", "non_equiv_two_qutrit"): _non_equivalent_candidate(
+                    "monomial_full", "non_equiv_two_qutrit"
+                ),
+            }
+
+            with patch(
+                "qudits_on_qubits.benchmarks.direct_basis.rerun_selection."
+                "build_default_candidate_lookup",
+                return_value=lookup,
+            ) as build_lookup:
+                output = rerun_selection_module.write_rerun_selection_files(
+                    RerunSelectionConfig(
+                        input_csvs=(input_csv,),
+                        output_root=output_root,
+                        run_id="run_lookup",
+                        top_k=1,
+                    )
+                )
+
+        self.assertEqual(build_lookup.call_count, 1)
+        self.assertEqual(
+            [state_output.selected_count for state_output in output.state_outputs],
+            [1, 1],
+        )
+
+    def test_cli_main_smoke_accepts_repeated_input_csvs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first_csv = Path(tmp) / "first.csv"
+            second_csv = Path(tmp) / "second.csv"
+            output_root = Path(tmp) / "out"
+            pd.DataFrame(
+                [
+                    _metadata_row(
+                        "ghz3",
+                        "baseline",
+                        "E_old",
+                        100,
+                        is_baseline_reference=True,
+                        is_baseline_equivalent=True,
+                    ),
+                    _metadata_row("ghz3", "monomial_full", "good", 80),
+                ]
+            ).to_csv(first_csv, index=False)
+            pd.DataFrame(
+                [
+                    _metadata_row(
+                        "two_qutrit",
+                        "baseline",
+                        "E_old",
+                        100,
+                        is_baseline_reference=True,
+                        is_baseline_equivalent=True,
+                    ),
+                    _metadata_row("two_qutrit", "monomial_full", "good", 80),
+                ]
+            ).to_csv(second_csv, index=False)
+            cli_module = _load_rerun_cli_module()
+
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                exit_code = cli_module.main(
+                    [
+                        "--input-csv",
+                        str(first_csv),
+                        "--input-csv",
+                        str(second_csv),
+                        "--output-root",
+                        str(output_root),
+                        "--run-id",
+                        "cli_run",
+                        "--top-k",
+                        "1",
+                    ]
+                )
+
+            self.assertEqual(exit_code, 0)
+            self.assertIn(f"Output dir: {output_root / 'cli_run'}", stdout.getvalue())
+            self.assertTrue(
+                (
+                    output_root
+                    / "cli_run"
+                    / "direct_basis_ghz3_cli_run_top1_rerun_candidates.csv"
+                ).is_file()
+            )
+            self.assertTrue(
+                (
+                    output_root
+                    / "cli_run"
+                    / "direct_basis_two_qutrit_cli_run_top1_rerun_candidates.csv"
+                ).is_file()
+            )
 
 
 class RerunSelectionEquivalenceTests(unittest.TestCase):

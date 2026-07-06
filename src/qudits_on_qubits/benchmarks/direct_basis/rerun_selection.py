@@ -13,6 +13,7 @@ from qudits_on_qubits.benchmarks.direct_basis.candidates import (
     generate_legacy_qutrit_u3_candidates,
 )
 from qudits_on_qubits.benchmarks.direct_basis.math_utils import encoding_embedding
+from qudits_on_qubits.benchmarks.direct_basis.selection import safe_path_part
 from qudits_on_qubits.encoding_search.triviality import candidate_metadata_fields
 
 
@@ -457,3 +458,63 @@ def select_state_rerun_rows(
     )
     output = _with_baseline_comparison(output, baseline_depth)
     return _order_columns(output), warnings
+
+
+def _selection_role_count(df: pd.DataFrame, role: str) -> int:
+    if "selection_role" not in df.columns:
+        return 0
+    return int(df["selection_role"].astype(str).eq(role).sum())
+
+
+def write_rerun_selection_files(
+    config: RerunSelectionConfig,
+) -> RerunSelectionOutput:
+    df = load_input_csvs(
+        config.input_csvs,
+        include_label=config.include_label,
+    )
+    annotated = annotate_baseline_equivalence(df)
+    output_dir = Path(config.output_root) / str(config.run_id)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    state_outputs: list[StateSelectionOutput] = []
+    warnings: list[str] = []
+    state_names = sorted(annotated["state_name"].dropna().astype(str).unique())
+    for state_name in state_names:
+        selected, state_warnings = select_state_rerun_rows(
+            annotated,
+            state_name,
+            top_k=config.top_k,
+        )
+        csv_path = (
+            output_dir
+            / (
+                f"direct_basis_{safe_path_part(state_name)}_{config.run_id}"
+                f"_top{int(config.top_k)}_rerun_candidates.csv"
+            )
+        )
+        selected.to_csv(csv_path, index=False)
+        state_outputs.append(
+            StateSelectionOutput(
+                state_name=state_name,
+                csv_path=csv_path,
+                selected_count=_selection_role_count(selected, "candidate"),
+                baseline_equivalent_excluded_count=_selection_role_count(
+                    selected,
+                    "baseline_equivalent_excluded",
+                ),
+                unresolved_count=_selection_role_count(
+                    selected,
+                    "unresolved_candidate",
+                ),
+                warnings=tuple(state_warnings),
+            )
+        )
+        warnings.extend(state_warnings)
+
+    return RerunSelectionOutput(
+        run_id=str(config.run_id),
+        output_dir=output_dir,
+        state_outputs=tuple(state_outputs),
+        warnings=tuple(warnings),
+    )
