@@ -15,6 +15,9 @@ from qudits_on_qubits.benchmarks.direct_basis.math_utils import (
 )
 
 
+RERUN_SELECTION_ROLES = {"baseline", "candidate"}
+
+
 @dataclass(frozen=True)
 class DirectBasisCandidate:
     """A qutrit encoding candidate for direct-basis encoding."""
@@ -355,6 +358,9 @@ def candidates_from_old_csv(
     df = pd.read_csv(old_csv_path)
     if "class_name" not in df.columns or "candidate_name" not in df.columns:
         raise ValueError("old CSV must contain class_name and candidate_name columns.")
+    if "selection_role" in df.columns:
+        roles = df["selection_role"].astype(str)
+        df = df[roles.isin(RERUN_SELECTION_ROLES)].copy()
 
     requested = [
         (str(row["class_name"]), str(row["candidate_name"]))
