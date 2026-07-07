@@ -305,8 +305,17 @@ def run_iqm_transpiler_harness(
         ),
     }
 
+    candidates = list(config.candidates)
+    candidate_count = len(candidates)
+
     rows: list[dict[str, Any]] = []
-    for candidate in config.candidates:
+    for candidate_index, candidate in enumerate(candidates, start=1):
+        print(
+            "[iqm_transpiler_harness] "
+            f"{candidate_index}/{candidate_count} "
+            f"{candidate.class_name}/{candidate.candidate_name}",
+            flush=True,
+        )
         if not candidate.is_supported:
             rows.append(
                 _unsupported_candidate_row(
