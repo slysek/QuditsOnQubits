@@ -54,6 +54,25 @@ class IqmTranspilerHarnessCliTests(unittest.TestCase):
 
         self.assertEqual(prefix, "iqm_transpiler_harness_garnet_two_qutrit_from_old_csv_runs3")
 
+    def test_main_rejects_zero_transpile_runs_before_backend_load(self):
+        with patch("scripts.run_iqm_transpiler_harness.load_iqm_backend") as load_backend:
+            with self.assertRaises(SystemExit) as raised:
+                main(
+                    [
+                        "--state",
+                        "two_qutrit",
+                        "--candidate-set",
+                        "sanity",
+                        "--iqm-backend",
+                        "garnet",
+                        "--n-transpile-runs",
+                        "0",
+                    ]
+                )
+
+        self.assertEqual(raised.exception.code, 2)
+        load_backend.assert_not_called()
+
     def test_main_wires_backend_and_harness_without_network(self):
         backend = object()
         candidates = [object()]

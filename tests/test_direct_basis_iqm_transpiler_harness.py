@@ -326,6 +326,7 @@ class IqmTranspilerHarnessTests(unittest.TestCase):
             row["strategy_name"]: row
             for row in all_trials.to_dict(orient="records")
         }
+        self.assertTrue(pd.isna(all_trials.iloc[0]["scheduling_method"]))
         self.assertEqual(by_strategy["preset_default"]["strategy_kind"], "preset")
         self.assertEqual(
             by_strategy["preset_default"]["strategy_scheduling_method"],
