@@ -17,6 +17,9 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
+from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import (
+    EXACT_RZ_SCHEDULING_METHOD,
+)
 from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_harness import (
     IqmTranspilerHarnessConfig,
     _best_trial_rows,
@@ -36,6 +39,10 @@ def _native_iqm_circuit() -> QuantumCircuit:
     return circuit
 
 
+class NonExceptionHarnessFailure(BaseException):
+    pass
+
+
 class IqmTranspilerHarnessTests(unittest.TestCase):
     def test_metric_row_counts_native_ops(self):
         row = _metric_row(_native_iqm_circuit())
@@ -48,6 +55,22 @@ class IqmTranspilerHarnessTests(unittest.TestCase):
         self.assertEqual(row["one_qubit_gate_count"], 2)
         self.assertEqual(row["two_qubit_gate_count"], 1)
         self.assertEqual(json.loads(row["count_ops_json"]), {"cz": 1, "r": 2})
+
+    def test_metric_row_counts_one_qubit_ops_by_instruction_arity(self):
+        circuit = QuantumCircuit(3)
+        circuit.x(0)
+        circuit.cx(0, 1)
+        circuit.ccx(0, 1, 2)
+
+        row = _metric_row(circuit)
+
+        self.assertEqual(row["size"], 3)
+        self.assertEqual(row["one_qubit_gate_count"], 1)
+        self.assertEqual(row["two_qubit_gate_count"], 1)
+        self.assertEqual(
+            json.loads(row["count_ops_json"]),
+            {"ccx": 1, "cx": 1, "x": 1},
+        )
 
     def test_warning_flags_reports_threshold_exceedances(self):
         flags = _warning_flags(
@@ -207,6 +230,166 @@ class IqmTranspilerHarnessTests(unittest.TestCase):
         self.assertEqual(summary["unsupported_candidate_count"], 0)
         self.assertEqual(summary["failed_all_strategy_count"], 0)
 
+    def test_run_iqm_transpiler_harness_records_base_exception_failure(self):
+        candidate = DirectBasisCandidate(
+            name="I",
+            candidate_type="identity",
+            matrix=np.eye(3, dtype=complex),
+            source_class_name="baseline",
+            source_candidate_name="I",
+        )
+
+        def fake_runner(*args, **kwargs):
+            raise NonExceptionHarnessFailure("native failure")
+
+        config = IqmTranspilerHarnessConfig(
+            state_name="two_qutrit",
+            n_qutrits=2,
+            backend=object(),
+            iqm_backend_name="fake_backend",
+            iqm_use_metrics=False,
+            candidates=[candidate],
+            strategy_names=("bad_strategy",),
+        )
+
+        all_trials, best_by_candidate, summary = run_iqm_transpiler_harness(
+            config,
+            strategy_runner=fake_runner,
+        )
+
+        self.assertEqual(len(all_trials), 1)
+        trial = all_trials.iloc[0]
+        self.assertEqual(trial["status"], "failed")
+        self.assertEqual(trial["error_type"], "NonExceptionHarnessFailure")
+        self.assertIn("native failure", trial["error_message"])
+        self.assertEqual(best_by_candidate.iloc[0]["status"], "failed_all_strategies")
+        self.assertEqual(summary["failed_trial_count"], 1)
+        self.assertEqual(summary["failed_all_strategy_count"], 1)
+
+    def test_run_iqm_transpiler_harness_rejects_zero_transpile_runs(self):
+        config = IqmTranspilerHarnessConfig(
+            state_name="two_qutrit",
+            n_qutrits=2,
+            backend=object(),
+            iqm_backend_name="fake_backend",
+            iqm_use_metrics=False,
+            candidates=[],
+            n_transpile_runs=0,
+        )
+
+        with self.assertRaisesRegex(ValueError, "n_transpile_runs must be >= 1"):
+            run_iqm_transpiler_harness(config)
+
+    def test_run_iqm_transpiler_harness_records_builtin_strategy_metadata(self):
+        candidate = DirectBasisCandidate(
+            name="I",
+            candidate_type="identity",
+            matrix=np.eye(3, dtype=complex),
+            source_class_name="baseline",
+            source_candidate_name="I",
+        )
+
+        def fake_runner(
+            strategy_name,
+            circuit,
+            *,
+            backend: object,
+            seed_transpiler: int,
+            optimization_level: int,
+        ):
+            return SimpleNamespace(
+                strategy_name=strategy_name,
+                seed_transpiler=seed_transpiler,
+                success=True,
+                circuit=_native_iqm_circuit(),
+                compile_time_seconds=0.1,
+                error_type="",
+                error_message="",
+            )
+
+        config = IqmTranspilerHarnessConfig(
+            state_name="two_qutrit",
+            n_qutrits=2,
+            backend=object(),
+            iqm_backend_name="fake_backend",
+            iqm_use_metrics=False,
+            candidates=[candidate],
+            strategy_names=("preset_default", "preset_exact"),
+        )
+
+        all_trials, _, _ = run_iqm_transpiler_harness(
+            config,
+            strategy_runner=fake_runner,
+        )
+
+        by_strategy = {
+            row["strategy_name"]: row
+            for row in all_trials.to_dict(orient="records")
+        }
+        self.assertEqual(by_strategy["preset_default"]["strategy_kind"], "preset")
+        self.assertEqual(
+            by_strategy["preset_default"]["strategy_scheduling_method"],
+            "",
+        )
+        self.assertEqual(
+            by_strategy["preset_default"]["strategy_remove_final_rzs"],
+            True,
+        )
+        self.assertEqual(by_strategy["preset_exact"]["strategy_kind"], "preset")
+        self.assertEqual(
+            by_strategy["preset_exact"]["strategy_scheduling_method"],
+            EXACT_RZ_SCHEDULING_METHOD,
+        )
+        self.assertEqual(
+            by_strategy["preset_exact"]["strategy_remove_final_rzs"],
+            False,
+        )
+
+    def test_run_iqm_transpiler_harness_passes_distinct_circuit_per_trial(self):
+        candidate = DirectBasisCandidate(
+            name="I",
+            candidate_type="identity",
+            matrix=np.eye(3, dtype=complex),
+            source_class_name="baseline",
+            source_candidate_name="I",
+        )
+        seen_circuits = []
+
+        def fake_runner(
+            strategy_name,
+            circuit,
+            *,
+            backend: object,
+            seed_transpiler: int,
+            optimization_level: int,
+        ):
+            seen_circuits.append(circuit)
+            return SimpleNamespace(
+                strategy_name=strategy_name,
+                seed_transpiler=seed_transpiler,
+                success=False,
+                circuit=None,
+                compile_time_seconds=0.1,
+                error_type="RuntimeError",
+                error_message="boom",
+            )
+
+        config = IqmTranspilerHarnessConfig(
+            state_name="two_qutrit",
+            n_qutrits=2,
+            backend=object(),
+            iqm_backend_name="fake_backend",
+            iqm_use_metrics=False,
+            candidates=[candidate],
+            strategy_names=("strategy_a", "strategy_b"),
+            n_transpile_runs=2,
+        )
+
+        run_iqm_transpiler_harness(config, strategy_runner=fake_runner)
+
+        self.assertEqual(len(seen_circuits), 4)
+        self.assertEqual(len({id(circuit) for circuit in seen_circuits}), 4)
+
     def test_run_iqm_transpiler_harness_records_unsupported_candidate(self):
         candidate = DirectBasisCandidate(
             name="missing",
@@ -240,6 +423,8 @@ class IqmTranspilerHarnessTests(unittest.TestCase):
         self.assertEqual(all_trials.iloc[0]["status"], "unsupported_candidate")
         self.assertEqual(best_by_candidate.iloc[0]["status"], "unsupported_candidate")
         self.assertEqual(all_trials.iloc[0]["error_message"], "not found")
+        self.assertEqual(all_trials.iloc[0]["warning_flags"], "")
+        self.assertEqual(best_by_candidate.iloc[0]["warning_flags"], "")
         self.assertTrue(pd.isna(all_trials.iloc[0]["num_qubits"]))
         self.assertTrue(pd.isna(best_by_candidate.iloc[0]["num_qubits"]))
         self.assertEqual(summary["unsupported_candidate_count"], 1)

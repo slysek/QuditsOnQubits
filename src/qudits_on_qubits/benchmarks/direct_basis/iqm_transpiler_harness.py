@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from importlib import metadata as importlib_metadata
@@ -20,6 +21,8 @@ from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import (
     repo_path,
 )
 from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_strategies import (
+    IqmTranspilerStrategyResult,
+    get_iqm_transpiler_strategy,
     iqm_transpiler_strategy_names,
     run_iqm_transpiler_strategy,
 )
@@ -117,6 +120,13 @@ def _metric_row(circuit: Any) -> dict[str, Any]:
     two_qubit_gate_count = int(
         sum(count for name, count in ops.items() if name in TWO_Q_GATES)
     )
+    one_qubit_gate_count = int(
+        sum(
+            1
+            for instruction in getattr(circuit, "data", ())
+            if _instruction_arity(instruction) == 1
+        )
+    )
     size = int(circuit.size())
     return {
         "num_qubits": int(circuit.num_qubits),
@@ -124,7 +134,7 @@ def _metric_row(circuit: Any) -> dict[str, Any]:
         "size": size,
         "cz_count": int(ops.get("cz", 0)),
         "r_count": int(ops.get("r", 0)),
-        "one_qubit_gate_count": int(size - two_qubit_gate_count),
+        "one_qubit_gate_count": one_qubit_gate_count,
         "two_qubit_gate_count": two_qubit_gate_count,
         "count_ops_json": json.dumps(ops, sort_keys=True),
     }
@@ -171,9 +181,10 @@ def _unsupported_candidate_row(
             "error_type": "UnsupportedCandidate",
             "error_message": candidate.error_message,
             "compile_time_seconds": None,
-            "warning_flags": "failed_all_strategies",
+            "warning_flags": "",
         }
     )
+    row.update(_empty_strategy_metadata())
     row.update(_null_metrics())
     return row
 
@@ -186,10 +197,11 @@ def _trial_row(
     metadata: dict[str, Any],
 ) -> dict[str, Any]:
     row = _base_row(candidate, config=config, metadata=metadata)
+    strategy_name = getattr(result, "strategy_name", "")
     success = bool(getattr(result, "success", False))
     row.update(
         {
-            "strategy_name": getattr(result, "strategy_name", ""),
+            "strategy_name": strategy_name,
             "seed_transpiler": getattr(result, "seed_transpiler", None),
             "success": success,
             "status": "ok" if success else "failed",
@@ -198,6 +210,7 @@ def _trial_row(
             "compile_time_seconds": getattr(result, "compile_time_seconds", None),
         }
     )
+    row.update(_strategy_metadata(strategy_name))
     if success:
         metrics = _metric_row(getattr(result, "circuit"))
         row.update(metrics)
@@ -280,6 +293,7 @@ def run_iqm_transpiler_harness(
     strategy_runner: Any = run_iqm_transpiler_strategy,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     strategy_names = config.strategy_names or iqm_transpiler_strategy_names()
+    n_transpile_runs = _validated_n_transpile_runs(config.n_transpile_runs)
     metadata = {
         **_runtime_metadata(),
         **_backend_metadata(
@@ -307,9 +321,10 @@ def run_iqm_transpiler_harness(
             candidate.matrix,
             n_qutrits=config.n_qutrits,
         )
-        for seed in range(int(config.n_transpile_runs)):
+        for seed in range(n_transpile_runs):
             for strategy_name in strategy_names:
-                result = strategy_runner(
+                result = _run_strategy_trial(
+                    strategy_runner,
                     strategy_name,
                     circuit,
                     backend=config.backend,
@@ -374,6 +389,78 @@ def _base_row(
 
 def _null_metrics() -> dict[str, Any]:
     return {key: None for key in _METRIC_KEYS}
+
+
+def _instruction_arity(instruction: Any) -> int:
+    qubits = getattr(instruction, "qubits", None)
+    if qubits is None:
+        try:
+            qubits = instruction[1]
+        except (IndexError, TypeError):
+            return 0
+    return len(qubits)
+
+
+def _strategy_metadata(strategy_name: str) -> dict[str, Any]:
+    try:
+        strategy = get_iqm_transpiler_strategy(strategy_name)
+    except ValueError:
+        return _empty_strategy_metadata()
+    return {
+        "strategy_kind": strategy.kind,
+        "strategy_scheduling_method": strategy.scheduling_method or "",
+        "strategy_remove_final_rzs": bool(strategy.remove_final_rzs),
+    }
+
+
+def _empty_strategy_metadata() -> dict[str, Any]:
+    return {
+        "strategy_kind": "",
+        "strategy_scheduling_method": "",
+        "strategy_remove_final_rzs": None,
+    }
+
+
+def _validated_n_transpile_runs(n_transpile_runs: Any) -> int:
+    try:
+        value = int(n_transpile_runs)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("n_transpile_runs must be an integer >= 1") from exc
+    if value < 1:
+        raise ValueError("n_transpile_runs must be >= 1")
+    return value
+
+
+def _run_strategy_trial(
+    strategy_runner: Any,
+    strategy_name: str,
+    circuit: Any,
+    *,
+    backend: Any,
+    seed_transpiler: int,
+    optimization_level: int,
+) -> Any:
+    started = time.perf_counter()
+    try:
+        return strategy_runner(
+            strategy_name,
+            circuit.copy(),
+            backend=backend,
+            seed_transpiler=seed_transpiler,
+            optimization_level=optimization_level,
+        )
+    except BaseException as exc:
+        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+            raise
+        return IqmTranspilerStrategyResult(
+            strategy_name=strategy_name,
+            seed_transpiler=seed_transpiler,
+            success=False,
+            circuit=None,
+            compile_time_seconds=time.perf_counter() - started,
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+        )
 
 
 def _value_gt(value: Any, threshold: int) -> bool:

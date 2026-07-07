@@ -135,7 +135,9 @@ def run_iqm_transpiler_strategy(
             circuit=transpiled_circuit,
             compile_time_seconds=time.perf_counter() - started,
         )
-    except Exception as exc:
+    except BaseException as exc:
+        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+            raise
         return IqmTranspilerStrategyResult(
             strategy_name=strategy_name,
             seed_transpiler=seed_value,

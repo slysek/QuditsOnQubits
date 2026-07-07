@@ -34,6 +34,10 @@ def _fake_garnet():
     return IQMFakeGarnet()
 
 
+class NonExceptionStrategyFailure(BaseException):
+    pass
+
+
 class IqmTranspilerStrategyTests(unittest.TestCase):
     def test_strategy_registry_contains_expected_names(self):
         self.assertEqual(
@@ -190,6 +194,50 @@ class IqmTranspilerStrategyTests(unittest.TestCase):
         self.assertEqual(result.error_type, "RuntimeError")
         self.assertIn("boom", result.error_message)
         self.assertIsNone(result.circuit)
+
+    def test_run_strategy_captures_base_exception_subclass(self):
+        circuit = build_direct_basis_graph_state_circuit(
+            "two_qutrit",
+            np.eye(3, dtype=complex),
+            n_qutrits=2,
+        )
+
+        with patch(
+            "qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_strategies.generate_preset_pass_manager",
+            side_effect=NonExceptionStrategyFailure("native failure"),
+        ):
+            result = run_iqm_transpiler_strategy(
+                "preset_default",
+                circuit,
+                backend=object(),
+                seed_transpiler=0,
+            )
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.error_type, "NonExceptionStrategyFailure")
+        self.assertIn("native failure", result.error_message)
+        self.assertIsNone(result.circuit)
+
+    def test_run_strategy_re_raises_interrupts_and_exits(self):
+        circuit = build_direct_basis_graph_state_circuit(
+            "two_qutrit",
+            np.eye(3, dtype=complex),
+            n_qutrits=2,
+        )
+
+        for failure in (KeyboardInterrupt("stop"), SystemExit("stop")):
+            with self.subTest(failure_type=type(failure).__name__):
+                with patch(
+                    "qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_strategies.generate_preset_pass_manager",
+                    side_effect=failure,
+                ):
+                    with self.assertRaises(type(failure)):
+                        run_iqm_transpiler_strategy(
+                            "preset_default",
+                            circuit,
+                            backend=object(),
+                            seed_transpiler=0,
+                        )
 
 
 if __name__ == "__main__":
