@@ -17,6 +17,7 @@ from qudits_on_qubits.benchmarks.direct_basis.candidates import (
     generate_v2_stage1_direct_candidates,
     limit_candidates,
 )
+from qudits_on_qubits.benchmarks.direct_basis.circuits import resolve_direct_state
 from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import (
     load_iqm_backend,
     safe_backend_slug,
@@ -113,6 +114,10 @@ def _load_candidates(args):
     return limit_candidates(candidates, args.limit_candidates)
 
 
+def _validate_state_args(args) -> None:
+    resolve_direct_state(args.state, n_qutrits=args.n_qutrits)
+
+
 def _output_dir_from_args(args) -> str:
     if args.output_dir:
         return args.output_dir
@@ -126,6 +131,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        _validate_state_args(args)
         candidates = _load_candidates(args)
     except ValueError as exc:
         parser.error(str(exc))

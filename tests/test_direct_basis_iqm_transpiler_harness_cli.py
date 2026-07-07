@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import os
 import unittest
 from unittest.mock import patch
@@ -56,21 +58,44 @@ class IqmTranspilerHarnessCliTests(unittest.TestCase):
 
     def test_main_rejects_zero_transpile_runs_before_backend_load(self):
         with patch("scripts.run_iqm_transpiler_harness.load_iqm_backend") as load_backend:
+            with contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as raised:
+                    main(
+                        [
+                            "--state",
+                            "two_qutrit",
+                            "--candidate-set",
+                            "sanity",
+                            "--iqm-backend",
+                            "garnet",
+                            "--n-transpile-runs",
+                            "0",
+                        ]
+                    )
+
+        self.assertEqual(raised.exception.code, 2)
+        load_backend.assert_not_called()
+
+    def test_main_rejects_invalid_state_before_candidate_and_backend_load(self):
+        with (
+            patch("scripts.run_iqm_transpiler_harness._load_candidates") as load_candidates,
+            patch("scripts.run_iqm_transpiler_harness.load_iqm_backend") as load_backend,
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
             with self.assertRaises(SystemExit) as raised:
                 main(
                     [
                         "--state",
-                        "two_qutrit",
+                        "missing_state",
                         "--candidate-set",
                         "sanity",
                         "--iqm-backend",
                         "garnet",
-                        "--n-transpile-runs",
-                        "0",
                     ]
                 )
 
         self.assertEqual(raised.exception.code, 2)
+        load_candidates.assert_not_called()
         load_backend.assert_not_called()
 
     def test_main_wires_backend_and_harness_without_network(self):
@@ -97,6 +122,7 @@ class IqmTranspilerHarnessCliTests(unittest.TestCase):
                 "scripts.run_iqm_transpiler_harness.write_iqm_transpiler_harness_outputs",
                 return_value=output_paths,
             ) as write_outputs,
+            contextlib.redirect_stdout(io.StringIO()),
         ):
             return_code = main(
                 [
