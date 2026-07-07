@@ -155,3 +155,40 @@ python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set
 ```
 
 IQM output defaults to `artifacts/iqm_runs/raw`, and QPY exports default to `artifacts/iqm_runs/raw/quantum_circuits/<backend>/`.
+
+## IQM Transpiler Harness
+
+Use the harness to compare IQM-aware transpilation strategies for candidates
+selected by earlier benchmark CSVs:
+
+```powershell
+python scripts/run_iqm_transpiler_harness.py `
+  --state two_qutrit `
+  --candidate-set from-old-csv `
+  --old-csv artifacts/iqm_runs/raw/direct_basis_iqm_garnet_two_qutrit_from_old_csv_runs20_20260706_204350.csv `
+  --iqm-backend garnet `
+  --n-transpile-runs 3
+```
+
+The harness only transpiles circuits. It does not submit jobs to IQM hardware.
+It writes:
+
+```text
+artifacts/iqm_runs/processed/transpiler_harness/<run_id>/
+  all_trials.csv
+  best_by_candidate.csv
+  summary.json
+```
+
+Built-in strategies:
+
+```text
+preset_default
+preset_exact
+transpile_to_iqm_default
+transpile_to_iqm_exact
+```
+
+`best_by_candidate.csv` chooses the best successful trial by
+`(depth, cz_count, r_count, size)` and flags warning thresholds such as
+`depth_gt_100` and `cz_gt_50`.
