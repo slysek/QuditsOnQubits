@@ -42,6 +42,7 @@ class IqmTranspilerHarnessConfig:
 
 
 _METRIC_KEYS = (
+    "num_qubits",
     "depth",
     "size",
     "cz_count",
@@ -118,6 +119,7 @@ def _metric_row(circuit: Any) -> dict[str, Any]:
     )
     size = int(circuit.size())
     return {
+        "num_qubits": int(circuit.num_qubits),
         "depth": int(circuit.depth()),
         "size": size,
         "cz_count": int(ops.get("cz", 0)),

@@ -40,6 +40,7 @@ class IqmTranspilerHarnessTests(unittest.TestCase):
     def test_metric_row_counts_native_ops(self):
         row = _metric_row(_native_iqm_circuit())
 
+        self.assertEqual(row["num_qubits"], 2)
         self.assertEqual(row["depth"], 2)
         self.assertEqual(row["size"], 3)
         self.assertEqual(row["cz_count"], 1)
@@ -191,9 +192,14 @@ class IqmTranspilerHarnessTests(unittest.TestCase):
 
         self.assertEqual(len(all_trials), 2)
         self.assertEqual(set(all_trials["status"]), {"ok", "failed"})
+        success_trial = all_trials[all_trials["status"] == "ok"].iloc[0]
+        failed_trial = all_trials[all_trials["status"] == "failed"].iloc[0]
+        self.assertEqual(success_trial["num_qubits"], 2)
+        self.assertTrue(pd.isna(failed_trial["num_qubits"]))
         self.assertEqual(len(best_by_candidate), 1)
         self.assertEqual(best_by_candidate.iloc[0]["strategy_name"], "ok_strategy")
         self.assertEqual(best_by_candidate.iloc[0]["status"], "ok")
+        self.assertEqual(best_by_candidate.iloc[0]["num_qubits"], 2)
         self.assertEqual(summary["candidate_count"], 1)
         self.assertEqual(summary["trial_count"], 2)
         self.assertEqual(summary["successful_trial_count"], 1)
@@ -234,6 +240,8 @@ class IqmTranspilerHarnessTests(unittest.TestCase):
         self.assertEqual(all_trials.iloc[0]["status"], "unsupported_candidate")
         self.assertEqual(best_by_candidate.iloc[0]["status"], "unsupported_candidate")
         self.assertEqual(all_trials.iloc[0]["error_message"], "not found")
+        self.assertTrue(pd.isna(all_trials.iloc[0]["num_qubits"]))
+        self.assertTrue(pd.isna(best_by_candidate.iloc[0]["num_qubits"]))
         self.assertEqual(summary["unsupported_candidate_count"], 1)
 
     def test_write_iqm_transpiler_harness_outputs(self):
