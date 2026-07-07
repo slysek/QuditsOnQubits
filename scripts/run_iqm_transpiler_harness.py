@@ -49,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit-candidates", type=int, default=None)
     parser.add_argument("--iqm-backend", required=True)
     parser.add_argument("--iqm-use-metrics", action="store_true")
-    parser.add_argument("--n-transpile-runs", type=int, default=1)
+    parser.add_argument("--n-transpile-runs", type=_positive_int, default=1)
     parser.add_argument(
         "--strategy",
         action="append",
@@ -62,6 +62,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-depth-warning", type=int, default=100)
     parser.add_argument("--max-cz-warning", type=int, default=50)
     return parser
+
+
+def _positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an integer >= 1") from exc
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be >= 1")
+    return parsed
 
 
 def _safe_filename_part(value) -> str:

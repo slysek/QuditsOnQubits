@@ -112,6 +112,7 @@ def _backend_metadata(
         optimization_level=optimization_level,
         layout_method=None,
         routing_method=None,
+        scheduling_method=None,
     )
 
 
