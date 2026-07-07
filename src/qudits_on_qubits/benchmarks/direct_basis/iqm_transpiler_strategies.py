@@ -101,9 +101,10 @@ def run_iqm_transpiler_strategy(
     optimization_level: int = 3,
 ) -> IqmTranspilerStrategyResult:
     started = time.perf_counter()
-    seed_value = int(seed_transpiler)
+    seed_value: Any = seed_transpiler
 
     try:
+        seed_value = int(seed_transpiler)
         strategy = get_iqm_transpiler_strategy(strategy_name)
         optimization_value = int(optimization_level)
 
