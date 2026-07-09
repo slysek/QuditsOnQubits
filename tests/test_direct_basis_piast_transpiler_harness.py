@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import contextlib
+import io
 import sys
 import tempfile
 import unittest
@@ -219,10 +221,12 @@ class PiastTranspilerHarnessTests(unittest.TestCase):
             optimization_level=2,
         )
 
-        all_trials, best_by_candidate, summary = run_piast_transpiler_harness(
-            config,
-            strategy_runner=fake_runner,
-        )
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            all_trials, best_by_candidate, summary = run_piast_transpiler_harness(
+                config,
+                strategy_runner=fake_runner,
+            )
 
         self.assertEqual(len(all_trials), 2)
         self.assertEqual(set(all_trials["status"]), {"ok", "failed"})
@@ -238,6 +242,21 @@ class PiastTranspilerHarnessTests(unittest.TestCase):
         self.assertEqual(summary["failed_trial_count"], 1)
         self.assertEqual(summary["unsupported_candidate_count"], 0)
         self.assertEqual(summary["failed_all_strategy_count"], 0)
+        progress_output = stdout.getvalue()
+        self.assertIn(
+            "candidate 1/1 remaining_candidates=0 trials_per_candidate=2 baseline/I",
+            progress_output,
+        )
+        self.assertIn(
+            "[trial 1/2 remaining_trials=1 candidate_trial=1/2] strategy=ok_strategy seed=0",
+            progress_output,
+        )
+        self.assertIn("[trial 1/2] ok depth=3 rxx=1 native=True time=0.250s", progress_output)
+        self.assertIn(
+            "[trial 2/2 remaining_trials=0 candidate_trial=2/2] strategy=bad_strategy seed=0",
+            progress_output,
+        )
+        self.assertIn("[trial 2/2] failed RuntimeError: boom", progress_output)
 
     def test_run_piast_transpiler_harness_exports_trial_circuit_and_encoding_matrices(self):
         candidate = DirectBasisCandidate(
