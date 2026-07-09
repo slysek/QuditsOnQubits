@@ -411,16 +411,21 @@ def run_piast_transpiler_harness(
 
     candidates = list(config.candidates)
     candidate_count = len(candidates)
+    supported_candidate_count = sum(1 for candidate in candidates if candidate.is_supported)
+    per_candidate_trial_count = n_transpile_runs * len(strategy_names)
+    total_trial_count = supported_candidate_count * per_candidate_trial_count
+    trial_index = 0
 
     rows: list[dict[str, Any]] = []
     for candidate_index, candidate in enumerate(candidates, start=1):
-        print(
-            "[piast_transpiler_harness] "
-            f"{candidate_index}/{candidate_count} "
-            f"{candidate.class_name}/{candidate.candidate_name}",
-            flush=True,
+        _print_candidate_progress(
+            candidate,
+            candidate_index=candidate_index,
+            candidate_count=candidate_count,
+            per_candidate_trial_count=per_candidate_trial_count,
         )
         if not candidate.is_supported:
+            _print_unsupported_candidate(candidate)
             rows.append(
                 _unsupported_candidate_row(
                     candidate,
@@ -441,7 +446,17 @@ def run_piast_transpiler_harness(
             graph_state_circuit=circuit,
         )
         for seed in range(n_transpile_runs):
-            for strategy_name in strategy_names:
+            for strategy_index, strategy_name in enumerate(strategy_names, start=1):
+                trial_index += 1
+                candidate_trial_index = (seed * len(strategy_names)) + strategy_index
+                _print_trial_start(
+                    strategy_name=strategy_name,
+                    seed_transpiler=seed,
+                    trial_index=trial_index,
+                    total_trial_count=total_trial_count,
+                    candidate_trial_index=candidate_trial_index,
+                    per_candidate_trial_count=per_candidate_trial_count,
+                )
                 result = _run_strategy_trial(
                     strategy_runner,
                     strategy_name,
@@ -450,15 +465,15 @@ def run_piast_transpiler_harness(
                     seed_transpiler=seed,
                     optimization_level=config.optimization_level,
                 )
-                rows.append(
-                    _trial_row(
-                        candidate,
-                        result=result,
-                        config=config,
-                        metadata=metadata,
-                        artifact_paths=artifact_paths,
-                    )
+                row = _trial_row(
+                    candidate,
+                    result=result,
+                    config=config,
+                    metadata=metadata,
+                    artifact_paths=artifact_paths,
                 )
+                rows.append(row)
+                _print_trial_result(row, trial_index=trial_index, total_trial_count=total_trial_count)
 
     best_rows = _best_trial_rows(rows)
     summary = _summary(rows, best_rows)
@@ -491,6 +506,84 @@ def write_piast_transpiler_harness_outputs(
         "best_by_candidate_csv": str(best_by_candidate_csv),
         "summary_json": str(summary_json),
     }
+
+
+def _print_candidate_progress(
+    candidate: DirectBasisCandidate,
+    *,
+    candidate_index: int,
+    candidate_count: int,
+    per_candidate_trial_count: int,
+) -> None:
+    remaining_candidates = max(int(candidate_count) - int(candidate_index), 0)
+    print(
+        "[piast_transpiler_harness] "
+        f"candidate {candidate_index}/{candidate_count} "
+        f"remaining_candidates={remaining_candidates} "
+        f"trials_per_candidate={per_candidate_trial_count} "
+        f"{candidate.class_name}/{candidate.candidate_name}",
+        flush=True,
+    )
+
+
+def _print_unsupported_candidate(candidate: DirectBasisCandidate) -> None:
+    message = str(candidate.error_message or "unsupported candidate").splitlines()[0]
+    print(f"  skipped unsupported_candidate: {message}", flush=True)
+
+
+def _print_trial_start(
+    *,
+    strategy_name: str,
+    seed_transpiler: int,
+    trial_index: int,
+    total_trial_count: int,
+    candidate_trial_index: int,
+    per_candidate_trial_count: int,
+) -> None:
+    remaining_trials = max(int(total_trial_count) - int(trial_index), 0)
+    print(
+        "  "
+        f"[trial {trial_index}/{total_trial_count} "
+        f"remaining_trials={remaining_trials} "
+        f"candidate_trial={candidate_trial_index}/{per_candidate_trial_count}] "
+        f"strategy={strategy_name} seed={seed_transpiler}",
+        flush=True,
+    )
+
+
+def _print_trial_result(
+    row: dict[str, Any],
+    *,
+    trial_index: int,
+    total_trial_count: int,
+) -> None:
+    if bool(row.get("success")):
+        print(
+            "  "
+            f"[trial {trial_index}/{total_trial_count}] ok "
+            f"depth={row.get('depth')} "
+            f"rxx={row.get('rxx_count')} "
+            f"native={row.get('native_compliant')} "
+            f"time={_format_seconds(row.get('compile_time_seconds'))}",
+            flush=True,
+        )
+        return
+
+    error = str(row.get("error_message") or "").splitlines()[0]
+    error_type = str(row.get("error_type") or "Error")
+    print(
+        "  "
+        f"[trial {trial_index}/{total_trial_count}] failed "
+        f"{error_type}: {error}",
+        flush=True,
+    )
+
+
+def _format_seconds(value: Any) -> str:
+    try:
+        return f"{float(value):.3f}s"
+    except (TypeError, ValueError):
+        return "n/a"
 
 
 def _base_row(
