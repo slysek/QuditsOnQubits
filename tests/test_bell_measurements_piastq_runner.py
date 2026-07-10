@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 
@@ -12,6 +13,19 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 import qudits_on_qubits.bell_measurements as bell_measurements
+from qudits_on_qubits.bell_measurements import piastq_runner
+
+
+def _metadata_for(settings: list[tuple[str, ...]]) -> dict[str, object]:
+    return {
+        "setting_by_circuit_index": [list(setting) for setting in settings],
+        "terms": [object()],
+        "qutrit_bit_indices_by_setting": {
+            setting: [(0, 1)] for setting in settings
+        },
+        "physical_to_logical_outcome_map": {0: 0, 1: 1, 2: 2, 3: None},
+        "d": 3,
+    }
 
 
 class PiastQBellRunnerTests(unittest.TestCase):
@@ -112,6 +126,187 @@ class PiastQBellRunnerTests(unittest.TestCase):
                         "shots": 211,
                     },
                 )
+
+    def test_rejects_empty_circuit_list_before_loading_piastq(self):
+        with (
+            patch.object(
+                piastq_runner,
+                "_load_piastq_sampler",
+                side_effect=AssertionError("PiastQ must not load"),
+            ),
+            self.assertRaisesRegex(ValueError, "at least one circuit"),
+        ):
+            piastq_runner.compute_bell_value_from_counts_aqt(
+                [],
+                _metadata_for([]),
+                backend=object(),
+            )
+
+    def test_rejects_invalid_shots_before_loading_piastq(self):
+        circuits = [object()]
+        metadata = _metadata_for([("A0",)])
+        for shots in (True, 0, -1, 1.5, "100"):
+            with self.subTest(shots=shots):
+                with (
+                    patch.object(
+                        piastq_runner,
+                        "_load_piastq_sampler",
+                        side_effect=AssertionError("PiastQ must not load"),
+                    ),
+                    self.assertRaisesRegex(
+                        ValueError,
+                        "shots must be a positive integer",
+                    ),
+                ):
+                    piastq_runner.compute_bell_value_from_counts_aqt(
+                        circuits,
+                        metadata,
+                        backend=object(),
+                        shots=shots,  # type: ignore[arg-type]
+                    )
+
+    def test_rejects_nonpositive_poll_interval_before_loading_piastq(self):
+        circuits = [object()]
+        metadata = _metadata_for([("A0",)])
+        for poll_interval in (True, 0, -0.5):
+            with self.subTest(poll_interval=poll_interval):
+                with (
+                    patch.object(
+                        piastq_runner,
+                        "_load_piastq_sampler",
+                        side_effect=AssertionError("PiastQ must not load"),
+                    ),
+                    self.assertRaisesRegex(
+                        ValueError,
+                        "poll_interval must be a positive number",
+                    ),
+                ):
+                    piastq_runner.compute_bell_value_from_counts_aqt(
+                        circuits,
+                        metadata,
+                        backend=object(),
+                        poll_interval=poll_interval,
+                    )
+
+    def test_rejects_shots_inside_run_options(self):
+        with (
+            patch.object(
+                piastq_runner,
+                "_load_piastq_sampler",
+                side_effect=AssertionError("PiastQ must not load"),
+            ),
+            self.assertRaisesRegex(
+                ValueError,
+                "pass shots via the shots argument",
+            ),
+        ):
+            piastq_runner.compute_bell_value_from_counts_aqt(
+                [object()],
+                _metadata_for([("A0",)]),
+                backend=object(),
+                run_options={"shots": 200},
+            )
+
+    def test_rejects_circuit_setting_length_mismatch(self):
+        with (
+            patch.object(
+                piastq_runner,
+                "_load_piastq_sampler",
+                side_effect=AssertionError("PiastQ must not load"),
+            ),
+            self.assertRaisesRegex(
+                ValueError,
+                "number of sampler_circuits must match metadata settings",
+            ),
+        ):
+            piastq_runner.compute_bell_value_from_counts_aqt(
+                [object()],
+                _metadata_for([("A0",), ("A1",)]),
+                backend=object(),
+            )
+
+    def test_rejects_duplicate_settings(self):
+        duplicate = ("A0", "B0")
+        with (
+            patch.object(
+                piastq_runner,
+                "_load_piastq_sampler",
+                side_effect=AssertionError("PiastQ must not load"),
+            ),
+            self.assertRaisesRegex(ValueError, "metadata settings must be unique"),
+        ):
+            piastq_runner.compute_bell_value_from_counts_aqt(
+                [object(), object()],
+                _metadata_for([duplicate, duplicate]),
+                backend=object(),
+            )
+
+    def test_rejects_result_count_length_mismatch(self):
+        settings = [("A0",), ("A1",)]
+        job = MagicMock()
+        job.result.return_value = object()
+        job.counts.return_value = [{"00": 100}]
+        sampler = MagicMock()
+        sampler.run.return_value = job
+        sampler_type = MagicMock(return_value=sampler)
+
+        with (
+            patch.object(
+                piastq_runner,
+                "_load_piastq_sampler",
+                return_value=sampler_type,
+            ),
+            self.assertRaisesRegex(
+                ValueError,
+                "expected 2 count dictionaries, received 1",
+            ),
+        ):
+            piastq_runner.compute_bell_value_from_counts_aqt(
+                [object(), object()],
+                _metadata_for(settings),
+                backend=object(),
+            )
+
+    def test_missing_cft_piastq_reports_install_command(self):
+        with patch.dict(sys.modules, {"cft_piastq": None}):
+            with self.assertRaisesRegex(
+                ImportError,
+                r"pip install -e \.\[piastq\]",
+            ):
+                piastq_runner._load_piastq_sampler()
+
+    def test_backend_mode_is_opaque_to_the_runner(self):
+        metadata = _metadata_for([("A0",)])
+        for mode in ("auto", "managed", "direct"):
+            with self.subTest(mode=mode):
+                backend = SimpleNamespace(mode=mode)
+                job = MagicMock()
+                job.result.return_value = object()
+                job.counts.return_value = [{"00": 32}]
+                sampler = MagicMock()
+                sampler.run.return_value = job
+                sampler_type = MagicMock(return_value=sampler)
+
+                with (
+                    patch.object(
+                        piastq_runner,
+                        "_load_piastq_sampler",
+                        return_value=sampler_type,
+                    ),
+                    patch.object(
+                        piastq_runner,
+                        "compute_bell_value_from_counts",
+                        return_value=1.0 + 0.0j,
+                    ),
+                ):
+                    piastq_runner.compute_bell_value_from_counts_aqt(
+                        [object()],
+                        metadata,
+                        backend=backend,
+                        shots=32,
+                    )
+
+                sampler_type.assert_called_once_with(backend, options={})
 
 
 if __name__ == "__main__":
