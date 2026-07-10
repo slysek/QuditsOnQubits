@@ -192,3 +192,71 @@ transpile_to_iqm_exact
 `best_by_candidate.csv` chooses the best successful trial by
 `(depth, cz_count, r_count, size)` and flags warning thresholds such as
 `depth_gt_100` and `cz_gt_50`.
+
+## PiastQ AQT Bell Execution
+
+Install the optional PiastQ integration in the environment used by this
+project:
+
+```powershell
+python -m pip install -e ".[piastq]"
+```
+
+Choose `auto`, `managed`, or `direct` when constructing `PiastQClient`. The Bell
+helper receives `client.backend` unchanged and does not choose or override the
+execution mode. Credentials must come from environment variables; do not place
+PCSS tokens or dashboard API keys in notebooks or source files.
+
+This explicit smoke example prepares the zero state in the two-qutrit encoding,
+builds every Bell-setting circuit required by the existing pipeline, and
+submits one PiastQ job containing every generated circuit:
+
+```python
+import os
+
+from qiskit import QuantumCircuit
+
+from cft_piastq import PiastQClient
+from qudits_on_qubits.bell_measurements import (
+    build_sampler_circuits_for_candidate,
+    canonical_Ez,
+    compute_bell_value_from_counts_aqt,
+)
+
+state_circuit = QuantumCircuit(4)
+sampler_circuits, metadata = build_sampler_circuits_for_candidate(
+    candidate="two_qutrit",
+    state_circuit=state_circuit,
+    E=canonical_Ez(),
+    qutrit_qubits=((0, 1), (2, 3)),
+)
+
+client = PiastQClient(
+    mode=os.environ.get("CFT_PIASTQ_MODE", "auto"),
+    owner=os.environ["CFT_PIASTQ_OWNER"],
+    token=os.environ.get("PCSS_TOKEN") or os.environ.get("PCSS_QAPI_TOKEN"),
+    dashboard_api_url=os.environ.get("CFT_PIASTQ_DASHBOARD_API_URL"),
+    dashboard_api_key=os.environ.get("CFT_PIASTQ_DASHBOARD_API_KEY"),
+)
+
+bell_value, execution = compute_bell_value_from_counts_aqt(
+    sampler_circuits,
+    metadata,
+    backend=client.backend,
+    shots=20_480,
+    sampler_options={"cft_job_name": "two-qutrit-bell-smoke"},
+    timeout=900.0,
+    poll_interval=5.0,
+)
+
+print("Bell value:", bell_value)
+print("PiastQ job:", execution["job"].job_id())
+```
+
+`job.result()` remains available in `execution["result"]` as a Qiskit
+`SamplerResult`. Bell postprocessing uses the estimated integer dictionaries
+returned by `PiastQJob.counts()`; this project does not independently multiply
+or round the quasi probabilities.
+
+The example can contact the managed dashboard or direct AQT provider and can
+consume real hardware shots. Run it only as an intentional manual smoke test.
