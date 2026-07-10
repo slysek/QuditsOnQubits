@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import importlib.util
 import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+from qiskit import QuantumCircuit
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +17,10 @@ if str(SRC) not in sys.path:
 
 import qudits_on_qubits.bell_measurements as bell_measurements
 from qudits_on_qubits.bell_measurements import piastq_runner
+
+
+CFT_PIASTQ_AVAILABLE = importlib.util.find_spec("cft_piastq") is not None
+QISKIT_AER_AVAILABLE = importlib.util.find_spec("qiskit_aer") is not None
 
 
 def _metadata_for(settings: list[tuple[str, ...]]) -> dict[str, object]:
@@ -307,6 +314,45 @@ class PiastQBellRunnerTests(unittest.TestCase):
                     )
 
                 sampler_type.assert_called_once_with(backend, options={})
+
+    @unittest.skipUnless(
+        CFT_PIASTQ_AVAILABLE and QISKIT_AER_AVAILABLE,
+        "requires cft-piastq and qiskit-aer",
+    )
+    def test_real_cft_piastq_fake_job_counts_feed_bell_postprocessing(self):
+        from cft_piastq import PiastQClient
+
+        circuit = QuantumCircuit(2, 2, name="piastq-fake-zero")
+        circuit.measure([0, 1], [0, 1])
+        setting = ("A0",)
+        metadata = {
+            "setting_by_circuit_index": [setting],
+            "terms": [
+                {
+                    "settings": setting,
+                    "powers": (1,),
+                    "coeff": 1.0,
+                }
+            ],
+            "qutrit_bit_indices_by_setting": {setting: [(0, 1)]},
+            "physical_to_logical_outcome_map": {0: 0, 1: 1, 2: 2, 3: None},
+            "d": 3,
+        }
+        client = PiastQClient(mode="fake", owner="bell-pipeline-test")
+        backend = client.fake_backend(use_backend_noise=False)
+
+        value, execution = piastq_runner.compute_bell_value_from_counts_aqt(
+            [circuit],
+            metadata,
+            backend=backend,
+            shots=32,
+            sampler_options={"cft_job_name": "fake-bell-contract"},
+        )
+
+        counts = execution["counts_by_setting"][setting]
+        self.assertEqual(sum(counts.values()), 32)
+        self.assertAlmostEqual(value.real, 1.0)
+        self.assertAlmostEqual(value.imag, 0.0)
 
 
 if __name__ == "__main__":
