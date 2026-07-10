@@ -113,7 +113,7 @@ git commit -m "build: add optional cft-piastq integration"
 - Create: `tests/test_bell_measurements_piastq_runner.py`
 - Modify: `src/qudits_on_qubits/bell_measurements/__init__.py:18-61`
 
-- [ ] **Step 1: Write failing public-export and nine-circuit happy-path tests**
+- [ ] **Step 1: Write failing public-export and variable-length happy-path tests**
 
 Create `tests/test_bell_measurements_piastq_runner.py`:
 
@@ -134,8 +134,8 @@ if str(SRC) not in sys.path:
 from qudits_on_qubits.bell_measurements import piastq_runner
 
 
-def _settings_3_by_3() -> list[tuple[str, str]]:
-    return [(f"A{left}", f"B{right}") for left in range(3) for right in range(3)]
+def _settings(count: int) -> list[tuple[str]]:
+    return [(f"A{index}",) for index in range(count)]
 
 
 def _metadata_for(
@@ -174,71 +174,83 @@ class BellMeasurementPiastQRunnerTests(unittest.TestCase):
             piastq_runner.compute_bell_value_from_counts_aqt,
         )
 
-    def test_runs_nine_circuits_in_one_job_and_maps_counts_in_order(self):
-        circuits = [object() for _ in range(9)]
-        settings = _settings_3_by_3()
-        metadata = _metadata_for(settings)
-        counts = [{format(index, "04b"): 20_480} for index in range(9)]
-        expected_counts_by_setting = dict(zip(settings, counts, strict=True))
-        backend = object()
-        sampler_result = object()
+    def test_runs_any_circuit_count_in_one_job_and_maps_counts_in_order(self):
+        for circuit_count in (1, 3, 5):
+            with self.subTest(circuit_count=circuit_count):
+                circuits = [object() for _ in range(circuit_count)]
+                settings = _settings(circuit_count)
+                metadata = _metadata_for(settings)
+                counts = [
+                    {format(index, "03b"): 20_480}
+                    for index in range(circuit_count)
+                ]
+                expected_counts_by_setting = dict(
+                    zip(settings, counts, strict=True)
+                )
+                backend = object()
+                sampler_result = object()
 
-        job = MagicMock()
-        job.result.return_value = sampler_result
-        job.counts.return_value = counts
-        sampler = MagicMock()
-        sampler.run.return_value = job
-        sampler_type = MagicMock(return_value=sampler)
+                job = MagicMock()
+                job.result.return_value = sampler_result
+                job.counts.return_value = counts
+                sampler = MagicMock()
+                sampler.run.return_value = job
+                sampler_type = MagicMock(return_value=sampler)
 
-        with (
-            patch.object(
-                piastq_runner,
-                "_load_piastq_sampler",
-                return_value=sampler_type,
-            ),
-            patch.object(
-                piastq_runner,
-                "compute_bell_value_from_counts",
-                return_value=3.0 + 4.0j,
-            ) as bell_compute,
-        ):
-            value, execution = piastq_runner.compute_bell_value_from_counts_aqt(
-                circuits,
-                metadata,
-                backend=backend,
-                shots=20_480,
-                sampler_options={"cft_job_name": "two-qutrit-bell"},
-                run_options={"memory": False},
-                timeout=30.0,
-                poll_interval=0.5,
-            )
+                with (
+                    patch.object(
+                        piastq_runner,
+                        "_load_piastq_sampler",
+                        return_value=sampler_type,
+                    ),
+                    patch.object(
+                        piastq_runner,
+                        "compute_bell_value_from_counts",
+                        return_value=3.0 + 4.0j,
+                    ) as bell_compute,
+                ):
+                    value, execution = (
+                        piastq_runner.compute_bell_value_from_counts_aqt(
+                            circuits,
+                            metadata,
+                            backend=backend,
+                            shots=20_480,
+                            sampler_options={"cft_job_name": "bell-pipeline"},
+                            run_options={"memory": False},
+                            timeout=30.0,
+                            poll_interval=0.5,
+                        )
+                    )
 
-        sampler_type.assert_called_once_with(
-            backend,
-            options={"cft_job_name": "two-qutrit-bell"},
-        )
-        sampler.run.assert_called_once_with(
-            circuits,
-            shots=20_480,
-            memory=False,
-        )
-        job.result.assert_called_once_with(timeout=30.0, poll_interval=0.5)
-        job.counts.assert_called_once_with()
-        bell_compute.assert_called_once_with(
-            expected_counts_by_setting,
-            metadata["terms"],
-            metadata["qutrit_bit_indices_by_setting"],
-            outcome_map=metadata["physical_to_logical_outcome_map"],
-            d=3,
-        )
-        self.assertEqual(value, 3.0 + 4.0j)
-        self.assertIs(execution["backend"], backend)
-        self.assertIs(execution["sampler"], sampler)
-        self.assertIs(execution["job"], job)
-        self.assertIs(execution["result"], sampler_result)
-        self.assertEqual(execution["counts_by_setting"], expected_counts_by_setting)
-        self.assertEqual(execution["circuits"], circuits)
-        self.assertEqual(execution["shots"], 20_480)
+                sampler_type.assert_called_once_with(
+                    backend,
+                    options={"cft_job_name": "bell-pipeline"},
+                )
+                sampler.run.assert_called_once_with(
+                    circuits,
+                    shots=20_480,
+                    memory=False,
+                )
+                job.result.assert_called_once_with(timeout=30.0, poll_interval=0.5)
+                job.counts.assert_called_once_with()
+                bell_compute.assert_called_once_with(
+                    expected_counts_by_setting,
+                    metadata["terms"],
+                    metadata["qutrit_bit_indices_by_setting"],
+                    outcome_map=metadata["physical_to_logical_outcome_map"],
+                    d=3,
+                )
+                self.assertEqual(value, 3.0 + 4.0j)
+                self.assertIs(execution["backend"], backend)
+                self.assertIs(execution["sampler"], sampler)
+                self.assertIs(execution["job"], job)
+                self.assertIs(execution["result"], sampler_result)
+                self.assertEqual(
+                    execution["counts_by_setting"],
+                    expected_counts_by_setting,
+                )
+                self.assertEqual(execution["circuits"], circuits)
+                self.assertEqual(execution["shots"], 20_480)
 
 
 if __name__ == "__main__":
@@ -356,7 +368,8 @@ $env:PYTHONDONTWRITEBYTECODE='1'
 python -m unittest discover -s tests -p "test_bell_measurements_piastq_runner.py" -v
 ```
 
-Expected: PASS, two tests. The test must show one `sampler.run` call containing all nine circuit objects.
+Expected: PASS, two tests. The variable-length subtests must show one
+`sampler.run` call containing the complete input list for each tested `N`.
 
 - [ ] **Step 6: Commit the ordered happy path**
 
@@ -791,7 +804,7 @@ Add this method to `CleanRepoSmokeTests` in `tests/test_clean_repo_smoke.py`:
         self.assertIn('mode=os.environ.get("CFT_PIASTQ_MODE", "auto")', readme)
         self.assertIn("backend=client.backend", readme)
         self.assertIn("compute_bell_value_from_counts_aqt", readme)
-        self.assertIn("one PiastQ job containing nine circuits", readme)
+        self.assertIn("one PiastQ job containing every generated circuit", readme)
 ```
 
 - [ ] **Step 2: Run the README contract test to verify it fails**
@@ -825,8 +838,8 @@ execution mode. Credentials must come from environment variables; do not place
 PCSS tokens or dashboard API keys in notebooks or source files.
 
 This explicit smoke example prepares the zero state in the two-qutrit encoding,
-builds all nine Bell-setting circuits, and submits one PiastQ job containing
-nine circuits:
+builds every Bell-setting circuit required by the existing pipeline, and
+submits one PiastQ job containing every generated circuit:
 
 ```python
 import os
@@ -964,7 +977,7 @@ Do not execute the README hardware smoke automatically. Its use of `mode="auto"`
 
 ## Plan Self-Review
 
-- **Spec coverage:** Tasks 1–5 cover the optional dependency, opaque backend selection, one-job/N-circuit ordering, `PiastQJob.counts()`, delegation to existing Bell math, agreed execution metadata, validation, security, fake integration, and manual remote smoke path.
+- **Spec coverage:** Tasks 1–5 cover the optional dependency, opaque backend selection, one-job/N-circuit ordering for variable `N`, `PiastQJob.counts()`, delegation to existing Bell math, agreed execution metadata, validation, security, fake integration, and manual remote smoke path.
 - **Scope:** The plan does not modify `cft-piastq`, IQM execution, Aer's generic runner, or existing Bell formulas.
 - **Type consistency:** The public function name, arguments, return type, execution keys, setting tuples, and count mappings match the approved design throughout every task.
 - **Baseline:** The known IQM fidelity failure is recorded only as comparison evidence and is not part of the AQT implementation.

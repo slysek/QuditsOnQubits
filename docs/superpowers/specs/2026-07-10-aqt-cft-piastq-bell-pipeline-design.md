@@ -76,7 +76,9 @@ PiastQClient(mode=...) -> client.backend
 
 The backend is opaque to the helper and is passed unchanged to
 `PiastQSampler`. Consequently, `auto`, `managed`, and `direct` use the same Bell
-pipeline code.
+pipeline code. The batching contract mirrors the IQM pipeline: accept the full
+ordered circuit list produced upstream, submit it once, and preserve that order
+when associating one result with each metadata setting.
 
 The module imports `PiastQSampler` lazily inside the public function. Importing
 `qudits_on_qubits.bell_measurements` therefore remains possible without
@@ -105,9 +107,10 @@ counts_by_setting = {
 }
 ```
 
-For the `two_qutrit` candidate, the normal case is one job containing nine
-circuits and `job.counts()` returning nine dictionaries. Each dictionary maps
-to the setting at the same circuit index.
+`N` is determined entirely by the circuits produced by the existing Bell
+pipeline. The adapter must not encode a candidate-specific circuit count. It
+submits the complete incoming list in one job and requires `job.counts()` to
+return exactly `N` dictionaries, each mapped to the setting at the same index.
 
 The adapter does not multiply quasi probabilities itself. `cft-piastq`
 already calls `binary_probabilities(num_bits=...)`, multiplies each probability
@@ -218,7 +221,8 @@ They verify:
 - the caller's backend object is passed unchanged to `PiastQSampler`;
 - sampler options, run options, shots, timeout, and poll interval are forwarded;
 - all circuits are submitted in one call and one job is produced;
-- nine `two_qutrit` count dictionaries map to nine settings in index order;
+- multiple circuit-list lengths map to the same number of settings in index
+  order, without a candidate-specific count assumption;
 - the implementation calls `job.counts()` and does not convert
   `SamplerResult.quasi_dists` itself;
 - the existing `compute_bell_value_from_counts` function receives the mapped
