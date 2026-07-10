@@ -8,6 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 class PiastQOptionalDependencyTests(unittest.TestCase):
     def test_piastq_optional_dependency_is_declared(self):
         pyproject_text = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        requirements_text = (REPO_ROOT / "requirements.txt").read_text(encoding="utf-8")
         expected_block = """[project.optional-dependencies]
 piastq = [
     "cft-piastq[direct]>=0.1,<0.2",
@@ -15,6 +16,8 @@ piastq = [
 """
 
         self.assertIn(expected_block, pyproject_text)
+        self.assertEqual(pyproject_text.casefold().count("cft-piastq"), 1)
+        self.assertNotIn("cft-piastq", requirements_text.casefold())
 
 
 if __name__ == "__main__":
