@@ -22,6 +22,7 @@ from .postprocessing import (
     compute_complex_expectation,
     leakage_rate,
 )
+from .piastq_runner import compute_bell_value_from_counts_aqt
 from .qiskit_measurements import append_measurement_for_global_setting
 from .sampler_circuits import (
     build_sampler_circuits_for_candidate,
@@ -43,6 +44,7 @@ __all__ = [
     "canonical_Ez",
     "complete_isometry_to_unitary",
     "compute_bell_value_from_counts",
+    "compute_bell_value_from_counts_aqt",
     "compute_complex_expectation",
     "counts_by_setting_from_sampler_result",
     "decoding_kwargs_from_metadata",
