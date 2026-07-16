@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
 import numpy as np
@@ -295,33 +296,51 @@ def run_sampler_circuits_to_counts_by_setting(
     shots: int = 1024,
     sampler: Any | None = None,
     backend: Any | None = None,
-    transpile_circuits: bool = True,
+    transpile_circuits: bool = False,
     optimization_level: int = 3,
+    run_options: Mapping[str, Any] | None = None,
 ) -> tuple[dict[tuple[object, ...], Mapping[str, int]], dict[str, Any]]:
-    """Run SamplerV2-style circuits and return Bell-postprocessing counts.
+    """Run Bell measurement circuits and return Bell-postprocessing counts.
 
     The first return value is ready for ``compute_bell_value_from_counts`` as
     ``counts_by_setting``. The second return value keeps execution objects for
-    inspection: ``sampler``, ``backend``, ``job``, ``result``,
-    ``transpiled_circuits``, and ``shots``.
+    inspection: ``sampler``, ``backend``, ``job``, ``result``, ``circuits``,
+    and ``shots``.
+
+    Circuits are submitted as-is by default. Pass an explicit ``sampler`` for a
+    SamplerV2-style object, or pass an explicit ``backend`` to run through
+    ``backend.run(circuits, shots=shots, **run_options)``. This keeps IQM runs
+    out of the local Qiskit transpiler path; if IQM compilation is needed, pass
+    IQM/backend options through ``run_options`` or prepare the circuits before
+    calling this helper.
     """
     circuits = list(sampler_circuits)
     if len(circuits) != len(metadata["setting_by_circuit_index"]):
         raise ValueError("number of sampler_circuits must match metadata settings")
+    options = _run_options_without_shots(run_options)
 
     resolved_backend = backend
     if transpile_circuits:
         resolved_backend = resolved_backend or _make_default_aer_backend()
-        transpiled = _transpile_circuits(
+        executed_circuits = _transpile_circuits(
             circuits,
             resolved_backend,
             optimization_level=optimization_level,
         )
     else:
-        transpiled = circuits
+        executed_circuits = circuits
 
-    resolved_sampler = sampler or _make_default_sampler_v2(shots)
-    job = resolved_sampler.run(transpiled, shots=shots)
+    resolved_sampler = sampler
+    execution_target = "sampler"
+    if resolved_sampler is not None:
+        job = resolved_sampler.run(executed_circuits, shots=shots, **options)
+    elif resolved_backend is not None:
+        execution_target = "backend"
+        job = resolved_backend.run(executed_circuits, shots=shots, **options)
+    else:
+        resolved_sampler = _make_default_sampler_v2(shots)
+        job = resolved_sampler.run(executed_circuits, shots=shots, **options)
+
     result = job.result()
     counts_by_setting = counts_by_setting_from_sampler_result(result, metadata)
     return counts_by_setting, {
@@ -329,9 +348,53 @@ def run_sampler_circuits_to_counts_by_setting(
         "backend": resolved_backend,
         "job": job,
         "result": result,
-        "transpiled_circuits": transpiled,
+        "circuits": executed_circuits,
+        "transpiled_circuits": executed_circuits,
+        "transpile_circuits": transpile_circuits,
+        "execution_target": execution_target,
+        "run_options": options,
         "shots": shots,
     }
+
+
+def run_iqm_sampler_circuits_to_counts_by_setting(
+    sampler_circuits: Sequence["QuantumCircuit"],
+    metadata: Mapping[str, Any],
+    shots: int = 1024,
+    backend: Any | None = None,
+    quantum_computer: str | None = None,
+    use_metrics: bool = False,
+    env_path: str | Path | None = None,
+    run_options: Mapping[str, Any] | None = None,
+) -> tuple[dict[tuple[object, ...], Mapping[str, int]], dict[str, Any]]:
+    """Run Bell measurement circuits on an IQM backend without local transpilation.
+
+    Provide ``backend`` if it has already been loaded. Otherwise pass
+    ``quantum_computer`` and this helper will use the project's IQM environment
+    loader.
+    """
+    resolved_backend = backend
+    if resolved_backend is None:
+        if quantum_computer is None:
+            raise ValueError("pass either backend or quantum_computer for an IQM run")
+        from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import (
+            load_iqm_backend,
+        )
+
+        resolved_backend = load_iqm_backend(
+            quantum_computer,
+            use_metrics=use_metrics,
+            env_path=env_path,
+        )
+
+    return run_sampler_circuits_to_counts_by_setting(
+        sampler_circuits,
+        metadata,
+        shots=shots,
+        backend=resolved_backend,
+        transpile_circuits=False,
+        run_options=run_options,
+    )
 
 
 def _counts_for_index(result: Any, index: int) -> Mapping[str, int]:
@@ -399,6 +462,15 @@ def _transpile_circuits(
         transpile(circuit, backend, optimization_level=optimization_level)
         for circuit in circuits
     ]
+
+
+def _run_options_without_shots(
+    run_options: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    options = dict(run_options or {})
+    if "shots" in options:
+        raise ValueError("pass shots via the shots argument, not run_options")
+    return options
 
 
 def _counts_from_named_data_bin(data: Any) -> Mapping[str, int] | None:

@@ -27,6 +27,8 @@ class IqmTranspilerHarnessCliTests(unittest.TestCase):
         self.assertEqual(args.max_depth_warning, 100)
         self.assertEqual(args.max_cz_warning, 50)
         self.assertEqual(args.strategy, [])
+        self.assertIsNone(args.quantum_circuits_dir)
+        self.assertFalse(args.no_export_quantum_circuits)
 
     def test_from_old_csv_requires_old_csv(self):
         args = build_parser().parse_args(
@@ -155,6 +157,7 @@ class IqmTranspilerHarnessCliTests(unittest.TestCase):
         self.assertEqual(config.n_transpile_runs, 2)
         self.assertEqual(config.max_depth_warning, 80)
         self.assertEqual(config.max_cz_warning, 40)
+        self.assertEqual(config.quantum_circuits_dir, os.path.join("out", "quantum_circuits"))
         write_outputs.assert_called_once()
 
 

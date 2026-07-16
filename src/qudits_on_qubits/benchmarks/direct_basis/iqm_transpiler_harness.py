@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -11,7 +12,11 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import pandas as pd
+from qiskit import qpy
 
+from qudits_on_qubits.benchmarks.direct_basis.benchmark import (
+    export_direct_basis_candidate_circuits,
+)
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
 from qudits_on_qubits.benchmarks.direct_basis.circuits import (
     build_direct_basis_graph_state_circuit,
@@ -37,6 +42,7 @@ class IqmTranspilerHarnessConfig:
     iqm_backend_name: str
     iqm_use_metrics: bool
     candidates: Iterable[DirectBasisCandidate]
+    quantum_circuits_dir: str | Path | None = None
     strategy_names: tuple[str, ...] = ()
     n_transpile_runs: int = 1
     optimization_level: int = 3
@@ -53,6 +59,25 @@ _METRIC_KEYS = (
     "one_qubit_gate_count",
     "two_qubit_gate_count",
     "count_ops_json",
+)
+
+_ARTIFACT_KEYS = (
+    "quantum_circuit_dir",
+    "f3_w_qpy",
+    "cz3_w_qpy",
+    "graph_state_qpy",
+    "graph_state_transpiled_qpy",
+    "basis_change_qpy",
+    "basis_change_matrix_npy",
+    "E_npy",
+    "W_npy",
+)
+
+_SELECTION_METRIC_KEYS = (
+    "best_depth",
+    "best_size",
+    "best_two_qubit_gate_count",
+    "best_one_qubit_gate_count",
 )
 
 
@@ -196,8 +221,10 @@ def _trial_row(
     result: Any,
     config: IqmTranspilerHarnessConfig,
     metadata: dict[str, Any],
+    artifact_paths: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     row = _base_row(candidate, config=config, metadata=metadata)
+    row.update(artifact_paths or _empty_artifact_paths())
     strategy_name = getattr(result, "strategy_name", "")
     success = bool(getattr(result, "success", False))
     row.update(
@@ -215,13 +242,23 @@ def _trial_row(
     if success:
         metrics = _metric_row(getattr(result, "circuit"))
         row.update(metrics)
+        row.update(_selection_metric_aliases(metrics))
         row["warning_flags"] = _warning_flags(
             metrics,
             max_depth_warning=config.max_depth_warning,
             max_cz_warning=config.max_cz_warning,
         )
+        transpiled_qpy = _export_trial_transpiled_circuit(
+            artifact_paths or {},
+            getattr(result, "circuit"),
+            strategy_name=strategy_name,
+            seed_transpiler=getattr(result, "seed_transpiler", None),
+        )
+        if transpiled_qpy:
+            row["graph_state_transpiled_qpy"] = transpiled_qpy
     else:
         row.update(_null_metrics())
+        row.update(_null_selection_metric_aliases())
         row["warning_flags"] = ""
     return row
 
@@ -331,6 +368,11 @@ def run_iqm_transpiler_harness(
             candidate.matrix,
             n_qutrits=config.n_qutrits,
         )
+        artifact_paths = _export_candidate_artifacts(
+            config,
+            candidate,
+            graph_state_circuit=circuit,
+        )
         for seed in range(n_transpile_runs):
             for strategy_name in strategy_names:
                 result = _run_strategy_trial(
@@ -347,6 +389,7 @@ def run_iqm_transpiler_harness(
                         result=result,
                         config=config,
                         metadata=metadata,
+                        artifact_paths=artifact_paths,
                     )
                 )
 
@@ -394,11 +437,30 @@ def _base_row(
         "state_name": config.state_name,
         "n_qutrits": config.n_qutrits,
         **_candidate_identity(candidate),
+        **_empty_artifact_paths(),
+        **_null_selection_metric_aliases(),
     }
 
 
 def _null_metrics() -> dict[str, Any]:
     return {key: None for key in _METRIC_KEYS}
+
+
+def _empty_artifact_paths() -> dict[str, str]:
+    return {key: "" for key in _ARTIFACT_KEYS}
+
+
+def _null_selection_metric_aliases() -> dict[str, Any]:
+    return {key: None for key in _SELECTION_METRIC_KEYS}
+
+
+def _selection_metric_aliases(metrics: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "best_depth": metrics.get("depth"),
+        "best_size": metrics.get("size"),
+        "best_two_qubit_gate_count": metrics.get("two_qubit_gate_count"),
+        "best_one_qubit_gate_count": metrics.get("one_qubit_gate_count"),
+    }
 
 
 def _instruction_arity(instruction: Any) -> int:
@@ -439,6 +501,56 @@ def _validated_n_transpile_runs(n_transpile_runs: Any) -> int:
     if value < 1:
         raise ValueError("n_transpile_runs must be >= 1")
     return value
+
+
+def _export_candidate_artifacts(
+    config: IqmTranspilerHarnessConfig,
+    candidate: DirectBasisCandidate,
+    *,
+    graph_state_circuit: Any,
+) -> dict[str, str]:
+    if config.quantum_circuits_dir is None:
+        return _empty_artifact_paths()
+
+    paths = export_direct_basis_candidate_circuits(
+        quantum_circuits_dir=str(config.quantum_circuits_dir),
+        state_name=config.state_name,
+        n_qutrits=config.n_qutrits,
+        class_name=candidate.class_name,
+        candidate_name=candidate.candidate_name,
+        basis_matrix=candidate.matrix,
+        graph_state_circuit=graph_state_circuit,
+        selection_label="exact",
+        legacy_exact_transpiled_filename=False,
+    )
+    paths["graph_state_transpiled_qpy"] = ""
+    return {key: str(paths.get(key, "")) for key in _ARTIFACT_KEYS}
+
+
+def _export_trial_transpiled_circuit(
+    artifact_paths: dict[str, str],
+    circuit: Any,
+    *,
+    strategy_name: str,
+    seed_transpiler: Any,
+) -> str:
+    output_dir = artifact_paths.get("quantum_circuit_dir")
+    if not output_dir or circuit is None:
+        return ""
+    path = Path(output_dir) / (
+        "graph_state_direct_basis_transpiled_"
+        f"{_safe_path_part(strategy_name)}_seed{_safe_path_part(seed_transpiler)}.qpy"
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("wb") as handle:
+        qpy.dump(circuit, handle)
+    return str(path)
+
+
+def _safe_path_part(value: Any) -> str:
+    text = str(value).strip()
+    text = re.sub(r"[^A-Za-z0-9_.-]+", "_", text)
+    return text.strip("._") or "unnamed"
 
 
 def _run_strategy_trial(

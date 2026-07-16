@@ -306,8 +306,36 @@ class QubitSelectorTests(unittest.TestCase):
         perform_backend_transpilation.assert_not_called()
 
 
+class PretranspiledStateTests(unittest.TestCase):
+    def test_compacts_physical_wires_back_to_logical_order(self):
+        source = QuantumCircuit(4)
+        source.x(3)
+        source.cx(3, 1)
+        source._layout = Mock()
+        source._layout.final_index_layout.return_value = [3, 1]
+
+        namespace = load_cell_namespace("def compact_pretranspiled_state")
+        compact = namespace["compact_pretranspiled_state"](source)
+
+        self.assertEqual(compact.num_qubits, 2)
+        self.assertEqual(compact.count_ops(), {"x": 1, "cx": 1})
+        self.assertEqual(
+            [
+                tuple(compact.find_bit(qubit).index for qubit in item.qubits)
+                for item in compact.data
+            ],
+            [(0,), (0, 1)],
+        )
+
+    def test_requires_final_layout_metadata(self):
+        namespace = load_cell_namespace("def compact_pretranspiled_state")
+
+        with self.assertRaisesRegex(ValueError, "final layout"):
+            namespace["compact_pretranspiled_state"](QuantumCircuit(2))
+
+
 class NotebookPipelineContractTests(unittest.TestCase):
-    def test_pipeline_uses_real_backend_and_records_selector_result(self):
+    def test_pipeline_uses_compiled_state_and_explicit_execution_backend(self):
         notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
         source = "\n".join(
             "".join(cell["source"])
@@ -323,13 +351,21 @@ class NotebookPipelineContractTests(unittest.TestCase):
         self.assertNotIn("token=", provider_line)
         self.assertIn(
             "select_and_transpile_candidate(\n"
-            "        backend, logical_state_circuit, sampler_circuits, candidate",
+            "        transpile_backend, logical_state_circuit, sampler_circuits, candidate",
             source,
         )
+        self.assertIn("compact_pretranspiled_state(qcsuptrans)", source)
+        self.assertIn("backend=execution_backend", source)
+        self.assertNotIn("backend=garnet_noisy_backend,", source)
         self.assertIn('"selected_layout": tuple(selected_layout)', source)
         self.assertIn('"selector_cost": selector_cost', source)
-        self.assertIn("full_pipeline(backend_garnet, testqc, Esup", source)
-        self.assertNotIn("full_pipeline(garnet, qcsuptrans", source)
+        self.assertIn('"transpiled_depth": isa_sampler_qc_1[0].depth()', source)
+        self.assertIn('"transpiled_cz_count":', source)
+        self.assertIn(
+            "full_pipeline(\n"
+            "        backend_garnet, garnet_noisy_backend, compact_qc, Esup",
+            source,
+        )
 
 
 class DependencyContractTests(unittest.TestCase):

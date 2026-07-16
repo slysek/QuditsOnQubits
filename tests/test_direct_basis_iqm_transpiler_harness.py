@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
-from qiskit import QuantumCircuit
+from qiskit import QuantumCircuit, qpy
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "src"
@@ -229,6 +229,78 @@ class IqmTranspilerHarnessTests(unittest.TestCase):
         self.assertEqual(summary["failed_trial_count"], 1)
         self.assertEqual(summary["unsupported_candidate_count"], 0)
         self.assertEqual(summary["failed_all_strategy_count"], 0)
+
+    def test_run_iqm_transpiler_harness_exports_trial_circuit_and_encoding_matrices(self):
+        candidate = DirectBasisCandidate(
+            name="I",
+            candidate_type="identity",
+            matrix=np.eye(3, dtype=complex),
+            source_class_name="baseline",
+            source_candidate_name="I",
+        )
+
+        def fake_runner(
+            strategy_name,
+            circuit,
+            *,
+            backend: object,
+            seed_transpiler: int,
+            optimization_level: int,
+        ):
+            return SimpleNamespace(
+                strategy_name=strategy_name,
+                seed_transpiler=seed_transpiler,
+                success=True,
+                circuit=_native_iqm_circuit(),
+                compile_time_seconds=0.1,
+                error_type="",
+                error_message="",
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            config = IqmTranspilerHarnessConfig(
+                state_name="two_qutrit",
+                n_qutrits=2,
+                backend=object(),
+                iqm_backend_name="fake_backend",
+                iqm_use_metrics=False,
+                candidates=[candidate],
+                strategy_names=("ok_strategy",),
+                n_transpile_runs=1,
+                quantum_circuits_dir=tmp,
+            )
+
+            all_trials, best_by_candidate, _ = run_iqm_transpiler_harness(
+                config,
+                strategy_runner=fake_runner,
+            )
+
+            trial = all_trials.iloc[0]
+            best = best_by_candidate.iloc[0]
+            self.assertEqual(trial["graph_state_transpiled_qpy"], best["graph_state_transpiled_qpy"])
+            self.assertIn("ok_strategy_seed0", Path(best["graph_state_transpiled_qpy"]).name)
+            for column in (
+                "f3_w_qpy",
+                "cz3_w_qpy",
+                "graph_state_qpy",
+                "graph_state_transpiled_qpy",
+                "basis_change_matrix_npy",
+                "E_npy",
+                "W_npy",
+            ):
+                self.assertTrue(Path(best[column]).is_file(), column)
+
+            self.assertEqual(best["basis_change_matrix_npy"], best["W_npy"])
+            np.testing.assert_allclose(np.load(best["W_npy"]), np.eye(3, dtype=complex))
+            E = np.load(best["E_npy"])
+            self.assertEqual(E.shape, (4, 3))
+            np.testing.assert_allclose(E[:3, :], np.eye(3, dtype=complex))
+            np.testing.assert_allclose(E[3, :], np.zeros(3, dtype=complex))
+
+            with Path(best["graph_state_transpiled_qpy"]).open("rb") as handle:
+                circuits = list(qpy.load(handle))
+            self.assertEqual(len(circuits), 1)
+            self.assertEqual(circuits[0].num_qubits, 2)
 
     def test_run_iqm_transpiler_harness_records_base_exception_failure(self):
         candidate = DirectBasisCandidate(

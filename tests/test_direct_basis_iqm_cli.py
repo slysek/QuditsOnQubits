@@ -20,6 +20,8 @@ class DirectBasisIqmCliTests(unittest.TestCase):
         self.assertIs(args.iqm_use_metrics, False)
         self.assertIsNone(args.layout_method)
         self.assertIsNone(args.routing_method)
+        self.assertEqual(args.iqm_strategy, [])
+        self.assertFalse(args.iqm_legacy_pass_manager)
 
     def test_iqm_use_metrics_parses_true(self):
         args = build_parser().parse_args(
@@ -131,6 +133,15 @@ class DirectBasisIqmCliTests(unittest.TestCase):
         self.assertEqual(benchmark_kwargs["routing_method"], "sabre")
         self.assertEqual(benchmark_kwargs["jobs"], 3)
         self.assertIsNone(benchmark_kwargs["quantum_circuits_dir"])
+        self.assertEqual(
+            benchmark_kwargs["iqm_strategy_names"],
+            (
+                "preset_default",
+                "preset_exact",
+                "transpile_to_iqm_default",
+                "transpile_to_iqm_exact",
+            ),
+        )
 
     def test_main_uses_explicit_output_csv_override_for_iqm(self):
         backend = object()
