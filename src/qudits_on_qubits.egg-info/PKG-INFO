@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: qudits-on-qubits
+Version: 0.1.0
+Summary: Tools for qutrit-on-qubit graph-state circuits, direct-basis benchmarks, and Bell measurement pipelines.
+Requires-Python: <3.14,>=3.10
+Requires-Dist: numpy<3,>=2
+Requires-Dist: scipy
+Requires-Dist: pandas
+Requires-Dist: sympy
+Requires-Dist: matplotlib
+Requires-Dist: igraph
+Requires-Dist: tqdm
+Requires-Dist: ipython
+Requires-Dist: jupyterlab
+Requires-Dist: qiskit<2.2,>=1.4
+Requires-Dist: qiskit-aer<0.18,>=0.17
+Requires-Dist: qiskit-ibm-runtime<0.44.1,>=0.34
+Requires-Dist: qiskit-experiments<0.14,>=0.13
+Requires-Dist: python-dotenv
+Requires-Dist: iqm-client[qiskit]<35,>=34
+Requires-Dist: iqm-qubit-selector<2,>=1
+Provides-Extra: piastq
+Requires-Dist: cft-piastq[direct]<0.2,>=0.1; extra == "piastq"

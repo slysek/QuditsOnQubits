@@ -136,15 +136,16 @@ Run a small IQM-backed direct-basis benchmark:
 python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --jobs 4
 ```
 
-The `--iqm-backend` value is the IQM quantum computer name or alias. `garnet` is only an example. When this flag is present, the script loads one IQM backend for the whole run and compiles each candidate with Qiskit's preset pass manager using that backend:
+The `--iqm-backend` value is the IQM quantum computer name or alias. `garnet` is only an example. When this flag is present, the script loads one IQM backend for the whole run and, by default, compiles each candidate with the same IQM strategy set used by the transpiler harness:
 
-```python
-generate_preset_pass_manager(
-    backend=backend,
-    optimization_level=3,
-    seed_transpiler=trial,
-)
+```text
+preset_default
+preset_exact
+transpile_to_iqm_default
+transpile_to_iqm_exact
 ```
+
+For each candidate and seed, the benchmark tries the selected strategies and keeps the best transpiled circuit by `(depth, two_qubit_gate_count, one_qubit_gate_count, size)`. The output CSV records the winning `iqm_transpiler_strategy` and `iqm_transpiler_seed`.
 
 Optional transpiler controls:
 
@@ -152,6 +153,8 @@ Optional transpiler controls:
 python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --layout-method sabre
 python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --routing-method sabre
 python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --iqm-use-metrics
+python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --iqm-strategy preset_default
+python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --iqm-legacy-pass-manager
 ```
 
 IQM output defaults to `artifacts/iqm_runs/raw`, and QPY exports default to `artifacts/iqm_runs/raw/quantum_circuits/<backend>/`.
@@ -178,7 +181,17 @@ artifacts/iqm_runs/processed/transpiler_harness/<run_id>/
   all_trials.csv
   best_by_candidate.csv
   summary.json
+  quantum_circuits/<state>/<class>__<candidate>/
+    F3_W.qpy
+    CZ3_W.qpy
+    graph_state_direct_basis.qpy
+    graph_state_direct_basis_transpiled_<strategy>_seed<seed>.qpy
+    E.npy
+    W.npy
 ```
+
+Pass `--quantum-circuits-dir` to override the artifact directory, or
+`--no-export-quantum-circuits` to write only CSV/JSON outputs.
 
 Built-in strategies:
 

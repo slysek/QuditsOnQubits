@@ -60,6 +60,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--run-id", default=None)
+    parser.add_argument(
+        "--quantum-circuits-dir",
+        default=None,
+        help="Directory for exported QPY and E/W matrix artifacts.",
+    )
+    parser.add_argument(
+        "--no-export-quantum-circuits",
+        action="store_true",
+        help="Disable per-candidate QPY and E/W matrix artifact exports.",
+    )
     parser.add_argument("--max-depth-warning", type=int, default=100)
     parser.add_argument("--max-cz-warning", type=int, default=50)
     return parser
@@ -126,6 +136,14 @@ def _output_dir_from_args(args) -> str:
     )
 
 
+def _quantum_circuits_dir_from_args(args, output_dir: str) -> str | None:
+    if args.no_export_quantum_circuits:
+        return None
+    if args.quantum_circuits_dir:
+        return args.quantum_circuits_dir
+    return str(Path(output_dir) / "quantum_circuits")
+
+
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -137,6 +155,7 @@ def main(argv=None) -> int:
         parser.error(str(exc))
 
     backend = load_iqm_backend(args.iqm_backend, use_metrics=args.iqm_use_metrics)
+    output_dir = _output_dir_from_args(args)
     config = IqmTranspilerHarnessConfig(
         state_name=args.state,
         n_qutrits=args.n_qutrits,
@@ -144,6 +163,7 @@ def main(argv=None) -> int:
         iqm_backend_name=args.iqm_backend,
         iqm_use_metrics=args.iqm_use_metrics,
         candidates=candidates,
+        quantum_circuits_dir=_quantum_circuits_dir_from_args(args, output_dir),
         strategy_names=tuple(args.strategy),
         n_transpile_runs=args.n_transpile_runs,
         max_depth_warning=args.max_depth_warning,
@@ -152,7 +172,7 @@ def main(argv=None) -> int:
 
     all_trials, best_by_candidate, summary = run_iqm_transpiler_harness(config)
     paths = write_iqm_transpiler_harness_outputs(
-        _output_dir_from_args(args),
+        output_dir,
         all_trials=all_trials,
         best_by_candidate=best_by_candidate,
         summary=summary,

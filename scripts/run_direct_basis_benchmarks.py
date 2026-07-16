@@ -38,6 +38,9 @@ from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import (
     load_iqm_backend,
     safe_backend_slug,
 )
+from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_strategies import (
+    iqm_transpiler_strategy_names,
+)
 from qudits_on_qubits.encoding_search.candidates import CandidateSearchConfig
 from qudits_on_qubits.core.project_paths import repo_path, repo_root
 
@@ -100,6 +103,21 @@ def build_parser() -> argparse.ArgumentParser:
         "--iqm-use-metrics",
         action="store_true",
         help="Load IQM calibration metrics when constructing the backend.",
+    )
+    parser.add_argument(
+        "--iqm-strategy",
+        action="append",
+        default=[],
+        choices=iqm_transpiler_strategy_names(),
+        help=(
+            "IQM transpiler strategy to run. May be passed multiple times. "
+            "Defaults to all harness strategies when --iqm-backend is set."
+        ),
+    )
+    parser.add_argument(
+        "--iqm-legacy-pass-manager",
+        action="store_true",
+        help="Use the old single IQM pass-manager path instead of harness strategies.",
     )
     parser.add_argument(
         "--layout-method",
@@ -310,6 +328,12 @@ def _iqm_quantum_circuits_dir_from_args(args) -> str:
     return default_iqm_quantum_circuits_dir(safe_backend_slug(args.iqm_backend))
 
 
+def _iqm_strategy_names_from_args(args) -> tuple[str, ...]:
+    if not args.iqm_backend or args.iqm_legacy_pass_manager:
+        return ()
+    return tuple(args.iqm_strategy) or iqm_transpiler_strategy_names()
+
+
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -324,6 +348,7 @@ def main(argv=None) -> int:
     transpiler_metadata = None
     output_dir = args.output_dir
     quantum_circuits_dir = args.quantum_circuits_dir
+    iqm_strategy_names = _iqm_strategy_names_from_args(args)
 
     if args.iqm_backend:
         transpiler_backend = load_iqm_backend(
@@ -380,6 +405,7 @@ def main(argv=None) -> int:
         optimization_level=3,
         layout_method=args.layout_method,
         routing_method=args.routing_method,
+        iqm_strategy_names=iqm_strategy_names,
         jobs=args.jobs,
     )
     print(f"Done. Results saved to: {path}")

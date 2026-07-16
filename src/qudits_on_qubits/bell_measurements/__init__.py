@@ -30,6 +30,7 @@ from .sampler_circuits import (
     counts_by_setting_from_sampler_result,
     decoding_kwargs_from_metadata,
     default_observable_from_label,
+    run_iqm_sampler_circuits_to_counts_by_setting,
     run_sampler_circuits_to_counts_by_setting,
 )
 
@@ -59,5 +60,6 @@ __all__ = [
     "ordered_qutrit_eigenbasis",
     "physical_index_from_bits",
     "physical_to_logical_outcome_map",
+    "run_iqm_sampler_circuits_to_counts_by_setting",
     "run_sampler_circuits_to_counts_by_setting",
 ]

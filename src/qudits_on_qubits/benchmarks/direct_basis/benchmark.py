@@ -14,7 +14,7 @@ import pandas as pd
 from qiskit import qpy, transpile
 from qiskit.circuit.library import UnitaryGate
 from qiskit.converters import circuit_to_dag, dag_to_circuit
-from qiskit.quantum_info import Statevector, state_fidelity
+from qiskit.quantum_info import DensityMatrix, Statevector, state_fidelity
 
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
 from qudits_on_qubits.benchmarks.direct_basis.circuits import (
@@ -25,6 +25,7 @@ from qudits_on_qubits.benchmarks.direct_basis.circuits import (
     resolve_direct_state,
 )
 from qudits_on_qubits.benchmarks.direct_basis.math_utils import (
+    encoding_embedding,
     embed_single_qutrit_gate_identity_leakage,
     is_isometry,
     is_unitary,
@@ -32,6 +33,9 @@ from qudits_on_qubits.benchmarks.direct_basis.math_utils import (
 from qudits_on_qubits.benchmarks.direct_basis.selection import (
     selection_label as format_selection_label,
     transpiled_qpy_filename,
+)
+from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_strategies import (
+    run_iqm_transpiler_strategy,
 )
 from qudits_on_qubits.core.benchmark_encoding_bases import BASIS_GATES, COUPLING_MAP, TWO_Q_GATES
 from qudits_on_qubits.core.project_paths import repo_path
@@ -137,25 +141,75 @@ def _restore_stripped_input_order(
     active_indices: list[int],
     reference_qubits: int,
 ) -> np.ndarray:
+    input_to_output = _input_to_active_output_order(
+        candidate_qc,
+        active_indices,
+        reference_qubits,
+    )
+    if input_to_output is None:
+        return state
+    return _restore_input_qubit_order(state, input_to_output)
+
+
+def _input_to_active_output_order(
+    candidate_qc,
+    active_indices: list[int],
+    reference_qubits: int,
+) -> list[int] | None:
     layout = getattr(candidate_qc, "layout", None)
     if layout is None or getattr(layout, "final_layout", None) is None:
-        return state
+        return None
     try:
         final_index_layout = layout.final_index_layout(filter_ancillas=True)
     except Exception:
-        return state
+        return None
     if len(final_index_layout) != reference_qubits:
-        return state
+        return None
     active_positions = {
         physical_index: idx for idx, physical_index in enumerate(active_indices)
     }
     if not all(physical_index in active_positions for physical_index in final_index_layout):
-        return state
-    input_to_output = [
+        return None
+    return [
         active_positions[physical_index]
         for physical_index in final_index_layout
     ]
-    return _restore_input_qubit_order(state, input_to_output)
+
+
+def _density_matrix_in_input_order(
+    state: np.ndarray,
+    input_to_output: list[int],
+) -> np.ndarray:
+    total_qubits = int(np.log2(len(state)))
+    if 2**total_qubits != len(state):
+        raise ValueError("state length must be a power of two")
+    kept_positions = tuple(int(position) for position in input_to_output)
+    if len(set(kept_positions)) != len(kept_positions):
+        raise ValueError("input_to_output contains duplicate output positions")
+    traced_positions = tuple(
+        position for position in range(total_qubits) if position not in set(kept_positions)
+    )
+    dim = 2 ** len(kept_positions)
+    groups: dict[int, list[tuple[int, complex]]] = {}
+    for basis_index, amplitude in enumerate(np.asarray(state, dtype=complex)):
+        traced_index = _bits_to_index(basis_index, traced_positions)
+        kept_index = _bits_to_index(basis_index, kept_positions)
+        groups.setdefault(traced_index, []).append((kept_index, amplitude))
+
+    density = np.zeros((dim, dim), dtype=complex)
+    for amplitudes in groups.values():
+        vector = np.zeros(dim, dtype=complex)
+        for kept_index, amplitude in amplitudes:
+            vector[kept_index] = amplitude
+        density += np.outer(vector, vector.conj())
+    return density
+
+
+def _bits_to_index(source_index: int, positions: tuple[int, ...]) -> int:
+    target_index = 0
+    for target_bit, source_bit in enumerate(positions):
+        target_index |= ((source_index >> source_bit) & 1) << target_bit
+    return target_index
 
 
 def _transpile_one_trial(
@@ -169,6 +223,7 @@ def _transpile_one_trial(
     layout_method: str | None = None,
     routing_method: str | None = None,
     approximation_degree: float | None = None,
+    iqm_strategy_name: str | None = None,
 ):
     if transpiler_backend is None:
         transpile_kwargs = {
@@ -180,6 +235,19 @@ def _transpile_one_trial(
         if approximation_degree is not None:
             transpile_kwargs["approximation_degree"] = float(approximation_degree)
         return transpile(qc, **transpile_kwargs)
+
+    if iqm_strategy_name:
+        result = run_iqm_transpiler_strategy(
+            iqm_strategy_name,
+            qc,
+            backend=transpiler_backend,
+            seed_transpiler=trial,
+            optimization_level=optimization_level,
+        )
+        if not result.success:
+            error = f"{result.error_type}: {result.error_message}".strip(": ")
+            raise RuntimeError(error or f"IQM strategy failed: {iqm_strategy_name}")
+        return result.circuit
 
     from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import build_iqm_pass_manager
 
@@ -259,6 +327,8 @@ def _base_row(
         "backend_coupling_map_size": None,
         "backend_has_resonators": None,
         "backend_calibration_set_id": "",
+        "iqm_transpiler_strategy": "",
+        "iqm_transpiler_seed": None,
         "num_qubits": None,
         "best_count_ops": None,
         "n_transpile_runs": n_transpile_runs,
@@ -304,6 +374,31 @@ def _safe_fidelity(reference_qc, candidate_qc, *, max_qubits: int) -> tuple[floa
         notes.append(f"Fidelity skipped because transpiled circuit has {fidelity_qc.num_qubits} qubits.")
         return None, " ".join(notes)
     if fidelity_qc.num_qubits != reference_qc.num_qubits:
+        if fidelity_qc.num_qubits > reference_qc.num_qubits:
+            try:
+                input_to_output = _input_to_active_output_order(
+                    candidate_qc,
+                    active_indices,
+                    reference_qc.num_qubits,
+                )
+                if input_to_output is not None:
+                    reference = Statevector.from_instruction(reference_qc)
+                    candidate = Statevector.from_instruction(fidelity_qc)
+                    candidate_density = DensityMatrix(
+                        _density_matrix_in_input_order(
+                            candidate.data,
+                            input_to_output,
+                        ),
+                        dims=reference.dims(),
+                    )
+                    notes.append(
+                        "Extra active qubits traced for fidelity: "
+                        f"{fidelity_qc.num_qubits}->{reference_qc.num_qubits}."
+                    )
+                    return float(state_fidelity(reference, candidate_density)), " ".join(notes)
+            except Exception as exc:
+                notes.append(f"Fidelity skipped: {exc}")
+                return None, " ".join(notes)
         notes.append(
             f"Fidelity skipped because active qubit count {fidelity_qc.num_qubits} "
             f"differs from reference {reference_qc.num_qubits}."
@@ -357,6 +452,7 @@ def benchmark_direct_basis(
     optimization_level: int = 3,
     layout_method: str | None = None,
     routing_method: str | None = None,
+    iqm_strategy_names: Iterable[str] | None = None,
 ) -> dict:
     """Benchmark graph-state preparation using direct W-defined encoding."""
     class_name = source_class_name or basis_candidate_type
@@ -424,64 +520,79 @@ def benchmark_direct_basis(
     twoq_counts: list[int] = []
     oneq_counts: list[int] = []
     successful = []
+    iqm_strategy_names = tuple(iqm_strategy_names or ())
 
     last_trial_error = ""
     for trial in range(int(n_transpile_runs)):
-        try:
-            qc_t = _transpile_one_trial(
-                qc,
-                trial=trial,
-                transpiler_backend=transpiler_backend,
-                basis_gates=basis_gates,
-                coupling_map=coupling_map,
-                optimization_level=int(optimization_level),
-                layout_method=layout_method,
-                routing_method=routing_method,
-                approximation_degree=approximation_degree,
-            )
-            ops = qc_t.count_ops()
-            depth = int(qc_t.depth())
-            size = int(qc_t.size())
-            twoq = _count_two_qubit_gates_from_ops(ops)
-            oneq = _count_one_qubit_gates(qc_t)
-            native_ops = _count_native_ops(ops, native_operation_names)
+        strategy_names = (
+            iqm_strategy_names
+            if transpiler_backend is not None and iqm_strategy_names
+            else (None,)
+        )
+        for iqm_strategy_name in strategy_names:
+            try:
+                qc_t = _transpile_one_trial(
+                    qc,
+                    trial=trial,
+                    transpiler_backend=transpiler_backend,
+                    basis_gates=basis_gates,
+                    coupling_map=coupling_map,
+                    optimization_level=int(optimization_level),
+                    layout_method=layout_method,
+                    routing_method=routing_method,
+                    approximation_degree=approximation_degree,
+                    iqm_strategy_name=iqm_strategy_name,
+                )
+                ops = qc_t.count_ops()
+                depth = int(qc_t.depth())
+                size = int(qc_t.size())
+                twoq = _count_two_qubit_gates_from_ops(ops)
+                oneq = _count_one_qubit_gates(qc_t)
+                native_ops = _count_native_ops(ops, native_operation_names)
 
-            depths.append(depth)
-            sizes.append(size)
-            twoq_counts.append(twoq)
-            oneq_counts.append(oneq)
-            row["successful_trials"] += 1
-            successful.append(
-                {
-                    "rank_key": (
-                        (depth, twoq, oneq, size)
-                        if transpiler_backend is not None
-                        else (depth, twoq, size)
-                    ),
-                    "depth": depth,
-                    "size": size,
-                    "twoq": twoq,
-                    "oneq": oneq,
-                    "ops": dict(ops),
-                    "native_ops": native_ops,
-                    "num_qubits": qc_t.num_qubits,
-                    "qc": qc_t,
-                }
-            )
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except BaseException as exc:
-            # Catch BaseException (not just Exception) because Qiskit's Rust
-            # backend can raise pyo3_runtime.PanicException (e.g. the known
-            # TwoQubitWeylDecomposition bug, qiskit-terra issue #4159) which
-            # does not inherit from Exception and would otherwise crash the
-            # entire benchmark run instead of being treated as a failed trial.
-            row["failed_trials"] += 1
-            last_trial_error = f"{type(exc).__name__}: {exc}".splitlines()[0]
-            print(
-                f"  transpile trial {trial} failed: {last_trial_error}",
-                flush=True,
-            )
+                depths.append(depth)
+                sizes.append(size)
+                twoq_counts.append(twoq)
+                oneq_counts.append(oneq)
+                row["successful_trials"] += 1
+                successful.append(
+                    {
+                        "rank_key": (
+                            (depth, twoq, oneq, size)
+                            if transpiler_backend is not None
+                            else (depth, twoq, size)
+                        ),
+                        "depth": depth,
+                        "size": size,
+                        "twoq": twoq,
+                        "oneq": oneq,
+                        "ops": dict(ops),
+                        "native_ops": native_ops,
+                        "num_qubits": qc_t.num_qubits,
+                        "qc": qc_t,
+                        "iqm_strategy_name": iqm_strategy_name or "",
+                        "seed_transpiler": trial,
+                    }
+                )
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except BaseException as exc:
+                # Catch BaseException (not just Exception) because Qiskit's Rust
+                # backend can raise pyo3_runtime.PanicException (e.g. the known
+                # TwoQubitWeylDecomposition bug, qiskit-terra issue #4159) which
+                # does not inherit from Exception and would otherwise crash the
+                # entire benchmark run instead of being treated as a failed trial.
+                row["failed_trials"] += 1
+                strategy_note = (
+                    f" strategy={iqm_strategy_name}"
+                    if iqm_strategy_name
+                    else ""
+                )
+                last_trial_error = f"{type(exc).__name__}: {exc}".splitlines()[0]
+                print(
+                    f"  transpile trial {trial}{strategy_note} failed: {last_trial_error}",
+                    flush=True,
+                )
 
     row["compile_time_seconds"] = round(time.time() - started, 6)
     if row["successful_trials"] == 0:
@@ -507,6 +618,8 @@ def benchmark_direct_basis(
     row["best_native_count_ops"] = json.dumps(best.get("native_ops", {}), sort_keys=True)
     row["num_qubits"] = best["num_qubits"]
     row["best_count_ops"] = best["ops"]
+    row["iqm_transpiler_strategy"] = best.get("iqm_strategy_name", "")
+    row["iqm_transpiler_seed"] = best.get("seed_transpiler")
 
     row["two_qubit_gate_count"] = best["twoq"]
     row["one_qubit_gate_count"] = best["oneq"]
@@ -565,6 +678,7 @@ def _attach_transpiler_run_metadata(
     optimization_level: int = 3,
     layout_method: str | None = None,
     routing_method: str | None = None,
+    iqm_strategy_names: Iterable[str] | None = None,
 ) -> dict:
     if transpiler_metadata:
         row.update(transpiler_metadata)
@@ -610,6 +724,7 @@ def _benchmark_direct_basis_candidate_group(
     optimization_level: int = 3,
     layout_method: str | None = None,
     routing_method: str | None = None,
+    iqm_strategy_names: Iterable[str] | None = None,
 ) -> list[tuple[int, dict]]:
     rows: list[tuple[int, dict]] = []
     for spec_index, (
@@ -638,6 +753,7 @@ def _benchmark_direct_basis_candidate_group(
                 optimization_level=optimization_level,
                 layout_method=layout_method,
                 routing_method=routing_method,
+                iqm_strategy_names=iqm_strategy_names,
             )
         else:
             row = benchmark_direct_basis(
@@ -689,6 +805,7 @@ def benchmark_direct_basis_candidates(
     optimization_level: int = 3,
     layout_method: str | None = None,
     routing_method: str | None = None,
+    iqm_strategy_names: Iterable[str] | None = None,
     jobs: int = 1,
 ) -> tuple[pd.DataFrame, str | None]:
     candidates = list(candidates)
@@ -728,6 +845,7 @@ def benchmark_direct_basis_candidates(
                     optimization_level=optimization_level,
                     layout_method=layout_method,
                     routing_method=routing_method,
+                    iqm_strategy_names=iqm_strategy_names,
                 )
             )
     else:
@@ -757,6 +875,7 @@ def benchmark_direct_basis_candidates(
                     optimization_level=optimization_level,
                     layout_method=layout_method,
                     routing_method=routing_method,
+                    iqm_strategy_names=iqm_strategy_names,
                 )
                 for index, candidate in enumerate(candidates, start=1)
             ]
@@ -849,6 +968,9 @@ def export_direct_basis_candidate_circuits(
         4,
         "CZ3_W",
     )
+    is_w_matrix = basis_matrix.shape == (3, 3)
+    e_npy = os.path.join(output_dir, "E.npy")
+    w_npy = os.path.join(output_dir, "W.npy") if is_w_matrix else ""
     paths = {
         "quantum_circuit_dir": output_dir,
         "f3_w_qpy": os.path.join(output_dir, "F3_W.qpy"),
@@ -862,13 +984,19 @@ def export_direct_basis_candidate_circuits(
             ),
         ),
         "basis_change_qpy": "",
-        "basis_change_matrix_npy": os.path.join(output_dir, "W.npy" if basis_matrix.shape == (3, 3) else "E.npy"),
+        "basis_change_matrix_npy": w_npy or e_npy,
+        "E_npy": e_npy,
+        "W_npy": w_npy,
     }
     _save_qpy(f3_circuit, paths["f3_w_qpy"])
     _save_qpy(cz_circuit, paths["cz3_w_qpy"])
     _save_qpy(graph_state_circuit, paths["graph_state_qpy"])
-    _save_npy(basis_matrix, paths["basis_change_matrix_npy"])
-    if basis_matrix.shape == (3, 3) and is_unitary(basis_matrix):
+    if is_w_matrix:
+        _save_npy(basis_matrix, paths["W_npy"])
+        _save_npy(encoding_embedding(basis_matrix), paths["E_npy"])
+    else:
+        _save_npy(basis_matrix, paths["E_npy"])
+    if is_w_matrix and is_unitary(basis_matrix):
         basis_gate = UnitaryGate(
             embed_single_qutrit_gate_identity_leakage(basis_matrix),
             label="B_W",
