@@ -1,3 +1,5 @@
+import os
+
 from iqm.iqm_client import IQMClient
 from iqm.qiskit_iqm import IQMBackend
 from iqm.qiskit_iqm.fake_backends.fake_aphrodite import IQMFakeAphrodite
@@ -26,36 +28,35 @@ def _get_backend_description(computer_name):
         )
     )
 
-def get_backend(quantum_computer="emerald", token="REMOVED_SECRET", fake=False):
+def _resolve_iqm_token(token=None):
+    resolved_token = token or os.environ.get("IQM_TOKEN")
+    if not resolved_token:
+        raise ValueError(
+            "IQM_TOKEN is required when connecting to a real IQM backend."
+        )
+    return resolved_token
+
+
+def get_backend(quantum_computer="emerald", token=None, fake=False):
+    if fake:
+        backend = IQMFakeAphrodite()
+        print(f"Using fake backend {backend.name}")
+        return backend
+
+    resolved_token = _resolve_iqm_token(token)
     try:
-        if not fake:
-            client = IQMClient(
-                        "https://resonance.iqm.tech/",
-                        quantum_computer=quantum_computer,
-                        token=token,
-                    )
-
-            backend = IQMBackend(client, name=quantum_computer, use_metrics=True)
-
-            # provider = IQMProvider(
-            #                 "https://resonance.iqm.tech/",
-            #                 quantum_computer=quantum_computer,
-            #                 token=token, 
-            #             )
-
-            # backend = provider.get_backend(use_metrics=True)
-
-            print(f"Backend connected successfully, using {quantum_computer}")
-            return backend, client
-        else:
-            backend = IQMFakeAphrodite()
-            print(f"Backend connection failed, using fake backend, using {backend.name}")
-            return backend
-    except Exception as e:
+        client = IQMClient(
+            "https://resonance.iqm.tech/",
+            quantum_computer=quantum_computer,
+            token=resolved_token,
+        )
+        backend = IQMBackend(client, name=quantum_computer, use_metrics=True)
+        print(f"Backend connected successfully, using {quantum_computer}")
+        return backend, client
+    except Exception:
         backend = IQMFakeAphrodite()
         print(f"Backend connection failed, using fake backend, using {backend.name}")
         return backend
-
 
 def _default_gate_implementation(backend, gate_name, locus):
     gate = backend.architecture.gates[gate_name]
