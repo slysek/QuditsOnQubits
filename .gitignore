@@ -11,4 +11,6 @@ artifacts/
 !artifacts/MANIFEST.template.csv
 
 docs/
+docs/superpowers
 .agents/
+ROADMAP.md
