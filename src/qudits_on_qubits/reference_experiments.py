@@ -15,6 +15,12 @@ Outcome: TypeAlias = int | None
 _ATOL = 1e-10
 
 
+def _is_metadata_integer(value: Any) -> bool:
+    return isinstance(value, (int, np.integer)) and not isinstance(
+        value, (bool, np.bool_)
+    )
+
+
 def _freeze_matrix(value: Any, *, name: str) -> FrozenMatrix:
     try:
         return tuple(tuple(complex(entry) for entry in row) for row in value)
@@ -111,14 +117,14 @@ class LogicalStateSpec:
 
     def __post_init__(self) -> None:
         try:
-            frozen_party_order = tuple(int(party) for party in self.party_order)
-        except (TypeError, ValueError) as error:
-            raise ValueError("party_order must contain integers") from error
+            frozen_party_order = tuple(self.party_order)
+        except TypeError as error:
+            raise ValueError("party_order must be an iterable of integers") from error
         try:
             frozen_weighted_edges = tuple(
-                tuple(int(value) for value in edge) for edge in self.weighted_edges
+                tuple(edge) for edge in self.weighted_edges
             )
-        except (TypeError, ValueError) as error:
+        except TypeError as error:
             raise ValueError("weighted_edges must contain integer triples") from error
         object.__setattr__(self, "party_order", frozen_party_order)
         object.__setattr__(self, "weighted_edges", frozen_weighted_edges)
@@ -127,6 +133,8 @@ class LogicalStateSpec:
             raise ValueError("local_dimension must be exactly 3")
         if not isinstance(self.num_parties, int) or self.num_parties < 2:
             raise ValueError("num_parties must be at least 2")
+        if not all(_is_metadata_integer(party) for party in self.party_order):
+            raise ValueError("party_order values must be integers")
         if self.party_order != tuple(range(self.num_parties)):
             raise ValueError("party_order must equal tuple(range(num_parties))")
 
@@ -135,6 +143,8 @@ class LogicalStateSpec:
             if len(edge) != 3:
                 raise ValueError("each weighted edge must contain (u, v, weight)")
             u, v, weight = edge
+            if not all(_is_metadata_integer(value) for value in edge):
+                raise ValueError("weighted edge values must be integers")
             if not 0 <= u < v < self.num_parties:
                 raise ValueError(
                     "weighted edge endpoints must satisfy 0 <= u < v < num_parties"

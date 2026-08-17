@@ -114,6 +114,35 @@ class ReferenceExperimentsTests(unittest.TestCase):
         self.assertEqual(state_spec.party_order, (0, 1))
         self.assertEqual(state_spec.weighted_edges, ((0, 1, 1),))
 
+    def test_logical_state_rejects_noninteger_party_values(self) -> None:
+        for party_order in ((0.0, 1), ("0", 1), (False, 1)):
+            with self.subTest(party_order=party_order):
+                with self.assertRaisesRegex(ValueError, "party_order.*integers"):
+                    LogicalStateSpec(
+                        "bad-party-type",
+                        3,
+                        2,
+                        party_order,
+                        ((0, 1, 1),),
+                    )
+
+    def test_logical_state_rejects_noninteger_weighted_edge_values(self) -> None:
+        for weighted_edges in (
+            ((0, "1", 1),),
+            ((0, 1.0, 1),),
+            ((0, 1, 1.0),),
+            ((0, 1, True),),
+        ):
+            with self.subTest(weighted_edges=weighted_edges):
+                with self.assertRaisesRegex(ValueError, "weighted edge.*integers"):
+                    LogicalStateSpec(
+                        "bad-edge-type",
+                        3,
+                        2,
+                        (0, 1),
+                        weighted_edges,
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()
