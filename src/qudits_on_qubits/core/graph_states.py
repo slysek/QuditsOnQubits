@@ -20,6 +20,8 @@ import re
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
+from qudits_on_qubits.reference_experiments import get_reference_experiment
+
 
 EdgeList = Tuple[Tuple[int, int], ...]
 
@@ -116,7 +118,23 @@ _COMPLETE_PATTERN = re.compile(r"^complete(\d+)$")
 _CLUSTER_PATTERN = re.compile(r"^cluster(\d+)x(\d+)$")
 
 
-_AME43_EDGES: EdgeList = ((0, 1), (0, 1), (1, 2), (2, 3), (3, 0))
+_FIXED_REFERENCE_GRAPH_METADATA = {
+    "two_qutrit": ("two_qutrit", "star"),
+    "ghz3": ("ghz_star", "star"),
+    "ame43": ("ame43", "ame43"),
+}
+
+
+def _fixed_reference_graph_state(name: str) -> GraphStateSpec:
+    state = get_reference_experiment(name).state
+    family, graph_type = _FIXED_REFERENCE_GRAPH_METADATA[name]
+    return GraphStateSpec(
+        name,
+        family,
+        state.num_parties,
+        graph_type,
+        state.legacy_edges(),
+    )
 
 
 def resolve_graph_state(
@@ -133,20 +151,13 @@ def resolve_graph_state(
     if not name:
         return None
 
-    if name == "two_qutrit":
-        if n_qutrits is not None and int(n_qutrits) != 2:
-            raise ValueError(f"two_qutrit has fixed n_qutrits=2, got {n_qutrits}.")
-        return GraphStateSpec("two_qutrit", "two_qutrit", 2, "star", star_edges(2))
-
-    if name == "ghz3":
-        if n_qutrits is not None and int(n_qutrits) != 3:
-            raise ValueError(f"ghz3 has fixed n_qutrits=3, got {n_qutrits}.")
-        return GraphStateSpec("ghz3", "ghz_star", 3, "star", star_edges(3))
-
-    if name == "ame43":
-        if n_qutrits is not None and int(n_qutrits) != 4:
-            raise ValueError(f"ame43 has fixed n_qutrits=4, got {n_qutrits}.")
-        return GraphStateSpec("ame43", "ame43", 4, "ame43", _AME43_EDGES)
+    if name in _FIXED_REFERENCE_GRAPH_METADATA:
+        spec = _fixed_reference_graph_state(name)
+        if n_qutrits is not None and int(n_qutrits) != spec.num_qutrits:
+            raise ValueError(
+                f"{name} has fixed n_qutrits={spec.num_qutrits}, got {n_qutrits}."
+            )
+        return spec
 
     if name in ("ghz_star", "ghz_n"):
         if n_qutrits is None:
