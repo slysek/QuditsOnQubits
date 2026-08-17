@@ -8,7 +8,7 @@ import numpy as np
 
 from qudits_on_qubits.reference_experiments import get_reference_experiment
 
-from .basis import measurement_basis_outcome_map, physical_to_logical_outcome_map
+from .basis import measurement_basis_outcome_map, omega, physical_to_logical_outcome_map
 from .graph_settings import build_general_graph_bell_settings
 from .qiskit_measurements import append_measurement_for_global_setting
 
@@ -114,6 +114,19 @@ def build_sampler_circuits_from_graph(
             circuit_meta.get("classical_bits_by_qutrit", [])
         )
 
+    registry_backed = (
+        "spec_hash" in bell_settings_data
+        and "physical_to_logical_outcome_map" in bell_settings_data
+    )
+    if registry_backed:
+        physical_outcome_map = dict(
+            bell_settings_data["physical_to_logical_outcome_map"]
+        )
+        encoding_outcome_map = dict(physical_outcome_map)
+    else:
+        encoding_outcome_map = physical_to_logical_outcome_map(E, d=d)
+        physical_outcome_map = measurement_basis_outcome_map(d=d)
+
     metadata: dict[str, Any] = {
         "bell_settings_data": bell_settings_data,
         "measurement_settings": setting_by_circuit_index.copy(),
@@ -124,10 +137,12 @@ def build_sampler_circuits_from_graph(
         "qutrit_qubits": pairs,
         "qutrit_bit_indices_by_setting": qutrit_bit_indices_by_setting,
         "E": np.asarray(E, dtype=complex),
-        "encoding_outcome_map": physical_to_logical_outcome_map(E, d=d),
-        "physical_to_logical_outcome_map": measurement_basis_outcome_map(d=d),
+        "encoding_outcome_map": encoding_outcome_map,
+        "physical_to_logical_outcome_map": physical_outcome_map,
         "d": d,
     }
+    if registry_backed:
+        metadata["spec_hash"] = bell_settings_data["spec_hash"]
     return sampler_circuits, metadata
 
 

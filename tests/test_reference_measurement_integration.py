@@ -9,6 +9,7 @@ from qudits_on_qubits.bell_measurements import (
     ReferenceBellEvaluation,
     build_general_graph_bell_settings,
     build_sampler_circuits_for_candidate,
+    build_sampler_circuits_from_graph,
     evaluate_reference_bell_values_from_counts,
 )
 from qudits_on_qubits.bell_measurements.sampler_circuits import (
@@ -38,11 +39,12 @@ class _Edges(list[_Edge]):
 
 
 class _Graph:
-    def __init__(self, weight: complex = 1) -> None:
+    def __init__(self, weight: complex = 1, num_parties: int = 2) -> None:
         self.es = _Edges([_Edge(0, 1, weight)])
+        self._num_parties = num_parties
 
     def vcount(self) -> int:
-        return 2
+        return self._num_parties
 
 
 def _two_qutrit_counts(
@@ -171,6 +173,49 @@ class ReferenceMeasurementRegistryIntegrationTests(unittest.TestCase):
         self.assertEqual(len(circuits), 9)
         self.assertEqual(metadata["candidate"], "two_qutrit")
         self.assertEqual(metadata["spec_hash"], spec.stable_hash())
+        self.assertEqual(metadata["physical_to_logical_outcome_map"], _OUTCOME_MAP)
+
+    def test_audited_graph_sampler_metadata_uses_registry_map_for_non_monomial_isometry(
+        self,
+    ) -> None:
+        from qiskit import QuantumCircuit
+
+        qutrit_fourier = np.fft.fft(np.eye(4), norm="ortho")[:, :3]
+        circuits, metadata = build_sampler_circuits_from_graph(
+            QuantumCircuit(4),
+            _Graph(),
+            E=qutrit_fourier,
+            add_measurements=False,
+        )
+        spec = get_reference_experiment("two_qutrit")
+
+        self.assertEqual(len(circuits), 9)
+        self.assertEqual(metadata["spec_hash"], spec.stable_hash())
+        self.assertEqual(metadata["physical_to_logical_outcome_map"], _OUTCOME_MAP)
+        self.assertEqual(metadata["encoding_outcome_map"], _OUTCOME_MAP)
+        self.assertEqual(metadata["bell_settings_data"]["candidate"], "two_qutrit")
+        self.assertEqual(
+            metadata["bell_settings_data"]["construction"],
+            "two_qutrit_pdf",
+        )
+
+    def test_generic_graph_sampler_preserves_encoding_derived_metadata(self) -> None:
+        from qiskit import QuantumCircuit
+
+        monomial_encoding = np.eye(4, dtype=complex)[:, (2, 0, 3)]
+        circuits, metadata = build_sampler_circuits_from_graph(
+            QuantumCircuit(6),
+            _Graph(num_parties=3),
+            E=monomial_encoding,
+            add_measurements=False,
+        )
+
+        self.assertEqual(len(circuits), 9)
+        self.assertNotIn("spec_hash", metadata)
+        self.assertEqual(
+            metadata["encoding_outcome_map"],
+            {0: 1, 1: None, 2: 0, 3: 2},
+        )
         self.assertEqual(metadata["physical_to_logical_outcome_map"], _OUTCOME_MAP)
 
 
