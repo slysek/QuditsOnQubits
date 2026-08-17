@@ -10,6 +10,7 @@ import pytest
 
 from qudits_on_qubits.experiments.errors import (
     ExperimentValidationError,
+    JobResultError,
     OptionalDependencyError,
 )
 from qudits_on_qubits.experiments.mitigation import (
@@ -171,18 +172,41 @@ def test_build_m3_mitigation_loads_optional_dependency_lazily(monkeypatch: pytes
 
 
 def test_apply_readout_mitigation_preserves_setting_order_mapping_and_signed_floats() -> None:
-    fake = _FakeMitigation(outputs=[{"0": 1.1, "1": -0.1}, {"00": np.float64(0.4), "11": 0.6}])
-    counts = {"setting-b": {"0": 8, "1": 2}, "setting-a": {"00": 3, "11": 7}}
+    fake = _FakeMitigation(
+        outputs=[{"00": 1.1, "01": -0.1}, {"00": np.float64(0.4), "11": 0.6}]
+    )
+    counts = {"setting-b": {"00": 8, "01": 2}, "setting-a": {"00": 3, "11": 7}}
 
     corrected = apply_readout_mitigation(counts, mapping={0: 2, 1: 0}, mitigation=fake)
 
     assert list(corrected) == ["setting-b", "setting-a"]
     assert corrected == {
-        "setting-b": {"0": 1.1, "1": -0.1},
+        "setting-b": {"00": 1.1, "01": -0.1},
         "setting-a": {"00": 0.4, "11": 0.6},
     }
     assert all(type(value) is float for setting in corrected.values() for value in setting.values())
     assert fake.calls == [(counts["setting-b"], (2, 0)), (counts["setting-a"], (2, 0))]
+
+
+@pytest.mark.parametrize(
+    ("counts", "mapping"),
+    [
+        ({"invalid": 1}, (0,)),
+        ({"0a": 1}, (0, 1)),
+        ({"0": 1}, (0, 1)),
+        ({"00": 1}, (0,)),
+        ({"00": 1, "1": 1}, (0, 1)),
+    ],
+)
+def test_apply_readout_mitigation_rejects_invalid_raw_bitstring_shape(
+    counts: dict[str, int], mapping: tuple[int, ...]
+) -> None:
+    with pytest.raises(ExperimentValidationError, match="binary bitstrings"):
+        apply_readout_mitigation(
+            {"setting": counts},
+            mapping=mapping,
+            mitigation=_FakeMitigation([{"0": 1.0}]),
+        )
 
 
 @pytest.mark.parametrize(
@@ -194,7 +218,10 @@ def test_apply_readout_mitigation_preserves_setting_order_mapping_and_signed_flo
         [{"0": math.nan}],
         [{"0": math.inf}],
         [{"0": 0.0, "1": 0.0}],
+        [{"0": 2.0}],
         [{"0": True}],
+        [{"invalid": 1.0}],
+        [{"00": 1.0}],
     ],
 )
 def test_apply_readout_mitigation_rejects_malformed_corrections(outputs: list[object]) -> None:
@@ -204,7 +231,39 @@ def test_apply_readout_mitigation_rejects_malformed_corrections(outputs: list[ob
         )
 
 
-@pytest.mark.parametrize("counts", [[{}], [{"0": 0}], [{"0": math.nan}]])
+@pytest.mark.parametrize("output", [{"0": 1.0}, {"0a": 1.0}, {"000": 1.0}])
+def test_apply_readout_mitigation_rejects_short_mixed_or_long_corrected_keys(
+    output: dict[str, float],
+) -> None:
+    with pytest.raises(ExperimentValidationError, match="binary bitstrings"):
+        apply_readout_mitigation(
+            {"setting": {"00": 1}},
+            mapping=(0, 1),
+            mitigation=_FakeMitigation([output]),
+        )
+
+
+def test_apply_readout_mitigation_sanitizes_m3_failures() -> None:
+    class FailingMitigation:
+        def apply_correction(self, counts: dict[str, int], qubits: tuple[int, ...]) -> object:
+            raise RuntimeError("token=provider-secret")
+
+    with pytest.raises(JobResultError, match="readout mitigation correction failed") as caught:
+        apply_readout_mitigation(
+            {"setting": {"0": 1}},
+            mapping=(0,),
+            mitigation=FailingMitigation(),  # type: ignore[arg-type]
+        )
+
+    assert "secret" not in str(caught.value).lower()
+    assert caught.value.__cause__ is None
+    assert caught.value.__suppress_context__
+
+
+@pytest.mark.parametrize(
+    "counts",
+    [[{}], [{"0": 0}], [{"0": -1}], [{"0": True}], [{"0": math.nan}]],
+)
 def test_apply_readout_mitigation_rejects_zero_or_nonfinite_input_totals(
     counts: list[dict[str, object]],
 ) -> None:

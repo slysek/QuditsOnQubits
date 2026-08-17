@@ -14,11 +14,12 @@ from typing import Any
 import numpy as np
 from qiskit import QuantumCircuit
 
-from ..errors import ExperimentValidationError, OptionalDependencyError
+from ..errors import ExperimentValidationError, JobResultError, OptionalDependencyError
 from .base import ReadoutMitigationStrategy
 
 
 _CREDENTIAL_MARKERS = ("token=", "api_key=", "password=", "secret=")
+_QUASI_TOTAL_TOLERANCE = 1e-8
 
 
 def _safe_identity(value: object, field_name: str) -> str:
@@ -242,34 +243,51 @@ def build_m3_mitigation(
     return mitigation
 
 
-def _validated_setting_counts(counts: object) -> dict[str, int]:
+def _validate_bitstring(outcome: object, expected_bits: int, field_name: str) -> str:
+    if (
+        not isinstance(outcome, str)
+        or len(outcome) != expected_bits
+        or any(bit not in "01" for bit in outcome)
+    ):
+        raise ExperimentValidationError(
+            f"{field_name} must be binary bitstrings of length {expected_bits}"
+        )
+    return outcome
+
+
+def _validated_setting_counts(counts: object, expected_bits: int) -> dict[str, int]:
     if not isinstance(counts, Mapping):
         raise ExperimentValidationError("setting counts must be mappings")
     normalized: dict[str, int] = {}
     for outcome, count in counts.items():
-        if not isinstance(outcome, str) or not outcome:
-            raise ExperimentValidationError("setting count outcomes must be non-empty strings")
+        bitstring = _validate_bitstring(outcome, expected_bits, "setting count outcomes")
         if isinstance(count, bool) or not isinstance(count, Integral) or count < 0:
             raise ExperimentValidationError("setting counts must be non-negative integers")
-        normalized[outcome] = int(count)
+        normalized[bitstring] = int(count)
     if sum(normalized.values()) <= 0:
         raise ExperimentValidationError("setting counts total must be positive")
     return normalized
 
 
-def _plain_finite_quasi(output: object) -> dict[str, float]:
+def _plain_finite_quasi(output: object, expected_bits: int) -> dict[str, float]:
     if not isinstance(output, Mapping) or not output:
         raise ExperimentValidationError("readout correction must return a non-empty mapping")
     normalized: dict[str, float] = {}
     for outcome, weight in output.items():
-        if not isinstance(outcome, str) or not outcome:
-            raise ExperimentValidationError("corrected outcomes must be non-empty strings")
+        bitstring = _validate_bitstring(outcome, expected_bits, "corrected outcomes")
         if isinstance(weight, bool) or not isinstance(weight, Real) or not math.isfinite(weight):
             raise ExperimentValidationError("corrected weights must be finite real values")
-        normalized[outcome] = float(weight)
+        normalized[bitstring] = float(weight)
     total = sum(normalized.values())
-    if not math.isfinite(total) or total == 0.0:
-        raise ExperimentValidationError("corrected weights must have a finite non-zero total")
+    if not math.isfinite(total) or not math.isclose(
+        total,
+        1.0,
+        rel_tol=_QUASI_TOTAL_TOLERANCE,
+        abs_tol=_QUASI_TOTAL_TOLERANCE,
+    ):
+        raise ExperimentValidationError(
+            "corrected weights must sum to 1 within absolute and relative tolerance 1e-8"
+        )
     return normalized
 
 
@@ -292,7 +310,11 @@ def apply_readout_mitigation(
     mapping: Sequence[int] | Mapping[int, int],
     mitigation: ReadoutMitigationStrategy,
 ) -> dict[str, dict[str, float]]:
-    """Apply M3 separately in setting order and preserve signed quasi weights."""
+    """Apply M3 per setting, preserving signed weights without normalization.
+
+    Corrected weights must sum to one within absolute and relative tolerance
+    ``1e-8``.
+    """
 
     if not isinstance(counts_by_setting, Mapping):
         raise ExperimentValidationError("counts_by_setting must be a mapping")
@@ -305,8 +327,12 @@ def apply_readout_mitigation(
     for setting, counts in counts_by_setting.items():
         if not isinstance(setting, str) or not setting:
             raise ExperimentValidationError("setting names must be non-empty strings")
-        normalized_counts = _validated_setting_counts(counts)
-        corrected[setting] = _plain_finite_quasi(correct(normalized_counts, physical_qubits))
+        normalized_counts = _validated_setting_counts(counts, len(physical_qubits))
+        try:
+            output = correct(normalized_counts, physical_qubits)
+        except Exception:
+            raise JobResultError("readout mitigation correction failed") from None
+        corrected[setting] = _plain_finite_quasi(output, len(physical_qubits))
     return corrected
 
 
