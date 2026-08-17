@@ -186,6 +186,7 @@ def _freeze_value(value: Any) -> Any:
             raise ExperimentValidationError("source state circuit must not contain conditioned instructions")
         if hasattr(operation, "blocks"):
             raise ExperimentValidationError("source state circuit must not contain control flow")
+    return value
 
 
 def _load_encoding(path: Path) -> np.ndarray:
