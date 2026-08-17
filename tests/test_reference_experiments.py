@@ -495,12 +495,6 @@ class LegacyBellFunctionalCompatibilityTests(unittest.TestCase):
                             ),
                         )
                         np.testing.assert_allclose(
-                            legacy_factor.base_observable,
-                            observable.as_array(),
-                            rtol=0,
-                            atol=1e-10,
-                        )
-                        np.testing.assert_allclose(
                             legacy_factor.matrix,
                             registry_factor.logical_operator(observable),
                             rtol=0,
@@ -509,15 +503,60 @@ class LegacyBellFunctionalCompatibilityTests(unittest.TestCase):
 
     def test_legacy_term_base_observables_are_defensive_arrays(self) -> None:
         spec = get_reference_experiment("two_qutrit")
-        expected = spec.observable("A0").as_array()
-        first = bell_terms("two_qutrit")[0].factors[0].base_observable
+        registry_observable = spec.observable("A0").as_array()
+        first_factor = next(
+            factor
+            for term in bell_terms("two_qutrit")
+            for factor in term.factors
+            if factor.label == "A0" and factor.power == 2
+        )
+        expected = first_factor.base_observable.copy()
+        first = first_factor.base_observable
         first[0, 0] = 123 + 456j
 
-        np.testing.assert_allclose(spec.observable("A0").as_array(), expected)
         np.testing.assert_allclose(
-            bell_terms("two_qutrit")[0].factors[0].base_observable,
+            spec.observable("A0").as_array(),
+            registry_observable,
+        )
+        fresh_factor = next(
+            factor
+            for term in bell_terms("two_qutrit")
+            for factor in term.factors
+            if factor.label == "A0" and factor.power == 2
+        )
+        np.testing.assert_allclose(
+            fresh_factor.base_observable,
             expected,
         )
+
+    def test_legacy_factor_fields_store_separate_effective_operator_arrays(self) -> None:
+        for experiment_id in list_reference_experiments():
+            with self.subTest(experiment_id=experiment_id):
+                factors = [
+                    factor
+                    for term in bell_terms(experiment_id)
+                    for factor in term.factors
+                ]
+                power_two = [factor for factor in factors if factor.power == 2]
+                other_powers = [factor for factor in factors if factor.power != 2]
+                self.assertTrue(power_two)
+
+                for factor in power_two + other_powers:
+                    with self.subTest(
+                        label=factor.label,
+                        party=factor.party,
+                        power=factor.power,
+                    ):
+                        self.assertIsNot(
+                            factor.base_observable,
+                            factor.matrix,
+                        )
+                        np.testing.assert_allclose(
+                            factor.base_observable,
+                            factor.matrix,
+                            rtol=0,
+                            atol=0,
+                        )
 
     def test_legacy_states_and_operators_match_registry_ideals(self) -> None:
         encoding = default_qutrit_encoding()

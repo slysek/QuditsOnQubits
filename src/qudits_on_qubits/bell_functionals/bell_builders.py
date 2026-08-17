@@ -70,13 +70,14 @@ def bell_terms(candidate: str) -> tuple[BellTerm, ...]:
                 raise ValueError(
                     f"invalid observable setting label: {factor.setting_label!r}"
                 )
+            matrix = factor.logical_operator(observable)
             factors.append(
                 LocalFactor(
                     party=factor.party,
                     setting=int(match.group(1)),
                     power=factor.outcome_power,
-                    base_observable=observable.as_array(),
-                    matrix=factor.logical_operator(observable),
+                    base_observable=np.array(matrix, dtype=complex, copy=True),
+                    matrix=matrix,
                     label=factor.setting_label,
                 )
             )
