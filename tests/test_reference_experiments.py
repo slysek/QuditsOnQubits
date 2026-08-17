@@ -97,6 +97,23 @@ class ReferenceExperimentsTests(unittest.TestCase):
                 ((0, 1, 1), (0, 1, 2)),
             )
 
+    def test_logical_state_freezes_mutable_metadata_inputs(self) -> None:
+        party_order = [0, 1]
+        weighted_edges = [[0, 1, 1]]
+
+        state_spec = LogicalStateSpec(
+            "mutable-inputs",
+            3,
+            2,
+            party_order,
+            weighted_edges,
+        )
+        party_order[0] = 1
+        weighted_edges[0][0] = 1
+
+        self.assertEqual(state_spec.party_order, (0, 1))
+        self.assertEqual(state_spec.weighted_edges, ((0, 1, 1),))
+
 
 if __name__ == "__main__":
     unittest.main()
