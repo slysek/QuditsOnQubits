@@ -6,8 +6,8 @@ from collections.abc import Callable
 from typing import Any
 
 from ..errors import BackendCompatibilityError
-from ..models import AerIdeal, CustomBackend
-from .aer import AerAdapter
+from ..models import AerIdeal, CustomBackend, IQMHardware, NoisySimulator, PiastQHardware
+from .aer import AerAdapter, NoisyAerAdapter, build_noisy_adapter
 from .base import (
     Availability,
     BackendAdapter,
@@ -19,6 +19,8 @@ from .base import (
     SubmittedJob,
 )
 from .custom import CustomBackendAdapter
+from .iqm import IQMAdapter
+from .piastq import PiastQAdapter
 
 
 AdapterFactory = Callable[..., BackendAdapter]
@@ -47,6 +49,9 @@ class BackendAdapterRegistry:
 backend_registry = BackendAdapterRegistry()
 backend_registry.register(AerIdeal, AerAdapter)
 backend_registry.register(CustomBackend, CustomBackendAdapter)
+backend_registry.register(IQMHardware, IQMAdapter)
+backend_registry.register(PiastQHardware, PiastQAdapter)
+backend_registry.register(NoisySimulator, build_noisy_adapter)
 
 
 def create_backend_adapter(specification: Any, **injected: Any) -> BackendAdapter:
@@ -64,7 +69,11 @@ __all__ = [
     "CompiledBatch",
     "CustomBackendAdapter",
     "ExecutionResult",
+    "IQMAdapter",
+    "NoisyAerAdapter",
+    "PiastQAdapter",
     "SubmittedJob",
     "backend_registry",
+    "build_noisy_adapter",
     "create_backend_adapter",
 ]
