@@ -23,6 +23,8 @@ from ..models import TranspilationConfig
 
 _SAFE_IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,255}\Z")
 _BITSTRING = re.compile(r"[01]+(?: [01]+)*\Z")
+_STATUS_TOKEN = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,63}\Z")
+_EXCEPTION_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,127}\Z")
 _CREDENTIAL_MARKERS = ("token=", "api_key=", "password=", "secret=")
 
 
@@ -48,6 +50,36 @@ def _safe_optional_label(value: object, field_name: str) -> str | None:
     if value is None:
         return None
     return _safe_label(value, field_name)
+
+
+def _exception_name(error: BaseException) -> str:
+    name = type(error).__name__
+    return name if _EXCEPTION_NAME.fullmatch(name) else "Exception"
+
+
+def _normalise_status(value: Any, *, reject_unsafe: bool) -> str | None:
+    if value is None:
+        return None
+    candidates: list[Any] = []
+    if isinstance(value, Enum):
+        candidates.extend((value.name, value.value))
+    elif isinstance(value, str):
+        candidates.append(value)
+    else:
+        try:
+            candidates.extend((getattr(value, "name", None), getattr(value, "value", None)))
+        except Exception:
+            candidates = []
+    for candidate in candidates:
+        if (
+            isinstance(candidate, str)
+            and not any(marker in candidate.lower() for marker in _CREDENTIAL_MARKERS)
+            and _STATUS_TOKEN.fullmatch(candidate)
+        ):
+            return candidate.lower()
+    if reject_unsafe:
+        raise ExperimentValidationError("result status must be a safe status token, enum, or None")
+    return None
 
 
 def _freeze_value(value: Any, field_name: str) -> Any:
@@ -216,7 +248,7 @@ class ExecutionResult:
     counts: tuple[Mapping[str, int], ...]
     job_id: str
     target_identity: BackendIdentity
-    status: str | None = None
+    status: str | Enum | None = None
     timing: Mapping[str, Any] = field(default_factory=dict)
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -224,8 +256,7 @@ class ExecutionResult:
         object.__setattr__(self, "job_id", _safe_identifier(self.job_id, "job_id"))
         if not isinstance(self.target_identity, BackendIdentity):
             raise ExperimentValidationError("target_identity must be BackendIdentity")
-        if self.status is not None and (not isinstance(self.status, str) or not self.status):
-            raise ExperimentValidationError("result status must be a non-empty string or None")
+        object.__setattr__(self, "status", _normalise_status(self.status, reject_unsafe=True))
         frozen_counts = tuple(_validate_counts(item) for item in self.counts)
         if not frozen_counts:
             raise ExperimentValidationError("execution result counts must not be empty")
@@ -329,12 +360,15 @@ class BaseBackendAdapter(ABC):
         except Exception as error:
             identity = self.resolve()
             raise JobSubmissionError(
-                f"backend {identity.kind}:{identity.name} rejected job submission"
-            ) from error
+                f"backend {identity.kind}:{identity.name} rejected job submission "
+                f"({_exception_name(error)})"
+            ) from None
         try:
             job_id = _extract_job_id(handle, allow_local_fallback=self.capabilities().local)
         except ExperimentValidationError as error:
-            raise JobSubmissionError("submitted job did not provide a usable job ID") from error
+            raise JobSubmissionError(
+                f"submitted job did not provide a usable job ID ({_exception_name(error)})"
+            ) from None
         return SubmittedJob(
             job_id=job_id,
             handle=handle,
@@ -361,7 +395,9 @@ class BaseBackendAdapter(ABC):
             else:
                 raw_result = submitted.handle.result(timeout=timeout)
         except Exception as error:
-            raise JobResultError(f"could not retrieve result for job {submitted.job_id}") from error
+            raise JobResultError(
+                f"could not retrieve result for job {submitted.job_id} ({_exception_name(error)})"
+            ) from None
         try:
             counts = _extract_counts(raw_result, submitted.circuit_count)
             validated = tuple(_validate_counts(item) for item in counts)
@@ -376,7 +412,10 @@ class BaseBackendAdapter(ABC):
         except JobResultError:
             raise
         except Exception as error:
-            raise JobResultError(f"result for job {submitted.job_id} has an unsupported format") from error
+            raise JobResultError(
+                f"result for job {submitted.job_id} has an unsupported format "
+                f"({_exception_name(error)})"
+            ) from None
         return ExecutionResult(
             counts=validated,
             job_id=submitted.job_id,
@@ -392,7 +431,9 @@ def _validated_circuit_tuple(circuits: Sequence[Any]) -> tuple[Any, ...]:
     try:
         batch = circuits if isinstance(circuits, tuple) else tuple(circuits)
     except TypeError as error:
-        raise BackendCompatibilityError("circuits must be a non-empty sequence") from error
+        raise BackendCompatibilityError(
+            f"circuits must be a non-empty sequence ({_exception_name(error)})"
+        ) from None
     if not batch or any(circuit is None for circuit in batch):
         raise BackendCompatibilityError("circuits must be a non-empty sequence")
     return batch
@@ -453,7 +494,7 @@ def _extract_counts(raw_result: Any, circuit_count: int | None) -> tuple[Mapping
     getter = getattr(raw_result, "get_counts", None)
     if callable(getter):
         if circuit_count == 1:
-            value = getter()
+            value = _call_provider_counts(getter)
             if isinstance(value, (list, tuple)) and len(value) == 1:
                 value = value[0]
             return (value,)
@@ -461,15 +502,21 @@ def _extract_counts(raw_result: Any, circuit_count: int | None) -> tuple[Mapping
             try:
                 return tuple(getter(index) for index in range(circuit_count))
             except (TypeError, IndexError):
-                value = getter()
+                value = _call_provider_counts(getter)
                 return tuple(value) if isinstance(value, (list, tuple)) else (value,)
-        value = getter()
+            except Exception as error:
+                raise JobResultError(
+                    f"provider get_counts failed ({_exception_name(error)})"
+                ) from None
+        value = _call_provider_counts(getter)
         return tuple(value) if isinstance(value, (list, tuple)) else (value,)
 
     try:
         entries = tuple(raw_result)
-    except TypeError as error:
-        raise JobResultError("result does not expose counts") from error
+    except Exception as error:
+        raise JobResultError(
+            f"result does not expose counts ({_exception_name(error)})"
+        ) from None
     if not entries:
         raise JobResultError("result does not contain primitive entries")
     return tuple(_counts_from_primitive_entry(entry) for entry in entries)
@@ -482,7 +529,7 @@ def _counts_from_primitive_entry(entry: Any) -> Mapping[str, int]:
     meas = getattr(data, "meas", None)
     getter = getattr(meas, "get_counts", None)
     if callable(getter):
-        return getter()
+        return _call_provider_counts(getter)
 
     names: list[str] = []
     keys = getattr(data, "keys", None)
@@ -498,8 +545,17 @@ def _counts_from_primitive_entry(entry: Any) -> Mapping[str, int]:
         register = getattr(data, name, None)
         getter = getattr(register, "get_counts", None)
         if callable(getter):
-            return getter()
+            return _call_provider_counts(getter)
     raise JobResultError("primitive data bin does not expose get_counts")
+
+
+def _call_provider_counts(getter: Any) -> Any:
+    try:
+        return getter()
+    except Exception as error:
+        raise JobResultError(
+            f"provider get_counts failed ({_exception_name(error)})"
+        ) from None
 
 
 def _result_status(handle: Any, raw_result: Any) -> str | None:
@@ -510,14 +566,18 @@ def _result_status(handle: Any, raw_result: Any) -> str | None:
         except Exception:
             continue
         if value is not None:
-            name = getattr(value, "name", None)
-            return str(name if name is not None else value)
+            status = _normalise_status(value, reject_unsafe=False)
+            if status is not None:
+                return status
     return None
 
 
 def _result_timing(raw_result: Any) -> Mapping[str, Any]:
     timing: dict[str, Any] = {}
-    value = getattr(raw_result, "time_taken", None)
+    try:
+        value = getattr(raw_result, "time_taken", None)
+    except Exception:
+        return timing
     if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
         timing["time_taken"] = value
     return timing
