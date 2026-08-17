@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -33,6 +34,7 @@ from qudits_on_qubits.experiments.models import (
     RetryConfig,
     MitigationConfig,
 )
+from qudits_on_qubits.experiments.store import ExperimentStore
 from qudits_on_qubits.experiments.errors import (
     BackendCompatibilityError,
     ExperimentPersistenceError,
@@ -349,7 +351,7 @@ def test_resume_missing_factor_ambiguous_submit_remains_submission_unknown(
     assert "resume-provider" not in repr(document)
 
 
-def test_resume_known_calibration_restores_once_before_measurement_submit(
+def test_resume_known_calibration_restores_once_without_duplicate_submit(
     tmp_path, monkeypatch
 ):
     from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
@@ -396,6 +398,19 @@ def test_resume_known_calibration_restores_once_before_measurement_submit(
             _evaluator=lambda _counts: 1 + 0j,
         )
     run = caught.value.__qoq_artifact_dir__
+    store = ExperimentStore(spec.output_root)
+    interrupted = store.read_experiment(run)
+    assert interrupted["jobs"]["calibration"]["job_id"] == "durable-job"
+    assert "job_id" not in interrupted["calibration"]
+
+    counts_path = store.write_counts(run, 1, {("A0",): {"0": spec.shots}})
+    interrupted["counts"]["1"] = {
+        "artifact": counts_path.name,
+        "sha256": hashlib.sha256(counts_path.read_bytes()).hexdigest(),
+        "settings": [("A0",)],
+    }
+    interrupted["jobs"]["1"]["status"] = "completed"
+    store.write_experiment(run, interrupted)
     resumed = CalibrationResume()
     result = resume_experiment(
         run,
@@ -409,9 +424,63 @@ def test_resume_known_calibration_restores_once_before_measurement_submit(
 
     assert result.status is ExperimentStatus.COMPLETED
     assert resumed.restore_calls == 1
-    assert resumed.submit_calls == 1
+    assert resumed.submit_calls == 0
     assert document["calibration"]["status"] == "completed"
     assert document["counts"]["1"]["artifact"] == "counts-factor-1.json"
+
+
+def test_resume_rejects_disagreeing_legacy_calibration_job_id_without_backend_job_calls(
+    tmp_path, monkeypatch
+):
+    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
+
+    _patch_preparation(monkeypatch)
+    base = _spec(tmp_path)
+    spec = replace(base, mitigation=MitigationConfig(readout=True))
+
+    class CalibrationInterrupt(InterruptThenRestoreAdapter):
+        def result(self, submitted, timeout=None):
+            if submitted.circuit_count == 2:
+                raise KeyboardInterrupt
+            return super().result(submitted, timeout)
+
+    class PureReadout:
+        def build_context(self, calibration):
+            return None
+
+        def resample_calibration(self, calibration, rng):
+            return None
+
+        def apply(self, counts_by_setting, context):
+            return counts_by_setting
+
+    with pytest.raises(KeyboardInterrupt) as caught:
+        run_experiment(
+            spec,
+            adapter=CalibrationInterrupt(),
+            _sleep=lambda _delay: None,
+            _readout_strategy=PureReadout(),
+            _evaluator=lambda _counts: 1 + 0j,
+        )
+    run = caught.value.__qoq_artifact_dir__
+    store = ExperimentStore(spec.output_root)
+    interrupted = store.read_experiment(run)
+    interrupted["calibration"]["job_id"] = "disagreeing-legacy-job"
+    store.write_experiment(run, interrupted)
+    resumed = InterruptThenRestoreAdapter()
+
+    with pytest.raises(ExperimentPersistenceError, match="calibration job ID"):
+        resume_experiment(
+            run,
+            adapter=resumed,
+            spec=spec,
+            _sleep=lambda _delay: None,
+            _readout_strategy=PureReadout(),
+            _evaluator=lambda _counts: 1 + 0j,
+        )
+
+    assert resumed.restore_calls == 0
+    assert resumed.submit_calls == 0
 
 
 @pytest.mark.parametrize("timeout", [0, -1, True, float("inf")])
