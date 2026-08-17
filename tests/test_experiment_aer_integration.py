@@ -225,10 +225,15 @@ def test_experiments_public_surface_is_explicit() -> None:
     )
 
 
-def test_top_level_experiment_api_is_lazy_and_needs_no_optional_mitigation_or_piastq() -> None:
+def test_top_level_experiment_api_is_lazy_without_optional_dependencies_or_network() -> None:
     code = """
 import builtins
 import sys
+
+def reject_network(event, _args):
+    if event in {'socket.connect', 'socket.getaddrinfo'}:
+        raise AssertionError(f'network access attempted: {event}')
+sys.addaudithook(reject_network)
 
 original_import = builtins.__import__
 def guarded_import(name, *args, **kwargs):
@@ -239,14 +244,22 @@ builtins.__import__ = guarded_import
 
 import qudits_on_qubits as qoq
 assert 'qudits_on_qubits.experiments' not in sys.modules
+uncertainty_names = (
+    'BootstrapBellResults', 'BootstrapDiagnostics', 'BootstrapInputs',
+    'ReadoutBootstrapStrategy', 'ZNEBootstrapStrategy', 'bootstrap_bell_results',
+)
+assert set(uncertainty_names).issubset(qoq.__all__)
 for name in (
     'ExperimentSpec', 'PathBasis', 'BenchmarkBasis', 'AerIdeal', 'NoisySimulator',
     'IQMHardware', 'PiastQHardware', 'CustomBackend', 'MitigationConfig',
     'BootstrapConfig', 'TranspilationConfig', 'RetryConfig', 'ExperimentResult',
     'BellEstimate', 'ComplexConfidenceInterval', 'run_experiment',
     'run_experiments', 'resume_experiment',
-):
+) + uncertainty_names:
     assert getattr(qoq, name) is not None
+import qudits_on_qubits.experiments as experiments
+for name in uncertainty_names:
+    assert getattr(qoq, name) is getattr(experiments, name)
 assert 'mthree' not in sys.modules
 assert 'cft_piastq' not in sys.modules
 """
