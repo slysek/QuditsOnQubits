@@ -97,3 +97,14 @@ def test_prepared_measurements_deeply_freeze_metadata():
     assert prepared.metadata["labels"] == frozenset({"A0"})
     with pytest.raises(TypeError):
         prepared.metadata["nested"]["values"][0]["candidate"] = "changed"
+
+def test_prepared_measurements_copy_and_freeze_nested_ndarrays():
+    original = np.array([1.0, 2.0])
+    from qudits_on_qubits.experiments.preparation import PreparedMeasurements
+    prepared = PreparedMeasurements(circuits=(), metadata={"nested": {"array": original}})
+
+    original[0] = 99.0
+
+    assert prepared.metadata["nested"]["array"][0] == 1.0
+    with pytest.raises(ValueError):
+        prepared.metadata["nested"]["array"][0] = 3.0

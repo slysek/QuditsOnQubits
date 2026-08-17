@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Mapping
 
+import numpy as np
+
 from qudits_on_qubits.bell_measurements import build_sampler_circuits_for_candidate
 
 from .artifacts import BasisArtifacts
@@ -30,6 +32,10 @@ def _freeze_mapping(values: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 def _freeze_value(value: Any) -> Any:
+    if isinstance(value, np.ndarray):
+        frozen = value.copy()
+        frozen.setflags(write=False)
+        return frozen
     if isinstance(value, Mapping):
         return _freeze_mapping(value)
     if isinstance(value, (list, tuple)):
