@@ -36,7 +36,7 @@ class BasisArtifacts:
         object.__setattr__(self, "directory", Path(self.directory).resolve())
         object.__setattr__(self, "source_paths", MappingProxyType(dict(self.source_paths)))
         object.__setattr__(self, "source_hashes", MappingProxyType(dict(self.source_hashes)))
-        object.__setattr__(self, "provenance", MappingProxyType(dict(self.provenance)))
+        object.__setattr__(self, "provenance", _freeze_mapping(self.provenance))
         encoding = np.asarray(self.encoding, dtype=complex).copy()
         encoding.setflags(write=False)
         object.__setattr__(self, "encoding", encoding)
@@ -156,6 +156,12 @@ def _validate_state_circuit(circuit: Any, state: str) -> None:
     expected_qubits = _EXPECTED_QUBITS[state]
     if circuit.num_qubits != expected_qubits:
         raise ExperimentValidationError(f"{state} source state circuit must contain {expected_qubits} qubits")
+    for instruction in circuit.data:
+        operation = instruction.operation
+        if hasattr(operation, "blocks"):
+            raise ExperimentValidationError("source state circuit must not contain control flow")
+        if getattr(operation, "condition", None) is not None:
+            raise ExperimentValidationError("source state circuit must not contain conditioned instructions")
     if circuit.num_clbits:
         raise ExperimentValidationError("source state circuit must not contain classical bits or measurements")
     for instruction in circuit.data:
@@ -164,6 +170,18 @@ def _validate_state_circuit(circuit: Any, state: str) -> None:
             raise ExperimentValidationError("source state circuit must not contain measurements")
         if operation.name == "reset":
             raise ExperimentValidationError("source state circuit must not contain resets")
+
+def _freeze_mapping(values: Mapping[str, Any]) -> Mapping[str, Any]:
+    return MappingProxyType({key: _freeze_value(value) for key, value in values.items()})
+
+
+def _freeze_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return _freeze_mapping(value)
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_value(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return frozenset(_freeze_value(item) for item in value)
         if getattr(operation, "condition", None) is not None:
             raise ExperimentValidationError("source state circuit must not contain conditioned instructions")
         if hasattr(operation, "blocks"):
