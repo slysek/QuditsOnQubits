@@ -129,6 +129,16 @@ def test_custom_and_noisy_backends_require_injection_to_reconstruct():
         NoisySimulator.from_safe_dict(noisy.to_safe_dict())
 
 
+@pytest.mark.parametrize(
+    ("noise_model", "target_backend"),
+    [(object(), None), (None, object())],
+)
+def test_noisy_simulator_source_mode_rejects_partial_model_configuration(
+    noise_model, target_backend
+):
+    with pytest.raises(ExperimentValidationError, match="exactly"):
+        NoisySimulator(source=object(), noise_model=noise_model, target_backend=target_backend)
+
 def test_models_are_frozen():
     backend = AerIdeal()
     with pytest.raises(FrozenInstanceError):
