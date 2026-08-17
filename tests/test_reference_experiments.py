@@ -143,6 +143,18 @@ class ReferenceExperimentsTests(unittest.TestCase):
                         weighted_edges,
                     )
 
+    def test_logical_state_rejects_empty_or_nonstring_state_id(self) -> None:
+        for state_id in ("", " \t", None, 7):
+            with self.subTest(state_id=state_id):
+                with self.assertRaisesRegex(ValueError, "state_id.*nonempty string"):
+                    LogicalStateSpec(
+                        state_id,
+                        3,
+                        2,
+                        (0, 1),
+                        ((0, 1, 1),),
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()
