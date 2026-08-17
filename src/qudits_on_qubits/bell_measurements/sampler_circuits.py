@@ -6,7 +6,9 @@ from typing import Any, TYPE_CHECKING
 
 import numpy as np
 
-from .basis import omega, ordered_qutrit_eigenbasis, measurement_basis_outcome_map, physical_to_logical_outcome_map
+from qudits_on_qubits.reference_experiments import get_reference_experiment
+
+from .basis import measurement_basis_outcome_map, physical_to_logical_outcome_map
 from .graph_settings import build_general_graph_bell_settings
 from .qiskit_measurements import append_measurement_for_global_setting
 
@@ -229,7 +231,8 @@ def build_sampler_circuits_for_candidate(
         )
 
     metadata: dict[str, Any] = {
-        "candidate": candidate,
+        "candidate": bell_settings_data["candidate"],
+        "spec_hash": bell_settings_data["spec_hash"],
         "bell_settings_data": bell_settings_data,
         "measurement_settings": setting_by_circuit_index.copy(),
         "circuits_by_setting": circuits_by_setting,
@@ -239,8 +242,12 @@ def build_sampler_circuits_for_candidate(
         "qutrit_qubits": pairs,
         "qutrit_bit_indices_by_setting": qutrit_bit_indices_by_setting,
         "E": np.asarray(E, dtype=complex),
-        "encoding_outcome_map": physical_to_logical_outcome_map(E, d=d),
-        "physical_to_logical_outcome_map": measurement_basis_outcome_map(d=d),
+        "encoding_outcome_map": dict(
+            bell_settings_data["physical_to_logical_outcome_map"]
+        ),
+        "physical_to_logical_outcome_map": dict(
+            bell_settings_data["physical_to_logical_outcome_map"]
+        ),
         "d": d,
     }
     return sampler_circuits, metadata
@@ -496,141 +503,48 @@ def _candidate_bell_settings_data(
     if d != 3:
         raise ValueError("audited candidate Bell settings are implemented only for d=3")
 
-    try:
-        from qudits_on_qubits.bell_functionals.bell_builders import (
-            bell_terms,
-            num_qutrits_for_candidate,
-        )
-    except Exception as exc:
-        raise ImportError(
-            "build_sampler_circuits_for_candidate requires the local "
-            "qudits_on_qubits.bell_functionals package"
-        ) from exc
-
-    num_qutrits = num_qutrits_for_candidate(candidate)
-    raw_terms = list(bell_terms(candidate))
-    if drop_conjugate_half:
-        raw_terms = [
-            term
-            for term in raw_terms
-            if _primary_term_power_mod_d(term, d=d) == 1
-        ]
-
-    observables_by_label = _candidate_measurement_observables(candidate)
+    spec = get_reference_experiment(candidate)
+    observables_by_label = {
+        observable.label: observable.as_array()
+        for observable in spec.observables
+    }
     converted_terms: list[dict[str, object]] = []
     measurement_settings: list[tuple[str | None, ...]] = []
     seen_settings: set[tuple[str | None, ...]] = set()
 
-    for term_index, raw_term in enumerate(raw_terms):
-        settings: list[str | None] = [None] * num_qutrits
-        powers: list[int] = [0] * num_qutrits
-        coeff = complex(raw_term.coefficient)
+    for term_index, term in enumerate(spec.bell_functional.terms):
+        if not term.factors:
+            continue
+        graph_power = int(term.factors[0].outcome_power) % d
+        if drop_conjugate_half and graph_power != 1:
+            continue
 
-        for factor in raw_term.factors:
-            label = str(factor.label)
-            if label not in observables_by_label:
-                raise ValueError(
-                    f"candidate {candidate!r} has no measurement observable "
-                    f"for label {label!r}"
-                )
-            if settings[factor.party] not in (None, label):
-                raise ValueError("a Bell term assigns two settings to one party")
-            settings[factor.party] = label
-            powers[factor.party] = int(factor.power)
-            coeff *= _root_expectation_scale_for_sampler(
-                measurement_observable=observables_by_label[label],
-                desired_operator=np.asarray(factor.matrix, dtype=complex),
-                power=int(factor.power),
-                d=d,
-            )
-
-        setting_tuple = tuple(settings)
+        setting_tuple = spec.setting_for_term(term)
         if setting_tuple not in seen_settings:
             seen_settings.add(setting_tuple)
             measurement_settings.append(setting_tuple)
 
         converted_terms.append(
             {
-                "coeff": complex(coeff),
+                "coeff": term.sampling_coefficient(),
                 "settings": setting_tuple,
-                "powers": tuple(powers),
-                "source": f"{candidate}:{term_index}",
-                "graph_power": _primary_term_power_mod_d(raw_term, d=d),
+                "powers": spec.powers_for_term(term),
+                "source": f"{spec.experiment_id}:{term_index}",
+                "graph_power": graph_power,
             }
         )
 
     return {
-        "candidate": candidate,
-        "party_order": tuple(range(num_qutrits)),
+        "candidate": spec.experiment_id,
+        "spec_hash": spec.stable_hash(),
+        "party_order": spec.state.party_order,
         "measurement_settings": measurement_settings,
         "terms": converted_terms,
         "observables_by_label": observables_by_label,
+        "physical_to_logical_outcome_map": dict(
+            spec.outcome_convention.measurement_basis_index_map
+        ),
     }
-
-
-def _candidate_measurement_observables(candidate: str) -> dict[str, np.ndarray]:
-    from qudits_on_qubits.bell_functionals.operators import (
-        make_XZ_qutrit,
-        make_measurement_observables_qutrit_d3,
-    )
-
-    x, z, _ = make_XZ_qutrit()
-    observables: dict[str, np.ndarray] = {}
-    for index, observable in enumerate(make_measurement_observables_qutrit_d3(1)):
-        observables[f"A{index}"] = np.asarray(observable, dtype=complex)
-    for index in range(3):
-        observables[f"B{index}"] = z @ np.linalg.matrix_power(x, index)
-
-    if candidate == "ghz3":
-        observables["C0"] = z
-        observables["C1"] = z @ x
-    elif candidate == "ame43":
-        observables["C0"] = z
-        observables["C1"] = x
-        observables["D0"] = z
-        observables["D1"] = z @ x
-    elif candidate != "two_qutrit":
-        raise ValueError(f"unknown candidate: {candidate!r}")
-    return observables
-
-
-def _root_expectation_scale_for_sampler(
-    measurement_observable: np.ndarray,
-    desired_operator: np.ndarray,
-    power: int,
-    d: int,
-    tol: float = 1e-7,
-) -> complex:
-    V, _ = ordered_qutrit_eigenbasis(
-        measurement_observable,
-        d=d,
-        tol=tol,
-        allow_global_phase=True,
-    )
-    diagonalized = V.conj().T @ np.asarray(desired_operator, dtype=complex) @ V
-    off_diagonal = diagonalized - np.diag(np.diag(diagonalized))
-    if not np.allclose(off_diagonal, 0.0, atol=tol):
-        raise ValueError(
-            "desired Bell operator is not diagonal in the selected measurement basis"
-        )
-
-    roots = np.array(
-        [omega(d) ** ((int(power) * outcome) % d) for outcome in range(d)],
-        dtype=complex,
-    )
-    scales = np.diag(diagonalized) / roots
-    if not np.allclose(scales, scales[0], atol=tol):
-        raise ValueError(
-            "desired Bell operator cannot be represented by one sampled power "
-            "and a global scale"
-        )
-    return complex(scales[0])
-
-
-def _primary_term_power_mod_d(term: Any, d: int) -> int:
-    if not term.factors:
-        return 0
-    return int(term.factors[0].power) % d
 
 
 def _extract_setting(item: object) -> tuple[object, ...]:

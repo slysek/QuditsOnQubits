@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 import numpy as np
+
+from qudits_on_qubits.reference_experiments import get_reference_experiment
 
 from .basis import (
     canonical_Ez,
@@ -11,6 +14,15 @@ from .basis import (
     physical_index_from_bits,
     physical_to_logical_outcome_map,
 )
+
+
+@dataclass(frozen=True)
+class ReferenceBellEvaluation:
+    unconditional: complex
+    conditional: complex
+    leakage_rate: float
+    total_shots: int
+    accepted_shots: int
 
 
 def bit_pair_to_qutrit_outcome(
@@ -174,6 +186,77 @@ def compute_bell_value_from_counts(
         )
         value += complex(term["coeff"]) * expectation  # type: ignore[index]
     return complex(value)
+
+
+def evaluate_reference_bell_values_from_counts(
+    candidate: str,
+    counts_by_setting: Mapping[tuple, Mapping[str, int]],
+    qutrit_bit_indices_by_setting: Mapping[tuple, Sequence[tuple[int, int]]],
+    bit_order: str = "qiskit",
+) -> ReferenceBellEvaluation:
+    """Evaluate registry Bell values with and without leakage postselection."""
+    spec = get_reference_experiment(candidate)
+    outcome_map = dict(spec.outcome_convention.measurement_basis_index_map)
+    terms = [
+        {
+            "coeff": term.sampling_coefficient(),
+            "settings": spec.setting_for_term(term),
+            "powers": spec.powers_for_term(term),
+        }
+        for term in spec.bell_functional.terms
+    ]
+
+    unconditional = compute_bell_value_from_counts(
+        counts_by_setting,
+        terms,
+        qutrit_bit_indices_by_setting,
+        d=3,
+        bit_order=bit_order,
+        discard_leakage=False,
+        renormalize_after_discard=False,
+        outcome_map=outcome_map,
+    )
+    conditional = compute_bell_value_from_counts(
+        counts_by_setting,
+        terms,
+        qutrit_bit_indices_by_setting,
+        d=3,
+        bit_order=bit_order,
+        discard_leakage=True,
+        renormalize_after_discard=True,
+        outcome_map=outcome_map,
+    )
+
+    total_shots = 0
+    leakage_shots = 0
+    for setting in spec.measurement_settings():
+        counts = counts_by_setting[setting]
+        qutrit_bit_indices = qutrit_bit_indices_by_setting[setting]
+        for bitstring, count in counts.items():
+            _validate_count(count)
+            total_shots += count
+            outcomes = bitstring_to_qutrit_outcomes(
+                bitstring,
+                qutrit_bit_indices,
+                bit_order,
+                outcome_map=outcome_map,
+                d=3,
+            )
+            if any(outcome is None for outcome in outcomes):
+                leakage_shots += count
+
+    accepted_shots = total_shots - leakage_shots
+    if total_shots == 0:
+        leakage_rate_value = 0.0
+    else:
+        leakage_rate_value = leakage_shots / total_shots
+    return ReferenceBellEvaluation(
+        unconditional=unconditional,
+        conditional=conditional,
+        leakage_rate=leakage_rate_value,
+        total_shots=total_shots,
+        accepted_shots=accepted_shots,
+    )
 
 
 def _resolve_outcome_map(
