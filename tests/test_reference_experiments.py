@@ -113,6 +113,29 @@ def _brute_force_bound(spec: ReferenceExperimentSpec) -> float:
     return float(best)
 
 
+class PublicReferenceApiTests(unittest.TestCase):
+    def test_top_level_reference_exports_resolve_registry_objects(self) -> None:
+        from qudits_on_qubits import (
+            EncodingSpec as PublicEncodingSpec,
+            ReferenceExperimentSpec as PublicReferenceExperimentSpec,
+            get_encoding as public_get_encoding,
+            get_reference_experiment as public_get_reference_experiment,
+            list_reference_experiments as public_list_reference_experiments,
+        )
+
+        encoding = public_get_encoding("canonical_ez")
+        reference = public_get_reference_experiment("ghz3")
+
+        self.assertIs(PublicEncodingSpec, EncodingSpec)
+        self.assertIs(PublicReferenceExperimentSpec, ReferenceExperimentSpec)
+        self.assertIs(encoding, get_encoding("canonical_ez"))
+        self.assertIs(reference, get_reference_experiment("ghz3"))
+        self.assertEqual(
+            public_list_reference_experiments(),
+            ("two_qutrit", "ghz3", "ame43"),
+        )
+
+
 class ReferenceExperimentsTests(unittest.TestCase):
     def test_canonical_encoding_has_expected_code_and_leakage_geometry(self) -> None:
         encoding = get_encoding("canonical_ez")

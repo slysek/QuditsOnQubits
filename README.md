@@ -49,6 +49,36 @@ Run smoke tests:
 python -m unittest discover -s tests -v
 ```
 
+## Frozen reference experiments
+
+Use the frozen registry to inspect a Bell experiment without a notebook or
+provider:
+
+```python
+from qudits_on_qubits import get_encoding, get_reference_experiment
+
+spec = get_reference_experiment("ghz3")
+statevector = spec.state.statevector()
+measurement_settings = spec.measurement_settings()
+encoding = get_encoding(spec.default_encoding_id)
+
+print(spec.experiment_id)
+print(statevector)
+print(measurement_settings)
+print(encoding.encoding_id)
+print(spec.expected.ideal_bell_value)
+print(spec.bell_functional.classical_bound)
+print(spec.leakage_policy)
+print(spec.stable_hash())
+```
+
+Canonical experiment IDs are `two_qutrit`, `ghz3`, and `ame43`; `2qutrit` is
+an alias for `two_qutrit`. Every reference uses the default encoding ID
+`canonical_ez`. Backend adapters normalize physical results to logical outcomes
+`0`, `1`, `2`, or leakage. Analysis reports leakage before postselection and
+both unconditional and conditional Bell values. The stable `spec.stable_hash()`
+is available for backend metadata and regression tests.
+
 ## Direct-Basis Top-K Selection
 
 Run a full direct-basis benchmark for one Bell-supported state and copy selected circuits:

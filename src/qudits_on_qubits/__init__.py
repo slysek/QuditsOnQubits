@@ -8,10 +8,18 @@ _CALLABLE_EXPORTS = {
     "create_ame_circuit": "qudits_on_qubits.core.create_ame_circuit",
     "draw_graph": "qudits_on_qubits.core.draw_graph",
     "generate_b_ame": "qudits_on_qubits.core.generate_b_ame",
+    "get_encoding": "qudits_on_qubits.reference_experiments",
+    "get_reference_experiment": "qudits_on_qubits.reference_experiments",
+    "list_reference_experiments": "qudits_on_qubits.reference_experiments",
     "prepare_op_to_ibm": "qudits_on_qubits.core.prepare_op_to_ibm",
 }
 _CLASS_EXPORTS = {
+    "EncodingSpec": ("qudits_on_qubits.reference_experiments", "EncodingSpec"),
     "QuditsOnQubits": ("qudits_on_qubits.core.quditsonqubits", "QuditsOnQubits"),
+    "ReferenceExperimentSpec": (
+        "qudits_on_qubits.reference_experiments",
+        "ReferenceExperimentSpec",
+    ),
 }
 
 
@@ -40,9 +48,14 @@ def __getattr__(name: str) -> Any:
 
 
 __all__ = [
+    "EncodingSpec",
     "QuditsOnQubits",
+    "ReferenceExperimentSpec",
     "create_ame_circuit",
     "draw_graph",
     "generate_b_ame",
+    "get_encoding",
+    "get_reference_experiment",
+    "list_reference_experiments",
     "prepare_op_to_ibm",
 ]
