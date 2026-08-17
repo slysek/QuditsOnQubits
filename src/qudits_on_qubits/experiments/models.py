@@ -1,0 +1,433 @@
+"""Immutable, validated models for reproducible experiment runs."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
+from types import MappingProxyType
+from typing import Any, Mapping
+
+from .errors import ExperimentValidationError
+
+
+_CREDENTIAL_MARKERS = ("token=", "api_key=", "password=", "secret=")
+_STATES = {"two_qutrit", "ghz3", "ame43"}
+
+
+def _safe_text(value: str, field_name: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise ExperimentValidationError(f"{field_name} must be a non-empty string")
+    if any(marker in value.lower() for marker in _CREDENTIAL_MARKERS):
+        raise ExperimentValidationError(f"{field_name} must not contain credential material")
+    return value
+
+
+def _safe_optional_path(value: Path | str | None, field_name: str) -> Path | None:
+    if value is None:
+        return None
+    path = Path(value)
+    _safe_text(str(path), field_name)
+    return path
+
+
+def _safe_tags(value: Mapping[str, str]) -> Mapping[str, str]:
+    if not isinstance(value, Mapping):
+        raise ExperimentValidationError("tags must be a mapping of strings")
+    tags: dict[str, str] = {}
+    for key, item in value.items():
+        tags[_safe_text(key, "tag key")] = _safe_text(item, "tag value")
+    return MappingProxyType(tags)
+
+
+@dataclass(frozen=True)
+class PathBasis:
+    directory: Path
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "directory", _safe_optional_path(self.directory, "basis directory"))
+        if self.directory is None:
+            raise ExperimentValidationError("basis directory is required")
+
+    def to_safe_dict(self) -> dict[str, str]:
+        return {"kind": "path", "directory": str(self.directory)}
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any]) -> "PathBasis":
+        return cls(directory=Path(data["directory"]))
+
+
+@dataclass(frozen=True)
+class BenchmarkBasis:
+    run_kind: str
+    run_id: str
+    selection: str
+    rank: int | None = None
+    candidate: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.run_kind not in {"direct_basis_runs", "iqm_runs"}:
+            raise ExperimentValidationError("run_kind must be direct_basis_runs or iqm_runs")
+        _safe_text(self.run_id, "run_id")
+        _safe_text(self.selection, "selection")
+        if (self.rank is None) == (self.candidate is None):
+            raise ExperimentValidationError("exactly one of rank or candidate is required")
+        if self.rank is not None and (isinstance(self.rank, bool) or not isinstance(self.rank, int) or self.rank < 0):
+            raise ExperimentValidationError("rank must be a non-negative integer")
+        if self.candidate is not None:
+            _safe_text(self.candidate, "candidate")
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {
+            "kind": "benchmark",
+            "run_kind": self.run_kind,
+            "run_id": self.run_id,
+            "selection": self.selection,
+            "rank": self.rank,
+            "candidate": self.candidate,
+        }
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any]) -> "BenchmarkBasis":
+        return cls(
+            run_kind=data["run_kind"], run_id=data["run_id"], selection=data["selection"],
+            rank=data.get("rank"), candidate=data.get("candidate"),
+        )
+
+
+@dataclass(frozen=True)
+class AerIdeal:
+    seed_simulator: int = 123
+
+    def __post_init__(self) -> None:
+        if isinstance(self.seed_simulator, bool) or not isinstance(self.seed_simulator, int):
+            raise ExperimentValidationError("seed_simulator must be an integer")
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {"kind": "aer_ideal", "seed_simulator": self.seed_simulator}
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any]) -> "AerIdeal":
+        return cls(seed_simulator=data.get("seed_simulator", 123))
+
+
+@dataclass(frozen=True)
+class IQMHardware:
+    device: str
+    use_metrics: bool = False
+    env_path: Path | None = None
+
+    def __post_init__(self) -> None:
+        _safe_text(self.device, "device")
+        object.__setattr__(self, "env_path", _safe_optional_path(self.env_path, "env_path"))
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {"kind": "iqm_hardware", "device": self.device, "use_metrics": self.use_metrics, "env_path": _path_value(self.env_path)}
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any]) -> "IQMHardware":
+        return cls(data["device"], bool(data.get("use_metrics", False)), _path_from(data.get("env_path")))
+
+
+@dataclass(frozen=True)
+class PiastQHardware:
+    mode: str = "auto"
+    owner: str | None = None
+    env_path: Path | None = None
+
+    def __post_init__(self) -> None:
+        if self.mode not in {"auto", "managed", "direct"}:
+            raise ExperimentValidationError("mode must be auto, managed, or direct")
+        if self.owner is not None:
+            _safe_text(self.owner, "owner")
+        object.__setattr__(self, "env_path", _safe_optional_path(self.env_path, "env_path"))
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {"kind": "piastq_hardware", "mode": self.mode, "owner": self.owner, "env_path": _path_value(self.env_path)}
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any]) -> "PiastQHardware":
+        return cls(data.get("mode", "auto"), data.get("owner"), _path_from(data.get("env_path")))
+
+
+@dataclass(frozen=True)
+class CustomBackend:
+    instance: Any = field(repr=False, compare=False)
+    identity: str = "custom"
+    supports_resume: bool = False
+
+    def __post_init__(self) -> None:
+        _safe_text(self.identity, "identity")
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {"kind": "custom", "identity": self.identity, "supports_resume": self.supports_resume}
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any], *, instance: Any = None) -> "CustomBackend":
+        if instance is None:
+            raise ExperimentValidationError("custom backend reconstruction requires instance injection")
+        return cls(instance=instance, identity=data["identity"], supports_resume=bool(data.get("supports_resume", False)))
+
+
+@dataclass(frozen=True)
+class NoisySimulator:
+    source: Any = field(default=None, repr=False, compare=False)
+    noise_model: Any = field(default=None, repr=False, compare=False)
+    target_backend: Any = field(default=None, repr=False, compare=False)
+    identity: str | None = None
+
+    def __post_init__(self) -> None:
+        source_mode = self.source is not None
+        model_mode = self.noise_model is not None and self.target_backend is not None
+        if source_mode == model_mode:
+            raise ExperimentValidationError("provide exactly either source or noise_model with target_backend")
+        if self.identity is not None:
+            _safe_text(self.identity, "identity")
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {"kind": "noisy_simulator", "identity": self.identity, "source_mode": self.source is not None}
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any], **injected: Any) -> "NoisySimulator":
+        if not injected:
+            raise ExperimentValidationError("noisy simulator reconstruction requires object injection")
+        return cls(identity=data.get("identity"), **injected)
+
+
+@dataclass(frozen=True)
+class MitigationConfig:
+    readout: bool = False
+    zne: bool = False
+    zne_factors: tuple[int, ...] = (1, 3, 5)
+    zne_model: str = "linear"
+    readout_max_age_hours: float = 24.0
+    force_recalibration: bool = False
+
+    def __post_init__(self) -> None:
+        factors = tuple(self.zne_factors)
+        object.__setattr__(self, "zne_factors", factors)
+        if self.zne and (not factors or 1 not in factors or len(set(factors)) != len(factors) or any(isinstance(item, bool) or not isinstance(item, int) or item <= 0 or item % 2 == 0 for item in factors)):
+            raise ExperimentValidationError("zne_factors must be unique positive odd factors including 1")
+        if self.zne_model != "linear":
+            raise ExperimentValidationError("zne_model must be linear")
+        if not isinstance(self.readout_max_age_hours, (int, float)) or isinstance(self.readout_max_age_hours, bool) or self.readout_max_age_hours <= 0:
+            raise ExperimentValidationError("readout_max_age_hours must be positive")
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {"readout": self.readout, "zne": self.zne, "zne_factors": list(self.zne_factors), "zne_model": self.zne_model, "readout_max_age_hours": self.readout_max_age_hours, "force_recalibration": self.force_recalibration}
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any]) -> "MitigationConfig":
+        return cls(**{**cls().to_safe_dict(), **dict(data), "zne_factors": tuple(data.get("zne_factors", (1, 3, 5)))})
+
+
+@dataclass(frozen=True)
+class BootstrapConfig:
+    samples: int = 2000
+    confidence_level: float = 0.95
+    seed: int = 12345
+    include_readout_calibration: bool = True
+
+    def __post_init__(self) -> None:
+        if isinstance(self.samples, bool) or not isinstance(self.samples, int) or self.samples <= 0:
+            raise ExperimentValidationError("samples must be a positive integer")
+        if not isinstance(self.confidence_level, (int, float)) or isinstance(self.confidence_level, bool) or not 0 < self.confidence_level < 1:
+            raise ExperimentValidationError("confidence_level must be between 0 and 1")
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {"samples": self.samples, "confidence_level": self.confidence_level, "seed": self.seed, "include_readout_calibration": self.include_readout_calibration}
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any]) -> "BootstrapConfig":
+        return cls(**dict(data))
+
+
+@dataclass(frozen=True)
+class TranspilationConfig:
+    optimization_level: int = 3
+    seed_transpiler: int | None = None
+    layout_method: str | None = None
+    routing_method: str | None = None
+    scheduling_method: str | None = None
+
+    def __post_init__(self) -> None:
+        if isinstance(self.optimization_level, bool) or not isinstance(self.optimization_level, int) or self.optimization_level not in range(4):
+            raise ExperimentValidationError("optimization_level must be an integer from 0 to 3")
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {"optimization_level": self.optimization_level, "seed_transpiler": self.seed_transpiler, "layout_method": self.layout_method, "routing_method": self.routing_method, "scheduling_method": self.scheduling_method}
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any]) -> "TranspilationConfig":
+        return cls(**dict(data))
+
+
+@dataclass(frozen=True)
+class RetryConfig:
+    max_attempts: int = 3
+    initial_delay: float = 1.0
+    multiplier: float = 2.0
+    max_delay: float = 30.0
+
+    def __post_init__(self) -> None:
+        if isinstance(self.max_attempts, bool) or not isinstance(self.max_attempts, int) or self.max_attempts <= 0:
+            raise ExperimentValidationError("max_attempts must be a positive integer")
+        for field_name in ("initial_delay", "multiplier", "max_delay"):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+                raise ExperimentValidationError(f"{field_name} must be positive")
+        if self.max_delay < self.initial_delay:
+            raise ExperimentValidationError("max_delay must be at least initial_delay")
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {"max_attempts": self.max_attempts, "initial_delay": self.initial_delay, "multiplier": self.multiplier, "max_delay": self.max_delay}
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any]) -> "RetryConfig":
+        return cls(**dict(data))
+
+
+Basis = PathBasis | BenchmarkBasis
+Backend = AerIdeal | IQMHardware | PiastQHardware | CustomBackend | NoisySimulator
+
+
+@dataclass(frozen=True)
+class ExperimentSpec:
+    state: str
+    basis: Basis
+    backend: Backend
+    shots: int = 20480
+    mitigation: MitigationConfig = field(default_factory=MitigationConfig)
+    bootstrap: BootstrapConfig = field(default_factory=BootstrapConfig)
+    transpilation: TranspilationConfig = field(default_factory=TranspilationConfig)
+    retry: RetryConfig = field(default_factory=RetryConfig)
+    output_root: Path = Path("artifacts/experiment_runs")
+    tags: Mapping[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        state = "ghz3" if self.state == "ghz" else self.state
+        if state not in _STATES:
+            raise ExperimentValidationError("state must be two_qutrit, ghz3, or ame43")
+        object.__setattr__(self, "state", state)
+        if isinstance(self.shots, bool) or not isinstance(self.shots, int) or self.shots <= 0:
+            raise ExperimentValidationError("shots must be a positive integer")
+        if not isinstance(self.basis, (PathBasis, BenchmarkBasis)):
+            raise ExperimentValidationError("basis must be a supported basis specification")
+        if not isinstance(self.backend, (AerIdeal, IQMHardware, PiastQHardware, CustomBackend, NoisySimulator)):
+            raise ExperimentValidationError("backend must be a supported backend specification")
+        object.__setattr__(self, "output_root", _safe_optional_path(self.output_root, "output_root"))
+        if self.output_root is None:
+            raise ExperimentValidationError("output_root is required")
+        object.__setattr__(self, "tags", _safe_tags(self.tags))
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {
+            "state": self.state, "basis": self.basis.to_safe_dict(), "backend": self.backend.to_safe_dict(),
+            "shots": self.shots, "mitigation": self.mitigation.to_safe_dict(), "bootstrap": self.bootstrap.to_safe_dict(),
+            "transpilation": self.transpilation.to_safe_dict(), "retry": self.retry.to_safe_dict(),
+            "output_root": str(self.output_root), "tags": dict(self.tags),
+        }
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any]) -> "ExperimentSpec":
+        return cls(
+            state=data["state"], basis=_basis_from_safe_dict(data["basis"]), backend=_backend_from_safe_dict(data["backend"]),
+            shots=data.get("shots", 20480), mitigation=MitigationConfig.from_safe_dict(data.get("mitigation", {})),
+            bootstrap=BootstrapConfig.from_safe_dict(data.get("bootstrap", {})),
+            transpilation=TranspilationConfig.from_safe_dict(data.get("transpilation", {})), retry=RetryConfig.from_safe_dict(data.get("retry", {})),
+            output_root=Path(data.get("output_root", "artifacts/experiment_runs")), tags=data.get("tags", {}),
+        )
+
+
+def _path_value(path: Path | None) -> str | None:
+    return None if path is None else str(path)
+
+
+def _path_from(value: Any) -> Path | None:
+    return None if value is None else Path(value)
+
+
+def _basis_from_safe_dict(data: Mapping[str, Any]) -> Basis:
+    kind = data.get("kind")
+    if kind == "path":
+        return PathBasis.from_safe_dict(data)
+    if kind == "benchmark":
+        return BenchmarkBasis.from_safe_dict(data)
+    raise ExperimentValidationError(f"unsupported basis kind {kind!r}")
+
+
+def _backend_from_safe_dict(data: Mapping[str, Any]) -> Backend:
+    kind = data.get("kind")
+    classes: dict[str, Any] = {"aer_ideal": AerIdeal, "iqm_hardware": IQMHardware, "piastq_hardware": PiastQHardware}
+    if kind in classes:
+        return classes[kind].from_safe_dict(data)
+    if kind in {"custom", "noisy_simulator"}:
+        raise ExperimentValidationError(f"{kind} reconstruction requires object injection")
+    raise ExperimentValidationError(f"unsupported backend kind {kind!r}")
+
+
+class ExperimentStatus(str, Enum):
+    CREATED = "created"
+    VALIDATED = "validated"
+    COMPILED = "compiled"
+    SUBMITTED = "submitted"
+    RUNNING = "running"
+    POSTPROCESSING = "postprocessing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SUBMISSION_UNKNOWN = "submission_unknown"
+
+
+BackendStatus = ExperimentStatus
+
+
+@dataclass(frozen=True)
+class ComplexComponents:
+    real: float
+    imag: float
+
+    def to_safe_dict(self) -> dict[str, float]:
+        return {"real": self.real, "imag": self.imag}
+
+
+@dataclass(frozen=True)
+class ConfidenceInterval:
+    low: float
+    high: float
+
+    def __post_init__(self) -> None:
+        if self.low > self.high:
+            raise ExperimentValidationError("confidence interval low must not exceed high")
+
+    def to_safe_dict(self) -> dict[str, float]:
+        return {"low": self.low, "high": self.high}
+
+
+@dataclass(frozen=True)
+class BellEstimate:
+    estimate: ComplexComponents
+    standard_error: float
+    confidence_interval: ConfidenceInterval
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {"estimate": self.estimate.to_safe_dict(), "standard_error": self.standard_error, "confidence_interval": self.confidence_interval.to_safe_dict()}
+
+
+@dataclass(frozen=True)
+class ExperimentResult:
+    experiment_id: str
+    status: ExperimentStatus
+    artifact_dir: Path
+    values: Mapping[str, Any]
+    backend: Mapping[str, Any]
+    job_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _safe_text(self.experiment_id, "experiment_id")
+        object.__setattr__(self, "artifact_dir", Path(self.artifact_dir))
+        object.__setattr__(self, "values", MappingProxyType(dict(self.values)))
+        object.__setattr__(self, "backend", MappingProxyType(dict(self.backend)))
+        object.__setattr__(self, "job_ids", tuple(self.job_ids))
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {"experiment_id": self.experiment_id, "status": self.status.value, "artifact_dir": str(self.artifact_dir), "values": dict(self.values), "backend": dict(self.backend), "job_ids": list(self.job_ids)}

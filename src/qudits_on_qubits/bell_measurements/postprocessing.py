@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from numbers import Real
 
 import numpy as np
 
@@ -88,7 +89,7 @@ def leakage_rate(
 
 
 def compute_complex_expectation(
-    counts: Mapping[str, int],
+    counts: Mapping[str, float],
     powers: Sequence[int],
     qutrit_bit_indices: Sequence[tuple[int, int]],
     d: int = 3,
@@ -116,7 +117,7 @@ def compute_complex_expectation(
     accumulator = 0.0 + 0.0j
 
     for bitstring, count in counts.items():
-        _validate_count(count)
+        _validate_weight(count)
         total_shots += count
         outcomes = bitstring_to_qutrit_outcomes(
             bitstring,
@@ -145,7 +146,7 @@ def compute_complex_expectation(
 
 
 def compute_bell_value_from_counts(
-    counts_by_setting: Mapping[tuple, Mapping[str, int]],
+    counts_by_setting: Mapping[tuple, Mapping[str, float]],
     terms: Sequence[Mapping[str, object]],
     qutrit_bit_indices_by_setting: Mapping[tuple, Sequence[tuple[int, int]]],
     d: int = 3,
@@ -209,6 +210,11 @@ def _bit_at(bitstring: str, index: int, bit_order: str) -> int:
     return int(bit)
 
 
+def _validate_weight(weight: int | float) -> None:
+    if isinstance(weight, bool) or not isinstance(weight, Real) or not np.isfinite(weight):
+        raise ValueError("weights must be finite real values")
+
+
 def _validate_count(count: int) -> None:
-    if not isinstance(count, int) or count < 0:
+    if isinstance(count, bool) or not isinstance(count, int) or count < 0:
         raise ValueError("counts must be non-negative integers")
