@@ -252,8 +252,8 @@ class BootstrapConfig:
 
     def __post_init__(self) -> None:
         _require_bool(self.include_readout_calibration, "include_readout_calibration")
-        if isinstance(self.samples, bool) or not isinstance(self.samples, int) or self.samples <= 0:
-            raise ExperimentValidationError("samples must be a positive integer")
+        if isinstance(self.samples, bool) or not isinstance(self.samples, int) or self.samples < 2:
+            raise ExperimentValidationError("samples must be an integer of at least 2")
         if not isinstance(self.confidence_level, (int, float)) or isinstance(self.confidence_level, bool) or not math.isfinite(self.confidence_level) or not 0 < self.confidence_level < 1:
             raise ExperimentValidationError("confidence_level must be between 0 and 1")
 
@@ -433,21 +433,42 @@ class ConfidenceInterval:
 
 
 @dataclass(frozen=True)
+class ComplexConfidenceInterval:
+    real: ConfidenceInterval
+    imag: ConfidenceInterval
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.real, ConfidenceInterval):
+            raise ExperimentValidationError("real must be ConfidenceInterval")
+        if not isinstance(self.imag, ConfidenceInterval):
+            raise ExperimentValidationError("imag must be ConfidenceInterval")
+
+    def to_safe_dict(self) -> dict[str, dict[str, float]]:
+        return {"real": self.real.to_safe_dict(), "imag": self.imag.to_safe_dict()}
+
+
+@dataclass(frozen=True)
 class BellEstimate:
     estimate: ComplexComponents
-    standard_error: float
-    confidence_interval: ConfidenceInterval
+    standard_error: ComplexComponents
+    confidence_interval: ComplexConfidenceInterval
 
     def __post_init__(self) -> None:
         if not isinstance(self.estimate, ComplexComponents):
             raise ExperimentValidationError("estimate must be ComplexComponents")
-        if not isinstance(self.confidence_interval, ConfidenceInterval):
-            raise ExperimentValidationError("confidence_interval must be ConfidenceInterval")
-        _require_finite_real(self.standard_error, "standard_error")
-        if self.standard_error < 0:
+        if not isinstance(self.standard_error, ComplexComponents):
+            raise ExperimentValidationError("standard_error must be ComplexComponents")
+        if not isinstance(self.confidence_interval, ComplexConfidenceInterval):
+            raise ExperimentValidationError("confidence_interval must be ComplexConfidenceInterval")
+        if self.standard_error.real < 0 or self.standard_error.imag < 0:
             raise ExperimentValidationError("standard_error must be non-negative")
+
     def to_safe_dict(self) -> dict[str, Any]:
-        return {"estimate": self.estimate.to_safe_dict(), "standard_error": self.standard_error, "confidence_interval": self.confidence_interval.to_safe_dict()}
+        return {
+            "estimate": self.estimate.to_safe_dict(),
+            "standard_error": self.standard_error.to_safe_dict(),
+            "confidence_interval": self.confidence_interval.to_safe_dict(),
+        }
 
 
 @dataclass(frozen=True)
