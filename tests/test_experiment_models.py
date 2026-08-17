@@ -22,6 +22,7 @@ from qudits_on_qubits.experiments.models import (
     CustomBackend,
     BellEstimate,
     ComplexComponents,
+    ComplexConfidenceInterval,
     ConfidenceInterval,
     ExperimentSpec,
     IQMHardware,
@@ -225,22 +226,62 @@ def test_confidence_interval_rejects_non_finite_bounds(value):
 
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
-def test_bell_estimate_rejects_non_finite_standard_error(value):
+def test_bell_estimate_rejects_non_finite_component_standard_error(value):
     with pytest.raises(ExperimentValidationError):
         BellEstimate(
             estimate=ComplexComponents(0.0, 0.0),
-            standard_error=value,
-            confidence_interval=ConfidenceInterval(0.0, 1.0),
+            standard_error=ComplexComponents(value, 0.0),
+            confidence_interval=ComplexConfidenceInterval(
+                real=ConfidenceInterval(0.0, 1.0),
+                imag=ConfidenceInterval(0.0, 1.0),
+            ),
         )
 
 
-def test_bell_estimate_rejects_negative_standard_error():
+@pytest.mark.parametrize("standard_error", [(-0.1, 0.0), (0.0, -0.1)])
+def test_bell_estimate_rejects_negative_component_standard_error(standard_error):
     with pytest.raises(ExperimentValidationError):
         BellEstimate(
             estimate=ComplexComponents(0.0, 0.0),
-            standard_error=-0.1,
-            confidence_interval=ConfidenceInterval(0.0, 1.0),
+            standard_error=ComplexComponents(*standard_error),
+            confidence_interval=ComplexConfidenceInterval(
+                real=ConfidenceInterval(0.0, 1.0),
+                imag=ConfidenceInterval(0.0, 1.0),
+            ),
         )
+
+
+def test_bell_estimate_serializes_component_wise_uncertainty():
+    estimate = BellEstimate(
+        estimate=ComplexComponents(1.0, -2.0),
+        standard_error=ComplexComponents(0.1, 0.2),
+        confidence_interval=ComplexConfidenceInterval(
+            real=ConfidenceInterval(0.8, 1.2),
+            imag=ConfidenceInterval(-2.4, -1.6),
+        ),
+    )
+
+    assert estimate.to_safe_dict() == {
+        "estimate": {"real": 1.0, "imag": -2.0},
+        "standard_error": {"real": 0.1, "imag": 0.2},
+        "confidence_interval": {
+            "real": {"low": 0.8, "high": 1.2},
+            "imag": {"low": -2.4, "high": -1.6},
+        },
+    }
+
+
+def test_complex_confidence_interval_requires_component_intervals():
+    with pytest.raises(ExperimentValidationError, match="real"):
+        ComplexConfidenceInterval(real=(0.0, 1.0), imag=ConfidenceInterval(0.0, 1.0))
+    with pytest.raises(ExperimentValidationError, match="imag"):
+        ComplexConfidenceInterval(real=ConfidenceInterval(0.0, 1.0), imag=(0.0, 1.0))
+
+
+@pytest.mark.parametrize("samples", [1, 0, -1, True, 2.0])
+def test_bootstrap_config_requires_at_least_two_integer_samples(samples):
+    with pytest.raises(ExperimentValidationError, match="samples"):
+        BootstrapConfig(samples=samples)
 
 def test_status_is_a_string_enum():
     assert BackendStatus.SUBMISSION_UNKNOWN.value == "submission_unknown"
