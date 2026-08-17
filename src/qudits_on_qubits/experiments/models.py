@@ -46,6 +46,11 @@ def _require_bool(value: object, field_name: str) -> None:
         raise ExperimentValidationError(f"{field_name} must be a boolean")
 
 
+def _require_finite_real(value: object, field_name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ExperimentValidationError(f"{field_name} must be a finite real value")
+
+
 @dataclass(frozen=True)
 class PathBasis:
     directory: Path
@@ -404,6 +409,10 @@ class ComplexComponents:
     real: float
     imag: float
 
+    def __post_init__(self) -> None:
+        _require_finite_real(self.real, "real")
+        _require_finite_real(self.imag, "imag")
+
     def to_safe_dict(self) -> dict[str, float]:
         return {"real": self.real, "imag": self.imag}
 
@@ -414,6 +423,8 @@ class ConfidenceInterval:
     high: float
 
     def __post_init__(self) -> None:
+        _require_finite_real(self.low, "low")
+        _require_finite_real(self.high, "high")
         if self.low > self.high:
             raise ExperimentValidationError("confidence interval low must not exceed high")
 
@@ -427,6 +438,14 @@ class BellEstimate:
     standard_error: float
     confidence_interval: ConfidenceInterval
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.estimate, ComplexComponents):
+            raise ExperimentValidationError("estimate must be ComplexComponents")
+        if not isinstance(self.confidence_interval, ConfidenceInterval):
+            raise ExperimentValidationError("confidence_interval must be ConfidenceInterval")
+        _require_finite_real(self.standard_error, "standard_error")
+        if self.standard_error < 0:
+            raise ExperimentValidationError("standard_error must be non-negative")
     def to_safe_dict(self) -> dict[str, Any]:
         return {"estimate": self.estimate.to_safe_dict(), "standard_error": self.standard_error, "confidence_interval": self.confidence_interval.to_safe_dict()}
 

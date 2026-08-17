@@ -20,6 +20,9 @@ from qudits_on_qubits.experiments.models import (
     BenchmarkBasis,
     BootstrapConfig,
     CustomBackend,
+    BellEstimate,
+    ComplexComponents,
+    ConfidenceInterval,
     ExperimentSpec,
     IQMHardware,
     MitigationConfig,
@@ -204,6 +207,40 @@ def test_retry_config_validates_bounds():
     with pytest.raises(ExperimentValidationError):
         RetryConfig(max_attempts=0)
 
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_complex_components_reject_non_finite_real_and_imaginary_parts(value):
+    with pytest.raises(ExperimentValidationError):
+        ComplexComponents(real=value, imag=0.0)
+    with pytest.raises(ExperimentValidationError):
+        ComplexComponents(real=0.0, imag=value)
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_confidence_interval_rejects_non_finite_bounds(value):
+    with pytest.raises(ExperimentValidationError):
+        ConfidenceInterval(low=value, high=1.0)
+    with pytest.raises(ExperimentValidationError):
+        ConfidenceInterval(low=0.0, high=value)
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_bell_estimate_rejects_non_finite_standard_error(value):
+    with pytest.raises(ExperimentValidationError):
+        BellEstimate(
+            estimate=ComplexComponents(0.0, 0.0),
+            standard_error=value,
+            confidence_interval=ConfidenceInterval(0.0, 1.0),
+        )
+
+
+def test_bell_estimate_rejects_negative_standard_error():
+    with pytest.raises(ExperimentValidationError):
+        BellEstimate(
+            estimate=ComplexComponents(0.0, 0.0),
+            standard_error=-0.1,
+            confidence_interval=ConfidenceInterval(0.0, 1.0),
+        )
 
 def test_status_is_a_string_enum():
     assert BackendStatus.SUBMISSION_UNKNOWN.value == "submission_unknown"
