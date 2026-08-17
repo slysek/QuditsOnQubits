@@ -16,7 +16,8 @@ from qudits_on_qubits.experiments.models import BenchmarkBasis, PathBasis
 
 def _write_artifacts(directory, state="two_qutrit", circuit=None, encoding=None):
     directory.mkdir(parents=True, exist_ok=True)
-    circuit = circuit or QuantumCircuit({"two_qutrit": 4, "ghz3": 6, "ame43": 8}[state])
+    if circuit is None:
+        circuit = QuantumCircuit({"two_qutrit": 4, "ghz3": 6, "ame43": 8}[state])
     with (directory / "graph_state_direct_basis.qpy").open("wb") as handle:
         qpy.dump(circuit, handle)
     np.save(directory / "E.npy", np.eye(4, 3, dtype=complex) if encoding is None else encoding)
