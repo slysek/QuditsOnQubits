@@ -1,5 +1,6 @@
 from dataclasses import FrozenInstanceError
 from dataclasses import replace
+from itertools import product
 import json
 import math
 import unittest
@@ -27,6 +28,63 @@ from qudits_on_qubits.reference_experiments import (
     get_reference_experiment,
     list_reference_experiments,
 )
+
+
+def _probability_bell_value(spec: ReferenceExperimentSpec) -> complex:
+    state = spec.state.statevector()
+    omega = np.exp(2j * np.pi / 3)
+    bell_value = 0j
+
+    for term in spec.bell_functional.terms:
+        correlator = 0j
+        for outcomes in product(range(3), repeat=len(term.factors)):
+            local_projectors = {
+                party: np.eye(3, dtype=complex)
+                for party in spec.state.party_order
+            }
+            phase = 1 + 0j
+            for factor, outcome in zip(term.factors, outcomes):
+                basis, _ = spec.observable(factor.setting_label).ordered_eigenbasis()
+                vector = basis[:, outcome]
+                local_projectors[factor.party] = np.outer(vector, vector.conj())
+                phase *= omega ** ((factor.outcome_power * outcome) % 3)
+
+            projector = np.array([[1]], dtype=complex)
+            for party in spec.state.party_order:
+                projector = np.kron(projector, local_projectors[party])
+            probability = np.vdot(state, projector @ state).real
+            correlator += probability * phase
+
+        bell_value += term.sampling_coefficient() * correlator
+
+    return complex(bell_value)
+
+
+def _brute_force_bound(spec: ReferenceExperimentSpec) -> float:
+    keys = sorted(
+        {
+            (factor.party, factor.setting_label)
+            for term in spec.bell_functional.terms
+            for factor in term.factors
+        }
+    )
+    key_indices = {key: index for index, key in enumerate(keys)}
+    omega = np.exp(2j * np.pi / 3)
+    best = -math.inf
+
+    for assignment in product(range(3), repeat=len(keys)):
+        value = 0j
+        for term in spec.bell_functional.terms:
+            phase = 1 + 0j
+            for factor in term.factors:
+                outcome = assignment[
+                    key_indices[(factor.party, factor.setting_label)]
+                ]
+                phase *= omega ** (factor.outcome_power * outcome)
+            value += term.sampling_coefficient() * phase
+        best = max(best, value.real)
+
+    return float(best)
 
 
 class ReferenceExperimentsTests(unittest.TestCase):
@@ -303,6 +361,68 @@ class ReferenceExperimentRegistryTests(unittest.TestCase):
         self.assertEqual(float(first_value), value)
         self.assertEqual(float(second_value), adjacent)
         self.assertNotEqual(first.stable_hash(), second.stable_hash())
+
+
+class ScientificReferenceTests(unittest.TestCase):
+    def test_operator_probability_and_analytical_values_agree(self) -> None:
+        expected_ideal_values = {
+            "two_qutrit": 6.0,
+            "ghz3": 6.0,
+            "ame43": 8.0,
+        }
+
+        for experiment_id in list_reference_experiments():
+            with self.subTest(experiment_id=experiment_id):
+                spec = get_reference_experiment(experiment_id)
+                operator = spec.logical_bell_operator()
+                state = spec.state.statevector()
+                matrix_value = np.vdot(state, operator @ state)
+                probability_value = _probability_bell_value(spec)
+
+                np.testing.assert_allclose(
+                    operator,
+                    operator.conj().T,
+                    rtol=0,
+                    atol=1e-10,
+                )
+                self.assertAlmostEqual(
+                    matrix_value.real,
+                    expected_ideal_values[experiment_id],
+                    places=10,
+                )
+                self.assertAlmostEqual(matrix_value.imag, 0.0, places=10)
+                self.assertAlmostEqual(
+                    probability_value.real,
+                    matrix_value.real,
+                    places=10,
+                )
+                self.assertAlmostEqual(probability_value.imag, 0.0, places=10)
+
+    def test_exhaustive_classical_bounds_match_frozen_values(self) -> None:
+        decimal_places = {
+            "two_qutrit": 10,
+            "ghz3": 10,
+            "ame43": 5,
+        }
+
+        for experiment_id in list_reference_experiments():
+            with self.subTest(experiment_id=experiment_id):
+                spec = get_reference_experiment(experiment_id)
+                self.assertAlmostEqual(
+                    _brute_force_bound(spec),
+                    spec.bell_functional.classical_bound,
+                    places=decimal_places[experiment_id],
+                )
+
+    def test_serialization_and_hash_are_deterministic_for_every_reference(self) -> None:
+        for experiment_id in list_reference_experiments():
+            with self.subTest(experiment_id=experiment_id):
+                spec = get_reference_experiment(experiment_id)
+
+                self.assertEqual(spec.to_dict(), spec.to_dict())
+                self.assertEqual(spec.to_dict()["experiment_id"], experiment_id)
+                self.assertEqual(spec.stable_hash(), spec.stable_hash())
+                self.assertEqual(len(spec.stable_hash()), 64)
 
 
 class ReferenceExperimentModelTests(unittest.TestCase):
