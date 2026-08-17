@@ -111,6 +111,34 @@ def test_iqm_reuses_one_backend_for_resolve_compile_and_submit():
     assert submitted.target_identity is identity
 
 
+def test_iqm_default_compile_preserves_exact_rz_scheduling():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    seen = {}
+
+    class PassManager:
+        def run(self, circuits):
+            return circuits
+
+    def pass_manager_factory(backend, **options):
+        seen.update(backend=backend, options=options)
+        return PassManager()
+
+    backend = _Backend()
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=backend,
+        pass_manager_factory=pass_manager_factory,
+    )
+    compiled = adapter.compile((object(),), TranspilationConfig())
+
+    assert seen["backend"] is backend
+    assert seen["options"]["scheduling_method"] == "move_routing_exact_global_phase"
+    assert compiled.metadata["transpilation"]["scheduling_method"] == (
+        "move_routing_exact_global_phase"
+    )
+
+
 def test_iqm_injected_backend_never_calls_loader():
     from qudits_on_qubits.experiments.backends import IQMAdapter
 

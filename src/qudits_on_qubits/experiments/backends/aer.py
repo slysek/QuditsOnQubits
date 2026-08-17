@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Mapping, Sequence
 
 from qiskit import transpile
@@ -19,6 +20,10 @@ from .base import (
     _validated_circuit_tuple,
     _validated_run_options,
 )
+
+
+_EXPLICIT_IDENTITY = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+@-]{0,127}\Z")
+_CREDENTIAL_MARKERS = ("token=", "api_key=", "password=", "secret=")
 
 
 class AerAdapter(BaseBackendAdapter):
@@ -224,6 +229,8 @@ def build_noisy_adapter(
         raise BackendCompatibilityError(
             "build_noisy_adapter requires a NoisySimulator specification"
         )
+    if spec.identity is not None and not _safe_explicit_identity(spec.identity):
+        raise BackendCompatibilityError("noisy simulator identity must be a safe label")
     if fake_backend_factory is not None and not callable(fake_backend_factory):
         raise BackendCompatibilityError("IQM fake-backend factory must be callable")
     if simulator_factory is not None and not callable(simulator_factory):
@@ -388,6 +395,14 @@ def _credentialed_url(value: str) -> bool:
     if "://" not in value:
         return False
     return "@" in value.split("://", 1)[1].split("/", 1)[0]
+
+
+def _safe_explicit_identity(value: str) -> bool:
+    if not _EXPLICIT_IDENTITY.fullmatch(value):
+        return False
+    if any(marker in value.lower() for marker in _CREDENTIAL_MARKERS):
+        return False
+    return not _credentialed_url(value)
 
 
 __all__ = ["AerAdapter", "NoisyAerAdapter", "build_noisy_adapter"]
