@@ -9,6 +9,8 @@ from typing import Any
 
 import numpy as np
 
+from qudits_on_qubits.reference_experiments import get_reference_experiment
+
 from .basis import omega, ordered_qutrit_eigenbasis
 
 
@@ -189,59 +191,28 @@ def _two_qutrit_pdf_settings(
     drop_conjugate_half: bool,
 ) -> dict[str, Any]:
     u, v, weight = edge
-    X, Z = _make_XZ_qutrit_d3()
-    A_measurements = _measurement_observables_qutrit_d3(1)
-    B_measurements = [Z @ np.linalg.matrix_power(X, y) for y in range(3)]
+    spec = get_reference_experiment("two_qutrit")
     observables_by_label = {
-        **{f"{_party_label(u)}{x}": A_measurements[x] for x in range(3)},
-        **{f"{_party_label(v)}{y}": B_measurements[y] for y in range(3)},
+        observable.label: observable.as_array()
+        for observable in spec.observables
     }
 
     terms: list[dict[str, Any]] = []
-    powers = (1,) if drop_conjugate_half else (1, 2)
-    w = omega(3)
-    for power in powers:
-        A_power = _measurement_observables_qutrit_d3(power)
-        lam = _qutrit_lambda_d3(power)
-        y_specs = (
-            (0, 1 / (lam * math.sqrt(3)), lambda x, p: 1),
-            (1, 1 / (lam * (w ** (2 * power)) * math.sqrt(3)), lambda x, p: w ** (-p * x)),
-            (2, 1 / (lam * math.sqrt(3)), lambda x, p: w ** (-2 * p * x)),
+    for term in spec.bell_functional.terms:
+        if not term.factors:
+            continue
+        graph_power = int(term.factors[0].outcome_power) % 3
+        if drop_conjugate_half and graph_power != 1:
+            continue
+        terms.append(
+            {
+                "coeff": complex(weight) * term.sampling_coefficient(),
+                "settings": spec.setting_for_term(term),
+                "powers": spec.powers_for_term(term),
+                "source": f"two_qutrit_pdf:{u}-{v}",
+                "graph_power": graph_power,
+            }
         )
-        for y, base_coeff, phase_fn in y_specs:
-            for x in range(3):
-                setting = [None, None]
-                setting[u] = f"{_party_label(u)}{x}"
-                setting[v] = f"{_party_label(v)}{y}"
-                setting_tuple = tuple(setting)
-                powers_tuple = [0, 0]
-                powers_tuple[u] = power
-                powers_tuple[v] = power
-
-                desired_by_label = {
-                    f"{_party_label(u)}{x}": A_power[x],
-                    f"{_party_label(v)}{y}": np.linalg.matrix_power(
-                        B_measurements[y],
-                        power,
-                    ),
-                }
-                scale = 1.0 + 0.0j
-                for label, desired in desired_by_label.items():
-                    scale *= _root_expectation_scale(
-                        measurement=observables_by_label[label],
-                        desired=desired,
-                        power=power,
-                    )
-
-                terms.append(
-                    {
-                        "coeff": complex(weight) * base_coeff * phase_fn(x, power) * scale,
-                        "settings": setting_tuple,
-                        "powers": tuple(powers_tuple),
-                        "source": f"two_qutrit_pdf:{u}-{v}",
-                        "graph_power": power,
-                    }
-                )
 
     measurement_settings = sorted(
         {tuple(term["settings"]) for term in terms},
@@ -250,13 +221,18 @@ def _two_qutrit_pdf_settings(
     return {
         "terms": terms,
         "measurement_settings": measurement_settings,
-        "party_order": (0, 1),
+        "candidate": spec.experiment_id,
+        "spec_hash": spec.stable_hash(),
+        "party_order": spec.state.party_order,
         "edges": (edge,),
         "root_edge": root_edge,
         "local_dimension": 3,
         "drop_conjugate_half": drop_conjugate_half,
         "split_coefficients": split_coefficients,
         "observables_by_label": observables_by_label,
+        "physical_to_logical_outcome_map": dict(
+            spec.outcome_convention.measurement_basis_index_map
+        ),
         "construction": "two_qutrit_pdf",
     }
 
