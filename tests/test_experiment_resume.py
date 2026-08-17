@@ -31,6 +31,7 @@ from qudits_on_qubits.experiments.models import (
     ExperimentSpec,
     ExperimentStatus,
     PathBasis,
+    PiastQHardware,
     RetryConfig,
     MitigationConfig,
 )
@@ -98,6 +99,31 @@ def _spec(tmp_path):
         retry=RetryConfig(max_attempts=2, initial_delay=0.01, max_delay=0.02),
         output_root=tmp_path / "runs",
     )
+
+
+def test_resume_spec_matches_legacy_bootstrap_alias(tmp_path):
+    from qudits_on_qubits.experiments.runner import _resume_spec
+
+    specification = _spec(tmp_path)
+    legacy = specification.to_safe_dict()
+    legacy["bootstrap"] = legacy.pop("uncertainty")
+
+    assert _resume_spec({"spec": legacy}, specification) is specification
+
+
+def test_resume_spec_ignores_legacy_process_local_env_path(tmp_path):
+    from qudits_on_qubits.experiments.runner import _resume_spec
+
+    specification = ExperimentSpec(
+        state="two_qutrit",
+        basis=PathBasis(tmp_path / "unused"),
+        backend=PiastQHardware(env_path=tmp_path / "current.env"),
+        output_root=tmp_path / "runs",
+    )
+    legacy = specification.to_safe_dict()
+    legacy["backend"]["env_path"] = "legacy/private.env"
+
+    assert _resume_spec({"spec": legacy}, specification) is specification
 
 
 def _patch_preparation(monkeypatch):

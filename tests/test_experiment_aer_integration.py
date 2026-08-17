@@ -279,7 +279,8 @@ assert 'cft_piastq' not in sys.modules
 
 
 def test_readme_documents_library_runner_contracts() -> None:
-    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8").lower()
+    readme_source = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    readme = readme_source.lower()
 
     required = (
         "python library",
@@ -306,3 +307,5 @@ def test_readme_documents_library_runner_contracts() -> None:
         "model bias",
     )
     assert all(statement in readme for statement in required)
+    assert "uncertainty=BootstrapConfig(" in readme_source
+    assert "bootstrap=BootstrapConfig(" not in readme_source

@@ -8,6 +8,7 @@ import pytest
 from qudits_on_qubits.experiments.errors import (
     BackendCompatibilityError,
     BackendUnavailableError,
+    ExperimentValidationError,
 )
 from qudits_on_qubits.experiments.models import (
     AerIdeal,
@@ -184,17 +185,10 @@ def test_noisy_metadata_drops_credentialed_source_url():
     assert "password@example" not in repr(adapter.metadata())
 
 
-def test_noisy_rejects_credentialed_explicit_identity_before_profile_conversion():
-    from qudits_on_qubits.experiments.backends import build_noisy_adapter
-
+def test_noisy_spec_rejects_credentialed_explicit_identity_without_echoing_it():
     sensitive_text = "https://user:password@example.invalid/noisy"
-    factory_calls = []
-    with pytest.raises(BackendCompatibilityError, match="identity") as caught:
-        build_noisy_adapter(
-            NoisySimulator(source=_Backend(), identity=sensitive_text),
-            simulator_factory=lambda source: factory_calls.append(source) or _Backend(),
-        )
-    assert not factory_calls
+    with pytest.raises(ExperimentValidationError, match="identity") as caught:
+        NoisySimulator(source=_Backend(), identity=sensitive_text)
     _assert_sanitized(caught, sensitive_text)
 
 

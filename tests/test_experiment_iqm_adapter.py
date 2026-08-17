@@ -8,6 +8,7 @@ import pytest
 from qudits_on_qubits.experiments.errors import (
     BackendCompatibilityError,
     BackendUnavailableError,
+    ExperimentValidationError,
     JobResultError,
     OptionalDependencyError,
 )
@@ -274,10 +275,8 @@ def test_iqm_metadata_helper_values_are_normalized_and_credentials_are_dropped(m
     assert "metadata-secret" not in repr(metadata)
 
 
-def test_iqm_rejects_credentialed_device_url_without_echoing_it():
-    from qudits_on_qubits.experiments.backends import IQMAdapter
-
+def test_iqm_spec_rejects_credentialed_device_url_without_echoing_it():
     sensitive_text = "https://user:password@example.invalid/device"
-    with pytest.raises(BackendCompatibilityError, match="device") as caught:
-        IQMAdapter(IQMHardware(sensitive_text), backend=_Backend())
+    with pytest.raises(ExperimentValidationError, match="device") as caught:
+        IQMHardware(sensitive_text)
     _assert_sanitized(caught, sensitive_text)

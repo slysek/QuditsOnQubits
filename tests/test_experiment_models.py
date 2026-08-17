@@ -107,6 +107,77 @@ def test_safe_serialization_excludes_backend_objects_and_credentials():
     assert payload["backend"]["kind"] == "custom"
 
 
+@pytest.mark.parametrize(
+    "unsafe_text",
+    [
+        "token:super-secret",
+        "Authorization: Bearer super-secret",
+        "https://user:super-secret@example.invalid/path",
+        "https://example.invalid/path?access_token=super-secret",
+        "unsafe\x07control",
+    ],
+)
+def test_persisted_model_strings_reject_credential_material_without_echo(unsafe_text):
+    with pytest.raises(ExperimentValidationError) as caught:
+        CustomBackend(instance=object(), identity=unsafe_text)
+
+    assert unsafe_text not in str(caught.value)
+    assert caught.value.__cause__ is None
+
+
+def test_tag_credential_field_name_is_rejected_without_echo():
+    sensitive_value = "placeholder-value"
+
+    with pytest.raises(ExperimentValidationError) as caught:
+        ExperimentSpec(
+            state="ghz3",
+            basis=PathBasis(Path("basis")),
+            backend=AerIdeal(),
+            tags={"access_token": sensitive_value},
+        )
+
+    assert sensitive_value not in str(caught.value)
+    assert caught.value.__cause__ is None
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [
+        IQMHardware("device", env_path=Path("private/iqm.env")),
+        PiastQHardware(env_path=Path("private/piast.env")),
+    ],
+)
+def test_hardware_safe_serialization_omits_process_local_env_path(backend):
+    assert "env_path" not in backend.to_safe_dict()
+
+
+@pytest.mark.parametrize(
+    ("backend_type", "payload"),
+    [
+        (
+            IQMHardware,
+            {
+                "kind": "iqm_hardware",
+                "device": "device",
+                "use_metrics": False,
+                "env_path": "legacy/private.env",
+            },
+        ),
+        (
+            PiastQHardware,
+            {
+                "kind": "piastq_hardware",
+                "mode": "managed",
+                "owner": "team",
+                "env_path": "legacy/private.env",
+            },
+        ),
+    ],
+)
+def test_hardware_deserialization_does_not_restore_legacy_env_path(backend_type, payload):
+    assert backend_type.from_safe_dict(payload).env_path is None
+
+
 def test_builtin_spec_safe_round_trip():
     original = ExperimentSpec(
         state="ame43",
@@ -121,6 +192,59 @@ def test_builtin_spec_safe_round_trip():
 
     rebuilt = ExperimentSpec.from_safe_dict(original.to_safe_dict())
     assert rebuilt == original
+
+
+def test_experiment_spec_uses_canonical_uncertainty_key_and_attribute():
+    uncertainty = BootstrapConfig(samples=10, seed=7)
+    spec = ExperimentSpec(
+        state="ghz3",
+        basis=PathBasis(Path("basis")),
+        backend=AerIdeal(),
+        uncertainty=uncertainty,
+    )
+
+    payload = spec.to_safe_dict()
+    assert spec.uncertainty is uncertainty
+    assert spec.bootstrap is uncertainty
+    assert payload["uncertainty"] == uncertainty.to_safe_dict()
+    assert "bootstrap" not in payload
+
+
+def test_experiment_spec_deserializes_canonical_and_legacy_uncertainty_keys():
+    original = ExperimentSpec(
+        state="ghz3",
+        basis=PathBasis(Path("basis")),
+        backend=AerIdeal(),
+        uncertainty=BootstrapConfig(samples=10, seed=7),
+    )
+    canonical = original.to_safe_dict()
+    legacy = dict(canonical)
+    legacy["bootstrap"] = legacy.pop("uncertainty")
+    both = dict(canonical)
+    both["bootstrap"] = both["uncertainty"]
+
+    assert ExperimentSpec.from_safe_dict(canonical) == original
+    assert ExperimentSpec.from_safe_dict(legacy) == original
+    assert ExperimentSpec.from_safe_dict(both) == original
+
+
+def test_experiment_spec_rejects_conflicting_uncertainty_aliases():
+    with pytest.raises(ExperimentValidationError, match="conflicting"):
+        ExperimentSpec(
+            state="ghz3",
+            basis=PathBasis(Path("basis")),
+            backend=AerIdeal(),
+            bootstrap=BootstrapConfig(samples=10),
+            uncertainty=BootstrapConfig(samples=20),
+        )
+
+    payload = ExperimentSpec(
+        state="ghz3", basis=PathBasis(Path("basis")), backend=AerIdeal()
+    ).to_safe_dict()
+    payload["bootstrap"] = BootstrapConfig(samples=10).to_safe_dict()
+    payload["uncertainty"] = BootstrapConfig(samples=20).to_safe_dict()
+    with pytest.raises(ExperimentValidationError, match="conflicting"):
+        ExperimentSpec.from_safe_dict(payload)
 
 
 def test_custom_and_noisy_backends_require_injection_to_reconstruct():
@@ -282,6 +406,12 @@ def test_complex_confidence_interval_requires_component_intervals():
 def test_bootstrap_config_requires_at_least_two_integer_samples(samples):
     with pytest.raises(ExperimentValidationError, match="samples"):
         BootstrapConfig(samples=samples)
+
+
+@pytest.mark.parametrize("seed", [-1, True, 1.5, "7", None])
+def test_bootstrap_config_rejects_invalid_seed_at_construction(seed):
+    with pytest.raises(ExperimentValidationError, match="seed"):
+        BootstrapConfig(seed=seed)
 
 def test_status_is_a_string_enum():
     assert BackendStatus.SUBMISSION_UNKNOWN.value == "submission_unknown"

@@ -8,6 +8,7 @@ import pytest
 from qudits_on_qubits.experiments.errors import (
     BackendCompatibilityError,
     BackendUnavailableError,
+    ExperimentValidationError,
     JobResultError,
     JobSubmissionError,
     OptionalDependencyError,
@@ -124,9 +125,18 @@ def test_piast_rejects_unsafe_owner_before_environment_or_client(unsafe_owner):
         calls.append("environment")
         return {}
 
-    with pytest.raises(BackendCompatibilityError, match="owner") as caught:
+    expected_error = (
+        ExperimentValidationError
+        if unsafe_owner in {
+            "https://user:password@example.invalid/team",
+            "team\nops",
+        }
+        else BackendCompatibilityError
+    )
+    with pytest.raises(expected_error, match="owner") as caught:
+        specification = PiastQHardware(mode="managed", owner=unsafe_owner)
         PiastQAdapter(
-            PiastQHardware(mode="managed", owner=unsafe_owner),
+            specification,
             client_type=Client,
             sampler_type=object,
             env_loader=env_loader,

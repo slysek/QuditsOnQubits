@@ -596,6 +596,38 @@ def test_credential_named_adapter_metadata_field_is_rejected_before_persistence(
     assert caught.value.__cause__ is None
 
 
+@pytest.mark.parametrize(
+    ("unsafe_payload", "sensitive_text"),
+    [
+        (
+            {"provider": "https://user:super-secret@example.invalid/path"},
+            "https://user:super-secret@example.invalid/path",
+        ),
+        ({"provider": "unsafe\x07control"}, "unsafe\x07control"),
+        ({"access_token": "super-secret"}, "super-secret"),
+    ],
+)
+def test_initial_document_is_validated_before_first_persistent_write(
+    tmp_path, monkeypatch, unsafe_payload, sensitive_text
+):
+    from qudits_on_qubits.experiments.runner import run_experiment
+
+    original = ExperimentSpec.to_safe_dict
+    def unsafe_safe_dict(self):
+        payload = original(self)
+        payload["nested"] = unsafe_payload
+        return payload
+
+    monkeypatch.setattr(ExperimentSpec, "to_safe_dict", unsafe_safe_dict)
+
+    with pytest.raises(BackendCompatibilityError) as caught:
+        run_experiment(make_spec(tmp_path), adapter=RecordingAdapter())
+
+    assert list((tmp_path / "runs").rglob("experiment.json")) == []
+    assert sensitive_text not in str(caught.value)
+    assert caught.value.__cause__ is None
+
+
 def test_preflight_mutation_cannot_cross_persisted_qpy_submit_boundary(
     tmp_path, prepared_run
 ):
