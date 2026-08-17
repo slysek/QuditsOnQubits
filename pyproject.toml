@@ -30,6 +30,7 @@ dependencies = [
 piastq = [
     "cft-piastq[direct]>=0.1,<0.2",
 ]
+mitigation = ["mthree"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
