@@ -53,13 +53,22 @@ class EncodingSpec:
     def __post_init__(self) -> None:
         if not isinstance(self.encoding_id, str) or not self.encoding_id.strip():
             raise ValueError("encoding_id must be nonempty")
-        if not isinstance(self.logical_dimension, int) or self.logical_dimension < 1:
+        if (
+            not _is_metadata_integer(self.logical_dimension)
+            or self.logical_dimension < 1
+        ):
             raise ValueError("logical_dimension must be a positive integer")
         if (
-            not isinstance(self.physical_qubits_per_qutrit, int)
+            not _is_metadata_integer(self.physical_qubits_per_qutrit)
             or self.physical_qubits_per_qutrit < 1
         ):
             raise ValueError("physical_qubits_per_qutrit must be a positive integer")
+        object.__setattr__(self, "logical_dimension", int(self.logical_dimension))
+        object.__setattr__(
+            self,
+            "physical_qubits_per_qutrit",
+            int(self.physical_qubits_per_qutrit),
+        )
 
         frozen_isometry = _freeze_matrix(self.isometry, name="isometry")
         frozen_leakage = _freeze_matrix(self.leakage_basis, name="leakage_basis")
@@ -121,37 +130,41 @@ class LogicalStateSpec:
 
     def __post_init__(self) -> None:
         try:
-            frozen_party_order = tuple(self.party_order)
+            party_order = tuple(self.party_order)
         except TypeError as error:
             raise ValueError("party_order must be an iterable of integers") from error
         try:
-            frozen_weighted_edges = tuple(
+            weighted_edges = tuple(
                 tuple(edge) for edge in self.weighted_edges
             )
         except TypeError as error:
             raise ValueError("weighted_edges must contain integer triples") from error
-        object.__setattr__(self, "party_order", frozen_party_order)
-        object.__setattr__(self, "weighted_edges", frozen_weighted_edges)
 
         if not isinstance(self.state_id, str) or not self.state_id.strip():
             raise ValueError("state_id must be a nonempty string")
-        if self.local_dimension != 3:
+        if not _is_metadata_integer(self.local_dimension):
             raise ValueError("local_dimension must be exactly 3")
-        if not isinstance(self.num_parties, int) or self.num_parties < 2:
+        local_dimension = int(self.local_dimension)
+        if local_dimension != 3:
+            raise ValueError("local_dimension must be exactly 3")
+        if not _is_metadata_integer(self.num_parties) or self.num_parties < 2:
             raise ValueError("num_parties must be at least 2")
-        if not all(_is_metadata_integer(party) for party in self.party_order):
+        num_parties = int(self.num_parties)
+        if not all(_is_metadata_integer(party) for party in party_order):
             raise ValueError("party_order values must be integers")
-        if self.party_order != tuple(range(self.num_parties)):
+        frozen_party_order = tuple(int(party) for party in party_order)
+        if frozen_party_order != tuple(range(num_parties)):
             raise ValueError("party_order must equal tuple(range(num_parties))")
 
         seen_edges: set[tuple[int, int]] = set()
-        for edge in self.weighted_edges:
+        frozen_weighted_edges: list[WeightedEdge] = []
+        for edge in weighted_edges:
             if len(edge) != 3:
                 raise ValueError("each weighted edge must contain (u, v, weight)")
-            u, v, weight = edge
             if not all(_is_metadata_integer(value) for value in edge):
                 raise ValueError("weighted edge values must be integers")
-            if not 0 <= u < v < self.num_parties:
+            u, v, weight = (int(value) for value in edge)
+            if not 0 <= u < v < num_parties:
                 raise ValueError(
                     "weighted edge endpoints must satisfy 0 <= u < v < num_parties"
                 )
@@ -161,6 +174,12 @@ class LogicalStateSpec:
             if pair in seen_edges:
                 raise ValueError(f"duplicate weighted edge: {pair}")
             seen_edges.add(pair)
+            frozen_weighted_edges.append((u, v, weight))
+
+        object.__setattr__(self, "local_dimension", local_dimension)
+        object.__setattr__(self, "num_parties", num_parties)
+        object.__setattr__(self, "party_order", frozen_party_order)
+        object.__setattr__(self, "weighted_edges", tuple(frozen_weighted_edges))
 
     def statevector(self) -> np.ndarray:
         dimension = self.local_dimension**self.num_parties
@@ -323,6 +342,8 @@ class BellFactorSpec:
         _nonempty_string(self.setting_label, name="setting_label")
         if not _is_metadata_integer(self.outcome_power):
             raise ValueError("outcome_power must be an integer")
+        object.__setattr__(self, "party", int(self.party))
+        object.__setattr__(self, "outcome_power", int(self.outcome_power))
         object.__setattr__(
             self,
             "operator_scale",
@@ -417,34 +438,39 @@ class OutcomeConventionSpec:
     def __post_init__(self) -> None:
         if not _is_metadata_integer(self.local_dimension) or self.local_dimension < 1:
             raise ValueError("local_dimension must be a positive integer")
+        local_dimension = int(self.local_dimension)
         try:
             logical_outcomes = tuple(self.logical_outcomes)
         except TypeError as error:
             raise ValueError("logical_outcomes must be an iterable of integers") from error
         if (
-            len(logical_outcomes) != self.local_dimension
+            len(logical_outcomes) != local_dimension
             or not all(_is_metadata_integer(value) for value in logical_outcomes)
             or len(set(logical_outcomes)) != len(logical_outcomes)
         ):
             raise ValueError(
                 "logical_outcomes must contain local_dimension unique integers"
             )
-        object.__setattr__(self, "logical_outcomes", logical_outcomes)
+        frozen_logical_outcomes = tuple(int(value) for value in logical_outcomes)
         if self.leakage_outcome is not None and not _is_metadata_integer(
             self.leakage_outcome
         ):
             raise ValueError("leakage_outcome must be an integer or None")
+        leakage_outcome = (
+            None if self.leakage_outcome is None else int(self.leakage_outcome)
+        )
 
         source = self.measurement_basis_index_map
         try:
             entries = tuple(source.items()) if isinstance(source, Mapping) else tuple(source)
-            frozen_map = tuple(tuple(entry) for entry in entries)
+            map_entries = tuple(tuple(entry) for entry in entries)
         except TypeError as error:
             raise ValueError(
                 "measurement_basis_index_map must contain index/outcome pairs"
             ) from error
         seen_indices: set[int] = set()
-        for entry in frozen_map:
+        frozen_map: list[tuple[int, Outcome]] = []
+        for entry in map_entries:
             if len(entry) != 2:
                 raise ValueError(
                     "measurement_basis_index_map must contain index/outcome pairs"
@@ -452,16 +478,30 @@ class OutcomeConventionSpec:
             index, outcome = entry
             if not _is_metadata_integer(index) or index < 0:
                 raise ValueError("measurement basis indices must be nonnegative integers")
+            index = int(index)
             if index in seen_indices:
                 raise ValueError("measurement basis indices must be unique")
-            if outcome not in logical_outcomes and outcome != self.leakage_outcome:
+            if outcome is not None and not _is_metadata_integer(outcome):
+                raise ValueError("measurement basis outcomes must use declared outcomes")
+            outcome = None if outcome is None else int(outcome)
+            if (
+                outcome not in frozen_logical_outcomes
+                and outcome != leakage_outcome
+            ):
                 raise ValueError("measurement basis outcomes must use declared outcomes")
             seen_indices.add(index)
-        object.__setattr__(self, "measurement_basis_index_map", frozen_map)
-        if self.root_phase_sign not in {-1, 1} or isinstance(
-            self.root_phase_sign, (bool, np.bool_)
-        ):
+            frozen_map.append((index, outcome))
+        if not _is_metadata_integer(self.root_phase_sign):
             raise ValueError("root_phase_sign must be -1 or 1")
+        root_phase_sign = int(self.root_phase_sign)
+        if root_phase_sign not in {-1, 1}:
+            raise ValueError("root_phase_sign must be -1 or 1")
+
+        object.__setattr__(self, "local_dimension", local_dimension)
+        object.__setattr__(self, "logical_outcomes", frozen_logical_outcomes)
+        object.__setattr__(self, "leakage_outcome", leakage_outcome)
+        object.__setattr__(self, "measurement_basis_index_map", tuple(frozen_map))
+        object.__setattr__(self, "root_phase_sign", root_phase_sign)
 
 
 @dataclass(frozen=True)
@@ -511,7 +551,7 @@ def _canonical_float(value: float) -> str:
     if not math.isfinite(value):
         raise ValueError("canonical serialization rejects nonfinite floats")
     normalized = 0.0 if value == 0 else value
-    return format(normalized, ".15g")
+    return format(normalized, ".17g")
 
 
 def _canonical_value(value: Any) -> Any:
@@ -525,6 +565,8 @@ def _canonical_value(value: Any) -> Any:
         return [_canonical_float(number.real), _canonical_float(number.imag)]
     if isinstance(value, (float, np.floating)):
         return _canonical_float(float(value))
+    if isinstance(value, np.integer) and not isinstance(value, np.bool_):
+        return int(value)
     if value is None or isinstance(value, (str, int, bool)):
         return value
     if isinstance(value, Mapping):
@@ -602,6 +644,11 @@ class ReferenceExperimentSpec:
             raise ValueError(
                 "expected_unique_measurement_settings must be a positive integer"
             )
+        object.__setattr__(
+            self,
+            "expected_unique_measurement_settings",
+            int(self.expected_unique_measurement_settings),
+        )
 
         known_labels = set(labels)
         valid_parties = set(self.state.party_order)

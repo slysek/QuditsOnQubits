@@ -1,6 +1,7 @@
 from dataclasses import FrozenInstanceError
 from dataclasses import replace
 import json
+import math
 import unittest
 
 import numpy as np
@@ -10,9 +11,12 @@ from qudits_on_qubits.reference_experiments import (
     BellFactorSpec,
     BellTermSpec,
     EncodingSpec,
+    ExpectedValueSpec,
     LocalObservableSpec,
     LogicalStateSpec,
+    OutcomeConventionSpec,
     ReferenceExperimentSpec,
+    _canonical_value,
     _lambda,
     _make_xz,
     _measurement_observables,
@@ -274,14 +278,127 @@ class ReferenceExperimentRegistryTests(unittest.TestCase):
         payload = spec.to_dict()
 
         self.assertEqual(payload["schema_version"], "reference-experiment-v1")
-        self.assertEqual(payload["bell_functional"]["classical_bound"], "5.63815572471545")
+        serialized_bound = payload["bell_functional"]["classical_bound"]
+        self.assertEqual(float(serialized_bound), spec.bell_functional.classical_bound)
+        self.assertEqual(
+            serialized_bound,
+            format(spec.bell_functional.classical_bound, ".17g"),
+        )
         self.assertIsInstance(payload["bell_functional"]["terms"][0]["coefficient"], list)
         json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
         self.assertEqual(spec.stable_hash(), spec.stable_hash())
         self.assertEqual(len(spec.stable_hash()), 64)
 
+    def test_adjacent_float_values_serialize_and_hash_distinctly(self) -> None:
+        spec = get_reference_experiment("two_qutrit")
+        value = 1.234567890123456
+        adjacent = math.nextafter(value, math.inf)
+        first = replace(spec, expected=ExpectedValueSpec(value, 1e-10))
+        second = replace(spec, expected=ExpectedValueSpec(adjacent, 1e-10))
+
+        first_value = first.to_dict()["expected"]["ideal_bell_value"]
+        second_value = second.to_dict()["expected"]["ideal_bell_value"]
+
+        self.assertNotEqual(first_value, second_value)
+        self.assertEqual(float(first_value), value)
+        self.assertEqual(float(second_value), adjacent)
+        self.assertNotEqual(first.stable_hash(), second.stable_hash())
+
 
 class ReferenceExperimentModelTests(unittest.TestCase):
+    def test_numpy_integer_metadata_is_normalized_to_python_ints(self) -> None:
+        base_encoding = get_encoding("canonical_ez")
+        encoding = EncodingSpec(
+            encoding_id="numpy-integers",
+            logical_dimension=np.int64(3),
+            physical_qubits_per_qutrit=np.int64(2),
+            isometry=base_encoding.isometry,
+            leakage_basis=base_encoding.leakage_basis,
+        )
+        state = LogicalStateSpec(
+            "numpy-integers",
+            np.int64(3),
+            np.int64(2),
+            (np.int64(0), np.int64(1)),
+            ((np.int64(0), np.int64(1), np.int64(1)),),
+        )
+        factor = BellFactorSpec(
+            np.int64(0),
+            "A0",
+            np.int64(1),
+        )
+        outcomes = OutcomeConventionSpec(
+            local_dimension=np.int64(3),
+            logical_outcomes=(np.int64(0), np.int64(1), np.int64(2)),
+            leakage_outcome=np.int64(9),
+            measurement_basis_index_map=(
+                (np.int64(0), np.int64(0)),
+                (np.int64(1), np.int64(1)),
+                (np.int64(2), np.int64(2)),
+                (np.int64(3), np.int64(9)),
+            ),
+            root_phase_sign=np.int64(1),
+        )
+        spec = replace(
+            get_reference_experiment("two_qutrit"),
+            state=state,
+            outcome_convention=outcomes,
+            expected_unique_measurement_settings=np.int64(9),
+        )
+
+        integer_values = (
+            encoding.logical_dimension,
+            encoding.physical_qubits_per_qutrit,
+            state.local_dimension,
+            state.num_parties,
+            *state.party_order,
+            *state.weighted_edges[0],
+            factor.party,
+            factor.outcome_power,
+            outcomes.local_dimension,
+            *outcomes.logical_outcomes,
+            outcomes.leakage_outcome,
+            *(value for entry in outcomes.measurement_basis_index_map for value in entry),
+            outcomes.root_phase_sign,
+            spec.expected_unique_measurement_settings,
+        )
+        self.assertTrue(all(type(value) is int for value in integer_values))
+        self.assertEqual(_canonical_value(np.int64(7)), 7)
+
+    def test_integer_metadata_rejects_float_lookalikes(self) -> None:
+        with self.assertRaisesRegex(ValueError, "logical_dimension"):
+            EncodingSpec(
+                "float-dimension",
+                3.0,
+                2,
+                get_encoding("canonical_ez").isometry,
+                get_encoding("canonical_ez").leakage_basis,
+            )
+        with self.assertRaisesRegex(ValueError, "local_dimension"):
+            LogicalStateSpec(
+                "float-dimension",
+                3.0,
+                2,
+                (0, 1),
+                ((0, 1, 1),),
+            )
+        with self.assertRaisesRegex(ValueError, "outcomes"):
+            OutcomeConventionSpec(
+                3,
+                (0, 1, 2),
+                None,
+                ((0, 0.0), (1, 1), (2, 2), (3, None)),
+                1,
+            )
+        with self.assertRaisesRegex(ValueError, "root_phase_sign"):
+            OutcomeConventionSpec(
+                3,
+                (0, 1, 2),
+                None,
+                ((0, 0), (1, 1), (2, 2), (3, None)),
+                1.0,
+            )
+
     def test_lambda_phase_matches_reference_and_rejects_other_powers(self) -> None:
         np.testing.assert_allclose(_lambda(1), np.exp(1j * np.pi / 18))
         np.testing.assert_allclose(_lambda(2), np.exp(-1j * np.pi / 18))
