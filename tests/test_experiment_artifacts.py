@@ -56,6 +56,20 @@ def test_basis_artifacts_deeply_freeze_provenance(tmp_path):
         artifacts.provenance["basis"]["kind"] = "changed"
 
 
+
+def test_basis_artifacts_preserve_scalar_provenance_values(tmp_path):
+    root = tmp_path / "repo"
+    directory = root / "artifacts" / "iqm_runs" / "selected_best" / "ghz3" / "run-1" / "top" / "candidate-a"
+    _write_artifacts(directory, state="ghz3")
+
+    artifacts = load_basis_artifacts(BenchmarkBasis("iqm_runs", "run-1", "top", candidate="candidate-a"), "ghz3", root)
+
+    assert artifacts.provenance["state"] == "ghz3"
+    assert artifacts.provenance["basis"]["kind"] == "benchmark"
+    assert artifacts.provenance["basis"]["run_id"] == "run-1"
+    assert artifacts.provenance["basis"]["candidate"] == "candidate-a"
+    with pytest.raises(TypeError):
+        artifacts.provenance["basis"]["candidate"] = "changed"
 def test_benchmark_basis_resolves_candidate_and_rank(tmp_path):
     root = tmp_path / "repo"
     base = root / "artifacts" / "direct_basis_runs" / "selected_best" / "ghz3" / "run-7" / "top"
@@ -156,3 +170,5 @@ def test_state_validator_rejects_conditioned_instruction():
         num_clbits=0,
         data=[SimpleNamespace(operation=operation)],
     )
+    with pytest.raises(ExperimentValidationError, match="conditioned"):
+        _validate_state_circuit(circuit, "two_qutrit")
