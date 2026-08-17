@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
+from enum import Enum
 from importlib import import_module
 from types import SimpleNamespace
+import traceback
 
 import pytest
 from qiskit import QuantumCircuit
 
 from qudits_on_qubits.experiments.errors import (
     BackendCompatibilityError,
+    ExperimentValidationError,
     JobResultError,
     JobSubmissionError,
     OptionalDependencyError,
@@ -38,6 +41,14 @@ class _Backend:
     def run(self, circuits, **options):
         self.calls.append((circuits, options))
         return self.job
+
+
+def _assert_sanitized_error(caught, sensitive_text):
+    rendered = "".join(traceback.format_exception(caught.type, caught.value, caught.tb))
+    assert caught.value.__cause__ is None
+    assert sensitive_text not in str(caught.value)
+    assert sensitive_text not in repr(caught.value)
+    assert sensitive_text not in rendered
 
 
 def _compiled(adapter, count=2):
@@ -145,30 +156,31 @@ def test_submit_rejects_duplicate_shots(options):
 def test_submit_wraps_backend_exception_without_leaking_options():
     from qudits_on_qubits.experiments.backends import CustomBackendAdapter
 
+    sensitive_text = "token=do-not-leak"
+
     class FailingBackend(_Backend):
         def run(self, circuits, **options):
-            raise RuntimeError("token=do-not-leak")
+            raise RuntimeError(sensitive_text)
 
     adapter = CustomBackendAdapter(CustomBackend(FailingBackend(), identity="safe-name"))
     with pytest.raises(JobSubmissionError, match="safe-name") as caught:
         adapter.submit(_compiled(adapter, 1).circuits, 10, {"api_key": "secret"})
-    assert "secret" not in str(caught.value)
-    assert isinstance(caught.value.__cause__, RuntimeError)
+    _assert_sanitized_error(caught, sensitive_text)
 
 
 def test_compile_wraps_transpiler_exception_without_leaking_details(monkeypatch):
     from qudits_on_qubits.experiments.backends import CustomBackendAdapter
 
     adapter = CustomBackendAdapter(CustomBackend(_Backend(), identity="safe-name"))
+    sensitive_text = "token=do-not-leak"
     monkeypatch.setattr(
         import_module("qudits_on_qubits.experiments.backends.custom"),
         "transpile",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("token=do-not-leak")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError(sensitive_text)),
     )
     with pytest.raises(BackendCompatibilityError, match="safe-name") as caught:
         adapter.compile((QuantumCircuit(1),), TranspilationConfig())
-    assert "token" not in str(caught.value)
-    assert isinstance(caught.value.__cause__, RuntimeError)
+    _assert_sanitized_error(caught, sensitive_text)
 
 
 @pytest.mark.parametrize(
@@ -270,15 +282,30 @@ def test_result_rejects_mismatched_or_malformed_counts(raw, circuit_count, shots
 def test_result_wraps_handle_result_exception():
     from qudits_on_qubits.experiments.backends import CustomBackendAdapter, SubmittedJob
 
+    sensitive_text = "password=do-not-leak"
+
     class FailingJob:
         def result(self, **_kwargs):
-            raise RuntimeError("password=do-not-leak")
+            raise RuntimeError(sensitive_text)
 
     adapter = CustomBackendAdapter(CustomBackend(_Backend(), identity="safe"))
     submitted = SubmittedJob("job-1", FailingJob(), adapter.resolve(), 1, 1)
     with pytest.raises(JobResultError, match="job-1") as caught:
         adapter.result(submitted, timeout=2.0)
-    assert "password" not in str(caught.value)
+    _assert_sanitized_error(caught, sensitive_text)
+
+
+@pytest.mark.parametrize("exception_type", [RuntimeError, JobResultError])
+def test_result_wraps_count_extraction_exception_without_leaking_details(exception_type):
+    from qudits_on_qubits.experiments.backends import CustomBackendAdapter, SubmittedJob
+
+    sensitive_text = "api_key=do-not-leak"
+    raw = SimpleNamespace(get_counts=lambda: (_ for _ in ()).throw(exception_type(sensitive_text)))
+    adapter = CustomBackendAdapter(CustomBackend(_Backend()))
+    submitted = SubmittedJob("job-1", _Job(raw), adapter.resolve(), 1, 1)
+    with pytest.raises(JobResultError) as caught:
+        adapter.result(submitted)
+    _assert_sanitized_error(caught, sensitive_text)
 
 
 def test_custom_restore_job_requires_capability_and_retrieve_method():
@@ -293,10 +320,16 @@ def test_custom_restore_job_requires_capability_and_retrieve_method():
         resumable.restore_job("job-1")
 
 
-def test_custom_restore_job_retrieves_remote_handle():
+@pytest.mark.parametrize(
+    "handle",
+    [
+        _Job(job_id="remote-1"),
+        SimpleNamespace(job_id="remote-1", result=lambda: None),
+    ],
+)
+def test_custom_restore_job_retrieves_remote_handle_with_matching_id(handle):
     from qudits_on_qubits.experiments.backends import CustomBackendAdapter
 
-    handle = _Job(job_id="remote-1")
     backend = _Backend()
     backend.local = False
     backend.retrieve_job = lambda job_id: handle if job_id == "remote-1" else None
@@ -305,6 +338,39 @@ def test_custom_restore_job_retrieves_remote_handle():
     assert submitted.handle is handle
     assert submitted.circuit_count == 2
     assert submitted.shots == 100
+
+
+@pytest.mark.parametrize(
+    "handle",
+    [
+        SimpleNamespace(result=lambda: None),
+        _Job(job_id="different-job"),
+        SimpleNamespace(job_id="different-job", result=lambda: None),
+    ],
+)
+def test_custom_restore_job_rejects_missing_or_mismatched_actual_id(handle):
+    from qudits_on_qubits.experiments.backends import CustomBackendAdapter
+
+    backend = _Backend()
+    backend.local = False
+    backend.retrieve_job = lambda _job_id: handle
+    adapter = CustomBackendAdapter(CustomBackend(backend, supports_resume=True))
+    with pytest.raises(JobResultError, match="job ID") as caught:
+        adapter.restore_job("remote-1")
+    assert caught.value.__cause__ is None
+
+
+def test_custom_restore_job_sanitizes_retrieval_exception():
+    from qudits_on_qubits.experiments.backends import CustomBackendAdapter
+
+    sensitive_text = "secret=restore-leak"
+    backend = _Backend()
+    backend.local = False
+    backend.retrieve_job = lambda _job_id: (_ for _ in ()).throw(RuntimeError(sensitive_text))
+    adapter = CustomBackendAdapter(CustomBackend(backend, supports_resume=True))
+    with pytest.raises(JobResultError, match="restore") as caught:
+        adapter.restore_job("remote-1")
+    _assert_sanitized_error(caught, sensitive_text)
 
 
 def test_custom_availability_reports_backend_status():
@@ -382,9 +448,70 @@ def test_aer_optional_dependency_error_has_install_hint(monkeypatch):
     from qudits_on_qubits.experiments.backends import AerAdapter
 
     adapter = AerAdapter(AerIdeal())
-    monkeypatch.setattr(adapter, "_load_aer_simulator", lambda: (_ for _ in ()).throw(ImportError("missing")))
-    with pytest.raises(OptionalDependencyError, match="pip install qiskit-aer"):
+    sensitive_text = "token=dependency-leak"
+    monkeypatch.setattr(
+        adapter,
+        "_load_aer_simulator",
+        lambda: (_ for _ in ()).throw(ImportError(sensitive_text)),
+    )
+    with pytest.raises(OptionalDependencyError, match="pip install qiskit-aer") as caught:
         adapter.resolve()
+    _assert_sanitized_error(caught, sensitive_text)
+
+
+def test_aer_compile_sanitizes_transpiler_exception(monkeypatch):
+    from qudits_on_qubits.experiments.backends import AerAdapter
+
+    sensitive_text = "password=aer-compile-leak"
+    monkeypatch.setattr(
+        import_module("qudits_on_qubits.experiments.backends.aer"),
+        "transpile",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError(sensitive_text)),
+    )
+    adapter = AerAdapter(AerIdeal(), simulator=_Backend())
+    with pytest.raises(BackendCompatibilityError, match="compile") as caught:
+        adapter.compile((QuantumCircuit(1),), TranspilationConfig())
+    _assert_sanitized_error(caught, sensitive_text)
+
+
+class _ProviderStatus(Enum):
+    DONE = "completed"
+
+
+def test_execution_result_normalizes_safe_enum_status():
+    from qudits_on_qubits.experiments.backends import BackendIdentity, ExecutionResult
+
+    result = ExecutionResult(({"0": 1},), "job-1", BackendIdentity("custom", "local"), _ProviderStatus.DONE)
+    assert result.status == "done"
+
+
+@pytest.mark.parametrize("status", ["token=leak", "RUNNING\nsecret", "bad\x01status", "x" * 513])
+def test_execution_result_rejects_unsafe_direct_status(status):
+    from qudits_on_qubits.experiments.backends import BackendIdentity, ExecutionResult
+
+    with pytest.raises(ExperimentValidationError, match="status"):
+        ExecutionResult(({"0": 1},), "job-1", BackendIdentity("custom", "local"), status)
+
+
+@pytest.mark.parametrize("status", ["token=leak", "RUNNING\nsecret", "bad\x01status", "x" * 513])
+def test_result_discards_unsafe_provider_status(status):
+    from qudits_on_qubits.experiments.backends import CustomBackendAdapter, SubmittedJob
+
+    handle = _Job(SimpleNamespace(get_counts=lambda: {"0": 1}))
+    handle.status = lambda: status
+    adapter = CustomBackendAdapter(CustomBackend(_Backend()))
+    submitted = SubmittedJob("job-1", handle, adapter.resolve(), 1, 1)
+    assert adapter.result(submitted).status is None
+
+
+def test_result_normalizes_safe_provider_enum_status():
+    from qudits_on_qubits.experiments.backends import CustomBackendAdapter, SubmittedJob
+
+    handle = _Job(SimpleNamespace(get_counts=lambda: {"0": 1}))
+    handle.status = lambda: _ProviderStatus.DONE
+    adapter = CustomBackendAdapter(CustomBackend(_Backend()))
+    submitted = SubmittedJob("job-1", handle, adapter.resolve(), 1, 1)
+    assert adapter.result(submitted).status == "done"
 
 
 def test_aer_ideal_real_execution_measured_zero_counts():

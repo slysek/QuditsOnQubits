@@ -15,6 +15,7 @@ from .base import (
     BaseBackendAdapter,
     CompiledBatch,
     SubmittedJob,
+    _exception_name,
     _validated_circuit_tuple,
     _validated_run_options,
 )
@@ -39,12 +40,15 @@ class AerAdapter(BaseBackendAdapter):
                 simulator_class = self._load_aer_simulator()
             except (ImportError, ModuleNotFoundError) as error:
                 raise OptionalDependencyError(
-                    "AerIdeal requires qiskit-aer; install it with `pip install qiskit-aer`"
-                ) from error
+                    "AerIdeal requires qiskit-aer; install it with `pip install qiskit-aer` "
+                    f"({_exception_name(error)})"
+                ) from None
             try:
                 self._simulator = simulator_class(method="statevector")
             except Exception as error:
-                raise BackendUnavailableError("could not create ideal Aer simulator") from error
+                raise BackendUnavailableError(
+                    f"could not create ideal Aer simulator ({_exception_name(error)})"
+                ) from None
         return self._simulator
 
     def resolve(self) -> BackendIdentity:
@@ -91,8 +95,9 @@ class AerAdapter(BaseBackendAdapter):
         except Exception as error:
             identity = self.resolve()
             raise BackendCompatibilityError(
-                f"could not compile circuits for backend {identity.kind}:{identity.name}"
-            ) from error
+                f"could not compile circuits for backend {identity.kind}:{identity.name} "
+                f"({_exception_name(error)})"
+            ) from None
         compiled_batch = tuple(compiled) if isinstance(compiled, (list, tuple)) else (compiled,)
         return CompiledBatch(compiled_batch, self.resolve(), {"transpilation": options})
 

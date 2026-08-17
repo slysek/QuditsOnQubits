@@ -15,6 +15,8 @@ from .base import (
     BaseBackendAdapter,
     CompiledBatch,
     SubmittedJob,
+    _exception_name,
+    _extract_job_id,
     _positive_integer,
     _safe_identifier,
     _validated_circuit_tuple,
@@ -77,8 +79,9 @@ class CustomBackendAdapter(BaseBackendAdapter):
             compiled = transpile(list(batch), backend=self._backend, **options)
         except Exception as error:
             raise BackendCompatibilityError(
-                f"could not compile circuits for backend {self._identity.kind}:{self._identity.name}"
-            ) from error
+                f"could not compile circuits for backend {self._identity.kind}:{self._identity.name} "
+                f"({_exception_name(error)})"
+            ) from None
         compiled_batch = tuple(compiled) if isinstance(compiled, (list, tuple)) else (compiled,)
         return CompiledBatch(compiled_batch, self._identity, {"transpilation": options})
 
@@ -108,9 +111,19 @@ class CustomBackendAdapter(BaseBackendAdapter):
         try:
             handle = retrieve(job_id)
         except Exception as error:
-            raise JobResultError(f"could not restore job {job_id}") from error
+            raise JobResultError(
+                f"could not restore job {job_id} ({_exception_name(error)})"
+            ) from None
         if handle is None:
             raise JobResultError(f"could not restore job {job_id}")
+        try:
+            actual_job_id = _extract_job_id(handle, allow_local_fallback=False)
+        except Exception as error:
+            raise JobResultError(
+                f"restored job did not provide the requested job ID ({_exception_name(error)})"
+            ) from None
+        if actual_job_id != job_id:
+            raise JobResultError("restored job ID does not match requested job ID")
         return SubmittedJob(job_id, handle, self._identity, circuit_count, shots, {"restored": True})
 
 
