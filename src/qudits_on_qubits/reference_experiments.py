@@ -129,6 +129,8 @@ class LogicalStateSpec:
         object.__setattr__(self, "party_order", frozen_party_order)
         object.__setattr__(self, "weighted_edges", frozen_weighted_edges)
 
+        if not isinstance(self.state_id, str) or not self.state_id.strip():
+            raise ValueError("state_id must be a nonempty string")
         if self.local_dimension != 3:
             raise ValueError("local_dimension must be exactly 3")
         if not isinstance(self.num_parties, int) or self.num_parties < 2:
