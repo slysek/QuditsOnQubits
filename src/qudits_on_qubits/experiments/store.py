@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from dataclasses import fields, is_dataclass
 from datetime import datetime, timezone
 from enum import Enum
+import errno
 import hashlib
 import importlib
 import io
@@ -88,6 +89,108 @@ def _ensure_no_symlink_or_reparse(
             raise ExperimentPersistenceError(
                 f"experiment path contains a symlink or reparse point: {current}"
             )
+
+
+def _directory_identity(directory: Path, root: Path) -> tuple[Path, int, int, bool]:
+    _ensure_no_symlink_or_reparse(directory, root, allow_missing=False)
+    try:
+        resolved = directory.resolve(strict=True)
+        metadata = directory.lstat()
+        is_reparse = _is_symlink_or_reparse(directory)
+    except (OSError, RuntimeError) as error:
+        raise ExperimentPersistenceError(f"could not snapshot atomic-write directory: {directory}") from error
+    if not _is_within(resolved, root):
+        raise ExperimentPersistenceError(f"atomic-write directory escapes experiment root: {resolved}")
+    if is_reparse:
+        raise ExperimentPersistenceError(f"atomic-write directory is a symlink or reparse point: {directory}")
+    if not stat.S_ISDIR(metadata.st_mode):
+        raise ExperimentPersistenceError(f"atomic-write parent is not a directory: {directory}")
+    return resolved, metadata.st_dev, metadata.st_ino, is_reparse
+
+
+def _verify_directory_identity(
+    directory: Path,
+    root: Path,
+    expected: tuple[Path, int, int, bool],
+) -> None:
+    if _directory_identity(directory, root) != expected:
+        raise ExperimentPersistenceError(f"parent directory changed during atomic write: {directory}")
+
+
+def _known_directory_fsync_limitation(error: OSError) -> bool:
+    filesystem_unsupported = {
+        errno.EINVAL,
+        getattr(errno, "ENOTSUP", errno.EINVAL),
+        getattr(errno, "EOPNOTSUPP", errno.EINVAL),
+    }
+    if error.errno in filesystem_unsupported:
+        return True
+    windows_unsupported = {1, 5, 50, 87}
+    return os.name == "nt" and (
+        error.errno in {errno.EACCES, errno.EBADF} or getattr(error, "winerror", None) in windows_unsupported
+    )
+
+
+def _fsync_directory(directory: Path) -> None:
+    flags = os.O_RDONLY
+    for flag_name in ("O_CLOEXEC", "O_DIRECTORY", "O_NOFOLLOW"):
+        flags |= getattr(os, flag_name, 0)
+    try:
+        descriptor = os.open(directory, flags)
+    except OSError as error:
+        if _known_directory_fsync_limitation(error):
+            return
+        raise ExperimentPersistenceError(f"could not open directory for fsync: {directory}") from error
+    try:
+        try:
+            os.fsync(descriptor)
+        except OSError as error:
+            if not _known_directory_fsync_limitation(error):
+                raise ExperimentPersistenceError(f"could not fsync directory: {directory}") from error
+    finally:
+        try:
+            os.close(descriptor)
+        except OSError as error:
+            raise ExperimentPersistenceError(f"could not close fsync directory: {directory}") from error
+
+
+def _replace_with_directory_handle(
+    temporary: Path,
+    destination: Path,
+    parent_identity: tuple[Path, int, int, bool],
+) -> None:
+    supports_dir_fd = getattr(os, "supports_dir_fd", set())
+    if os.rename not in supports_dir_fd or not hasattr(os, "O_DIRECTORY"):
+        os.replace(temporary, destination)
+        return
+
+    flags = os.O_RDONLY | os.O_DIRECTORY
+    flags |= getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(destination.parent, flags)
+    except OSError as error:
+        raise ExperimentPersistenceError(
+            f"could not open atomic-write parent directory: {destination.parent}"
+        ) from error
+    try:
+        metadata = os.fstat(descriptor)
+        if (metadata.st_dev, metadata.st_ino) != parent_identity[1:3]:
+            raise ExperimentPersistenceError(
+                f"parent directory changed during atomic write: {destination.parent}"
+            )
+        os.replace(
+            temporary.name,
+            destination.name,
+            src_dir_fd=descriptor,
+            dst_dir_fd=descriptor,
+        )
+    finally:
+        try:
+            os.close(descriptor)
+        except OSError as error:
+            raise ExperimentPersistenceError(
+                f"could not close atomic-write parent directory: {destination.parent}"
+            ) from error
 
 
 def _safe_relative_path(value: str | Path) -> Path:
@@ -292,19 +395,36 @@ def _decode(value: Any) -> Any:
     if tag == "numpy_scalar" and set(value) == {_TAG, "dtype", "value"}:
         dtype = _decode_dtype(value["dtype"])
         decoded = _decode(value["value"])
+        _validate_numpy_scalar(decoded, dtype)
         try:
-            return np.asarray(decoded, dtype=dtype).reshape(())[()]
+            with np.errstate(all="ignore"):
+                result = np.asarray(decoded, dtype=dtype).reshape(())[()]
         except (TypeError, ValueError, OverflowError) as error:
             raise ExperimentPersistenceError("invalid numpy scalar representation") from error
+        _validate_numpy_result(result, dtype)
+        if _encode(result.item()) != value["value"]:
+            raise ExperimentPersistenceError("numpy scalar representation requires coercion")
+        return result
     if tag == "numpy_array" and set(value) == {_TAG, "data", "dtype", "shape"}:
         dtype = _decode_dtype(value["dtype"])
         shape = value["shape"]
         if not isinstance(shape, list) or any(type(size) is not int or size < 0 for size in shape):
             raise ExperimentPersistenceError("invalid numpy array shape")
+        decoded = _decode(value["data"])
+        _validate_numpy_array_data(decoded, tuple(shape), dtype)
         try:
-            return np.asarray(_decode(value["data"]), dtype=dtype).reshape(tuple(shape))
+            with np.errstate(all="ignore"):
+                result = np.asarray(decoded, dtype=dtype)
         except (TypeError, ValueError, OverflowError) as error:
             raise ExperimentPersistenceError("invalid numpy array representation") from error
+        if result.shape != tuple(shape):
+            if result.size != 0 or math.prod(shape) != 0:
+                raise ExperimentPersistenceError("numpy array data does not match its shape")
+            result = result.reshape(tuple(shape))
+        _validate_numpy_result(result, dtype)
+        if _encode(result.tolist()) != value["data"]:
+            raise ExperimentPersistenceError("numpy array representation requires coercion")
+        return result
     raise ExperimentPersistenceError(f"invalid or unsupported tagged JSON value {tag!r}")
 
 
@@ -317,7 +437,48 @@ def _decode_dtype(value: Any) -> np.dtype[Any]:
         raise ExperimentPersistenceError("invalid numpy dtype") from error
     if dtype.fields is not None or dtype.hasobject or dtype.kind not in _NDARRAY_KINDS:
         raise ExperimentPersistenceError(f"unsupported numpy dtype {dtype}")
+    if dtype.str != value:
+        raise ExperimentPersistenceError(f"numpy dtype is not canonical: {value!r}")
     return dtype
+
+
+def _validate_numpy_scalar(value: Any, dtype: np.dtype[Any]) -> None:
+    kind = dtype.kind
+    if kind == "b":
+        valid = type(value) is bool
+    elif kind in "iu":
+        valid = type(value) is int
+    elif kind == "f":
+        valid = type(value) is float and math.isfinite(value)
+    elif kind == "c":
+        valid = type(value) is complex and math.isfinite(value.real) and math.isfinite(value.imag)
+    else:
+        valid = kind == "U" and type(value) is str
+    if not valid:
+        raise ExperimentPersistenceError(f"numpy {dtype} value has an invalid lexical type")
+    if kind in "iu":
+        limits = np.iinfo(dtype)
+        if value < limits.min or value > limits.max:
+            raise ExperimentPersistenceError(f"numpy {dtype} integer is outside its dtype range")
+
+
+def _validate_numpy_array_data(
+    value: Any,
+    shape: tuple[int, ...],
+    dtype: np.dtype[Any],
+) -> None:
+    if not shape:
+        _validate_numpy_scalar(value, dtype)
+        return
+    if not isinstance(value, list) or len(value) != shape[0]:
+        raise ExperimentPersistenceError("numpy array data does not match its shape")
+    for item in value:
+        _validate_numpy_array_data(item, shape[1:], dtype)
+
+
+def _validate_numpy_result(value: Any, dtype: np.dtype[Any]) -> None:
+    if dtype.kind in "fc" and not bool(np.all(np.isfinite(value))):
+        raise ExperimentPersistenceError("numpy values must be finite after dtype construction")
 
 
 def _canonical_json_bytes(value: Any) -> bytes:
@@ -363,11 +524,20 @@ def _validate_counts_mapping(counts_by_setting: Any) -> list[dict[str, Any]]:
         raise ExperimentPersistenceError("counts must be a non-empty mapping by setting")
     settings: list[dict[str, Any]] = []
     for setting, counts in counts_by_setting.items():
-        _encode(setting)
+        encoded_setting = _encode(setting)
+        decoded_setting = _decode(encoded_setting)
         try:
             hash(setting)
+            hash(decoded_setting)
         except (TypeError, ValueError) as error:
-            raise ExperimentPersistenceError("count setting keys must be hashable") from error
+            raise ExperimentPersistenceError("count setting key must round-trip to a hashable value") from error
+        try:
+            equal = decoded_setting == setting
+            lossless = type(decoded_setting) is type(setting) and type(equal) in {bool, np.bool_} and bool(equal)
+        except Exception:
+            lossless = False
+        if not lossless or _encode(decoded_setting) != encoded_setting:
+            raise ExperimentPersistenceError("count setting key must round-trip losslessly")
         if not isinstance(counts, Mapping) or not counts:
             raise ExperimentPersistenceError("counts for each setting must be a non-empty mapping")
         validated: dict[str, Any] = {}
@@ -385,12 +555,17 @@ def _validate_counts_mapping(counts_by_setting: Any) -> list[dict[str, Any]]:
             else:
                 raise ExperimentPersistenceError("count values must be integers or finite floats")
             validated[outcome] = count
-        settings.append({"setting": setting, "counts": validated})
+        settings.append({"setting": decoded_setting, "counts": validated})
     return settings
 
 
 class ExperimentStore:
-    """Persist a run beneath one resolved root without following escapes."""
+    """Persist a run beneath one resolved root without following escapes.
+
+    Atomic writes repeatedly verify directory identity and reparse state. Python
+    cannot provide a race-free path-based replace on every supported platform,
+    so the configured root must not be writable by untrusted concurrent actors.
+    """
 
     def __init__(self, root: str | Path):
         try:
@@ -617,10 +792,10 @@ class ExperimentStore:
         except OSError as error:
             raise ExperimentPersistenceError(f"could not read experiment artifact: {path}") from error
 
-    @staticmethod
-    def _atomic_write(path: Path, data: bytes) -> None:
+    def _atomic_write(self, path: Path, data: bytes) -> None:
         temporary: Path | None = None
         try:
+            parent_identity = _directory_identity(path.parent, self.root)
             with tempfile.NamedTemporaryFile(
                 mode="wb",
                 dir=path.parent,
@@ -629,11 +804,36 @@ class ExperimentStore:
                 delete=False,
             ) as handle:
                 temporary = Path(handle.name)
+                _verify_directory_identity(path.parent, self.root, parent_identity)
+                temporary_resolved = temporary.resolve(strict=True)
+                temporary_metadata = temporary.lstat()
+                if temporary_resolved.parent != parent_identity[0]:
+                    raise ExperimentPersistenceError(
+                        f"temporary file parent directory changed during atomic write: {path.parent}"
+                    )
+                if _is_symlink_or_reparse(temporary) or not stat.S_ISREG(temporary_metadata.st_mode):
+                    raise ExperimentPersistenceError(f"atomic temporary path is not a regular file: {temporary}")
                 handle.write(data)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(temporary, path)
+            _verify_directory_identity(path.parent, self.root, parent_identity)
+            _ensure_no_symlink_or_reparse(path, self.root, allow_missing=True)
+            if path.resolve(strict=False).parent != parent_identity[0]:
+                raise ExperimentPersistenceError(
+                    f"destination parent directory changed during atomic write: {path.parent}"
+                )
+            _replace_with_directory_handle(temporary, path, parent_identity)
             temporary = None
+            _verify_directory_identity(path.parent, self.root, parent_identity)
+            _ensure_no_symlink_or_reparse(path, self.root, allow_missing=False)
+            if path.resolve(strict=True).parent != parent_identity[0]:
+                raise ExperimentPersistenceError(
+                    f"destination parent directory changed during atomic write: {path.parent}"
+                )
+            _fsync_directory(path.parent)
+            _verify_directory_identity(path.parent, self.root, parent_identity)
+        except ExperimentPersistenceError:
+            raise
         except Exception as error:
             raise ExperimentPersistenceError(f"could not atomically write experiment artifact: {path}") from error
         finally:
