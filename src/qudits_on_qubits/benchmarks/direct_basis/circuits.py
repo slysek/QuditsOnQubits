@@ -71,13 +71,17 @@ def build_direct_basis_graph_state_circuit(
     for left, right in state.edges:
         if left == right:
             continue
+        # Logical statevectors use left-to-right tensor axes, while Qiskit
+        # numbers physical qubit blocks from the little-endian end.
+        left_pair = qubit_pairs[state.num_qutrits - 1 - left]
+        right_pair = qubit_pairs[state.num_qutrits - 1 - right]
         qc.append(
             edge_gate,
             [
-                qubit_pairs[left][0],
-                qubit_pairs[left][1],
-                qubit_pairs[right][0],
-                qubit_pairs[right][1],
+                left_pair[0],
+                left_pair[1],
+                right_pair[0],
+                right_pair[1],
             ],
         )
 

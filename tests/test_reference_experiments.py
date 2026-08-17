@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
+from qiskit.quantum_info import Statevector
 
 from qudits_on_qubits.bell_functionals.bell_builders import (
     bell_terms,
@@ -28,6 +29,10 @@ from qudits_on_qubits.bell_functionals.operators import (
     make_measurement_observables_qutrit_d3,
     qutrit_lambda,
 )
+from qudits_on_qubits.benchmarks.direct_basis.circuits import (
+    build_direct_basis_graph_state_circuit,
+)
+from qudits_on_qubits.core.graph_states import resolve_graph_state_or_raise
 from qudits_on_qubits.reference_experiments import (
     REFERENCE_EXPERIMENTS,
     BellFactorSpec,
@@ -315,6 +320,45 @@ class ReferenceExperimentRegistryTests(unittest.TestCase):
         self.assertTrue(spec.leakage_policy.compute_unconditional)
         self.assertTrue(spec.leakage_policy.compute_conditional)
         self.assertEqual(spec.leakage_policy.leakage_contribution, 0)
+
+    def test_fixed_graph_resolver_preserves_registry_legacy_edges(self) -> None:
+        expected_edges = {
+            "two_qutrit": ((0, 1),),
+            "ghz3": ((0, 1), (0, 2)),
+            "ame43": ((0, 1), (0, 3), (1, 2), (2, 3), (2, 3)),
+        }
+
+        for state_name, edges in expected_edges.items():
+            with self.subTest(state_name=state_name):
+                self.assertEqual(
+                    resolve_graph_state_or_raise(state_name).edges,
+                    edges,
+                )
+
+    def test_direct_basis_fixed_graphs_match_reference_states(self) -> None:
+        encoding = get_encoding("canonical_ez").as_array()
+
+        for state_name, num_parties in (
+            ("two_qutrit", 2),
+            ("ghz3", 3),
+            ("ame43", 4),
+        ):
+            with self.subTest(state_name=state_name):
+                spec = get_reference_experiment(state_name)
+                self.assertEqual(spec.state.num_parties, num_parties)
+                circuit = build_direct_basis_graph_state_circuit(
+                    state_name,
+                    encoding,
+                )
+                actual = Statevector.from_instruction(circuit).data
+                expected = encode_qutrit_state(
+                    spec.state.statevector(),
+                    encoding,
+                    num_parties,
+                )
+
+                fidelity = abs(np.vdot(expected, actual)) ** 2
+                self.assertAlmostEqual(fidelity, 1.0, places=10)
 
     def test_registry_and_nested_values_are_immutable(self) -> None:
         spec = get_reference_experiment("two_qutrit")
