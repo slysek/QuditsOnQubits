@@ -1,4 +1,12 @@
-"""Experiment specification models and typed runner errors."""
+"""Public API for durable qudit experiment execution."""
+
+from .backends import (
+    Availability,
+    BackendAdapter,
+    BackendCapabilities,
+    BackendIdentity,
+    create_backend_adapter,
+)
 
 from .errors import (
     BackendCompatibilityError,
@@ -11,22 +19,16 @@ from .errors import (
     OptionalDependencyError,
 )
 
-__all__ = [
-    "BackendCompatibilityError",
-    "BackendUnavailableError",
-    "ExperimentError",
-    "ExperimentPersistenceError",
-    "ExperimentValidationError",
-    "JobResultError",
-    "JobSubmissionError",
-    "OptionalDependencyError",
-]
 from .models import (
     AerIdeal,
+    Backend,
+    BackendStatus,
+    Basis,
     BellEstimate,
     BenchmarkBasis,
     BootstrapConfig,
     ComplexComponents,
+    ComplexConfidenceInterval,
     ConfidenceInterval,
     CustomBackend,
     ExperimentResult,
@@ -40,29 +42,86 @@ from .models import (
     RetryConfig,
     TranspilationConfig,
 )
-
-__all__.extend(
-    [
-        "AerIdeal",
-        "BellEstimate",
-        "BenchmarkBasis",
-        "BootstrapConfig",
-        "ComplexComponents",
-        "ConfidenceInterval",
-        "CustomBackend",
-        "ExperimentResult",
-        "ExperimentSpec",
-        "ExperimentStatus",
-        "IQMHardware",
-        "MitigationConfig",
-        "NoisySimulator",
-        "PathBasis",
-        "PiastQHardware",
-        "RetryConfig",
-        "TranspilationConfig",
-    ]
+from .mitigation import (
+    LinearZNEFit,
+    ReadoutCalibration,
+    ReadoutMitigationStrategy,
+    ZNEStrategy,
+    apply_readout_mitigation,
+    assignment_matrices_from_counts,
+    build_m3_mitigation,
+    build_readout_calibration_circuits,
+    calibration_cache_is_valid,
+    fold_cz_batch,
+    linear_zne_extrapolate,
+    validate_zne_factors,
+)
+from .runner import resume_experiment, run_experiment, run_experiments
+from .store import ExperimentStore
+from .uncertainty import (
+    BootstrapBellResults,
+    BootstrapDiagnostics,
+    BootstrapInputs,
+    ReadoutBootstrapStrategy,
+    ZNEBootstrapStrategy,
+    bootstrap_bell_results,
 )
 
-from .runner import resume_experiment, run_experiment, run_experiments
-
-__all__.extend(["resume_experiment", "run_experiment", "run_experiments"])
+__all__ = [
+    "AerIdeal",
+    "Availability",
+    "Backend",
+    "BackendAdapter",
+    "BackendCapabilities",
+    "BackendCompatibilityError",
+    "BackendIdentity",
+    "BackendStatus",
+    "BackendUnavailableError",
+    "Basis",
+    "BellEstimate",
+    "BenchmarkBasis",
+    "BootstrapBellResults",
+    "BootstrapConfig",
+    "BootstrapDiagnostics",
+    "BootstrapInputs",
+    "ComplexComponents",
+    "ComplexConfidenceInterval",
+    "ConfidenceInterval",
+    "CustomBackend",
+    "ExperimentError",
+    "ExperimentPersistenceError",
+    "ExperimentResult",
+    "ExperimentSpec",
+    "ExperimentStatus",
+    "ExperimentStore",
+    "ExperimentValidationError",
+    "IQMHardware",
+    "JobResultError",
+    "JobSubmissionError",
+    "LinearZNEFit",
+    "MitigationConfig",
+    "NoisySimulator",
+    "OptionalDependencyError",
+    "PathBasis",
+    "PiastQHardware",
+    "ReadoutBootstrapStrategy",
+    "ReadoutCalibration",
+    "ReadoutMitigationStrategy",
+    "RetryConfig",
+    "TranspilationConfig",
+    "ZNEBootstrapStrategy",
+    "ZNEStrategy",
+    "apply_readout_mitigation",
+    "assignment_matrices_from_counts",
+    "bootstrap_bell_results",
+    "build_m3_mitigation",
+    "build_readout_calibration_circuits",
+    "calibration_cache_is_valid",
+    "create_backend_adapter",
+    "fold_cz_batch",
+    "linear_zne_extrapolate",
+    "resume_experiment",
+    "run_experiment",
+    "run_experiments",
+    "validate_zne_factors",
+]
