@@ -139,6 +139,61 @@ def test_noisy_simulator_source_mode_rejects_partial_model_configuration(
     with pytest.raises(ExperimentValidationError, match="exactly"):
         NoisySimulator(source=object(), noise_model=noise_model, target_backend=target_backend)
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_persisted_float_configs_reject_non_finite_values(value):
+    with pytest.raises(ExperimentValidationError):
+        MitigationConfig(readout_max_age_hours=value)
+    with pytest.raises(ExperimentValidationError):
+        RetryConfig(initial_delay=value)
+    with pytest.raises(ExperimentValidationError):
+        RetryConfig(multiplier=value)
+    with pytest.raises(ExperimentValidationError):
+        RetryConfig(max_delay=value)
+    with pytest.raises(ExperimentValidationError):
+        BootstrapConfig(confidence_level=value)
+
+
+@pytest.mark.parametrize(
+    "factory",
+    [
+        lambda: IQMHardware("device", use_metrics="false"),
+        lambda: CustomBackend(object(), supports_resume="false"),
+        lambda: MitigationConfig(readout=1),
+        lambda: MitigationConfig(zne="false"),
+        lambda: MitigationConfig(force_recalibration=0),
+        lambda: BootstrapConfig(include_readout_calibration="false"),
+    ],
+)
+def test_boolean_config_fields_require_actual_booleans(factory):
+    with pytest.raises(ExperimentValidationError):
+        factory()
+
+
+def test_deserialization_does_not_coerce_boolean_strings():
+    with pytest.raises(ExperimentValidationError):
+        IQMHardware.from_safe_dict({"device": "device", "use_metrics": "false"})
+    with pytest.raises(ExperimentValidationError):
+        CustomBackend.from_safe_dict(
+            {"identity": "custom", "supports_resume": "false"}, instance=object()
+        )
+
+
+def test_noisy_simulator_reconstruction_must_match_persisted_mode():
+    source_payload = NoisySimulator(source=object()).to_safe_dict()
+    with pytest.raises(ExperimentValidationError, match="source_mode"):
+        NoisySimulator.from_safe_dict(
+            source_payload, noise_model=object(), target_backend=object()
+        )
+
+    model_payload = NoisySimulator(noise_model=object(), target_backend=object()).to_safe_dict()
+    with pytest.raises(ExperimentValidationError, match="source_mode"):
+        NoisySimulator.from_safe_dict(model_payload, source=object())
+
+def test_experiments_package_reexports_experiment_spec():
+    from qudits_on_qubits.experiments import ExperimentSpec as ExportedExperimentSpec
+
+    assert ExportedExperimentSpec is ExperimentSpec
+
 def test_models_are_frozen():
     backend = AerIdeal()
     with pytest.raises(FrozenInstanceError):

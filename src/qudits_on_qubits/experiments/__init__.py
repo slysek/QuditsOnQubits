@@ -21,3 +21,44 @@ __all__ = [
     "JobSubmissionError",
     "OptionalDependencyError",
 ]
+from .models import (
+    AerIdeal,
+    BellEstimate,
+    BenchmarkBasis,
+    BootstrapConfig,
+    ComplexComponents,
+    ConfidenceInterval,
+    CustomBackend,
+    ExperimentResult,
+    ExperimentSpec,
+    ExperimentStatus,
+    IQMHardware,
+    MitigationConfig,
+    NoisySimulator,
+    PathBasis,
+    PiastQHardware,
+    RetryConfig,
+    TranspilationConfig,
+)
+
+__all__.extend(
+    [
+        "AerIdeal",
+        "BellEstimate",
+        "BenchmarkBasis",
+        "BootstrapConfig",
+        "ComplexComponents",
+        "ConfidenceInterval",
+        "CustomBackend",
+        "ExperimentResult",
+        "ExperimentSpec",
+        "ExperimentStatus",
+        "IQMHardware",
+        "MitigationConfig",
+        "NoisySimulator",
+        "PathBasis",
+        "PiastQHardware",
+        "RetryConfig",
+        "TranspilationConfig",
+    ]
+)

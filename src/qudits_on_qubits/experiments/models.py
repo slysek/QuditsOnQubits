@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from enum import Enum
 from pathlib import Path
 from types import MappingProxyType
@@ -38,6 +39,11 @@ def _safe_tags(value: Mapping[str, str]) -> Mapping[str, str]:
     for key, item in value.items():
         tags[_safe_text(key, "tag key")] = _safe_text(item, "tag value")
     return MappingProxyType(tags)
+
+
+def _require_bool(value: object, field_name: str) -> None:
+    if type(value) is not bool:
+        raise ExperimentValidationError(f"{field_name} must be a boolean")
 
 
 @dataclass(frozen=True)
@@ -118,6 +124,7 @@ class IQMHardware:
     env_path: Path | None = None
 
     def __post_init__(self) -> None:
+        _require_bool(self.use_metrics, "use_metrics")
         _safe_text(self.device, "device")
         object.__setattr__(self, "env_path", _safe_optional_path(self.env_path, "env_path"))
 
@@ -126,7 +133,7 @@ class IQMHardware:
 
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any]) -> "IQMHardware":
-        return cls(data["device"], bool(data.get("use_metrics", False)), _path_from(data.get("env_path")))
+        return cls(data["device"], data.get("use_metrics", False), _path_from(data.get("env_path")))
 
 
 @dataclass(frozen=True)
@@ -158,6 +165,7 @@ class CustomBackend:
 
     def __post_init__(self) -> None:
         _safe_text(self.identity, "identity")
+        _require_bool(self.supports_resume, "supports_resume")
 
     def to_safe_dict(self) -> dict[str, Any]:
         return {"kind": "custom", "identity": self.identity, "supports_resume": self.supports_resume}
@@ -166,7 +174,7 @@ class CustomBackend:
     def from_safe_dict(cls, data: Mapping[str, Any], *, instance: Any = None) -> "CustomBackend":
         if instance is None:
             raise ExperimentValidationError("custom backend reconstruction requires instance injection")
-        return cls(instance=instance, identity=data["identity"], supports_resume=bool(data.get("supports_resume", False)))
+        return cls(instance=instance, identity=data["identity"], supports_resume=data.get("supports_resume", False))
 
 
 @dataclass(frozen=True)
@@ -191,7 +199,13 @@ class NoisySimulator:
     def from_safe_dict(cls, data: Mapping[str, Any], **injected: Any) -> "NoisySimulator":
         if not injected:
             raise ExperimentValidationError("noisy simulator reconstruction requires object injection")
-        return cls(identity=data.get("identity"), **injected)
+        source_mode = data.get("source_mode")
+        if type(source_mode) is not bool:
+            raise ExperimentValidationError("noisy simulator source_mode must be a boolean")
+        reconstructed = cls(identity=data.get("identity"), **injected)
+        if (reconstructed.source is not None) != source_mode:
+            raise ExperimentValidationError("noisy simulator source_mode does not match injected objects")
+        return reconstructed
 
 
 @dataclass(frozen=True)
@@ -205,12 +219,15 @@ class MitigationConfig:
 
     def __post_init__(self) -> None:
         factors = tuple(self.zne_factors)
+        _require_bool(self.readout, "readout")
+        _require_bool(self.zne, "zne")
+        _require_bool(self.force_recalibration, "force_recalibration")
         object.__setattr__(self, "zne_factors", factors)
         if self.zne and (not factors or 1 not in factors or len(set(factors)) != len(factors) or any(isinstance(item, bool) or not isinstance(item, int) or item <= 0 or item % 2 == 0 for item in factors)):
             raise ExperimentValidationError("zne_factors must be unique positive odd factors including 1")
         if self.zne_model != "linear":
             raise ExperimentValidationError("zne_model must be linear")
-        if not isinstance(self.readout_max_age_hours, (int, float)) or isinstance(self.readout_max_age_hours, bool) or self.readout_max_age_hours <= 0:
+        if not isinstance(self.readout_max_age_hours, (int, float)) or isinstance(self.readout_max_age_hours, bool) or not math.isfinite(self.readout_max_age_hours) or self.readout_max_age_hours <= 0:
             raise ExperimentValidationError("readout_max_age_hours must be positive")
 
     def to_safe_dict(self) -> dict[str, Any]:
@@ -229,9 +246,10 @@ class BootstrapConfig:
     include_readout_calibration: bool = True
 
     def __post_init__(self) -> None:
+        _require_bool(self.include_readout_calibration, "include_readout_calibration")
         if isinstance(self.samples, bool) or not isinstance(self.samples, int) or self.samples <= 0:
             raise ExperimentValidationError("samples must be a positive integer")
-        if not isinstance(self.confidence_level, (int, float)) or isinstance(self.confidence_level, bool) or not 0 < self.confidence_level < 1:
+        if not isinstance(self.confidence_level, (int, float)) or isinstance(self.confidence_level, bool) or not math.isfinite(self.confidence_level) or not 0 < self.confidence_level < 1:
             raise ExperimentValidationError("confidence_level must be between 0 and 1")
 
     def to_safe_dict(self) -> dict[str, Any]:
@@ -274,7 +292,7 @@ class RetryConfig:
             raise ExperimentValidationError("max_attempts must be a positive integer")
         for field_name in ("initial_delay", "multiplier", "max_delay"):
             value = getattr(self, field_name)
-            if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+            if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value) or value <= 0:
                 raise ExperimentValidationError(f"{field_name} must be positive")
         if self.max_delay < self.initial_delay:
             raise ExperimentValidationError("max_delay must be at least initial_delay")
