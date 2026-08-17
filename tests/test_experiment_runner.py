@@ -277,7 +277,7 @@ def test_readout_calibration_is_checkpointed_with_raw_evidence_before_measuremen
                 document = __import__("json").loads(document_path.read_text(encoding="utf-8"))
                 self.calibration_checkpoint_seen = (
                     document["status"] == "submitted"
-                    and document["calibration"]["job_id"] == submitted.job_id
+                    and document["jobs"]["calibration"]["job_id"] == submitted.job_id
                     and (document_path.parent / "readout-calibration-circuits.qpy").exists()
                     and (document_path.parent / "compiled-factor-1.qpy").exists()
                     and (document_path.parent / "compiled-factor-3.qpy").exists()
@@ -370,7 +370,7 @@ def test_exhausted_known_calibration_result_remains_recoverable(tmp_path, prepar
 
     assert document["status"] in {"submitted", "running"}
     assert document["status"] != "failed"
-    assert document["calibration"]["job_id"] == "job-1"
+    assert document["jobs"]["calibration"]["job_id"] == "job-1"
     assert adapter.submit_calls == 1
 
 

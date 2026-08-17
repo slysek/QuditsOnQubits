@@ -628,7 +628,6 @@ def _obtain_calibration(
         document["calibration"] = {
             "evidence_artifact": path.name,
             "evidence_sha256": _sha256(path),
-            "job_id": None,
             "status": "reused",
             "qubit_mapping": list(mapping),
         }
@@ -646,7 +645,6 @@ def _obtain_calibration(
         "circuits_sha256": digest,
         "evidence_artifact": None,
         "evidence_sha256": None,
-        "job_id": None,
         "status": "compiled",
         "qubit_mapping": list(mapping),
         "circuit_count": len(compiled.circuits),
@@ -682,7 +680,6 @@ def _obtain_calibration(
         job_key="calibration",
         clock=clock,
     )
-    document["calibration"]["job_id"] = submitted.job_id
     document["calibration"]["status"] = "submitted"
     _write_state(store, run, document)
     result = _retrieve(
@@ -993,6 +990,57 @@ def _manifest_path(run: Path, artifact: Any, description: str) -> Path:
     return run / relative
 
 
+def _calibration_job_reference(
+    document: Mapping[str, Any], *, migrate_legacy: bool = False
+) -> tuple[str | None, bool]:
+    calibration = document.get("calibration")
+    if calibration is None:
+        return None, False
+    if not isinstance(calibration, Mapping):
+        raise ExperimentPersistenceError("readout calibration manifest is invalid")
+    jobs = document.get("jobs")
+    if not isinstance(jobs, Mapping):
+        raise ExperimentPersistenceError("experiment jobs manifest is invalid")
+    job = jobs.get("calibration")
+    if job is None:
+        legacy = calibration.get("job_id")
+        if legacy is None:
+            return None, False
+        raise ExperimentPersistenceError("calibration job ID has no canonical job record")
+    if not isinstance(job, Mapping):
+        raise ExperimentPersistenceError("canonical calibration job record is invalid")
+
+    canonical = job.get("job_id")
+    legacy = calibration.get("job_id")
+    for value in (canonical, legacy):
+        if value is not None and (not isinstance(value, str) or not value):
+            raise ExperimentPersistenceError("calibration job ID is invalid")
+    if canonical is not None and legacy is not None and canonical != legacy:
+        raise ExperimentPersistenceError("calibration job ID records disagree")
+    if canonical is not None:
+        if legacy is None or not migrate_legacy:
+            return canonical, False
+        if not isinstance(document, dict) or not isinstance(calibration, dict):
+            raise ExperimentPersistenceError("legacy calibration job ID cannot be migrated")
+        calibration.pop("job_id")
+        return canonical, True
+    if legacy is None:
+        return None, False
+    if not migrate_legacy:
+        return legacy, False
+    if (
+        not isinstance(document, dict)
+        or not isinstance(calibration, dict)
+        or not isinstance(jobs, dict)
+        or not isinstance(job, dict)
+    ):
+        raise ExperimentPersistenceError("legacy calibration job ID cannot be migrated")
+    job["job_id"] = legacy
+    job["status"] = "submitted"
+    calibration.pop("job_id")
+    return legacy, True
+
+
 def _verify_resume_artifacts(store: ExperimentStore, run: Path, document: Mapping[str, Any]) -> tuple[int, ...]:
     source = document.get("source")
     if not isinstance(source, Mapping):
@@ -1058,6 +1106,7 @@ def _verify_resume_artifacts(store: ExperimentStore, run: Path, document: Mappin
             evidence_path = _manifest_path(run, calibration_evidence, "readout calibration evidence")
             if _sha256(evidence_path) != calibration.get("evidence_sha256"):
                 raise ExperimentPersistenceError("readout calibration evidence hash mismatch")
+        _calibration_job_reference(document)
     result_record = document.get("result_artifact")
     if result_record is not None:
         if not isinstance(result_record, Mapping):
@@ -1114,7 +1163,7 @@ def _resume_calibration(
     if _sha256(run / circuit_artifact) != record.get("circuits_sha256"):
         raise ExperimentPersistenceError("readout calibration circuit hash mismatch")
     circuits = store.read_circuits(run, circuit_artifact)
-    job_id = record.get("job_id")
+    job_id, _ = _calibration_job_reference(document)
     if job_id:
         submitted = adapter.restore_job(job_id, circuit_count=len(circuits), shots=spec.shots)
         submitted = _validate_submitted(submitted, identity, len(circuits), spec.shots)
@@ -1142,8 +1191,6 @@ def _resume_calibration(
             job_key="calibration",
             clock=clock,
         )
-        document["calibration"]["job_id"] = submitted.job_id
-        _write_state(store, run, document)
     result = _retrieve(
         adapter,
         submitted,
@@ -1202,6 +1249,10 @@ def resume_experiment(
     if status is ExperimentStatus.SUBMISSION_UNKNOWN:
         raise JobSubmissionError("cannot safely resume an experiment with unknown submission outcome")
     resumed_spec = _resume_spec(document, spec)
+    if resumed_spec.mitigation.readout:
+        _, migrated = _calibration_job_reference(document, migrate_legacy=True)
+        if migrated:
+            _write_state(store, run, document)
     resolved_adapter = create_backend_adapter(resumed_spec.backend) if adapter is None else adapter
     identity, _, _ = _validate_adapter(resolved_adapter)
     persisted_backend = document.get("backend")
