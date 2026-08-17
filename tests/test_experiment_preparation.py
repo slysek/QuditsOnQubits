@@ -83,3 +83,17 @@ def test_preparation_rejects_invalid_builder_outputs(tmp_path, circuits, metadat
     with patch("qudits_on_qubits.experiments.preparation.build_sampler_circuits_for_candidate", return_value=(circuits, metadata)):
         with pytest.raises(ExperimentValidationError, match=message):
             prepare_measurements(artifacts)
+
+def test_prepared_measurements_deeply_freeze_metadata():
+    from qudits_on_qubits.experiments.preparation import PreparedMeasurements
+
+    prepared = PreparedMeasurements(
+        circuits=(),
+        metadata={"state": "ghz3", "nested": {"values": [{"candidate": "chosen"}]}, "labels": {"A0"}},
+    )
+
+    assert prepared.metadata["state"] == "ghz3"
+    assert prepared.metadata["nested"]["values"] == ({"candidate": "chosen"},)
+    assert prepared.metadata["labels"] == frozenset({"A0"})
+    with pytest.raises(TypeError):
+        prepared.metadata["nested"]["values"][0]["candidate"] = "changed"

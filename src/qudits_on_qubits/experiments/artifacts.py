@@ -67,7 +67,7 @@ def resolve_basis_directory(
         directory = base / basis.candidate
         if not directory.is_dir():
             raise ExperimentValidationError(f"candidate basis directory does not exist: {directory}")
-        return directory
+        return _resolve_benchmark_directory(directory, base)
 
     assert basis.rank is not None  # Guaranteed by BenchmarkBasis validation.
     candidates = sorted(path for path in base.glob(f"rank{basis.rank:02d}_*") if path.is_dir())
@@ -75,8 +75,19 @@ def resolve_basis_directory(
         raise ExperimentValidationError(
             f"rank basis directory resolution failed at {base} for rank{basis.rank:02d}_*: count={len(candidates)}"
         )
-    return candidates[0]
+    return _resolve_benchmark_directory(candidates[0], base)
 
+
+
+def _resolve_benchmark_directory(directory: Path, base: Path) -> Path:
+    resolved_base = base.resolve()
+    try:
+        resolved_directory = directory.resolve(strict=True)
+    except OSError as error:
+        raise ExperimentValidationError("could not resolve benchmark basis directory") from error
+    if not resolved_directory.is_relative_to(resolved_base):
+        raise ExperimentValidationError(f"benchmark basis directory escapes selected-best base: {resolved_directory} (base: {resolved_base})")
+    return resolved_directory
 
 def load_basis_artifacts(
     basis: Basis,
@@ -182,10 +193,6 @@ def _freeze_value(value: Any) -> Any:
         return tuple(_freeze_value(item) for item in value)
     if isinstance(value, (set, frozenset)):
         return frozenset(_freeze_value(item) for item in value)
-        if getattr(operation, "condition", None) is not None:
-            raise ExperimentValidationError("source state circuit must not contain conditioned instructions")
-        if hasattr(operation, "blocks"):
-            raise ExperimentValidationError("source state circuit must not contain control flow")
     return value
 
 
@@ -200,7 +207,10 @@ def _load_encoding(path: Path) -> np.ndarray:
         raise ExperimentValidationError("encoding artifact must have shape (4, 3)")
     if not np.all(np.isfinite(encoding)):
         raise ExperimentValidationError("encoding artifact must contain only finite values")
-    return np.asarray(encoding, dtype=complex)
+    encoding = np.asarray(encoding, dtype=complex)
+    if not np.allclose(encoding.conj().T @ encoding, np.eye(3), rtol=1e-9, atol=1e-10):
+        raise ExperimentValidationError("encoding artifact must be an isometry")
+    return encoding
 
 
 def _safe_basis_provenance(basis: Basis) -> Mapping[str, Any]:

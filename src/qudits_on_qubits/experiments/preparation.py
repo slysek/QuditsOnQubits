@@ -21,7 +21,22 @@ class PreparedMeasurements:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "circuits", tuple(self.circuits))
-        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+        object.__setattr__(self, "metadata", _freeze_mapping(self.metadata))
+
+
+
+def _freeze_mapping(values: Mapping[str, Any]) -> Mapping[str, Any]:
+    return MappingProxyType({key: _freeze_value(value) for key, value in values.items()})
+
+
+def _freeze_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return _freeze_mapping(value)
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_value(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return frozenset(_freeze_value(item) for item in value)
+    return value
 
 
 def prepare_measurements(artifacts: BasisArtifacts) -> PreparedMeasurements:

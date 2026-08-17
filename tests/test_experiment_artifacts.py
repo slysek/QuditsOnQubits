@@ -172,3 +172,26 @@ def test_state_validator_rejects_conditioned_instruction():
     )
     with pytest.raises(ExperimentValidationError, match="conditioned"):
         _validate_state_circuit(circuit, "two_qutrit")
+
+def test_benchmark_candidate_symlink_cannot_escape_base(tmp_path):
+    base = tmp_path / "repo" / "artifacts" / "direct_basis_runs" / "selected_best" / "ghz3" / "run-1" / "top"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    link = base / "candidate-a"
+    base.mkdir(parents=True)
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except OSError as error:
+        pytest.skip(f"symlink creation is unavailable: {error}")
+
+    basis = BenchmarkBasis("direct_basis_runs", "run-1", "top", candidate="candidate-a")
+    with pytest.raises(ExperimentValidationError, match="escapes"):
+        resolve_basis_directory(basis, "ghz3", tmp_path / "repo")
+
+
+def test_artifact_loading_rejects_non_isometric_encoding(tmp_path):
+    directory = tmp_path / "basis"
+    _write_artifacts(directory, encoding=np.ones((4, 3)))
+
+    with pytest.raises(ExperimentValidationError, match="isometry"):
+        load_basis_artifacts(PathBasis(directory), "two_qutrit")
