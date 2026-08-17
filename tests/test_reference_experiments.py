@@ -1,12 +1,27 @@
 from dataclasses import FrozenInstanceError
+from dataclasses import replace
+import json
 import unittest
 
 import numpy as np
 
 from qudits_on_qubits.reference_experiments import (
+    REFERENCE_EXPERIMENTS,
+    BellFactorSpec,
+    BellTermSpec,
     EncodingSpec,
+    LocalObservableSpec,
     LogicalStateSpec,
+    ReferenceExperimentSpec,
+    _lambda,
+    _make_xz,
+    _measurement_observables,
+    _omega,
+    _ordered_eigenbasis,
+    _root_expectation_scale,
     get_encoding,
+    get_reference_experiment,
+    list_reference_experiments,
 )
 
 
@@ -154,6 +169,231 @@ class ReferenceExperimentsTests(unittest.TestCase):
                         (0, 1),
                         ((0, 1, 1),),
                     )
+
+
+class ReferenceExperimentRegistryTests(unittest.TestCase):
+    def test_registry_has_stable_order_and_legacy_alias(self) -> None:
+        self.assertEqual(
+            list_reference_experiments(),
+            ("two_qutrit", "ghz3", "ame43"),
+        )
+        self.assertIs(
+            get_reference_experiment("2qutrit"),
+            get_reference_experiment("two_qutrit"),
+        )
+        self.assertIs(
+            get_reference_experiment("  ghz3  "),
+            REFERENCE_EXPERIMENTS["ghz3"],
+        )
+
+    def test_unknown_reference_id_lists_canonical_ids(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "two_qutrit, ghz3, ame43",
+        ):
+            get_reference_experiment("missing")
+
+    def test_registry_metadata_matches_reference_contract(self) -> None:
+        expected = {
+            "two_qutrit": (2, 18, 9, 6.0),
+            "ghz3": (3, 24, 12, 6.0),
+            "ame43": (4, 26, 13, 8.0),
+        }
+
+        for experiment_id, contract in expected.items():
+            with self.subTest(experiment_id=experiment_id):
+                spec = get_reference_experiment(experiment_id)
+                self.assertEqual(
+                    (
+                        spec.state.num_parties,
+                        len(spec.bell_functional.terms),
+                        len(spec.measurement_settings()),
+                        spec.expected.ideal_bell_value,
+                    ),
+                    contract,
+                )
+                self.assertEqual(
+                    len(spec.measurement_settings()),
+                    spec.expected_unique_measurement_settings,
+                )
+
+    def test_ame43_graph_outcomes_and_leakage_policy_match_contract(self) -> None:
+        spec = get_reference_experiment("ame43")
+
+        self.assertEqual(
+            spec.state.weighted_edges,
+            ((0, 1, 1), (0, 3, 1), (1, 2, 1), (2, 3, 2)),
+        )
+        self.assertEqual(
+            dict(spec.outcome_convention.measurement_basis_index_map),
+            {0: 0, 1: 1, 2: 2, 3: None},
+        )
+        self.assertTrue(spec.leakage_policy.report_rate)
+        self.assertTrue(spec.leakage_policy.compute_unconditional)
+        self.assertTrue(spec.leakage_policy.compute_conditional)
+        self.assertEqual(spec.leakage_policy.leakage_contribution, 0)
+
+    def test_registry_and_nested_values_are_immutable(self) -> None:
+        spec = get_reference_experiment("two_qutrit")
+
+        with self.assertRaises(TypeError):
+            REFERENCE_EXPERIMENTS["new"] = spec
+        with self.assertRaises(FrozenInstanceError):
+            spec.experiment_id = "changed"
+        with self.assertRaises(FrozenInstanceError):
+            spec.observables[0].label = "changed"
+
+    def test_reference_operators_reproduce_ideal_values(self) -> None:
+        for experiment_id in list_reference_experiments():
+            with self.subTest(experiment_id=experiment_id):
+                spec = get_reference_experiment(experiment_id)
+                operator = spec.logical_bell_operator()
+                state = spec.state.statevector()
+                value = np.vdot(state, operator @ state)
+
+                np.testing.assert_allclose(operator, operator.conj().T, atol=1e-9)
+                np.testing.assert_allclose(
+                    value,
+                    spec.expected.ideal_bell_value,
+                    atol=spec.expected.absolute_tolerance,
+                )
+
+    def test_term_helpers_expose_party_ordered_settings_and_powers(self) -> None:
+        spec = get_reference_experiment("two_qutrit")
+        term = spec.bell_functional.terms[0]
+
+        self.assertEqual(spec.setting_for_term(term), ("A0", "B0"))
+        self.assertEqual(spec.powers_for_term(term), (1, 1))
+        self.assertEqual(
+            spec.measurement_settings(),
+            tuple((f"A{a}", f"B{b}") for a in range(3) for b in range(3)),
+        )
+
+    def test_serialization_is_canonical_and_hash_is_stable(self) -> None:
+        spec = get_reference_experiment("ghz3")
+        payload = spec.to_dict()
+
+        self.assertEqual(payload["schema_version"], "reference-experiment-v1")
+        self.assertEqual(payload["bell_functional"]["classical_bound"], "5.63815572471545")
+        self.assertIsInstance(payload["bell_functional"]["terms"][0]["coefficient"], list)
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        self.assertEqual(spec.stable_hash(), spec.stable_hash())
+        self.assertEqual(len(spec.stable_hash()), 64)
+
+
+class ReferenceExperimentModelTests(unittest.TestCase):
+    def test_lambda_phase_matches_reference_and_rejects_other_powers(self) -> None:
+        np.testing.assert_allclose(_lambda(1), np.exp(1j * np.pi / 18))
+        np.testing.assert_allclose(_lambda(2), np.exp(-1j * np.pi / 18))
+        with self.assertRaisesRegex(ValueError, "1 or 2"):
+            _lambda(0)
+
+    def test_local_observable_defensively_freezes_a_unitary(self) -> None:
+        _, z = _make_xz()
+        matrix = z.copy()
+        observable = LocalObservableSpec("Z", matrix)
+        matrix[0, 0] = 9
+
+        basis, gamma = observable.ordered_eigenbasis()
+
+        self.assertEqual(observable.matrix[0][0], 1)
+        np.testing.assert_allclose(basis.conj().T @ basis, np.eye(3), atol=1e-10)
+        np.testing.assert_allclose(gamma, 1, atol=1e-10)
+
+    def test_local_observable_rejects_bad_label_shape_unitarity_and_spectrum(self) -> None:
+        for label, matrix, message in (
+            ("", np.eye(3), "label"),
+            ("bad", np.eye(2), "3x3"),
+            ("bad", np.diag([1, 1, 1]), "spectrum"),
+            ("bad", np.diag([1, 1, 2]), "unitary"),
+        ):
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(ValueError, message):
+                    LocalObservableSpec(label, matrix)
+
+    def test_ordered_eigenbasis_is_deterministic_and_phase_fixed(self) -> None:
+        x, _ = _make_xz()
+
+        first_basis, first_gamma = _ordered_eigenbasis(x)
+        second_basis, second_gamma = _ordered_eigenbasis(x)
+
+        np.testing.assert_allclose(first_basis, second_basis, atol=1e-12)
+        np.testing.assert_allclose(first_gamma, second_gamma, atol=1e-12)
+        for column in range(3):
+            vector = first_basis[:, column]
+            pivot = int(np.argmax(np.abs(vector)))
+            self.assertAlmostEqual(vector[pivot].imag, 0.0, places=12)
+            self.assertGreater(vector[pivot].real, 0)
+
+    def test_measurement_helpers_have_root_spectrum_and_consistent_scale(self) -> None:
+        first = _measurement_observables(1)
+        second = _measurement_observables(2)
+
+        self.assertEqual(len(first), 3)
+        for setting in range(3):
+            np.testing.assert_allclose(
+                first[setting].conj().T @ first[setting],
+                np.eye(3),
+                atol=1e-10,
+            )
+            scale = _root_expectation_scale(
+                LocalObservableSpec(f"A{setting}", first[setting]),
+                second[setting],
+                2,
+            )
+            self.assertAlmostEqual(abs(scale), 1.0, places=10)
+
+    def test_bell_factor_and_term_apply_operator_scale_once(self) -> None:
+        _, z = _make_xz()
+        observable = LocalObservableSpec("Z", z)
+        factor = BellFactorSpec(0, "Z", 2, 2j)
+        term = BellTermSpec(3 - 1j, (factor,))
+
+        np.testing.assert_allclose(
+            factor.logical_operator(observable),
+            2j * np.diag([1, _omega() ** 2, _omega()]),
+            atol=1e-10,
+        )
+        self.assertEqual(term.sampling_coefficient(), (3 - 1j) * 2j)
+
+    def test_reference_validation_rejects_broken_term_contracts(self) -> None:
+        spec = get_reference_experiment("two_qutrit")
+        term = spec.bell_functional.terms[0]
+        invalid_factors = (
+            (replace(term.factors[0], party=8), "party"),
+            (replace(term.factors[0], setting_label="unknown"), "unknown observable"),
+            (replace(term.factors[0], outcome_power=3), "outcome_power"),
+        )
+
+        for factor, message in invalid_factors:
+            with self.subTest(message=message):
+                bad_term = replace(term, factors=(factor, *term.factors[1:]))
+                bad_functional = replace(
+                    spec.bell_functional,
+                    terms=(bad_term, *spec.bell_functional.terms[1:]),
+                )
+                with self.assertRaisesRegex(ValueError, message):
+                    replace(spec, bell_functional=bad_functional)
+
+        duplicate_party_term = replace(term, factors=(term.factors[0], term.factors[0]))
+        with self.assertRaisesRegex(ValueError, "at most one factor"):
+            replace(
+                spec,
+                bell_functional=replace(
+                    spec.bell_functional,
+                    terms=(duplicate_party_term, *spec.bell_functional.terms[1:]),
+                ),
+            )
+
+    def test_reference_validation_rejects_schema_duplicates_and_setting_count(self) -> None:
+        spec = get_reference_experiment("two_qutrit")
+
+        with self.assertRaisesRegex(ValueError, "schema_version"):
+            replace(spec, schema_version="reference-experiment-v2")
+        with self.assertRaisesRegex(ValueError, "unique observable"):
+            replace(spec, observables=(*spec.observables, spec.observables[0]))
+        with self.assertRaisesRegex(ValueError, "measurement setting"):
+            replace(spec, expected_unique_measurement_settings=8)
 
 
 if __name__ == "__main__":
