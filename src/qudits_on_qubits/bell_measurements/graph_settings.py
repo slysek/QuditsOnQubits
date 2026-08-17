@@ -1,17 +1,12 @@
 from __future__ import annotations
 
 import inspect
-import math
 import string
 from collections.abc import Callable, Sequence
 from itertools import product
 from typing import Any
 
-import numpy as np
-
 from qudits_on_qubits.reference_experiments import get_reference_experiment
-
-from .basis import omega, ordered_qutrit_eigenbasis
 
 
 def build_general_graph_bell_settings(
@@ -235,57 +230,3 @@ def _two_qutrit_pdf_settings(
         ),
         "construction": "two_qutrit_pdf",
     }
-
-
-def _make_XZ_qutrit_d3() -> tuple[np.ndarray, np.ndarray]:
-    w = omega(3)
-    X = np.zeros((3, 3), dtype=complex)
-    for j in range(3):
-        X[(j + 1) % 3, j] = 1.0
-    Z = np.diag([w**j for j in range(3)]).astype(complex)
-    return X, Z
-
-
-def _qutrit_lambda_d3(power: int) -> complex:
-    if power == 1:
-        return complex(np.exp(1j * np.pi / 18))
-    if power == 2:
-        return complex(np.exp(-1j * np.pi / 18))
-    raise ValueError("qutrit lambda is defined only for powers 1 and 2")
-
-
-def _replacement_phase_exponent(k: int) -> int:
-    return k * (k + 1)
-
-
-def _measurement_observables_qutrit_d3(power: int) -> list[np.ndarray]:
-    X, Z = _make_XZ_qutrit_d3()
-    w = omega(3)
-    lam = _qutrit_lambda_d3(power)
-    observables: list[np.ndarray] = []
-    for t in range(3):
-        matrix = np.zeros((3, 3), dtype=complex)
-        for k in range(3):
-            phase = w ** (power * t * k)
-            replacement_phase = w ** (power * _replacement_phase_exponent(k))
-            xzk = X @ np.linalg.matrix_power(Z, k)
-            matrix += phase * replacement_phase * np.linalg.matrix_power(xzk, power)
-        observables.append(lam * matrix / math.sqrt(3))
-    return observables
-
-
-def _root_expectation_scale(
-    measurement: np.ndarray,
-    desired: np.ndarray,
-    power: int,
-) -> complex:
-    V, _ = ordered_qutrit_eigenbasis(measurement)
-    diagonal = V.conj().T @ desired @ V
-    roots = np.array([omega(3) ** ((power * a) % 3) for a in range(3)])
-    values = np.diag(diagonal) / roots
-    if not np.allclose(values, values[0], atol=1e-8):
-        raise ValueError("desired observable is not diagonal in the measurement basis")
-    off_diagonal = diagonal - np.diag(np.diag(diagonal))
-    if not np.allclose(off_diagonal, 0.0, atol=1e-8):
-        raise ValueError("desired observable has off-diagonal terms in measurement basis")
-    return complex(values[0])
