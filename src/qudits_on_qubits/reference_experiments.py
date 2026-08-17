@@ -110,6 +110,19 @@ class LogicalStateSpec:
     weighted_edges: tuple[WeightedEdge, ...]
 
     def __post_init__(self) -> None:
+        try:
+            frozen_party_order = tuple(int(party) for party in self.party_order)
+        except (TypeError, ValueError) as error:
+            raise ValueError("party_order must contain integers") from error
+        try:
+            frozen_weighted_edges = tuple(
+                tuple(int(value) for value in edge) for edge in self.weighted_edges
+            )
+        except (TypeError, ValueError) as error:
+            raise ValueError("weighted_edges must contain integer triples") from error
+        object.__setattr__(self, "party_order", frozen_party_order)
+        object.__setattr__(self, "weighted_edges", frozen_weighted_edges)
+
         if self.local_dimension != 3:
             raise ValueError("local_dimension must be exactly 3")
         if not isinstance(self.num_parties, int) or self.num_parties < 2:
