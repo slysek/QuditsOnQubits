@@ -4,6 +4,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
+import errno
 import hashlib
 import json
 from pathlib import Path
@@ -38,6 +39,22 @@ class SampleRecord:
 class DictModel:
     def to_dict(self):
         return {"model": "safe", "value": 7}
+
+
+class HashableMappingKey:
+    def __hash__(self):
+        return 41
+
+    def to_dict(self):
+        return {"lossy": "mapping"}
+
+
+class HashableScalarKey:
+    def __hash__(self):
+        return 43
+
+    def to_dict(self):
+        return "lossy-scalar"
 
 
 def test_json_is_canonical_deterministic_and_utf8(tmp_path):
@@ -90,6 +107,18 @@ def test_json_round_trips_supported_tagged_values_and_model_values(tmp_path):
     assert encoded["mapping"]["__qoq_type__"] == "mapping"
 
 
+def test_json_round_trips_zero_sized_numpy_dimensions(tmp_path):
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run()
+    value = np.empty((0, 2), dtype=np.float64)
+
+    store.write_json(run, "empty-array.json", value)
+    restored = store.read_json(run, "empty-array.json")
+
+    assert restored.shape == (0, 2)
+    assert restored.dtype == value.dtype
+
+
 @pytest.mark.parametrize(
     "value",
     [float("nan"), float("inf"), -float("inf"), complex(float("nan"), 1), np.float32(np.inf), np.array([1.0, np.nan])],
@@ -122,6 +151,29 @@ def test_json_read_wraps_missing_invalid_and_nonfinite_documents(tmp_path):
     (run / "nan.json").write_text('{"value":NaN}', encoding="utf-8")
     with pytest.raises(ExperimentPersistenceError, match="finite"):
         store.read_json(run, "nan.json")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"__qoq_type__": "numpy_scalar", "dtype": "<f8", "value": "nan"},
+        {"__qoq_type__": "numpy_array", "data": ["nan"], "dtype": "<f8", "shape": [1]},
+        {"__qoq_type__": "numpy_scalar", "dtype": "<i8", "value": 1.5},
+        {"__qoq_type__": "numpy_scalar", "dtype": "<i8", "value": "1"},
+        {"__qoq_type__": "numpy_scalar", "dtype": "|b1", "value": 1},
+        {"__qoq_type__": "numpy_array", "data": [1, 2], "dtype": "<i8", "shape": [1, 2]},
+        {"__qoq_type__": "numpy_scalar", "dtype": "|O", "value": "object"},
+        {"__qoq_type__": "numpy_scalar", "dtype": "<f2", "value": 1e100},
+        {"__qoq_type__": "numpy_scalar", "dtype": "<i8", "value": 1, "extra": True},
+    ],
+)
+def test_json_rejects_coercive_or_malformed_numpy_tags(tmp_path, payload):
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run()
+    (run / "corrupt-numpy.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ExperimentPersistenceError, match="numpy|tagged"):
+        store.read_json(run, "corrupt-numpy.json")
 
 
 def test_create_run_uses_utc_date_unique_component_and_never_overwrites(tmp_path, monkeypatch):
@@ -224,6 +276,83 @@ def test_atomic_replacement_preserves_old_file_and_cleans_temp_on_failure(tmp_pa
     assert list(run.glob(".state.json.*.tmp")) == []
 
 
+def test_atomic_write_rejects_parent_swap_during_temp_creation(tmp_path, monkeypatch):
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run()
+    parent = run / "nested"
+    parent.mkdir()
+    moved_parent = tmp_path / "moved-parent"
+    real_named_temporary_file = store_module.tempfile.NamedTemporaryFile
+    swapped = False
+
+    def swap_then_create_temp(*args, **kwargs):
+        nonlocal swapped
+        if not swapped:
+            parent.rename(moved_parent)
+            parent.mkdir()
+            swapped = True
+        return real_named_temporary_file(*args, **kwargs)
+
+    monkeypatch.setattr(store_module.tempfile, "NamedTemporaryFile", swap_then_create_temp)
+
+    with pytest.raises(ExperimentPersistenceError, match="parent directory changed"):
+        store.write_json(run, "nested/state.json", {"version": 2})
+
+    assert list(parent.iterdir()) == []
+    assert list(moved_parent.iterdir()) == []
+
+
+def test_atomic_write_rejects_simulated_parent_swap_before_replace(tmp_path, monkeypatch):
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run()
+    metadata = run.lstat()
+    trusted = (run.resolve(), metadata.st_dev, metadata.st_ino, False)
+    swapped = (run.resolve(), metadata.st_dev, metadata.st_ino + 1, False)
+    identities = iter((trusted, trusted, swapped))
+    monkeypatch.setattr(
+        store_module,
+        "_directory_identity",
+        lambda directory, root: next(identities),
+        raising=False,
+    )
+
+    with pytest.raises(ExperimentPersistenceError, match="parent directory changed"):
+        store.write_json(run, "state.json", {"version": 2})
+
+    assert not (run / "state.json").exists()
+    assert list(run.glob(".state.json.*.tmp")) == []
+
+
+def test_atomic_write_attempts_directory_fsync_and_preserves_valid_file(tmp_path, monkeypatch):
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run()
+    synced = []
+    monkeypatch.setattr(
+        store_module,
+        "_fsync_directory",
+        lambda directory: synced.append(directory),
+        raising=False,
+    )
+
+    store.write_json(run, "state.json", {"version": 2})
+
+    assert synced == [run]
+    assert store.read_json(run, "state.json") == {"version": 2}
+
+
+def test_directory_fsync_wraps_unexpected_filesystem_errors(tmp_path, monkeypatch):
+    directory = tmp_path / "directory"
+    directory.mkdir()
+    monkeypatch.setattr(
+        store_module.os,
+        "open",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError(errno.EIO, "injected")),
+    )
+
+    with pytest.raises(ExperimentPersistenceError, match="fsync"):
+        store_module._fsync_directory(directory)
+
+
 def test_experiment_document_preserves_all_caller_fields(tmp_path):
     store = ExperimentStore(tmp_path / "runs")
     run = store.create_run()
@@ -318,6 +447,17 @@ def test_counts_round_trip_raw_and_quasi_values_preserving_setting_order(tmp_pat
         {"__qoq_type__": "tuple", "items": ["A0", "B0"]},
         {"__qoq_type__": "tuple", "items": ["A0", "B1"]},
     ]
+
+
+@pytest.mark.parametrize("setting", [HashableMappingKey(), HashableScalarKey()])
+def test_counts_reject_keys_that_do_not_round_trip_losslessly(tmp_path, setting):
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run()
+
+    with pytest.raises(ExperimentPersistenceError, match="setting key"):
+        store.write_counts(run, 1, {setting: {"0": 1}})
+
+    assert not (run / "counts-factor-1.json").exists()
 
 
 @pytest.mark.parametrize(
