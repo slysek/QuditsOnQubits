@@ -177,9 +177,9 @@ class NoisySimulator:
     identity: str | None = None
 
     def __post_init__(self) -> None:
-        source_mode = self.source is not None
-        model_mode = self.noise_model is not None and self.target_backend is not None
-        if source_mode == model_mode:
+        source_mode = self.source is not None and self.noise_model is None and self.target_backend is None
+        model_mode = self.source is None and self.noise_model is not None and self.target_backend is not None
+        if not (source_mode or model_mode):
             raise ExperimentValidationError("provide exactly either source or noise_model with target_backend")
         if self.identity is not None:
             _safe_text(self.identity, "identity")
