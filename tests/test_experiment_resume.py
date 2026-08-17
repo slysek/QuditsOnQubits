@@ -331,11 +331,22 @@ def test_resume_missing_factor_ambiguous_submit_remains_submission_unknown(
     run = caught.value.__qoq_artifact_dir__
 
     class AmbiguousResume(InterruptThenRestoreAdapter):
+        def __init__(self, run):
+            super().__init__()
+            self.run = run
+            self.checkpoint_seen = False
+
         def submit(self, circuits, shots, options=None):
             self.submit_calls += 1
+            document = json.loads((self.run / "experiment.json").read_text(encoding="utf-8"))
+            self.checkpoint_seen = (
+                document["status"] == "submission_unknown"
+                and document["jobs"]["1"]["status"] == "submission_unknown"
+                and document["jobs"]["1"]["job_id"] is None
+            )
             raise RuntimeError("resume-provider-sensitive-detail")
 
-    resumed = AmbiguousResume()
+    resumed = AmbiguousResume(run)
     with pytest.raises(JobSubmissionError):
         resume_experiment(
             run,
@@ -347,6 +358,7 @@ def test_resume_missing_factor_ambiguous_submit_remains_submission_unknown(
     document = json.loads((run / "experiment.json").read_text(encoding="utf-8"))
 
     assert resumed.submit_calls == 1
+    assert resumed.checkpoint_seen
     assert document["status"] == "submission_unknown"
     assert "resume-provider" not in repr(document)
 

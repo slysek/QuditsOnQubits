@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -173,6 +174,7 @@ def test_run_experiment_persists_durable_state_and_exact_compiled_batch(
         "created",
         "validated",
         "compiled",
+        "submission_unknown",
         "submitted",
         "running",
         "postprocessing",
@@ -182,7 +184,8 @@ def test_run_experiment_persists_durable_state_and_exact_compiled_batch(
     assert document["counts"]["1"]["artifact"] == "counts-factor-1.json"
     assert document["result"]["raw"]["estimate"] == {"imag": 0.0, "real": 10.0}
     assert (result.artifact_dir / "compiled-factor-1.qpy").exists()
-    assert submit[1][0] is logical
+    assert submit[1][0] is not logical
+    assert submit[1] == (logical,)
     assert "handle" not in repr(document)
     assert len(set(backend_call_counts_during_bootstrap)) == 1
 
@@ -347,15 +350,31 @@ def test_exhausted_known_calibration_result_remains_recoverable(tmp_path, prepar
     from qudits_on_qubits.experiments.runner import run_experiment
 
     class FailingCalibrationAdapter(RecordingAdapter):
+        def __init__(self, root):
+            super().__init__()
+            self.root = root
+            self.unknown_checkpoint_seen = False
+
         def compile(self, circuits, config):
             return CompiledBatch(tuple(circuits), self.identity)
+
+        def submit(self, circuits, shots, options=None):
+            if len(circuits) == 2:
+                document_path = next(self.root.rglob("experiment.json"))
+                document = __import__("json").loads(document_path.read_text(encoding="utf-8"))
+                self.unknown_checkpoint_seen = (
+                    document["status"] == "submission_unknown"
+                    and document["jobs"]["calibration"]["status"] == "submission_unknown"
+                    and document["jobs"]["calibration"]["job_id"] is None
+                )
+            return super().submit(circuits, shots, options)
 
         def result(self, submitted, timeout=None):
             if submitted.circuit_count == 2:
                 raise JobResultError("calibration still running")
             return super().result(submitted, timeout)
 
-    adapter = FailingCalibrationAdapter()
+    adapter = FailingCalibrationAdapter(tmp_path / "runs")
     with pytest.raises(JobResultError) as caught:
         run_experiment(
             make_spec(tmp_path, mitigation=MitigationConfig(readout=True)),
@@ -372,6 +391,7 @@ def test_exhausted_known_calibration_result_remains_recoverable(tmp_path, prepar
     assert document["status"] != "failed"
     assert document["jobs"]["calibration"]["job_id"] == "job-1"
     assert adapter.submit_calls == 1
+    assert adapter.unknown_checkpoint_seen
 
 
 def test_submitted_identity_mismatch_keeps_provable_job_and_fails_terminally(
@@ -453,3 +473,168 @@ def test_availability_and_preflight_retry_with_bounded_independent_backoff(
         for attempt in document["attempts"]
         if attempt["operation"] == "preflight-factor-1"
     ] == ["failed", "failed", "succeeded"]
+
+
+def test_remote_submit_is_pessimistically_unknown_before_provider_call_and_resume_refuses(
+    tmp_path, prepared_run
+):
+    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
+
+    class InterruptInsideSubmit(RecordingAdapter):
+        def __init__(self, root):
+            super().__init__()
+            self.root = root
+            self.checkpoint_seen = False
+
+        def submit(self, circuits, shots, options=None):
+            self.submit_calls += 1
+            document_path = next(self.root.rglob("experiment.json"))
+            document = __import__("json").loads(document_path.read_text(encoding="utf-8"))
+            self.checkpoint_seen = (
+                document["status"] == "submission_unknown"
+                and document["jobs"]["1"]["status"] == "submission_unknown"
+                and document["jobs"]["1"]["job_id"] is None
+            )
+            raise KeyboardInterrupt
+
+    spec = make_spec(tmp_path)
+    adapter = InterruptInsideSubmit(tmp_path / "runs")
+    with pytest.raises(KeyboardInterrupt) as caught:
+        run_experiment(
+            spec,
+            adapter=adapter,
+            _sleep=lambda _delay: None,
+            _evaluator=lambda _counts: 1 + 0j,
+        )
+    run = caught.value.__qoq_artifact_dir__
+
+    assert adapter.checkpoint_seen
+    with pytest.raises(JobSubmissionError, match="unknown"):
+        resume_experiment(run, adapter=object(), spec=spec)
+
+
+def test_remote_nonresumable_backend_fails_before_submit(tmp_path, prepared_run):
+    from qudits_on_qubits.experiments.runner import run_experiment
+
+    class UnsafeAdapter(RecordingAdapter):
+        def capabilities(self):
+            return BackendCapabilities(local=False, supports_resume=False)
+
+    adapter = UnsafeAdapter()
+    with pytest.raises(BackendCompatibilityError, match="resume") as caught:
+        run_experiment(
+            make_spec(tmp_path),
+            adapter=adapter,
+            _sleep=lambda _delay: None,
+            _evaluator=lambda _counts: 1 + 0j,
+        )
+    document = __import__("json").loads(
+        (caught.value.__qoq_artifact_dir__ / "experiment.json").read_text(encoding="utf-8")
+    )
+
+    assert adapter.submit_calls == 0
+    assert document["status"] == "failed"
+
+
+@pytest.mark.parametrize(
+    "unsafe_metadata",
+    [
+        "https://guest:placeholder@example.invalid/path",
+        "Authorization: Bearer placeholder",
+        "api-key placeholder",
+        "unsafe\x07control",
+    ],
+)
+def test_unsafe_adapter_metadata_is_rejected_without_echo_or_cause(
+    tmp_path, prepared_run, unsafe_metadata
+):
+    from qudits_on_qubits.experiments.runner import run_experiment
+
+    class UnsafeMetadataAdapter(RecordingAdapter):
+        def metadata(self):
+            return {"nested": [{"provider": unsafe_metadata}]}
+
+    adapter = UnsafeMetadataAdapter()
+    with pytest.raises(BackendCompatibilityError) as caught:
+        run_experiment(
+            make_spec(tmp_path),
+            adapter=adapter,
+            _sleep=lambda _delay: None,
+            _evaluator=lambda _counts: 1 + 0j,
+        )
+    document_bytes = (caught.value.__qoq_artifact_dir__ / "experiment.json").read_bytes()
+    rendered = "".join(traceback.format_exception(caught.type, caught.value, caught.tb))
+
+    assert adapter.submit_calls == 0
+    assert unsafe_metadata.encode() not in document_bytes
+    assert unsafe_metadata not in rendered
+    assert caught.value.__cause__ is None
+
+
+@pytest.mark.parametrize("field_name", ["api_key", "access_token"])
+def test_credential_named_adapter_metadata_field_is_rejected_before_persistence(
+    tmp_path, prepared_run, field_name
+):
+    from qudits_on_qubits.experiments.runner import run_experiment
+
+    class CredentialFieldAdapter(RecordingAdapter):
+        def metadata(self):
+            return {"nested": {field_name: "placeholder-value"}}
+
+    adapter = CredentialFieldAdapter()
+    with pytest.raises(BackendCompatibilityError) as caught:
+        run_experiment(
+            make_spec(tmp_path),
+            adapter=adapter,
+            _sleep=lambda _delay: None,
+            _evaluator=lambda _counts: 1 + 0j,
+        )
+    document_bytes = (caught.value.__qoq_artifact_dir__ / "experiment.json").read_bytes()
+
+    assert adapter.submit_calls == 0
+    assert b"placeholder-value" not in document_bytes
+    assert caught.value.__cause__ is None
+
+
+def test_preflight_mutation_cannot_cross_persisted_qpy_submit_boundary(
+    tmp_path, prepared_run
+):
+    from qudits_on_qubits.experiments.runner import run_experiment
+    from qudits_on_qubits.experiments.store import ExperimentStore
+
+    _, logical = prepared_run
+    logical_before_preflight = logical.copy()
+
+    class MutatingPreflightAdapter(RecordingAdapter):
+        def __init__(self):
+            super().__init__()
+            self.preflight_circuit = None
+            self.submitted_circuit = None
+
+        def preflight(self, circuits, shots):
+            self.preflight_circuit = circuits[0]
+            circuits[0].x(0)
+
+        def submit(self, circuits, shots, options=None):
+            self.submitted_circuit = circuits[0]
+            return super().submit(circuits, shots, options)
+
+    adapter = MutatingPreflightAdapter()
+    result = run_experiment(
+        make_spec(tmp_path),
+        adapter=adapter,
+        _sleep=lambda _delay: None,
+        _evaluator=lambda _counts: 1 + 0j,
+    )
+    document = __import__("json").loads(
+        (result.artifact_dir / "experiment.json").read_text(encoding="utf-8")
+    )
+    persisted = ExperimentStore(tmp_path / "runs").read_circuits(
+        result.artifact_dir, "compiled-factor-1.qpy"
+    )
+    digest = hashlib.sha256((result.artifact_dir / "compiled-factor-1.qpy").read_bytes()).hexdigest()
+
+    assert adapter.submitted_circuit is not adapter.preflight_circuit
+    assert adapter.submitted_circuit == persisted[0]
+    assert adapter.submitted_circuit == logical_before_preflight
+    assert document["circuits"]["factors"]["1"]["sha256"] == digest
