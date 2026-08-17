@@ -7,6 +7,7 @@ import math
 from typing import Any, Mapping, Sequence
 
 from ...benchmarks.direct_basis.iqm_backend import (
+    EXACT_RZ_SCHEDULING_METHOD,
     backend_metadata,
     build_iqm_pass_manager,
     load_iqm_backend,
@@ -178,6 +179,8 @@ class IQMAdapter(BaseBackendAdapter):
             raise BackendCompatibilityError("compile requires TranspilationConfig")
         backend = self._backend_instance()
         options = dict(config.to_safe_dict())
+        if options["scheduling_method"] is None:
+            options["scheduling_method"] = EXACT_RZ_SCHEDULING_METHOD
         try:
             pass_manager = self._pass_manager_factory(backend, **options)
             compiled = pass_manager.run(list(batch))

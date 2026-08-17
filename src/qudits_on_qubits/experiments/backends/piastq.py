@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -45,6 +46,8 @@ _CLIENT_ENVIRONMENT = {
     "CFT_PIASTQ_DASHBOARD_API_URL": "dashboard_api_url",
     "CFT_PIASTQ_DASHBOARD_API_KEY": "dashboard_api_key",
 }
+_OWNER_LABEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+@-]{0,127}\Z")
+_CREDENTIAL_MARKERS = ("token=", "api_key=", "password=", "secret=")
 
 
 def _load_client_environment(env_path: Path | None) -> dict[str, str]:
@@ -76,6 +79,8 @@ class PiastQAdapter(BaseBackendAdapter):
     ) -> None:
         if not isinstance(spec, PiastQHardware):
             raise BackendCompatibilityError("PiastQAdapter requires a PiastQHardware specification")
+        if spec.owner is not None and not _safe_owner(spec.owner):
+            raise BackendCompatibilityError("PiastQ owner must be a safe non-empty label")
         if client_type is not None and not callable(client_type):
             raise BackendCompatibilityError("PiastQ client type must be callable")
         if sampler_type is not None and not callable(sampler_type):
@@ -365,6 +370,18 @@ def _backend_name(backend: Any) -> str:
     if "://" in value and "@" in value.split("://", 1)[1].split("/", 1)[0]:
         return "piast"
     return value
+
+
+def _safe_owner(value: str) -> bool:
+    if not _OWNER_LABEL.fullmatch(value):
+        return False
+    if any(marker in value.lower() for marker in _CREDENTIAL_MARKERS):
+        return False
+    if "://" in value:
+        authority = value.split("://", 1)[1].split("/", 1)[0]
+        if "@" in authority:
+            return False
+    return True
 
 
 __all__ = ["PiastQAdapter"]

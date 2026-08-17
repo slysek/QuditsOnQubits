@@ -100,6 +100,41 @@ def test_piast_constructs_client_with_exact_mode_owner_and_env_without_metadata_
     assert "hidden-key" not in repr(adapter.metadata())
 
 
+@pytest.mark.parametrize(
+    "unsafe_owner",
+    [
+        "https://user:password@example.invalid/team",
+        "team?dashboard_key=value",
+        "team#fragment",
+        "team\nops",
+        "team owner",
+        "x" * 129,
+    ],
+)
+def test_piast_rejects_unsafe_owner_before_environment_or_client(unsafe_owner):
+    from qudits_on_qubits.experiments.backends import PiastQAdapter
+
+    calls = []
+
+    class Client:
+        def __init__(self, **_kwargs):
+            calls.append("client")
+
+    def env_loader(_path):
+        calls.append("environment")
+        return {}
+
+    with pytest.raises(BackendCompatibilityError, match="owner") as caught:
+        PiastQAdapter(
+            PiastQHardware(mode="managed", owner=unsafe_owner),
+            client_type=Client,
+            sampler_type=object,
+            env_loader=env_loader,
+        )
+    assert not calls
+    _assert_sanitized(caught, unsafe_owner)
+
+
 @pytest.mark.parametrize("mode", ["auto", "managed", "direct"])
 def test_piast_preserves_mode_exactly(mode):
     adapter, _, client_calls, _, _ = _adapter(spec=PiastQHardware(mode=mode, owner="owner"))
