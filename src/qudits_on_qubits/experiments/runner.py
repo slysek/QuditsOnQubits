@@ -8,7 +8,7 @@ tracebacks never cross the artifact boundary.
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from datetime import datetime, timezone
 import hashlib
 import importlib.util
@@ -17,6 +17,7 @@ from pathlib import Path
 import re
 import time
 from typing import Any
+from urllib.parse import parse_qsl, urlsplit
 
 from qiskit import QuantumCircuit
 
@@ -61,9 +62,30 @@ from .uncertainty import BootstrapInputs, bootstrap_bell_results
 
 
 SCHEMA_VERSION = 1
-_CREDENTIAL_ASSIGNMENT = re.compile(
-    r"(?i)(token|api[_-]?key|password|secret)\s*=\s*[^\s,;]+"
+_CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
+_CREDENTIAL_MARKER = re.compile(
+    r"(?i)(?:authorization|bearer|token|api[-_ ]?key|password|secret)\b"
+    r"(?:\s*[:=]\s*|\s+)\S+"
 )
+_URL = re.compile(r"(?i)https?://[^\s<>\"']+")
+_CREDENTIAL_QUERY_KEYS = {
+    "authorization",
+    "bearer",
+    "token",
+    "api_key",
+    "apikey",
+    "password",
+    "secret",
+}
+
+
+def _credential_field_name(value: str) -> bool:
+    normalized = re.sub(r"[-_\s]+", "_", value.strip().lower())
+    return normalized in _CREDENTIAL_QUERY_KEYS or normalized.endswith(
+        ("_authorization", "_token", "_api_key", "_apikey", "_password", "_secret")
+    )
+
+
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -77,13 +99,59 @@ def _timestamp(clock: Callable[[], datetime]) -> str:
     )
 
 
+def _unsafe_persisted_text(value: str) -> bool:
+    if _CONTROL_CHARACTERS.search(value) or _CREDENTIAL_MARKER.search(value):
+        return True
+    for candidate in _URL.findall(value):
+        try:
+            parsed = urlsplit(candidate)
+            if parsed.username is not None or parsed.password is not None:
+                return True
+            for key, _ in parse_qsl(parsed.query, keep_blank_values=True):
+                if _credential_field_name(key):
+                    return True
+        except ValueError:
+            return True
+    return False
+
+
 def _safe_message(error: BaseException) -> str:
     message = str(error)
-    message = " ".join(message.split())
-    message = _CREDENTIAL_ASSIGNMENT.sub(lambda match: f"{match.group(1)}=<redacted>", message)
-    if any(marker in message.lower() for marker in ("token=", "api_key=", "password=", "secret=")):
+    if _unsafe_persisted_text(message):
         return "details redacted"
+    message = " ".join(message.split())
     return message[:500] or "operation failed"
+
+
+def _validate_persisted_strings(
+    value: Any,
+    *,
+    description: str,
+    active: set[int] | None = None,
+) -> None:
+    if isinstance(value, str):
+        if _unsafe_persisted_text(value):
+            raise BackendCompatibilityError(f"{description} contains unsafe text")
+        return
+    if isinstance(value, (bytes, bytearray)):
+        return
+    if not isinstance(value, (Mapping, Sequence, Set)):
+        return
+    if active is None:
+        active = set()
+    identity = id(value)
+    if identity in active:
+        raise BackendCompatibilityError(f"{description} contains a recursive value")
+    active.add(identity)
+    try:
+        items = value.items() if isinstance(value, Mapping) else enumerate(value)
+        for key, item in items:
+            if isinstance(value, Mapping) and isinstance(key, str) and _credential_field_name(key):
+                raise BackendCompatibilityError(f"{description} contains unsafe text")
+            _validate_persisted_strings(key, description=description, active=active)
+            _validate_persisted_strings(item, description=description, active=active)
+    finally:
+        active.remove(identity)
 
 
 def _failure(error: BaseException, stage: str, clock: Callable[[], datetime], attempt: int | None = None) -> dict[str, Any]:
@@ -223,29 +291,76 @@ def _retry(
 
 
 def _check_availability(adapter: Any) -> Availability:
-    availability = adapter.availability()
+    try:
+        availability = adapter.availability()
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except (BackendUnavailableError, BackendCompatibilityError):
+        raise
+    except Exception:
+        raise BackendCompatibilityError("adapter availability check failed") from None
     if not isinstance(availability, Availability):
         raise BackendCompatibilityError("adapter availability must return Availability")
+    _validate_persisted_strings(
+        availability.to_safe_dict(), description="adapter availability metadata"
+    )
     if not availability.available:
         raise BackendUnavailableError(availability.reason or "backend is unavailable")
     return availability
 
 
 def _preflight(adapter: Any, circuits: Sequence[Any], shots: int) -> None:
-    adapter.preflight(circuits, shots)
+    try:
+        adapter.preflight(circuits, shots)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except (BackendUnavailableError, BackendCompatibilityError):
+        raise
+    except Exception:
+        raise BackendCompatibilityError("adapter preflight failed") from None
 
 
 def _validate_adapter(adapter: Any) -> tuple[BackendIdentity, BackendCapabilities, Mapping[str, Any]]:
-    identity = adapter.resolve()
-    capabilities = adapter.capabilities()
-    metadata = adapter.metadata()
+    try:
+        identity = adapter.resolve()
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:
+        raise BackendCompatibilityError("adapter resolution failed") from None
     if not isinstance(identity, BackendIdentity):
         raise BackendCompatibilityError("adapter resolve must return BackendIdentity")
+    try:
+        capabilities = adapter.capabilities()
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:
+        raise BackendCompatibilityError("adapter capability discovery failed") from None
     if not isinstance(capabilities, BackendCapabilities):
         raise BackendCompatibilityError("adapter capabilities must return BackendCapabilities")
+    try:
+        metadata = adapter.metadata()
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:
+        raise BackendCompatibilityError("adapter metadata discovery failed") from None
     if not isinstance(metadata, Mapping):
         raise BackendCompatibilityError("adapter metadata must return a mapping")
+    try:
+        _validate_persisted_strings(identity.to_safe_dict(), description="backend identity")
+        _validate_persisted_strings(
+            capabilities.to_safe_dict(), description="backend capabilities"
+        )
+        _validate_persisted_strings(metadata, description="adapter metadata")
+    except (KeyboardInterrupt, SystemExit, BackendCompatibilityError):
+        raise
+    except Exception:
+        raise BackendCompatibilityError("adapter metadata validation failed") from None
     return identity, capabilities, metadata
+
+
+def _require_durable_remote_jobs(capabilities: BackendCapabilities) -> None:
+    if not capabilities.local and not capabilities.supports_resume:
+        raise BackendCompatibilityError("remote backend must support job resume")
 
 
 def _persist_prepared(
@@ -334,6 +449,51 @@ def _persist_factor_batches(
     _write_state(store, run, document)
 
 
+def _load_circuit_checkpoint(
+    store: ExperimentStore,
+    run: Path,
+    record: Mapping[str, Any],
+    description: str,
+) -> tuple[Any, ...]:
+    artifact = record.get("artifact")
+    expected_hash = record.get("sha256")
+    expected_count = record.get("circuit_count")
+    if (
+        not isinstance(artifact, str)
+        or not isinstance(expected_hash, str)
+        or isinstance(expected_count, bool)
+        or not isinstance(expected_count, int)
+        or expected_count <= 0
+    ):
+        raise ExperimentPersistenceError(f"{description} circuit manifest is invalid")
+    path = _manifest_path(run, artifact, description)
+    if _sha256(path) != expected_hash:
+        raise ExperimentPersistenceError(f"{description} circuit artifact hash mismatch")
+    circuits = tuple(store.read_circuits(run, artifact))
+    if len(circuits) != expected_count:
+        raise ExperimentPersistenceError(
+            f"{description} circuit count does not match persisted QPY"
+        )
+    if _sha256(path) != expected_hash:
+        raise ExperimentPersistenceError(f"{description} circuit artifact hash mismatch")
+    return circuits
+
+
+def _factor_checkpoint(
+    store: ExperimentStore,
+    run: Path,
+    document: Mapping[str, Any],
+    factor: int,
+) -> tuple[Any, ...]:
+    try:
+        record = document["circuits"]["factors"][str(factor)]
+    except (KeyError, TypeError):
+        raise ExperimentPersistenceError("factor circuit manifest is invalid") from None
+    if not isinstance(record, Mapping):
+        raise ExperimentPersistenceError("factor circuit manifest is invalid")
+    return _load_circuit_checkpoint(store, run, record, f"factor {factor}")
+
+
 def _validate_submitted(
     submitted: Any,
     identity: BackendIdentity,
@@ -348,6 +508,7 @@ def _validate_submitted(
         raise BackendCompatibilityError("submitted job circuit count does not match submitted batch")
     if submitted.shots != shots:
         raise BackendCompatibilityError("submitted job shots do not match requested shots")
+    _validate_persisted_strings(submitted.to_safe_dict(), description="submitted job metadata")
     return submitted
 
 
@@ -366,6 +527,7 @@ def _validate_result(
         raise BackendCompatibilityError("execution result order/count does not match circuit batch")
     if any(sum(counts.values()) != shots for counts in result.counts):
         raise BackendCompatibilityError("execution result counts do not sum to requested shots")
+    _validate_persisted_strings(result.to_safe_dict(), description="execution result metadata")
     return result
 
 
@@ -375,6 +537,7 @@ def _submit_once(
     shots: int,
     run_options: Mapping[str, Any] | None,
     identity: BackendIdentity,
+    capabilities: BackendCapabilities,
     *,
     store: ExperimentStore,
     run: Path,
@@ -382,6 +545,14 @@ def _submit_once(
     job_key: str,
     clock: Callable[[], datetime],
 ) -> SubmittedJob:
+    _require_durable_remote_jobs(capabilities)
+    pessimistic_checkpoint = not capabilities.local
+    if pessimistic_checkpoint:
+        document["jobs"][job_key].update(
+            {"job_id": None, "status": "submission_unknown"}
+        )
+        document["failure"] = None
+        _transition(store, run, document, ExperimentStatus.SUBMISSION_UNKNOWN, clock)
     try:
         submitted = adapter.submit(circuits, shots, run_options)
     except BaseException as error:
@@ -392,7 +563,11 @@ def _submit_once(
             "attempt": 1,
             "timestamp": _timestamp(clock),
         }
-        _transition(store, run, document, ExperimentStatus.SUBMISSION_UNKNOWN, clock)
+        if pessimistic_checkpoint:
+            document["timestamps"]["updated"] = document["failure"]["timestamp"]
+            _write_state(store, run, document)
+        else:
+            _transition(store, run, document, ExperimentStatus.SUBMISSION_UNKNOWN, clock)
         try:
             setattr(error, "__qoq_artifact_dir__", run)
         except Exception:
@@ -405,21 +580,23 @@ def _submit_once(
     if not isinstance(submitted, SubmittedJob):
         error = BackendCompatibilityError("adapter submit must return SubmittedJob")
         document["failure"] = _failure(error, "submission", clock, attempt=1)
-        _transition(store, run, document, ExperimentStatus.SUBMISSION_UNKNOWN, clock)
+        if pessimistic_checkpoint:
+            document["timestamps"]["updated"] = document["failure"]["timestamp"]
+            _write_state(store, run, document)
+        else:
+            _transition(store, run, document, ExperimentStatus.SUBMISSION_UNKNOWN, clock)
         raise error
-    try:
-        submitted = _validate_submitted(submitted, identity, len(circuits), shots)
-    except BackendCompatibilityError:
-        document["jobs"][job_key].update(
-            {"job_id": submitted.job_id, "status": "incompatible"}
-        )
-        document["job_ids"].append(submitted.job_id)
-        _write_state(store, run, document)
-        raise
+    _validate_persisted_strings(submitted.job_id, description="submitted job ID")
     job = document["jobs"][job_key]
     job.update({"job_id": submitted.job_id, "status": "submitted"})
     document["job_ids"].append(submitted.job_id)
     _transition(store, run, document, ExperimentStatus.SUBMITTED, clock)
+    try:
+        submitted = _validate_submitted(submitted, identity, len(circuits), shots)
+    except BackendCompatibilityError:
+        job["status"] = "incompatible"
+        _write_state(store, run, document)
+        raise
     return submitted
 
 
@@ -454,10 +631,10 @@ def _retrieve(
 
 def _execute_measurement_factor(
     factor: int,
-    circuits: tuple[Any, ...],
     settings: tuple[Any, ...],
     adapter: Any,
     identity: BackendIdentity,
+    capabilities: BackendCapabilities,
     spec: ExperimentSpec,
     timeout: float | None,
     run_options: Mapping[str, Any] | None,
@@ -469,7 +646,8 @@ def _execute_measurement_factor(
     clock: Callable[[], datetime],
     submitted: SubmittedJob | None = None,
 ) -> None:
-    if len(settings) != len(circuits):
+    preflight_circuits = _factor_checkpoint(store, run, document, factor)
+    if len(settings) != len(preflight_circuits):
         raise BackendCompatibilityError("persisted setting order does not match factor circuit batch")
     _retry(
         f"availability-factor-{factor}",
@@ -484,7 +662,7 @@ def _execute_measurement_factor(
     )
     _retry(
         f"preflight-factor-{factor}",
-        lambda: _preflight(adapter, circuits, spec.shots),
+        lambda: _preflight(adapter, preflight_circuits, spec.shots),
         spec.retry,
         (BackendUnavailableError,),
         store=store,
@@ -494,12 +672,14 @@ def _execute_measurement_factor(
         clock=clock,
     )
     if submitted is None:
+        submission_circuits = _factor_checkpoint(store, run, document, factor)
         submitted = _submit_once(
             adapter,
-            circuits,
+            submission_circuits,
             spec.shots,
             run_options,
             identity,
+            capabilities,
             store=store,
             run=run,
             document=document,
@@ -510,7 +690,7 @@ def _execute_measurement_factor(
         adapter,
         submitted,
         identity,
-        len(circuits),
+        len(preflight_circuits),
         spec.shots,
         timeout,
         spec.retry,
@@ -598,6 +778,7 @@ def _require_readout_dependency(readout_strategy: Any | None) -> None:
 def _obtain_calibration(
     adapter: Any,
     identity: BackendIdentity,
+    capabilities: BackendCapabilities,
     compiled_circuits: tuple[QuantumCircuit, ...],
     spec: ExperimentSpec,
     reusable: ReadoutCalibration | None,
@@ -657,9 +838,17 @@ def _obtain_calibration(
         "shots": spec.shots,
     }
     _write_state(store, run, document)
+    calibration_record = {
+        "artifact": filename,
+        "sha256": digest,
+        "circuit_count": len(compiled.circuits),
+    }
+    preflight_circuits = _load_circuit_checkpoint(
+        store, run, calibration_record, "readout calibration"
+    )
     _retry(
         "preflight-calibration",
-        lambda: _preflight(adapter, compiled.circuits, spec.shots),
+        lambda: _preflight(adapter, preflight_circuits, spec.shots),
         spec.retry,
         (BackendUnavailableError,),
         store=store,
@@ -668,12 +857,16 @@ def _obtain_calibration(
         sleep=sleep,
         clock=clock,
     )
+    submission_circuits = _load_circuit_checkpoint(
+        store, run, calibration_record, "readout calibration"
+    )
     submitted = _submit_once(
         adapter,
-        tuple(compiled.circuits),
+        submission_circuits,
         spec.shots,
         run_options,
         identity,
+        capabilities,
         store=store,
         run=run,
         document=document,
@@ -686,7 +879,7 @@ def _obtain_calibration(
         adapter,
         submitted,
         identity,
-        len(compiled.circuits),
+        len(submission_circuits),
         spec.shots,
         timeout,
         spec.retry,
@@ -828,6 +1021,7 @@ def run_experiment(
         stage = "backend-resolution"
         resolved_adapter = create_backend_adapter(spec.backend) if adapter is None else adapter
         identity, capabilities, adapter_metadata = _validate_adapter(resolved_adapter)
+        _require_durable_remote_jobs(capabilities)
         availability = _retry(
             "availability",
             lambda: _check_availability(resolved_adapter),
@@ -839,12 +1033,14 @@ def run_experiment(
             sleep=_sleep,
             clock=_clock,
         )
-        document["backend"] = {
+        backend_record = {
             "identity": identity.to_safe_dict(),
             "capabilities": capabilities.to_safe_dict(),
             "metadata": adapter_metadata,
             "availability": availability.to_safe_dict(),
         }
+        _validate_persisted_strings(backend_record, description="backend metadata")
+        document["backend"] = backend_record
         _write_state(store, run, document)
         if spec.mitigation.readout:
             _require_readout_dependency(_readout_strategy)
@@ -870,6 +1066,7 @@ def run_experiment(
             calibration = _obtain_calibration(
                 resolved_adapter,
                 identity,
+                capabilities,
                 tuple(compiled.circuits),
                 spec,
                 readout_calibration,
@@ -887,10 +1084,10 @@ def run_experiment(
             try:
                 _execute_measurement_factor(
                     factor,
-                    batches[factor],
                     settings,
                     resolved_adapter,
                     identity,
+                    capabilities,
                     spec,
                     timeout,
                     run_options,
@@ -1136,6 +1333,7 @@ def _resume_spec(document: Mapping[str, Any], supplied: ExperimentSpec | None) -
 def _resume_calibration(
     adapter: Any,
     identity: BackendIdentity,
+    capabilities: BackendCapabilities,
     spec: ExperimentSpec,
     timeout: float | None,
     run_options: Mapping[str, Any] | None,
@@ -1160,9 +1358,14 @@ def _resume_calibration(
     circuit_artifact = record.get("circuits_artifact")
     if not isinstance(circuit_artifact, str):
         raise ExperimentPersistenceError("readout calibration circuits are missing")
-    if _sha256(run / circuit_artifact) != record.get("circuits_sha256"):
-        raise ExperimentPersistenceError("readout calibration circuit hash mismatch")
-    circuits = store.read_circuits(run, circuit_artifact)
+    calibration_manifest = {
+        "artifact": circuit_artifact,
+        "sha256": record.get("circuits_sha256"),
+        "circuit_count": record.get("circuit_count"),
+    }
+    circuits = _load_circuit_checkpoint(
+        store, run, calibration_manifest, "readout calibration"
+    )
     job_id, _ = _calibration_job_reference(document)
     if job_id:
         submitted = adapter.restore_job(job_id, circuit_count=len(circuits), shots=spec.shots)
@@ -1179,12 +1382,16 @@ def _resume_calibration(
             sleep=sleep,
             clock=clock,
         )
+        submission_circuits = _load_circuit_checkpoint(
+            store, run, calibration_manifest, "readout calibration"
+        )
         submitted = _submit_once(
             adapter,
-            circuits,
+            submission_circuits,
             spec.shots,
             run_options,
             identity,
+            capabilities,
             store=store,
             run=run,
             document=document,
@@ -1254,7 +1461,7 @@ def resume_experiment(
         if migrated:
             _write_state(store, run, document)
     resolved_adapter = create_backend_adapter(resumed_spec.backend) if adapter is None else adapter
-    identity, _, _ = _validate_adapter(resolved_adapter)
+    identity, capabilities, _ = _validate_adapter(resolved_adapter)
     persisted_backend = document.get("backend")
     if not isinstance(persisted_backend, Mapping) or persisted_backend.get("identity") != identity.to_safe_dict():
         error = BackendCompatibilityError("resume backend identity does not match persisted target")
@@ -1267,6 +1474,18 @@ def resume_experiment(
             clock=_clock,
         )
         raise error
+    try:
+        _require_durable_remote_jobs(capabilities)
+    except BackendCompatibilityError as error:
+        _persist_terminal_failure(
+            error,
+            "resume",
+            store=store,
+            run=run,
+            document=document,
+            clock=_clock,
+        )
+        raise
     if resumed_spec.mitigation.readout:
         _require_readout_dependency(_readout_strategy)
 
@@ -1274,6 +1493,7 @@ def resume_experiment(
         calibration = _resume_calibration(
             resolved_adapter,
             identity,
+            capabilities,
             resumed_spec,
             timeout,
             run_options,
@@ -1288,8 +1508,7 @@ def resume_experiment(
         for factor in factors:
             if str(factor) in document["counts"]:
                 continue
-            factor_record = document["circuits"]["factors"][str(factor)]
-            circuits = store.read_circuits(run, factor_record["artifact"])
+            circuits = _factor_checkpoint(store, run, document, factor)
             job = document["jobs"][str(factor)]
             submitted = None
             if job.get("job_id"):
@@ -1301,10 +1520,10 @@ def resume_experiment(
                 )
             _execute_measurement_factor(
                 factor,
-                circuits,
                 settings,
                 resolved_adapter,
                 identity,
+                capabilities,
                 resumed_spec,
                 timeout,
                 run_options,
