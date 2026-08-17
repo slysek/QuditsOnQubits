@@ -5,24 +5,23 @@ from typing import Sequence
 
 import numpy as np
 
+from qudits_on_qubits.reference_experiments import (
+    _lambda as _canonical_lambda,
+    _make_xz,
+    _measurement_observables,
+)
+
 
 def make_XZ_qutrit() -> tuple[np.ndarray, np.ndarray, complex]:
     """Return qutrit shift X, clock Z, and omega = exp(2*pi*i/3)."""
+    x, z = _make_xz()
     omega = np.exp(2j * np.pi / 3)
-    x = np.zeros((3, 3), dtype=complex)
-    for j in range(3):
-        x[(j + 1) % 3, j] = 1.0
-    z = np.diag([omega**j for j in range(3)]).astype(complex)
     return x, z, omega
 
 
 def qutrit_lambda(n: int) -> complex:
     """Return lambda_n for d=3 and n in {1, 2}."""
-    if n == 1:
-        return np.exp(1j * np.pi / 18)
-    if n == 2:
-        return np.exp(-1j * np.pi / 18)
-    raise ValueError("qutrit lambda is defined here only for n=1 or n=2")
+    return _canonical_lambda(n)
 
 
 def _validate_power(n: int) -> int:
@@ -48,19 +47,10 @@ def make_measurement_observables_qutrit_d3(n: int = 1) -> list[np.ndarray]:
     A-tilde replacement constructed from them recovers the stabilizer factor
     (X Z^k)^n exactly up to floating-point tolerance.
     """
-    n = _validate_power(n)
-    x, z, omega = make_XZ_qutrit()
-    lam = qutrit_lambda(n)
-    observables: list[np.ndarray] = []
-    for t in range(3):
-        matrix = np.zeros((3, 3), dtype=complex)
-        for k in range(3):
-            phase = omega ** (n * t * k)
-            replacement_phase = omega ** (n * _replacement_phase_exponent(k))
-            xzk = x @ np.linalg.matrix_power(z, k)
-            matrix += phase * replacement_phase * np.linalg.matrix_power(xzk, n)
-        observables.append(lam * matrix / math.sqrt(3))
-    return observables
+    return [
+        np.array(observable, dtype=complex, copy=True)
+        for observable in _measurement_observables(n)
+    ]
 
 
 def make_A_tilde_qutrit_d3(

@@ -3,10 +3,31 @@ from dataclasses import replace
 from itertools import product
 import json
 import math
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
+from qudits_on_qubits.bell_functionals.bell_builders import (
+    bell_terms,
+    build_bell_operator,
+    candidate_statevector,
+    num_qutrits_for_candidate,
+)
+from qudits_on_qubits.bell_functionals.classical_bounds import (
+    bound_for_candidate,
+    brute_force_classical_bound,
+)
+from qudits_on_qubits.bell_functionals.encoding import (
+    default_qutrit_encoding,
+    encode_qutrit_state,
+)
+from qudits_on_qubits.bell_functionals.operators import (
+    make_XZ_qutrit,
+    make_measurement_observables_qutrit_d3,
+    qutrit_lambda,
+)
 from qudits_on_qubits.reference_experiments import (
     REFERENCE_EXPERIMENTS,
     BellFactorSpec,
@@ -423,6 +444,183 @@ class ScientificReferenceTests(unittest.TestCase):
                 self.assertEqual(spec.to_dict()["experiment_id"], experiment_id)
                 self.assertEqual(spec.stable_hash(), spec.stable_hash())
                 self.assertEqual(len(spec.stable_hash()), 64)
+
+
+class LegacyBellFunctionalCompatibilityTests(unittest.TestCase):
+    def test_num_qutrits_delegates_to_reference_registry(self) -> None:
+        fake_spec = SimpleNamespace(state=SimpleNamespace(num_parties=7))
+
+        with patch(
+            "qudits_on_qubits.bell_functionals.bell_builders.get_reference_experiment",
+            return_value=fake_spec,
+        ) as getter:
+            parties = num_qutrits_for_candidate("custom")
+
+        self.assertEqual(parties, 7)
+        getter.assert_called_once_with("custom")
+
+    def test_legacy_terms_preserve_registry_factor_contract(self) -> None:
+        for experiment_id in list_reference_experiments():
+            with self.subTest(experiment_id=experiment_id):
+                spec = get_reference_experiment(experiment_id)
+                legacy_terms = bell_terms(experiment_id)
+
+                self.assertEqual(len(legacy_terms), len(spec.bell_functional.terms))
+                for legacy_term, registry_term in zip(
+                    legacy_terms,
+                    spec.bell_functional.terms,
+                ):
+                    self.assertEqual(legacy_term.coefficient, registry_term.coefficient)
+                    self.assertEqual(len(legacy_term.factors), len(registry_term.factors))
+                    for legacy_factor, registry_factor in zip(
+                        legacy_term.factors,
+                        registry_term.factors,
+                    ):
+                        observable = spec.observable(registry_factor.setting_label)
+                        numeric_suffix = registry_factor.setting_label.lstrip(
+                            "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                        )
+                        self.assertEqual(
+                            (
+                                legacy_factor.party,
+                                legacy_factor.setting,
+                                legacy_factor.power,
+                                legacy_factor.label,
+                            ),
+                            (
+                                registry_factor.party,
+                                int(numeric_suffix),
+                                registry_factor.outcome_power,
+                                registry_factor.setting_label,
+                            ),
+                        )
+                        np.testing.assert_allclose(
+                            legacy_factor.base_observable,
+                            observable.as_array(),
+                            rtol=0,
+                            atol=1e-10,
+                        )
+                        np.testing.assert_allclose(
+                            legacy_factor.matrix,
+                            registry_factor.logical_operator(observable),
+                            rtol=0,
+                            atol=1e-10,
+                        )
+
+    def test_legacy_term_base_observables_are_defensive_arrays(self) -> None:
+        spec = get_reference_experiment("two_qutrit")
+        expected = spec.observable("A0").as_array()
+        first = bell_terms("two_qutrit")[0].factors[0].base_observable
+        first[0, 0] = 123 + 456j
+
+        np.testing.assert_allclose(spec.observable("A0").as_array(), expected)
+        np.testing.assert_allclose(
+            bell_terms("two_qutrit")[0].factors[0].base_observable,
+            expected,
+        )
+
+    def test_legacy_states_and_operators_match_registry_ideals(self) -> None:
+        encoding = default_qutrit_encoding()
+
+        for experiment_id in list_reference_experiments():
+            with self.subTest(experiment_id=experiment_id):
+                spec = get_reference_experiment(experiment_id)
+                state = candidate_statevector(experiment_id, encoding)
+                expected_state = encode_qutrit_state(
+                    spec.state.statevector(),
+                    encoding,
+                    spec.state.num_parties,
+                )
+
+                self.assertEqual(
+                    num_qutrits_for_candidate(experiment_id),
+                    spec.state.num_parties,
+                )
+                np.testing.assert_allclose(
+                    state.data,
+                    expected_state,
+                    rtol=0,
+                    atol=1e-10,
+                )
+                value = state.expectation_value(
+                    build_bell_operator(experiment_id, encoding)
+                )
+                self.assertAlmostEqual(
+                    value.real,
+                    spec.expected.ideal_bell_value,
+                    places=10,
+                )
+                self.assertAlmostEqual(value.imag, 0.0, places=10)
+
+        self.assertEqual(num_qutrits_for_candidate("2qutrit"), 2)
+
+    def test_legacy_operator_helpers_delegate_to_canonical_primitives(self) -> None:
+        x, z, omega = make_XZ_qutrit()
+        canonical_x, canonical_z = _make_xz()
+
+        np.testing.assert_allclose(x, canonical_x, rtol=0, atol=0)
+        np.testing.assert_allclose(z, canonical_z, rtol=0, atol=0)
+        self.assertEqual(omega, np.exp(2j * np.pi / 3))
+        for power in (1, 2):
+            with self.subTest(power=power):
+                self.assertEqual(qutrit_lambda(power), _lambda(power))
+                actual = make_measurement_observables_qutrit_d3(power)
+                canonical = _measurement_observables(power)
+                self.assertIsInstance(actual, list)
+                for actual_matrix, canonical_matrix in zip(actual, canonical):
+                    np.testing.assert_allclose(
+                        actual_matrix,
+                        canonical_matrix,
+                        rtol=0,
+                        atol=0,
+                    )
+
+        first = make_measurement_observables_qutrit_d3()
+        expected = _measurement_observables(1)[0]
+        first[0][0, 0] = 123 + 456j
+        np.testing.assert_allclose(
+            make_measurement_observables_qutrit_d3()[0],
+            expected,
+            rtol=0,
+            atol=0,
+        )
+
+    def test_legacy_bounds_match_registry_values(self) -> None:
+        places = {"two_qutrit": 10, "ghz3": 10, "ame43": 5}
+
+        for experiment_id in list_reference_experiments():
+            with self.subTest(experiment_id=experiment_id):
+                spec = get_reference_experiment(experiment_id)
+                frozen = bound_for_candidate(experiment_id)
+                brute_force = brute_force_classical_bound(experiment_id)
+
+                self.assertEqual(frozen.candidate, spec.experiment_id)
+                self.assertEqual(frozen.quantum, spec.expected.ideal_bell_value)
+                self.assertEqual(
+                    frozen.classical,
+                    spec.bell_functional.classical_bound,
+                )
+                self.assertEqual(
+                    frozen.classical_source,
+                    spec.bell_functional.classical_bound_source,
+                )
+                self.assertEqual(brute_force.candidate, spec.experiment_id)
+                self.assertEqual(
+                    brute_force.quantum,
+                    spec.expected.ideal_bell_value,
+                )
+                self.assertEqual(
+                    brute_force.classical_source,
+                    "numeric_bruteforce",
+                )
+                self.assertAlmostEqual(
+                    brute_force.classical,
+                    spec.bell_functional.classical_bound,
+                    places=places[experiment_id],
+                )
+
+        alias = bound_for_candidate("2qutrit")
+        self.assertEqual(alias.candidate, "two_qutrit")
 
 
 class ReferenceExperimentModelTests(unittest.TestCase):
