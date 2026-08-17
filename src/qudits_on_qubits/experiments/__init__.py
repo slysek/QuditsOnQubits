@@ -62,3 +62,7 @@ __all__.extend(
         "TranspilationConfig",
     ]
 )
+
+from .runner import resume_experiment, run_experiment, run_experiments
+
+__all__.extend(["resume_experiment", "run_experiment", "run_experiments"])
