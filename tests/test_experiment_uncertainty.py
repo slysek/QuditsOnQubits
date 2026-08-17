@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import FrozenInstanceError
 from datetime import datetime, timezone
 import inspect
@@ -135,6 +136,51 @@ class _RecordingZNE:
         return linear_zne_extrapolate(factors, values)
 
 
+class _ConstantZNE:
+    def __init__(self, value: complex) -> None:
+        self.value = value
+        self.calls: list[tuple[tuple[int, ...], tuple[complex, ...]]] = []
+
+    def extrapolate(
+        self, factors: tuple[int, ...], values: tuple[complex, ...]
+    ) -> complex:
+        self.calls.append((tuple(factors), tuple(values)))
+        return self.value
+
+
+def test_injected_zne_strategy_estimates_original_points_and_every_replicate() -> None:
+    zne = _ConstantZNE(42.0 - 7.0j)
+    result = bootstrap_bell_results(
+        BootstrapInputs(
+            counts_by_factor={
+                1: {"setting": {"0": 8, "1": 2}},
+                3: {"setting": {"0": 6, "1": 4}},
+            },
+            terms=(),
+            qutrit_bit_indices_by_setting={},
+            readout_calibration=_calibration(),
+        ),
+        BootstrapConfig(samples=2, seed=4, include_readout_calibration=False),
+        readout_strategy=_RecordingReadout(),
+        zne_strategy=zne,
+        _evaluator=_single_probability,
+    )
+
+    assert result.zne is not None
+    assert result.zne_readout_mitigated is not None
+    for estimate in (result.zne, result.zne_readout_mitigated):
+        assert estimate.estimate.real == 42.0
+        assert estimate.estimate.imag == -7.0
+        assert estimate.standard_error.real == 0.0
+        assert estimate.standard_error.imag == 0.0
+        assert estimate.confidence_interval.real.low == 42.0
+        assert estimate.confidence_interval.real.high == 42.0
+        assert estimate.confidence_interval.imag.low == -7.0
+        assert estimate.confidence_interval.imag.high == -7.0
+    assert len(zne.calls) == 2 * (2 + 1)
+    assert result.diagnostics.zne_fit_calls == 2 * (2 + 1)
+
+
 def test_full_plan_resamples_locally_and_produces_exactly_four_named_variants() -> None:
     inputs = BootstrapInputs(
         counts_by_factor={
@@ -167,7 +213,7 @@ def test_full_plan_resamples_locally_and_produces_exactly_four_named_variants() 
         "diagnostics",
     }
     assert result.diagnostics.calibration_resamples == 4
-    assert result.diagnostics.zne_fit_calls == 8
+    assert result.diagnostics.zne_fit_calls == 2 * (4 + 1)
     expected_zne_point = linear_zne_extrapolate((1, 3, 5), (0.2, 0.4, 0.5))[0]
     assert result.raw.estimate.real == pytest.approx(0.2)
     assert result.readout_mitigated is not None
@@ -181,7 +227,7 @@ def test_full_plan_resamples_locally_and_produces_exactly_four_named_variants() 
     assert readout.build_calls == 1
     assert readout.resample_calls == 4
     assert len(set(readout.rng_ids)) == 1
-    assert len(zne.calls) == 8
+    assert len(zne.calls) == 2 * (4 + 1)
     assert readout.applied_contexts[:3] == [("fixed", 1)] * 3
     for replicate in range(4):
         start = 3 + 3 * replicate
@@ -235,8 +281,8 @@ def test_zne_without_readout_produces_only_raw_and_zne_variants() -> None:
     assert set(result.to_safe_dict()) == {"raw", "zne", "config", "diagnostics"}
     assert result.readout_mitigated is None
     assert result.zne_readout_mitigated is None
-    assert result.diagnostics.zne_fit_calls == 3
-    assert len(zne.calls) == 3
+    assert result.diagnostics.zne_fit_calls == 3 + 1
+    assert len(zne.calls) == 3 + 1
 
 
 def _two_components(counts_by_setting: Mapping[object, Mapping[str, float]]) -> complex:
@@ -333,6 +379,38 @@ def test_inputs_reject_invalid_factors_or_nonidentical_setting_order(
     with pytest.raises(ExperimentValidationError):
         BootstrapInputs(
             counts_by_factor=counts_by_factor,  # type: ignore[arg-type]
+            terms=(),
+            qutrit_bit_indices_by_setting={},
+        )
+
+
+@pytest.mark.parametrize(
+    "factors",
+    [(1,), (1, 7), (1, 3, 7), (15, 1, 9)],
+)
+def test_inputs_accept_and_sort_any_unique_positive_odd_factors_including_one(
+    factors: tuple[int, ...],
+) -> None:
+    inputs = BootstrapInputs(
+        counts_by_factor={factor: {"setting": {"0": 1}} for factor in factors},
+        terms=(),
+        qutrit_bit_indices_by_setting={},
+    )
+
+    assert tuple(inputs.counts_by_factor) == tuple(sorted(factors))
+
+
+class _DuplicateFactorMapping(dict[int, dict[str, dict[str, int]]]):
+    def __iter__(self) -> Iterator[int]:
+        return iter((1, 3, 3))
+
+
+def test_inputs_reject_duplicate_factors_from_mapping_contract_violation() -> None:
+    with pytest.raises(ExperimentValidationError, match="unique"):
+        BootstrapInputs(
+            counts_by_factor=_DuplicateFactorMapping(
+                {1: {"setting": {"0": 1}}, 3: {"setting": {"0": 1}}}
+            ),
             terms=(),
             qutrit_bit_indices_by_setting={},
         )

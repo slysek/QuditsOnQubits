@@ -19,6 +19,7 @@ from .mitigation import (
     assignment_matrices_from_counts,
     build_m3_mitigation,
     linear_zne_extrapolate,
+    validate_zne_factors,
 )
 from .models import (
     BellEstimate,
@@ -76,15 +77,12 @@ def _validated_counts_by_factor(
 ) -> Mapping[int, Mapping[Setting, Mapping[str, int]]]:
     if not isinstance(value, Mapping) or not value:
         raise ExperimentValidationError("counts_by_factor must be a non-empty mapping")
-    if any(type(factor) is not int or factor not in {1, 3, 5} for factor in value):
-        raise ExperimentValidationError("count factors must be 1 and optionally 3 or 5")
-    if 1 not in value:
-        raise ExperimentValidationError("count factors must include 1")
+    factors = validate_zne_factors(tuple(value))
 
     expected_settings: tuple[Setting, ...] | None = None
     normalized_factors: dict[int, Mapping[Setting, Mapping[str, int]]] = {}
     expected_width: int | None = None
-    for factor in sorted(value):
+    for factor in factors:
         factor_counts = value[factor]
         if not isinstance(factor_counts, Mapping) or not factor_counts:
             raise ExperimentValidationError("each factor must contain setting counts")
@@ -452,19 +450,21 @@ def bootstrap_bell_results(
 
     raw_point = raw_points[0]
     corrected_point = corrected_points[0] if corrected_points else None
-    zne_point = linear_zne_extrapolate(factors, raw_points)[0] if use_zne else None
-    corrected_zne_point = (
-        linear_zne_extrapolate(factors, corrected_points)[0]
-        if use_zne and use_readout
-        else None
-    )
+    zne_fit_calls = 0
+    zne_point = None
+    corrected_zne_point = None
+    if use_zne:
+        zne_point = _zne_intercept(zne, factors, raw_points)
+        zne_fit_calls += 1
+        if use_readout:
+            corrected_zne_point = _zne_intercept(zne, factors, corrected_points)
+            zne_fit_calls += 1
 
     raw_replicates: list[complex] = []
     corrected_replicates: list[complex] = []
     zne_replicates: list[complex] = []
     corrected_zne_replicates: list[complex] = []
     calibration_resamples = 0
-    zne_fit_calls = 0
     for _ in range(config.samples):
         sampled = _resample_counts(inputs.counts_by_factor, rng)
         raw_values = tuple(_evaluate(evaluator, sampled[factor]) for factor in factors)
