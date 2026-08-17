@@ -16,6 +16,7 @@ import numbers
 import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
+import stat
 import tempfile
 from typing import Any
 import uuid
@@ -50,6 +51,43 @@ def _is_within(path: Path, directory: Path) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _is_symlink_or_reparse(path: Path) -> bool:
+    metadata = path.lstat()
+    reparse_attribute = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    file_attributes = getattr(metadata, "st_file_attributes", 0)
+    return stat.S_ISLNK(metadata.st_mode) or bool(file_attributes & reparse_attribute)
+
+
+def _ensure_no_symlink_or_reparse(
+    path: Path,
+    root: Path,
+    *,
+    allow_missing: bool,
+) -> None:
+    try:
+        relative = path.relative_to(root)
+    except ValueError as error:
+        raise ExperimentPersistenceError(f"path is outside experiment root: {path}") from error
+    if any(component in {".", ".."} for component in relative.parts):
+        raise ExperimentPersistenceError(f"path contains traversal outside experiment root: {path}")
+
+    current = root
+    for component in relative.parts:
+        current /= component
+        try:
+            is_reparse = _is_symlink_or_reparse(current)
+        except FileNotFoundError:
+            if allow_missing:
+                return
+            raise ExperimentPersistenceError(f"experiment path component does not exist: {current}")
+        except OSError as error:
+            raise ExperimentPersistenceError(f"could not inspect experiment path component: {current}") from error
+        if is_reparse:
+            raise ExperimentPersistenceError(
+                f"experiment path contains a symlink or reparse point: {current}"
+            )
 
 
 def _safe_relative_path(value: str | Path) -> Path:
@@ -372,18 +410,21 @@ class ExperimentStore:
             raise ExperimentPersistenceError("run_id must be one safe relative path component")
         now = _utc_now().astimezone(timezone.utc)
         date_directory = self.root / now.strftime("%Y-%m-%d")
+        _ensure_no_symlink_or_reparse(date_directory, self.root, allow_missing=True)
         self._ensure_contained(date_directory.resolve(strict=False), self.root, "run directory")
         try:
             date_directory.mkdir(exist_ok=True)
-            date_directory = date_directory.resolve(strict=True)
         except (OSError, RuntimeError) as error:
             raise ExperimentPersistenceError("could not create UTC run date directory") from error
+        _ensure_no_symlink_or_reparse(date_directory, self.root, allow_missing=False)
+        date_directory = date_directory.resolve(strict=True)
         self._ensure_contained(date_directory, self.root, "run directory")
 
         timestamp = now.strftime("%Y%m%dT%H%M%S.%fZ")
         label = f"-{run_id}" if run_id is not None else ""
         name = f"{timestamp}{label}-{uuid.uuid4().hex[:12]}"
         run = date_directory / name
+        _ensure_no_symlink_or_reparse(run, self.root, allow_missing=True)
         self._ensure_contained(run.resolve(strict=False), self.root, "run directory")
         try:
             run.mkdir(exist_ok=False)
@@ -391,6 +432,7 @@ class ExperimentStore:
             raise ExperimentPersistenceError(f"experiment run already exists and will not be overwritten: {run}") from error
         except OSError as error:
             raise ExperimentPersistenceError(f"could not create experiment run: {run}") from error
+        _ensure_no_symlink_or_reparse(run, self.root, allow_missing=False)
         resolved = run.resolve(strict=True)
         self._ensure_contained(resolved, self.root, "run directory")
         return resolved
@@ -526,7 +568,10 @@ class ExperimentStore:
             candidate = Path(run)
             if not candidate.is_absolute():
                 candidate = self.root / candidate
+            _ensure_no_symlink_or_reparse(candidate, self.root, allow_missing=False)
             resolved = candidate.resolve(strict=True)
+        except ExperimentPersistenceError:
+            raise
         except (OSError, RuntimeError, TypeError) as error:
             raise ExperimentPersistenceError(f"could not resolve experiment run: {run!r}") from error
         self._ensure_contained(resolved, self.root, "experiment root")
@@ -539,7 +584,10 @@ class ExperimentStore:
         relative = _safe_relative_path(filename)
         candidate = run_directory / relative
         try:
+            _ensure_no_symlink_or_reparse(candidate, self.root, allow_missing=create_parent)
             resolved = candidate.resolve(strict=False)
+        except ExperimentPersistenceError:
+            raise
         except (OSError, RuntimeError) as error:
             raise ExperimentPersistenceError(f"could not resolve artifact path: {candidate}") from error
         self._ensure_contained(resolved, run_directory, "run directory")
@@ -547,7 +595,10 @@ class ExperimentStore:
         if create_parent:
             try:
                 resolved.parent.mkdir(parents=True, exist_ok=True)
+                _ensure_no_symlink_or_reparse(candidate, self.root, allow_missing=True)
                 resolved = candidate.resolve(strict=False)
+            except ExperimentPersistenceError:
+                raise
             except (OSError, RuntimeError) as error:
                 raise ExperimentPersistenceError(f"could not create artifact directory: {candidate.parent}") from error
             self._ensure_contained(resolved, run_directory, "run directory")

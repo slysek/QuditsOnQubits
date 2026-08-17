@@ -173,9 +173,41 @@ def test_store_rejects_symlink_escape(tmp_path):
     except OSError as error:
         pytest.skip(f"directory symlinks unavailable: {error}")
 
-    with pytest.raises(ExperimentPersistenceError, match="run directory"):
+    with pytest.raises(ExperimentPersistenceError, match="symlink or reparse"):
         store.write_json(run, "link/leak.json", {})
     assert not (outside / "leak.json").exists()
+
+
+def test_store_rejects_simulated_reparse_run_component(tmp_path, monkeypatch):
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run()
+    suspicious_run = run.parent / "reparse-run"
+    suspicious_run.mkdir()
+    monkeypatch.setattr(
+        store_module,
+        "_is_symlink_or_reparse",
+        lambda path: path == suspicious_run,
+        raising=False,
+    )
+
+    with pytest.raises(ExperimentPersistenceError, match="symlink or reparse"):
+        store.write_json(suspicious_run, "artifact.json", {})
+
+
+def test_store_rejects_simulated_reparse_artifact_component(tmp_path, monkeypatch):
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run()
+    suspicious_directory = run / "reparse-directory"
+    suspicious_directory.mkdir()
+    monkeypatch.setattr(
+        store_module,
+        "_is_symlink_or_reparse",
+        lambda path: path == suspicious_directory,
+        raising=False,
+    )
+
+    with pytest.raises(ExperimentPersistenceError, match="symlink or reparse"):
+        store.write_json(run, "reparse-directory/artifact.json", {})
 
 
 def test_atomic_replacement_preserves_old_file_and_cleans_temp_on_failure(tmp_path, monkeypatch):
@@ -237,6 +269,27 @@ def test_circuit_store_rejects_empty_and_corrupt_batches(tmp_path):
     (run / "circuits.qpy").write_bytes(b"not a qpy file")
     with pytest.raises(ExperimentPersistenceError, match="QPY"):
         store.read_circuits(run)
+
+
+def test_circuit_qpy_atomic_failure_preserves_old_file_and_cleans_temp(tmp_path, monkeypatch):
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run()
+    original = QuantumCircuit(1, name="original")
+    replacement = QuantumCircuit(1, name="replacement")
+    replacement.x(0)
+    store.write_circuits(run, (original,))
+    path = run / "circuits.qpy"
+    before = path.read_bytes()
+
+    def fail_replace(source, destination):
+        raise OSError("injected QPY replace failure")
+
+    monkeypatch.setattr(store_module.os, "replace", fail_replace)
+    with pytest.raises(ExperimentPersistenceError):
+        store.write_circuits(run, (replacement,))
+
+    assert path.read_bytes() == before
+    assert list(run.glob(".circuits.qpy.*.tmp")) == []
 
 
 def test_counts_round_trip_raw_and_quasi_values_preserving_setting_order(tmp_path):
