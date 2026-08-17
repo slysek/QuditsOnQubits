@@ -153,6 +153,11 @@ def test_notebooks_use_only_public_high_level_experiment_api(
         and state_keyword.value == state
         for call in spec_calls
     )
+    if state in {"ghz3", "ame43"}:
+        for call in spec_calls:
+            keyword_names = {keyword.arg for keyword in call.keywords}
+            assert "uncertainty" in keyword_names
+            assert "bootstrap" not in keyword_names
 
     for forbidden in FORBIDDEN_EXECUTION_DUPLICATES:
         assert forbidden not in source
@@ -219,7 +224,8 @@ def test_setup_cells_resolve_repo_and_build_valid_specs(
             assert spec.mitigation.readout is True
             assert spec.mitigation.zne is True
             assert spec.mitigation.zne_factors == (1, 3, 5)
-            assert spec.bootstrap.samples == 2000
+            assert spec.uncertainty.samples == 2000
+            assert spec.bootstrap is spec.uncertainty
             assert spec.output_root == Path("artifacts/experiment_runs")
             assert not spec.output_root.is_absolute()
     else:

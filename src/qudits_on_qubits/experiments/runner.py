@@ -8,16 +8,14 @@ tracebacks never cross the artifact boundary.
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Callable, Iterable, Mapping, Sequence, Set
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 import hashlib
 import importlib.util
 import math
 from pathlib import Path
-import re
 import time
 from typing import Any
-from urllib.parse import parse_qsl, urlsplit
 
 from qiskit import QuantumCircuit
 
@@ -55,35 +53,18 @@ from .models import (
     ExperimentSpec,
     ExperimentStatus,
     RetryConfig,
+    _normalize_experiment_spec_dict,
 )
 from .preparation import prepare_measurements
+from .safety import (
+    unsafe_persisted_text as _unsafe_persisted_text,
+    validate_persisted_strings,
+)
 from .store import ExperimentStore
 from .uncertainty import BootstrapInputs, bootstrap_bell_results
 
 
 SCHEMA_VERSION = 1
-_CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
-_CREDENTIAL_MARKER = re.compile(
-    r"(?i)(?:authorization|bearer|token|api[-_ ]?key|password|secret)\b"
-    r"(?:\s*[:=]\s*|\s+)\S+"
-)
-_URL = re.compile(r"(?i)https?://[^\s<>\"']+")
-_CREDENTIAL_QUERY_KEYS = {
-    "authorization",
-    "bearer",
-    "token",
-    "api_key",
-    "apikey",
-    "password",
-    "secret",
-}
-
-
-def _credential_field_name(value: str) -> bool:
-    normalized = re.sub(r"[-_\s]+", "_", value.strip().lower())
-    return normalized in _CREDENTIAL_QUERY_KEYS or normalized.endswith(
-        ("_authorization", "_token", "_api_key", "_apikey", "_password", "_secret")
-    )
 
 
 def _utc_now() -> datetime:
@@ -97,22 +78,6 @@ def _timestamp(clock: Callable[[], datetime]) -> str:
     return value.astimezone(timezone.utc).isoformat(timespec="microseconds").replace(
         "+00:00", "Z"
     )
-
-
-def _unsafe_persisted_text(value: str) -> bool:
-    if _CONTROL_CHARACTERS.search(value) or _CREDENTIAL_MARKER.search(value):
-        return True
-    for candidate in _URL.findall(value):
-        try:
-            parsed = urlsplit(candidate)
-            if parsed.username is not None or parsed.password is not None:
-                return True
-            for key, _ in parse_qsl(parsed.query, keep_blank_values=True):
-                if _credential_field_name(key):
-                    return True
-        except ValueError:
-            return True
-    return False
 
 
 def _safe_message(error: BaseException) -> str:
@@ -129,29 +94,12 @@ def _validate_persisted_strings(
     description: str,
     active: set[int] | None = None,
 ) -> None:
-    if isinstance(value, str):
-        if _unsafe_persisted_text(value):
-            raise BackendCompatibilityError(f"{description} contains unsafe text")
-        return
-    if isinstance(value, (bytes, bytearray)):
-        return
-    if not isinstance(value, (Mapping, Sequence, Set)):
-        return
-    if active is None:
-        active = set()
-    identity = id(value)
-    if identity in active:
-        raise BackendCompatibilityError(f"{description} contains a recursive value")
-    active.add(identity)
-    try:
-        items = value.items() if isinstance(value, Mapping) else enumerate(value)
-        for key, item in items:
-            if isinstance(value, Mapping) and isinstance(key, str) and _credential_field_name(key):
-                raise BackendCompatibilityError(f"{description} contains unsafe text")
-            _validate_persisted_strings(key, description=description, active=active)
-            _validate_persisted_strings(item, description=description, active=active)
-    finally:
-        active.remove(identity)
+    validate_persisted_strings(
+        value,
+        description=description,
+        error_type=BackendCompatibilityError,
+        active=active,
+    )
 
 
 def _failure(error: BaseException, stage: str, clock: Callable[[], datetime], attempt: int | None = None) -> dict[str, Any]:
@@ -199,7 +147,7 @@ def _initial_document(
     clock: Callable[[], datetime],
 ) -> dict[str, Any]:
     created = _timestamp(clock)
-    return {
+    document = {
         "schema_version": SCHEMA_VERSION,
         "experiment_id": experiment_id,
         "spec": spec.to_safe_dict(),
@@ -217,6 +165,8 @@ def _initial_document(
         "result": None,
         "failure": None,
     }
+    _validate_persisted_strings(document, description="initial experiment document")
+    return document
 
 
 def _write_state(store: ExperimentStore, run: Path, document: Mapping[str, Any]) -> None:
@@ -938,7 +888,7 @@ def _postprocess(
     )
     result = bootstrap_bell_results(
         inputs,
-        spec.bootstrap,
+        spec.uncertainty,
         readout_strategy=readout_strategy,
         zne_strategy=zne_strategy,
         _evaluator=evaluator,
@@ -1318,12 +1268,16 @@ def _resume_spec(document: Mapping[str, Any], supplied: ExperimentSpec | None) -
     safe = document.get("spec")
     if not isinstance(safe, Mapping):
         raise ExperimentPersistenceError("persisted experiment spec is invalid")
+    normalized_safe = _normalize_experiment_spec_dict(safe)
     if supplied is not None:
-        if not isinstance(supplied, ExperimentSpec) or supplied.to_safe_dict() != safe:
+        if (
+            not isinstance(supplied, ExperimentSpec)
+            or supplied.to_safe_dict() != normalized_safe
+        ):
             raise ExperimentValidationError("injected spec does not match persisted experiment spec")
         return supplied
     try:
-        return ExperimentSpec.from_safe_dict(safe)
+        return ExperimentSpec.from_safe_dict(normalized_safe)
     except ExperimentValidationError as error:
         raise ExperimentValidationError(
             "custom or noisy experiment resume requires matching spec context injection"

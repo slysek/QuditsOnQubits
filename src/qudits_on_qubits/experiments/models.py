@@ -10,17 +10,29 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 from .errors import ExperimentValidationError
+from .safety import unsafe_persisted_text, validate_persisted_strings
 
 
-_CREDENTIAL_MARKERS = ("token=", "api_key=", "password=", "secret=")
 _STATES = {"two_qutrit", "ghz3", "ame43"}
+
+
+class _Unset:
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "<factory>"
+
+
+_UNSET = _Unset()
 
 
 def _safe_text(value: str, field_name: str) -> str:
     if not isinstance(value, str) or not value:
         raise ExperimentValidationError(f"{field_name} must be a non-empty string")
-    if any(marker in value.lower() for marker in _CREDENTIAL_MARKERS):
-        raise ExperimentValidationError(f"{field_name} must not contain credential material")
+    if unsafe_persisted_text(value):
+        raise ExperimentValidationError(
+            f"{field_name} must not contain credential material"
+        ) from None
     return value
 
 
@@ -35,6 +47,11 @@ def _safe_optional_path(value: Path | str | None, field_name: str) -> Path | Non
 def _safe_tags(value: Mapping[str, str]) -> Mapping[str, str]:
     if not isinstance(value, Mapping):
         raise ExperimentValidationError("tags must be a mapping of strings")
+    validate_persisted_strings(
+        value,
+        description="tags",
+        error_type=ExperimentValidationError,
+    )
     tags: dict[str, str] = {}
     for key, item in value.items():
         tags[_safe_text(key, "tag key")] = _safe_text(item, "tag value")
@@ -134,11 +151,15 @@ class IQMHardware:
         object.__setattr__(self, "env_path", _safe_optional_path(self.env_path, "env_path"))
 
     def to_safe_dict(self) -> dict[str, Any]:
-        return {"kind": "iqm_hardware", "device": self.device, "use_metrics": self.use_metrics, "env_path": _path_value(self.env_path)}
+        return {
+            "kind": "iqm_hardware",
+            "device": self.device,
+            "use_metrics": self.use_metrics,
+        }
 
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any]) -> "IQMHardware":
-        return cls(data["device"], data.get("use_metrics", False), _path_from(data.get("env_path")))
+        return cls(data["device"], data.get("use_metrics", False))
 
 
 @dataclass(frozen=True)
@@ -155,11 +176,11 @@ class PiastQHardware:
         object.__setattr__(self, "env_path", _safe_optional_path(self.env_path, "env_path"))
 
     def to_safe_dict(self) -> dict[str, Any]:
-        return {"kind": "piastq_hardware", "mode": self.mode, "owner": self.owner, "env_path": _path_value(self.env_path)}
+        return {"kind": "piastq_hardware", "mode": self.mode, "owner": self.owner}
 
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any]) -> "PiastQHardware":
-        return cls(data.get("mode", "auto"), data.get("owner"), _path_from(data.get("env_path")))
+        return cls(data.get("mode", "auto"), data.get("owner"))
 
 
 @dataclass(frozen=True)
@@ -256,6 +277,8 @@ class BootstrapConfig:
             raise ExperimentValidationError("samples must be an integer of at least 2")
         if not isinstance(self.confidence_level, (int, float)) or isinstance(self.confidence_level, bool) or not math.isfinite(self.confidence_level) or not 0 < self.confidence_level < 1:
             raise ExperimentValidationError("confidence_level must be between 0 and 1")
+        if isinstance(self.seed, bool) or not isinstance(self.seed, int) or self.seed < 0:
+            raise ExperimentValidationError("seed must be a non-negative integer")
 
     def to_safe_dict(self) -> dict[str, Any]:
         return {"samples": self.samples, "confidence_level": self.confidence_level, "seed": self.seed, "include_readout_calibration": self.include_readout_calibration}
@@ -314,18 +337,99 @@ Basis = PathBasis | BenchmarkBasis
 Backend = AerIdeal | IQMHardware | PiastQHardware | CustomBackend | NoisySimulator
 
 
-@dataclass(frozen=True)
+def _normalize_experiment_spec_dict(data: Mapping[str, Any]) -> dict[str, Any]:
+    normalized = dict(data)
+    canonical = normalized.get("uncertainty", _UNSET)
+    legacy = normalized.pop("bootstrap", _UNSET)
+    if canonical is not _UNSET and legacy is not _UNSET and canonical != legacy:
+        raise ExperimentValidationError(
+            "bootstrap and uncertainty contain conflicting values"
+        )
+    if canonical is _UNSET and legacy is not _UNSET:
+        normalized["uncertainty"] = legacy
+
+    backend = normalized.get("backend")
+    if isinstance(backend, Mapping) and backend.get("kind") in {
+        "iqm_hardware",
+        "piastq_hardware",
+    }:
+        normalized_backend = dict(backend)
+        normalized_backend.pop("env_path", None)
+        normalized["backend"] = normalized_backend
+    return normalized
+
+
+@dataclass(frozen=True, init=False)
 class ExperimentSpec:
     state: str
     basis: Basis
     backend: Backend
     shots: int = 20480
     mitigation: MitigationConfig = field(default_factory=MitigationConfig)
-    bootstrap: BootstrapConfig = field(default_factory=BootstrapConfig)
+    uncertainty: BootstrapConfig = field(default_factory=BootstrapConfig)
     transpilation: TranspilationConfig = field(default_factory=TranspilationConfig)
     retry: RetryConfig = field(default_factory=RetryConfig)
     output_root: Path = Path("artifacts/experiment_runs")
     tags: Mapping[str, str] = field(default_factory=dict)
+
+    def __init__(
+        self,
+        state: str,
+        basis: Basis,
+        backend: Backend,
+        shots: int = 20480,
+        mitigation: MitigationConfig | object = _UNSET,
+        uncertainty: BootstrapConfig | object = _UNSET,
+        transpilation: TranspilationConfig | object = _UNSET,
+        retry: RetryConfig | object = _UNSET,
+        output_root: Path | str = Path("artifacts/experiment_runs"),
+        tags: Mapping[str, str] | object = _UNSET,
+        *,
+        bootstrap: BootstrapConfig | object = _UNSET,
+    ) -> None:
+        if bootstrap is not _UNSET and not isinstance(bootstrap, BootstrapConfig):
+            raise ExperimentValidationError("bootstrap must be BootstrapConfig")
+        if uncertainty is not _UNSET and not isinstance(uncertainty, BootstrapConfig):
+            raise ExperimentValidationError("uncertainty must be BootstrapConfig")
+        if (
+            bootstrap is not _UNSET
+            and uncertainty is not _UNSET
+            and bootstrap != uncertainty
+        ):
+            raise ExperimentValidationError(
+                "bootstrap and uncertainty contain conflicting values"
+            )
+        if uncertainty is not _UNSET:
+            uncertainty_config = uncertainty
+        elif bootstrap is not _UNSET:
+            uncertainty_config = bootstrap
+        else:
+            uncertainty_config = BootstrapConfig()
+        object.__setattr__(self, "state", state)
+        object.__setattr__(self, "basis", basis)
+        object.__setattr__(self, "backend", backend)
+        object.__setattr__(self, "shots", shots)
+        object.__setattr__(
+            self,
+            "mitigation",
+            MitigationConfig() if mitigation is _UNSET else mitigation,
+        )
+        object.__setattr__(self, "uncertainty", uncertainty_config)
+        object.__setattr__(
+            self,
+            "transpilation",
+            TranspilationConfig() if transpilation is _UNSET else transpilation,
+        )
+        object.__setattr__(self, "retry", RetryConfig() if retry is _UNSET else retry)
+        object.__setattr__(self, "output_root", output_root)
+        object.__setattr__(self, "tags", {} if tags is _UNSET else tags)
+        self.__post_init__()
+
+    @property
+    def bootstrap(self) -> BootstrapConfig:
+        """Backward-compatible alias for :attr:`uncertainty`."""
+
+        return self.uncertainty
 
     def __post_init__(self) -> None:
         state = "ghz3" if self.state == "ghz" else self.state
@@ -338,6 +442,8 @@ class ExperimentSpec:
             raise ExperimentValidationError("basis must be a supported basis specification")
         if not isinstance(self.backend, (AerIdeal, IQMHardware, PiastQHardware, CustomBackend, NoisySimulator)):
             raise ExperimentValidationError("backend must be a supported backend specification")
+        if not isinstance(self.uncertainty, BootstrapConfig):
+            raise ExperimentValidationError("uncertainty must be BootstrapConfig")
         object.__setattr__(self, "output_root", _safe_optional_path(self.output_root, "output_root"))
         if self.output_root is None:
             raise ExperimentValidationError("output_root is required")
@@ -346,28 +452,21 @@ class ExperimentSpec:
     def to_safe_dict(self) -> dict[str, Any]:
         return {
             "state": self.state, "basis": self.basis.to_safe_dict(), "backend": self.backend.to_safe_dict(),
-            "shots": self.shots, "mitigation": self.mitigation.to_safe_dict(), "bootstrap": self.bootstrap.to_safe_dict(),
+            "shots": self.shots, "mitigation": self.mitigation.to_safe_dict(), "uncertainty": self.uncertainty.to_safe_dict(),
             "transpilation": self.transpilation.to_safe_dict(), "retry": self.retry.to_safe_dict(),
             "output_root": str(self.output_root), "tags": dict(self.tags),
         }
 
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any]) -> "ExperimentSpec":
+        data = _normalize_experiment_spec_dict(data)
         return cls(
             state=data["state"], basis=_basis_from_safe_dict(data["basis"]), backend=_backend_from_safe_dict(data["backend"]),
             shots=data.get("shots", 20480), mitigation=MitigationConfig.from_safe_dict(data.get("mitigation", {})),
-            bootstrap=BootstrapConfig.from_safe_dict(data.get("bootstrap", {})),
+            uncertainty=BootstrapConfig.from_safe_dict(data.get("uncertainty", {})),
             transpilation=TranspilationConfig.from_safe_dict(data.get("transpilation", {})), retry=RetryConfig.from_safe_dict(data.get("retry", {})),
             output_root=Path(data.get("output_root", "artifacts/experiment_runs")), tags=data.get("tags", {}),
         )
-
-
-def _path_value(path: Path | None) -> str | None:
-    return None if path is None else str(path)
-
-
-def _path_from(value: Any) -> Path | None:
-    return None if value is None else Path(value)
 
 
 def _basis_from_safe_dict(data: Mapping[str, Any]) -> Basis:

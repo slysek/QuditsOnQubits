@@ -37,7 +37,7 @@ ideal = ExperimentSpec(
     basis=PathBasis(Path("artifacts/bases/two_qutrit")),
     backend=AerIdeal(seed_simulator=11),
     shots=20_480,
-    bootstrap=BootstrapConfig(samples=2000, seed=7),
+    uncertainty=BootstrapConfig(samples=2000, seed=7),
 )
 result = run_experiment(ideal)
 print(result.status, result.artifact_dir, result.values["raw"])
