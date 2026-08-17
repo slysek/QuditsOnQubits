@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 from qiskit import QuantumCircuit
 
 from qudits_on_qubits.bell_measurements import canonical_Ez
+from qudits_on_qubits.experiments.errors import ExperimentValidationError
 from qudits_on_qubits.experiments.artifacts import BasisArtifacts
 from qudits_on_qubits.experiments.preparation import metadata_summary, prepare_measurements
 
@@ -58,3 +60,26 @@ def test_prepared_measurements_are_immutable(tmp_path):
 
     with pytest.raises(TypeError):
         prepared.metadata["candidate"] = "changed"
+
+@pytest.mark.parametrize(
+    ("circuits", "metadata", "message"),
+    [
+        ([], {"setting_by_circuit_index": []}, "no circuits"),
+        ([QuantumCircuit(4)], {"setting_by_circuit_index": []}, "setting count"),
+        ([QuantumCircuit(4)], {"setting_by_circuit_index": [("A0", "B0")]}, "measurements"),
+    ],
+)
+def test_preparation_rejects_invalid_builder_outputs(tmp_path, circuits, metadata, message):
+    artifacts = BasisArtifacts(
+        directory=tmp_path,
+        state="two_qutrit",
+        state_circuit=QuantumCircuit(4),
+        encoding=canonical_Ez(),
+        source_paths={},
+        source_hashes={},
+        provenance={},
+    )
+
+    with patch("qudits_on_qubits.experiments.preparation.build_sampler_circuits_for_candidate", return_value=(circuits, metadata)):
+        with pytest.raises(ExperimentValidationError, match=message):
+            prepare_measurements(artifacts)

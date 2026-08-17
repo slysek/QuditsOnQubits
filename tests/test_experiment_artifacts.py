@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import hashlib
 
+from types import SimpleNamespace
 import numpy as np
 import pytest
 from qiskit import QuantumCircuit, qpy
 
+from qiskit.circuit.library import XGate
 from qudits_on_qubits.experiments.artifacts import (
     load_basis_artifacts,
     resolve_basis_directory,
@@ -23,6 +25,12 @@ def _write_artifacts(directory, state="two_qutrit", circuit=None, encoding=None)
     np.save(directory / "E.npy", np.eye(4, 3, dtype=complex) if encoding is None else encoding)
 
 
+def _circuit_with_reset():
+    circuit = QuantumCircuit(4)
+    circuit.reset(0)
+    return circuit
+
+
 def test_path_basis_loads_raw_circuit_and_hashes_original_bytes(tmp_path):
     raw = tmp_path / "basis"
     _write_artifacts(raw)
@@ -36,6 +44,16 @@ def test_path_basis_loads_raw_circuit_and_hashes_original_bytes(tmp_path):
     assert artifacts.source_paths["state"] == raw / "graph_state_direct_basis.qpy"
     assert artifacts.source_hashes["state"] == hashlib.sha256((raw / "graph_state_direct_basis.qpy").read_bytes()).hexdigest()
     assert artifacts.source_hashes["encoding"] == hashlib.sha256((raw / "E.npy").read_bytes()).hexdigest()
+
+
+def test_basis_artifacts_deeply_freeze_provenance(tmp_path):
+    directory = tmp_path / "basis"
+    _write_artifacts(directory)
+
+    artifacts = load_basis_artifacts(PathBasis(directory), "two_qutrit")
+
+    with pytest.raises(TypeError):
+        artifacts.provenance["basis"]["kind"] = "changed"
 
 
 def test_benchmark_basis_resolves_candidate_and_rank(tmp_path):
@@ -94,8 +112,10 @@ def test_artifact_loading_rejects_multiple_qpy_circuits(tmp_path):
     [
         (QuantumCircuit(3), None, "4 qubits"),
         (QuantumCircuit(4, 4).measure_all(inplace=False), None, "measurements"),
+        (_circuit_with_reset(), None, "resets"),
         (None, np.ones((3, 3)), "shape"),
         (None, np.full((4, 3), np.nan), "finite"),
+        (None, np.full((4, 3), "not-a-number"), "numeric"),
     ],
 )
 def test_artifact_loading_validates_circuit_and_encoding(tmp_path, circuit, encoding, message):
@@ -104,3 +124,35 @@ def test_artifact_loading_validates_circuit_and_encoding(tmp_path, circuit, enco
 
     with pytest.raises(ExperimentValidationError, match=message):
         load_basis_artifacts(PathBasis(directory), "two_qutrit")
+
+def test_artifact_loading_rejects_conditioned_instruction(tmp_path):
+    circuit = QuantumCircuit(4, 1)
+    operation = XGate().to_mutable()
+    operation.condition = (circuit.clbits[0], 1)
+    circuit.append(operation, [0])
+    directory = tmp_path / "basis"
+    _write_artifacts(directory, circuit=circuit)
+
+    with pytest.raises(ExperimentValidationError, match="classical bits"):
+        load_basis_artifacts(PathBasis(directory), "two_qutrit")
+
+
+def test_artifact_loading_rejects_control_flow(tmp_path):
+    circuit = QuantumCircuit(4, 1)
+    with circuit.if_test((circuit.clbits[0], 1)):
+        circuit.x(0)
+    directory = tmp_path / "basis"
+    _write_artifacts(directory, circuit=circuit)
+
+    with pytest.raises(ExperimentValidationError, match="control flow"):
+        load_basis_artifacts(PathBasis(directory), "two_qutrit")
+
+def test_state_validator_rejects_conditioned_instruction():
+    from qudits_on_qubits.experiments.artifacts import _validate_state_circuit
+
+    operation = SimpleNamespace(name="x", condition=("c", 1))
+    circuit = SimpleNamespace(
+        num_qubits=4,
+        num_clbits=0,
+        data=[SimpleNamespace(operation=operation)],
+    )
