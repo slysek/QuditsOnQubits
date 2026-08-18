@@ -41,7 +41,7 @@ class CleanRepoSmokeTests(unittest.TestCase):
             self.assertTrue((REPO_ROOT / rel).is_dir(), rel)
 
     def test_working_notebook_has_no_absolute_user_artifact_paths(self):
-        nb_path = REPO_ROOT / "notebooks" / "working" / "meas_settings_2qutryt.ipynb"
+        nb_path = REPO_ROOT / "notebooks" / "working" / "iqm" / "meas_settings_2qutryt.ipynb"
         data = json.loads(nb_path.read_text(encoding="utf-8"))
         source = "\n".join(
             "".join(cell.get("source", [])) for cell in data.get("cells", [])

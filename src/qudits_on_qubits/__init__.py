@@ -21,6 +21,35 @@ _CLASS_EXPORTS = {
         "ReferenceExperimentSpec",
     ),
 }
+_EXPERIMENT_EXPORTS = {
+    "AerIdeal",
+    "BellEstimate",
+    "BenchmarkBasis",
+    "BootstrapBellResults",
+    "BootstrapConfig",
+    "BootstrapDiagnostics",
+    "BootstrapInputs",
+    "ComplexComponents",
+    "ComplexConfidenceInterval",
+    "ConfidenceInterval",
+    "CustomBackend",
+    "ExperimentResult",
+    "ExperimentSpec",
+    "ExperimentStatus",
+    "IQMHardware",
+    "MitigationConfig",
+    "NoisySimulator",
+    "PathBasis",
+    "PiastQHardware",
+    "ReadoutBootstrapStrategy",
+    "RetryConfig",
+    "TranspilationConfig",
+    "ZNEBootstrapStrategy",
+    "bootstrap_bell_results",
+    "resume_experiment",
+    "run_experiment",
+    "run_experiments",
+}
 
 
 def _lazy_callable(name: str, module_name: str):
@@ -44,6 +73,10 @@ def __getattr__(name: str) -> Any:
         value = getattr(import_module(module_name), attr_name)
         globals()[name] = value
         return value
+    if name in _EXPERIMENT_EXPORTS:
+        value = getattr(import_module("qudits_on_qubits.experiments"), name)
+        globals()[name] = value
+        return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -51,6 +84,30 @@ __all__ = [
     "EncodingSpec",
     "QuditsOnQubits",
     "ReferenceExperimentSpec",
+    "AerIdeal",
+    "BellEstimate",
+    "BenchmarkBasis",
+    "BootstrapBellResults",
+    "BootstrapConfig",
+    "BootstrapDiagnostics",
+    "BootstrapInputs",
+    "ComplexComponents",
+    "ComplexConfidenceInterval",
+    "ConfidenceInterval",
+    "CustomBackend",
+    "ExperimentResult",
+    "ExperimentSpec",
+    "ExperimentStatus",
+    "IQMHardware",
+    "MitigationConfig",
+    "NoisySimulator",
+    "PathBasis",
+    "PiastQHardware",
+    "ReadoutBootstrapStrategy",
+    "RetryConfig",
+    "TranspilationConfig",
+    "ZNEBootstrapStrategy",
+    "bootstrap_bell_results",
     "create_ame_circuit",
     "draw_graph",
     "generate_b_ame",
@@ -58,4 +115,7 @@ __all__ = [
     "get_reference_experiment",
     "list_reference_experiments",
     "prepare_op_to_ibm",
+    "resume_experiment",
+    "run_experiment",
+    "run_experiments",
 ]
