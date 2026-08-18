@@ -1,6 +1,149 @@
 # QuditsOnQubits
 
-Clean working repository for qutrit-on-qubit graph-state circuits, direct-basis encoding benchmarks, and qutrit Bell measurement pipelines.
+QuditsOnQubits is a Python library for experiments with qudits encoded on qubit architectures. It provides circuit construction, direct-basis benchmarks, Bell measurements, backend adapters, durable artifacts, and local uncertainty analysis. It includes no dashboard, no web application, and no server.
+
+## Install
+
+Python 3.10--3.13 is supported. Install core library and ideal Aer backend:
+
+```bash
+python -m pip install -e .
+```
+
+PiastQ and M3 readout mitigation are optional:
+
+```bash
+python -m pip install -e ".[piastq]"
+python -m pip install -e ".[mitigation]"
+```
+
+## Unified experiment runner
+
+`PathBasis` points to a directory containing an unmeasured `graph_state_direct_basis.qpy` and an isometric `(4, 3)` `E.npy` for `two_qutrit` (with state circuit widths adjusted for other states). Minimal ideal Aer run:
+
+```python
+from pathlib import Path
+
+from qudits_on_qubits import (
+    AerIdeal,
+    BootstrapConfig,
+    ExperimentSpec,
+    PathBasis,
+    run_experiment,
+)
+
+ideal = ExperimentSpec(
+    state="two_qutrit",
+    basis=PathBasis(Path("artifacts/bases/two_qutrit")),
+    backend=AerIdeal(seed_simulator=11),
+    shots=20_480,
+    uncertainty=BootstrapConfig(samples=2000, seed=7),
+)
+result = run_experiment(ideal)
+print(result.status, result.artifact_dir, result.values["raw"])
+```
+
+Use a structured `BenchmarkBasis` instead of manually locating a selected candidate:
+
+```python
+from dataclasses import replace
+from qudits_on_qubits import BenchmarkBasis
+
+selected = replace(
+    ideal,
+    basis=BenchmarkBasis(
+        run_kind="direct_basis_runs",
+        run_id="20260817-production",
+        selection="exact",
+        rank=1,
+    ),
+)
+```
+
+Backend choices keep simulation and hardware targets explicit:
+
+```python
+import os
+from qudits_on_qubits import (
+    CustomBackend,
+    IQMHardware,
+    NoisySimulator,
+    PiastQHardware,
+)
+
+# Local Aer execution using current IQM Garnet calibration profile and Garnet as compile target.
+noisy_garnet = replace(
+    selected,
+    backend=NoisySimulator(source=IQMHardware(device="garnet")),
+)
+
+# Real IQM Garnet hardware.
+real_garnet = replace(selected, backend=IQMHardware(device="garnet"))
+
+# PiastQ/AQT hardware. Credentials remain in environment/provider configuration.
+piastq_aqt = replace(
+    selected,
+    backend=PiastQHardware(
+        mode=os.environ.get("CFT_PIASTQ_MODE", "direct"),
+        owner=os.environ.get("CFT_PIASTQ_OWNER"),
+    ),
+)
+
+# User-supplied backend object. Mark resume support only when its jobs are durable.
+custom = replace(
+    selected,
+    backend=CustomBackend(
+        instance=my_backend,
+        identity="laboratory-backend",
+        supports_resume=True,
+    ),
+)
+```
+
+Never put tokens, passwords, or API keys inline. Supply credentials only through environment variables or provider configuration. IQM uses its provider environment. PiastQ reads `PCSS_TOKEN`/`PCSS_QAPI_TOKEN` and related provider configuration.
+
+Run a batch in order, or resume from any durable run directory:
+
+```python
+from qudits_on_qubits import resume_experiment, run_experiments
+
+results = run_experiments((ideal, noisy_garnet))
+resumed = resume_experiment(results[0].artifact_dir)
+```
+
+Completed-run resume is idempotent and makes no backend call. Remote resume restores recorded job IDs; it never silently submits a known job again. PiastQ requires client `retrieve_job` support for the durable high-level runner. A client without `retrieve_job` gets an explicit compatibility error; use the lower-level PiastQ Bell API when durable resume is unavailable.
+
+### Durable artifacts and safety
+
+Each run gets a distinct UTC/UUID directory:
+
+```text
+artifacts/experiment_runs/YYYY-MM-DD/<experiment-id>/
+  experiment.json
+  source-state.qpy
+  source-encoding.json
+  logical-measurements.qpy
+  postprocessing.json
+  compiled-factor-1.qpy
+  counts-factor-1.json
+  readout-calibration.json       # only with readout mitigation
+  result.json
+```
+
+`experiment.json` records immutable safe specification data, backend identity/capabilities, status history and timestamps, durable remote job IDs, artifact SHA-256 hashes, source provenance, raw counts, and calibration evidence. Status progresses through `created`, `validated`, `compiled`, submission/execution states, `postprocessing`, and a terminal state. Compiled circuits, submission, and retrieved results must share one backend identity: this compile + execution target invariant prevents accidental cross-target execution.
+
+Remote submission uses a pessimistic `submission_unknown` checkpoint before provider contact. Unknown submission outcome is nonresumable because resubmission could duplicate hardware work. Remote backends must support durable job recovery. There is no silent fallback to ideal Aer or another target.
+
+### Bootstrap uncertainty
+
+Default uncertainty is 2000 LOCAL resamples of saved counts, not 2000 backend experiments. Bootstrap never contacts a backend. Seeded runs calculate component-wise estimate, standard error, and confidence interval for up to four results:
+
+- `raw`
+- `readout_mitigated`
+- `zne`
+- `zne_readout_mitigated`
+
+Only enabled mitigation combinations appear. Intervals reflect finite-shot sampling and optional calibration resampling. They do not model hardware drift or ZNE model bias.
 
 This repo intentionally starts without historical bulk benchmark dumps. The previous repository should be kept locally as `QuditsOnQubits_legacy` for archival lookup. Future IQM/direct-basis simulation outputs should go under `artifacts/`, with selected best circuits copied into the relevant `selected_best/` folder.
 
