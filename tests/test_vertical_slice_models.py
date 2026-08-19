@@ -250,6 +250,16 @@ def test_execution_spec_rejects_non_json_and_nonfinite_values() -> None:
         ExecutionSpec(shots=10, uncertainty={"score": float("nan")})
 
 
+def test_execution_spec_validates_persisted_transpilation_fields() -> None:
+    unsafe = TranspilationConfig(layout_method='api_token=secret')
+    with pytest.raises(SpecValidationError, match='unsafe'):
+        ExecutionSpec(shots=10, transpilation=unsafe)
+
+    nonfinite = TranspilationConfig(seed_transpiler=float('nan'))
+    with pytest.raises(SpecValidationError, match='finite'):
+        ExecutionSpec(shots=10, transpilation=nonfinite)
+
+
 def test_manifest_safe_dict_round_trip_preserves_nested_contracts() -> None:
     manifest = _manifest().transition(
         "validated", timestamp="2026-08-19T10:01:00Z"
@@ -275,6 +285,18 @@ def test_manifest_rejects_unknown_schema_and_bad_digest() -> None:
         RunManifest.from_safe_dict(payload)
 
 
+def test_manifest_rejects_tampered_experiment_and_encoding_snapshots() -> None:
+    experiment_payload = _manifest().to_safe_dict()
+    experiment_payload['experiment_spec']['execution']['shots'] = 101
+    with pytest.raises(ManifestValidationError, match='experiment_hash'):
+        RunManifest.from_safe_dict(experiment_payload)
+
+    encoding_payload = _manifest().to_safe_dict()
+    encoding_payload['encoding']['encoding_id'] = 'tampered'
+    with pytest.raises(ManifestValidationError, match='encoding_hash'):
+        RunManifest.from_safe_dict(encoding_payload)
+
+
 def test_manifest_allows_only_declared_status_transitions() -> None:
     manifest = _manifest()
     stages = ("validated", "compiled", "running", "postprocessing", "completed")
@@ -293,6 +315,26 @@ def test_manifest_allows_only_declared_status_transitions() -> None:
 
     with pytest.raises(ManifestValidationError, match="transition"):
         _manifest().transition("running", timestamp="2026-08-19T10:01:00Z")
+
+
+@pytest.mark.parametrize(
+    ('field', 'value'),
+    (
+        ('created', '2026-08-19T09:59:00Z'),
+        ('updated', '2026-08-19T10:02:00Z'),
+        ('validated', '2026-08-19T10:02:00Z'),
+    ),
+)
+def test_manifest_rejects_timestamps_inconsistent_with_history(
+    field: str, value: str
+) -> None:
+    payload = _manifest().transition(
+        'validated', timestamp='2026-08-19T10:01:00Z'
+    ).to_safe_dict()
+    payload['timestamps'][field] = value
+
+    with pytest.raises(ManifestValidationError, match='timestamp'):
+        RunManifest.from_safe_dict(payload)
 
 
 def test_transition_copies_validated_payloads_and_result_is_immutable() -> None:
@@ -333,4 +375,3 @@ def test_safe_contracts_reject_secret_shaped_fields() -> None:
             dependencies={"api_token": "secret"},
             dirty_worktree=None,
         )
-
