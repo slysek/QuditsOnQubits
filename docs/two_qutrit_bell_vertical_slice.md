@@ -11,6 +11,12 @@ The command performs this complete path:
 5. Decode physical counts to logical qutrit outcomes and evaluate the Bell functional.
 6. Write a versioned `run-manifest-v1` with SHA-256 references to every result artifact.
 
+## Example notebook
+
+Open [`notebooks/two_qutrit_bell_vertical_slice.ipynb`](../notebooks/two_qutrit_bell_vertical_slice.ipynb) after installing the project. The notebook uses only the public library API and exposes each boundary separately: logical Bell specification, `canonical_ez` encoding, generated qubit circuits, Aer execution, decoded logical result, and integrity-checked manifest reload.
+
+The committed notebook is clean: it contains no credentials, absolute user paths, execution counts, or saved outputs. Its default run uses `2048` shots and writes under `artifacts/two_qutrit_bell_notebook`.
+
 ## Clean installation
 
 Python 3.10 through 3.13 is supported.
