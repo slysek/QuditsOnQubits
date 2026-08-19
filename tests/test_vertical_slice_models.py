@@ -348,6 +348,15 @@ def test_manifest_rejects_scalar_warning_containers(warnings: object) -> None:
         RunManifest.from_safe_dict(payload)
 
 
+def test_manifest_transition_rejects_scalar_warnings() -> None:
+    with pytest.raises(ManifestValidationError, match="warnings"):
+        _manifest().transition(
+            "validated",
+            timestamp="2026-08-19T10:01:00Z",
+            warnings="oops",
+        )
+
+
 def test_manifest_enforces_terminal_result_and_failure_payloads() -> None:
     manifest = _manifest()
     for index, stage in enumerate(
