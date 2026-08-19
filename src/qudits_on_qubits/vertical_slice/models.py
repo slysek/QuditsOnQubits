@@ -142,6 +142,16 @@ def _require_sha256(value: object, field_name: str) -> str:
     return value
 
 
+def _experiment_snapshot_hash(value: Mapping[str, JsonValue]) -> str:
+    payload = _thaw_json(value)
+    if not isinstance(payload, dict):
+        raise SpecValidationError('experiment snapshot must be a JSON object')
+    if payload.get('schema_version') == _EXPERIMENT_SCHEMA:
+        payload.pop('output_root', None)
+        payload.pop('tags', None)
+    return _canonical_hash(payload)
+
+
 def _require_exact_keys(
     data: Mapping[str, Any], expected: set[str], description: str, error_type: type[ValueError]
 ) -> None:
@@ -406,6 +416,11 @@ class ExecutionSpec:
             raise SpecValidationError("shots must be a positive integer")
         if not isinstance(self.transpilation, TranspilationConfig):
             raise SpecValidationError("transpilation must be TranspilationConfig")
+        _validate_json(
+            self.transpilation.to_safe_dict(),
+            'transpilation',
+            SpecValidationError,
+        )
         if self.seed is not None and (
             isinstance(self.seed, bool) or not isinstance(self.seed, int)
         ):
@@ -726,6 +741,12 @@ class RunManifest:
         )
         _require_sha256(self.experiment_hash, "experiment_hash")
         _require_sha256(self.encoding_hash, "encoding_hash")
+        if _experiment_snapshot_hash(self.experiment_spec) != self.experiment_hash:
+            raise ManifestValidationError(
+                'experiment_hash does not match experiment_spec'
+            )
+        if _canonical_hash(_thaw_json(self.encoding)) != self.encoding_hash:
+            raise ManifestValidationError('encoding_hash does not match encoding')
         if self.backend is not None and not isinstance(self.backend, BackendSnapshot):
             raise ManifestValidationError("backend must be BackendSnapshot or None")
         if not isinstance(self.software, SoftwareProvenance):
@@ -766,6 +787,29 @@ class RunManifest:
                 MappingProxyType({"status": entry_status, "timestamp": timestamp})
             )
             prior = entry_status
+        first_timestamp = normalized_history[0]['timestamp']
+        final_timestamp = normalized_history[-1]['timestamp']
+        if timestamps['created'] != first_timestamp:
+            raise ManifestValidationError(
+                'created timestamp does not match status_history'
+            )
+        if (
+            timestamps['updated'] != final_timestamp
+            or timestamps[self.status] != final_timestamp
+        ):
+            raise ManifestValidationError(
+                'current status timestamp does not match status_history'
+            )
+        latest_timestamps = {
+            entry['status']: entry['timestamp'] for entry in normalized_history
+        }
+        if any(
+            timestamps.get(history_status) != history_timestamp
+            for history_status, history_timestamp in latest_timestamps.items()
+        ):
+            raise ManifestValidationError(
+                'status timestamp does not match status_history'
+            )
         if prior != self.status:
             raise ManifestValidationError("status_history must end with current status")
         object.__setattr__(self, "status_history", tuple(normalized_history))
