@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 from pathlib import Path
 from types import MappingProxyType
 from typing import Mapping, Sequence
@@ -222,6 +222,17 @@ def test_experiment_spec_rejects_dimension_and_seed_mismatch_before_serializatio
         )
 
 
+def test_experiment_spec_uses_vertical_slice_output_default() -> None:
+    spec = QuditExperimentSpec(
+        circuit=_Circuit(),
+        encoding=_encoding(),
+        backend=AerIdeal(),
+        execution=ExecutionSpec(shots=100),
+    )
+
+    assert spec.output_root == Path('artifacts/vertical_slice_runs')
+
+
 def test_experiment_hash_excludes_local_output_and_tags() -> None:
     common = dict(
         circuit=_Circuit(),
@@ -258,6 +269,35 @@ def test_execution_spec_validates_persisted_transpilation_fields() -> None:
     nonfinite = TranspilationConfig(seed_transpiler=float('nan'))
     with pytest.raises(SpecValidationError, match='finite'):
         ExecutionSpec(shots=10, transpilation=nonfinite)
+
+
+@pytest.mark.parametrize(
+    'path',
+    (
+        '',
+        '.',
+        '..',
+        '/tmp/counts.json',
+        r'\tmp\counts.json',
+        r'C:\tmp\counts.json',
+        r'C:tmp\counts.json',
+        'nested/../counts.json',
+        'nested//counts.json',
+        'nested/./counts.json',
+    ),
+)
+def test_artifact_ref_rejects_unsafe_relative_paths(path: str) -> None:
+    with pytest.raises(ManifestValidationError, match='path'):
+        ArtifactRef('counts', path, 'b' * 64, 'application/json')
+
+
+def test_artifact_ref_normalizes_windows_separator_to_portable_path() -> None:
+    artifact = ArtifactRef(
+        'counts', r'nested\counts.json', 'b' * 64, 'application/json'
+    )
+
+    assert artifact.path == 'nested/counts.json'
+    assert artifact.to_safe_dict()['path'] == 'nested/counts.json'
 
 
 def test_manifest_safe_dict_round_trip_preserves_nested_contracts() -> None:
@@ -297,12 +337,60 @@ def test_manifest_rejects_tampered_experiment_and_encoding_snapshots() -> None:
         RunManifest.from_safe_dict(encoding_payload)
 
 
+@pytest.mark.parametrize('warnings', ('warning', b'warning'))
+def test_manifest_rejects_scalar_warning_containers(warnings: object) -> None:
+    with pytest.raises(ManifestValidationError, match='warnings'):
+        replace(_manifest(), warnings=warnings)
+
+    payload = _manifest().to_safe_dict()
+    payload['warnings'] = warnings
+    with pytest.raises(ManifestValidationError, match='warnings'):
+        RunManifest.from_safe_dict(payload)
+
+
+def test_manifest_enforces_terminal_result_and_failure_payloads() -> None:
+    manifest = _manifest()
+    for index, stage in enumerate(
+        ('validated', 'compiled', 'running', 'postprocessing'), start=1
+    ):
+        manifest = manifest.transition(
+            stage, timestamp=f'2026-08-19T10:0{index}:00Z'
+        )
+
+    with pytest.raises(ManifestValidationError, match='completed'):
+        manifest.transition('completed', timestamp='2026-08-19T10:05:00Z')
+    completed = manifest.transition(
+        'completed',
+        timestamp='2026-08-19T10:05:00Z',
+        result={'value': 2},
+    )
+    assert completed.result == {'value': 2}
+
+    with pytest.raises(ManifestValidationError, match='nonterminal'):
+        _manifest().transition(
+            'validated',
+            timestamp='2026-08-19T10:01:00Z',
+            result={'value': 2},
+        )
+    with pytest.raises(ManifestValidationError, match='failed'):
+        _manifest().transition('failed', timestamp='2026-08-19T10:01:00Z')
+    failed = _manifest().transition(
+        'failed',
+        timestamp='2026-08-19T10:01:00Z',
+        failure={'type': 'PreparationError'},
+    )
+    assert failed.failure == {'type': 'PreparationError'}
+
+
 def test_manifest_allows_only_declared_status_transitions() -> None:
     manifest = _manifest()
     stages = ("validated", "compiled", "running", "postprocessing", "completed")
     for index, stage in enumerate(stages, start=1):
+        result = {"value": 2} if stage == "completed" else None
         manifest = manifest.transition(
-            stage, timestamp=f"2026-08-19T10:0{index}:00Z"
+            stage,
+            timestamp=f"2026-08-19T10:0{index}:00Z",
+            result=result,
         )
 
     assert manifest.status == "completed"
@@ -364,6 +452,14 @@ def test_transition_copies_validated_payloads_and_result_is_immutable() -> None:
     assert result.result["value"] == 2
     with pytest.raises(FrozenInstanceError):
         result.artifact_dir = Path("other")
+
+
+def test_vertical_slice_package_reexports_public_models() -> None:
+    from qudits_on_qubits import vertical_slice
+
+    assert vertical_slice.ArtifactRef is ArtifactRef
+    assert vertical_slice.RunManifest is RunManifest
+    assert vertical_slice.QuditExperimentSpec is QuditExperimentSpec
 
 
 def test_safe_contracts_reject_secret_shaped_fields() -> None:

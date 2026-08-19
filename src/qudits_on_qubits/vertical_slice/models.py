@@ -7,7 +7,7 @@ from enum import Enum
 import hashlib
 import json
 import math
-from pathlib import Path, PurePath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 from types import MappingProxyType
 from typing import Any, Mapping, Protocol, Sequence, TypeAlias, runtime_checkable
@@ -449,7 +449,7 @@ class QuditExperimentSpec:
     encoding: QuditEncoding
     backend: AerIdeal
     execution: ExecutionSpec
-    output_root: Path = Path("artifacts/experiment_runs")
+    output_root: Path = Path("artifacts/vertical_slice_runs")
     tags: Mapping[str, str] = field(default_factory=dict)
 
     @property
@@ -535,9 +535,23 @@ class ArtifactRef:
     def __post_init__(self) -> None:
         _safe_text(self.role, "artifact role", ManifestValidationError)
         path = _safe_text(self.path, "artifact path", ManifestValidationError)
-        candidate = PurePath(path)
-        if candidate.is_absolute() or ".." in candidate.parts:
-            raise ManifestValidationError("artifact path must be relative and contained")
+        portable_parts = path.replace("\\", "/").split("/")
+        windows_path = PureWindowsPath(path)
+        posix_path = PurePosixPath(path)
+        if (
+            windows_path.drive
+            or windows_path.root
+            or windows_path.is_absolute()
+            or posix_path.drive
+            or posix_path.root
+            or posix_path.is_absolute()
+            or any(part in {"", ".", ".."} for part in portable_parts)
+        ):
+            raise ManifestValidationError(
+                "artifact path must be a non-empty contained relative path"
+            )
+        path = "/".join(portable_parts)
+        object.__setattr__(self, "path", path)
         _require_sha256(self.sha256, "artifact sha256")
         _safe_text(self.media_type, "artifact media_type", ManifestValidationError)
 
@@ -704,6 +718,17 @@ _TRANSITIONS: Mapping[str, frozenset[str]] = {
 }
 
 
+def _safe_warnings(value: object) -> tuple[str, ...]:
+    if isinstance(value, (str, bytes, bytearray)) or not isinstance(
+        value, (list, tuple)
+    ):
+        raise ManifestValidationError("warnings must be a list or tuple of strings")
+    warnings = tuple(value)
+    for warning in warnings:
+        _safe_text(warning, "warning", ManifestValidationError)
+    return warnings
+
+
 @dataclass(frozen=True)
 class RunManifest:
     schema_version: str
@@ -834,15 +859,28 @@ class RunManifest:
                 "result",
                 _safe_mapping(self.result, "result", ManifestValidationError),
             )
-        warnings = tuple(self.warnings)
-        for warning in warnings:
-            _safe_text(warning, "warning", ManifestValidationError)
+        warnings = _safe_warnings(self.warnings)
         object.__setattr__(self, "warnings", warnings)
         if self.failure is not None:
             object.__setattr__(
                 self,
                 "failure",
                 _safe_mapping(self.failure, "failure", ManifestValidationError),
+            )
+
+        if self.status == "completed":
+            if self.result is None or self.failure is not None:
+                raise ManifestValidationError(
+                    "completed manifest requires result and no failure"
+                )
+        elif self.status == "failed":
+            if self.failure is None or self.result is not None:
+                raise ManifestValidationError(
+                    "failed manifest requires failure and no result"
+                )
+        elif self.result is not None or self.failure is not None:
+            raise ManifestValidationError(
+                "nonterminal manifest must not contain result or failure"
             )
 
     @classmethod
@@ -981,7 +1019,7 @@ class RunManifest:
                 jobs=data["jobs"],
                 artifacts=artifacts,
                 result=data["result"],
-                warnings=tuple(data["warnings"]),
+                warnings=_safe_warnings(data["warnings"]),
                 failure=data["failure"],
             )
         except ManifestValidationError:
