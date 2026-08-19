@@ -25,6 +25,9 @@ dependencies = [
     "iqm-client[qiskit]>=34,<35",
     "iqm-qubit-selector>=1,<2",
 ]
+[project.scripts]
+qoq-two-qutrit-bell = "qudits_on_qubits.vertical_slice.cli:entrypoint"
+
 
 [project.optional-dependencies]
 piastq = [

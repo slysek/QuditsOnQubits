@@ -16,6 +16,18 @@ PiastQ and M3 readout mitigation are optional:
 python -m pip install -e ".[piastq]"
 python -m pip install -e ".[mitigation]"
 ```
+## Two-qutrit Bell vertical slice
+
+After installation, run the public clean-room reference:
+
+```bash
+qoq-two-qutrit-bell --shots 2048 --seed 42 --output-root artifacts/vertical_slice_runs
+```
+
+The command starts from a logical two-qutrit Bell specification, applies the explicit `canonical_ez` encoding, builds and executes nine measured qubit circuits on ideal Aer, decodes the result, and writes an integrity-linked `run-manifest-v1`. Two-qutrit Bell is the reference benchmark, not the framework's functional boundary.
+
+See [Two-Qutrit Bell Vertical Slice](docs/two_qutrit_bell_vertical_slice.md) for isolated installation, expected output, artifacts, verification, and troubleshooting.
+
 
 ## Unified experiment runner
 
