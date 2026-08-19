@@ -945,7 +945,7 @@ class RunManifest:
             jobs=self.jobs if jobs is None else jobs,
             artifacts=self.artifacts if artifacts is None else tuple(artifacts),
             result=self.result if result is None else result,
-            warnings=self.warnings if warnings is None else tuple(warnings),
+            warnings=self.warnings if warnings is None else _safe_warnings(warnings),
             failure=self.failure if failure is None else failure,
         )
 
