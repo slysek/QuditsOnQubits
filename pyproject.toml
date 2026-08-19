@@ -23,7 +23,7 @@ dependencies = [
     "qiskit-experiments>=0.13,<0.14",
     "python-dotenv",
     "iqm-client[qiskit]>=34,<35",
-    "iqm-qubit-selector>=1,<2",
+    "iqm-qubit-selector>=1,<2; python_version >= '3.11'",
 ]
 
 [project.optional-dependencies]
