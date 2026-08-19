@@ -1,0 +1,56 @@
+"""Public contracts for generic qudit experiment execution."""
+
+from .bell import (
+    BellPostprocessorSpec,
+    BellReferenceCircuitSpec,
+    canonical_qutrit_encoding,
+)
+from .models import (
+    ArtifactIntegrityError,
+    ArtifactRef,
+    BackendSnapshot,
+    CircuitSpec,
+    EncodingValidationError,
+    ExecutionMode,
+    ExecutionSpec,
+    IsometricQuditEncoding,
+    JsonValue,
+    LogicalOutcome,
+    ManifestValidationError,
+    PostprocessorSpec,
+    PreparedExperiment,
+    QuditEncoding,
+    QuditExperimentResult,
+    QuditExperimentSpec,
+    RunManifest,
+    SoftwareProvenance,
+    SpecValidationError,
+)
+from .runner import load_run_manifest, run_vertical_slice
+
+__all__ = [
+    "ArtifactIntegrityError",
+    "ArtifactRef",
+    "BackendSnapshot",
+    "BellPostprocessorSpec",
+    "BellReferenceCircuitSpec",
+    "CircuitSpec",
+    "EncodingValidationError",
+    "ExecutionMode",
+    "ExecutionSpec",
+    "IsometricQuditEncoding",
+    "JsonValue",
+    "LogicalOutcome",
+    "ManifestValidationError",
+    "PostprocessorSpec",
+    "PreparedExperiment",
+    "QuditEncoding",
+    "QuditExperimentResult",
+    "QuditExperimentSpec",
+    "RunManifest",
+    "SoftwareProvenance",
+    "SpecValidationError",
+    "canonical_qutrit_encoding",
+    "load_run_manifest",
+    "run_vertical_slice",
+]
