@@ -1,5 +1,10 @@
 """Public contracts for generic qudit experiment execution."""
 
+from .bell import (
+    BellPostprocessorSpec,
+    BellReferenceCircuitSpec,
+    canonical_qutrit_encoding,
+)
 from .models import (
     ArtifactIntegrityError,
     ArtifactRef,
@@ -26,6 +31,8 @@ __all__ = [
     "ArtifactIntegrityError",
     "ArtifactRef",
     "BackendSnapshot",
+    "BellPostprocessorSpec",
+    "BellReferenceCircuitSpec",
     "CircuitSpec",
     "EncodingValidationError",
     "ExecutionMode",
@@ -42,4 +49,5 @@ __all__ = [
     "RunManifest",
     "SoftwareProvenance",
     "SpecValidationError",
+    "canonical_qutrit_encoding",
 ]
