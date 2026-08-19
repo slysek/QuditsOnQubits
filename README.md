@@ -4,7 +4,7 @@ QuditsOnQubits is a Python library for experiments with qudits encoded on qubit 
 
 ## Install
 
-Python 3.10--3.13 is supported. Install core library and ideal Aer backend:
+Python 3.11--3.13 is supported. Install core library and ideal Aer backend:
 
 ```bash
 python -m pip install -e .
