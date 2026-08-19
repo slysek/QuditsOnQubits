@@ -4,7 +4,7 @@
 
 **Goal:** Add read-only GitHub Actions CI that runs the full supported-Python test matrix on Ubuntu and a Python 3.12 smoke suite on Windows for every pull request to `main`.
 
-**Architecture:** One repository workflow owns all automated tests. Four independent Ubuntu matrix jobs run the full suite for Python 3.10 through 3.13, while one Windows job covers repository hygiene, Aer integration, and scientific regressions. A dedicated CI pull request lands before the SZY-42 pull request is synchronized and made ready.
+**Architecture:** One repository workflow owns all automated tests. Three independent Ubuntu matrix jobs run the full suite for Python 3.11 through 3.13, while one Windows job covers repository hygiene, Aer integration, and scientific regressions. A dedicated CI pull request lands before the SZY-42 pull request is synchronized and made ready.
 
 **Tech Stack:** GitHub Actions, `actions/checkout@v7`, `actions/setup-python@v7`, pip cache, pytest, actionlint 1.7.12, PowerShell.
 
@@ -69,7 +69,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
@@ -288,7 +287,7 @@ PR body:
 ```markdown
 ## Summary
 
-- run the full pytest suite on Ubuntu for Python 3.10, 3.11, 3.12, and 3.13
+- run the full pytest suite on Ubuntu for Python 3.11, 3.12, and 3.13
 - run repository, Aer, and scientific smoke tests on Windows Python 3.12
 - use read-only permissions, pip caching, timeouts, and stale-run cancellation
 
@@ -318,10 +317,9 @@ gh pr checks $qoqCiPr --watch --interval 10
 gh pr view $qoqCiPr --json statusCheckRollup
 ```
 
-Expected five successful checks:
+Expected four successful checks:
 
 ```text
-Tests (Python 3.10)
 Tests (Python 3.11)
 Tests (Python 3.12)
 Tests (Python 3.13)
@@ -381,7 +379,7 @@ gh run watch $qoqMainRun --exit-status
 gh run view $qoqMainRun --json conclusion,jobs,url
 ```
 
-Expected: `conclusion` is `success` and all five jobs passed.
+Expected: `conclusion` is `success` and all four jobs passed.
 
 - [ ] **Step 3: Audit the dirty SZY-42 worktree before merging `main`**
 

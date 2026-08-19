@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "qudits-on-qubits"
 version = "0.1.0"
 description = "Tools for qutrit-on-qubit graph-state circuits, direct-basis benchmarks, and Bell measurement pipelines."
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.11,<3.14"
 dependencies = [
     "numpy>=2,<3",
     "scipy",
@@ -23,7 +23,7 @@ dependencies = [
     "qiskit-experiments>=0.13,<0.14",
     "python-dotenv",
     "iqm-client[qiskit]>=34,<35",
-    "iqm-qubit-selector>=1,<2; python_version >= '3.11'",
+    "iqm-qubit-selector>=1,<2",
 ]
 
 [project.optional-dependencies]

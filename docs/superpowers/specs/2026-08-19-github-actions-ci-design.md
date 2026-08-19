@@ -14,7 +14,7 @@ The CI bootstrap ships in a dedicated pull request before the SZY-42 pull reques
 
 - The repository has no `.github/workflows` directory.
 - Pull request #4 targets `main` but currently has no status checks.
-- `pyproject.toml` supports Python `>=3.10,<3.14` and defines the `dev` extra with pytest and pytest-cov.
+- `pyproject.toml` supports Python `>=3.11,<3.14` and defines the `dev` extra with pytest and pytest-cov.
 - A clean `origin/main` baseline passes locally: `702 passed, 3 skipped, 315 subtests`.
 
 ## Scope
@@ -68,7 +68,6 @@ No Conda environment is assumed in GitHub Actions.
 
 Run on `ubuntu-latest` with `strategy.fail-fast: false` for:
 
-- Python `3.10`;
 - Python `3.11`;
 - Python `3.12`;
 - Python `3.13`.
@@ -89,7 +88,7 @@ Run on `windows-latest` with Python `3.12`. Install the same project and develop
 python -m pytest -q tests/test_clean_repo_smoke.py tests/test_experiment_aer_integration.py tests/test_reference_regressions.py
 ```
 
-This checks repository hygiene, a real local Aer integration path, and frozen scientific reference values on Windows without duplicating the full four-version matrix.
+This checks repository hygiene, a real local Aer integration path, and frozen scientific reference values on Windows without duplicating the full three-version matrix.
 
 The Windows job has a 30-minute timeout.
 
@@ -109,7 +108,7 @@ CI configuration is a configuration-file change, so production-code TDD does not
 2. local execution of the Windows smoke command;
 3. local full-suite baseline evidence;
 4. a real GitHub Actions run on the dedicated CI pull request;
-5. confirmation that all five jobs are present: four Ubuntu matrix jobs and one Windows smoke job.
+5. confirmation that all four jobs are present: three Ubuntu matrix jobs and one Windows smoke job.
 
 ## Rollout
 
@@ -129,7 +128,7 @@ Branch-protection enforcement is intentionally separate. The workflow will run f
 - Every PR to `main` schedules the supported-Python matrix and Windows smoke job.
 - Pushes to `main` and manual dispatches schedule the same jobs.
 - Workflow permissions are read-only.
-- Python `3.10`, `3.11`, `3.12`, and `3.13` each run the full pytest suite on Ubuntu.
+- Python `3.11`, `3.12`, and `3.13` each run the full pytest suite on Ubuntu.
 - Windows Python `3.12` runs the defined smoke suite.
 - Dependency caching uses `pyproject.toml`.
 - Stale runs for the same PR or branch are cancelled.
