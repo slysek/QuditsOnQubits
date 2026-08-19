@@ -6,7 +6,7 @@
 
 **Architecture:** Add a small generic vertical-slice contract package beside the legacy experiment runner, preserving its public API. Core models know only encodings, circuit/postprocessor protocols, execution, backend snapshots, and manifests; the Bell adapter implements the domain-specific preparation and decoding. The runner reuses existing backend adapters and `ExperimentStore` for safe atomic artifacts, while a packaged CLI is the clean-room entry point.
 
-**Tech Stack:** Python 3.10+, dataclasses/protocols, NumPy, Qiskit/QPY, Qiskit Aer, pytest, setuptools console scripts.
+**Tech Stack:** Python 3.11+, dataclasses/protocols, NumPy, Qiskit/QPY, Qiskit Aer, pytest, setuptools console scripts.
 
 ---
 

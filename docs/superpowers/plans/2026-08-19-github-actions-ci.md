@@ -335,7 +335,7 @@ gh workflow list --all
 
 Do not claim CI is operational until a real run completes successfully.
 
-- [ ] **Step 5: Mark the CI PR ready after all five checks pass**
+- [ ] **Step 5: Mark the CI PR ready after all four checks pass**
 
 Run:
 
@@ -348,7 +348,7 @@ gh pr ready $qoqCiPr
 gh pr view $qoqCiPr --json url,isDraft,state,statusCheckRollup
 ```
 
-Expected: open, non-draft PR with all five checks successful. Stop for user review and merge; do not merge without explicit instruction.
+Expected: open, non-draft PR with all four checks successful. Stop for user review and merge; do not merge without explicit instruction.
 
 ### Task 4: Roll CI onto SZY-42 after the CI PR is merged
 
@@ -414,7 +414,7 @@ gh pr checks 4 --watch --interval 10
 gh pr view 4 --json url,isDraft,state,statusCheckRollup
 ```
 
-Expected: the same five CI checks pass against the SZY-42 merge result.
+Expected: the same four CI checks pass against the SZY-42 merge result.
 
 - [ ] **Step 6: Mark PR #4 ready**
 
@@ -425,4 +425,4 @@ gh pr ready 4
 gh pr view 4 --json url,isDraft,state,statusCheckRollup
 ```
 
-Expected: PR #4 is open, non-draft, targets `main`, and has five successful CI checks. Do not merge PR #4 without a separate explicit user instruction.
+Expected: PR #4 is open, non-draft, targets `main`, and has four successful CI checks. Do not merge PR #4 without a separate explicit user instruction.
