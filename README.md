@@ -26,6 +26,8 @@ qoq-two-qutrit-bell --shots 2048 --seed 42 --output-root artifacts/vertical_slic
 
 The command starts from a logical two-qutrit Bell specification, applies the explicit `canonical_ez` encoding, builds and executes nine measured qubit circuits on ideal Aer, decodes the result, and writes an integrity-linked `run-manifest-v1`. Two-qutrit Bell is the reference benchmark, not the framework's functional boundary.
 
+Run [the executable notebook](notebooks/two_qutrit_bell_vertical_slice.ipynb) for an annotated walk-through of the logical qutrit specification, explicit encoding, generated qubit circuits, execution, decoded Bell result, and verified manifest.
+
 See [Two-Qutrit Bell Vertical Slice](docs/two_qutrit_bell_vertical_slice.md) for isolated installation, expected output, artifacts, verification, and troubleshooting.
 
 
