@@ -26,6 +26,7 @@ from .models import (
     SoftwareProvenance,
     SpecValidationError,
 )
+from .runner import load_run_manifest, run_vertical_slice
 
 __all__ = [
     "ArtifactIntegrityError",
@@ -50,4 +51,6 @@ __all__ = [
     "SoftwareProvenance",
     "SpecValidationError",
     "canonical_qutrit_encoding",
+    "load_run_manifest",
+    "run_vertical_slice",
 ]
