@@ -50,6 +50,31 @@ _EXPERIMENT_EXPORTS = {
     "run_experiment",
     "run_experiments",
 }
+_VERTICAL_SLICE_EXPORTS = {
+    "ArtifactIntegrityError",
+    "ArtifactRef",
+    "BackendSnapshot",
+    "BellPostprocessorSpec",
+    "BellReferenceCircuitSpec",
+    "CircuitSpec",
+    "EncodingValidationError",
+    "ExecutionMode",
+    "ExecutionSpec",
+    "IsometricQuditEncoding",
+    "LogicalOutcome",
+    "ManifestValidationError",
+    "PostprocessorSpec",
+    "PreparedExperiment",
+    "QuditEncoding",
+    "QuditExperimentResult",
+    "QuditExperimentSpec",
+    "RunManifest",
+    "SoftwareProvenance",
+    "SpecValidationError",
+    "canonical_qutrit_encoding",
+    "load_run_manifest",
+    "run_vertical_slice",
+}
 
 
 def _lazy_callable(name: str, module_name: str):
@@ -75,6 +100,10 @@ def __getattr__(name: str) -> Any:
         return value
     if name in _EXPERIMENT_EXPORTS:
         value = getattr(import_module("qudits_on_qubits.experiments"), name)
+        globals()[name] = value
+        return value
+    if name in _VERTICAL_SLICE_EXPORTS:
+        value = getattr(import_module("qudits_on_qubits.vertical_slice"), name)
         globals()[name] = value
         return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
@@ -118,4 +147,27 @@ __all__ = [
     "resume_experiment",
     "run_experiment",
     "run_experiments",
+    "ArtifactIntegrityError",
+    "ArtifactRef",
+    "BackendSnapshot",
+    "BellPostprocessorSpec",
+    "BellReferenceCircuitSpec",
+    "CircuitSpec",
+    "EncodingValidationError",
+    "ExecutionMode",
+    "ExecutionSpec",
+    "IsometricQuditEncoding",
+    "LogicalOutcome",
+    "ManifestValidationError",
+    "PostprocessorSpec",
+    "PreparedExperiment",
+    "QuditEncoding",
+    "QuditExperimentResult",
+    "QuditExperimentSpec",
+    "RunManifest",
+    "SoftwareProvenance",
+    "SpecValidationError",
+    "canonical_qutrit_encoding",
+    "load_run_manifest",
+    "run_vertical_slice",
 ]
