@@ -19,7 +19,7 @@ The committed notebook is clean: it contains no credentials, absolute user paths
 
 ## Clean installation
 
-Python 3.10 through 3.13 is supported.
+Python 3.11 through 3.13 is supported.
 
 PowerShell:
 
@@ -92,7 +92,7 @@ result.json
 
 ## Troubleshooting
 
-- `Python version is not supported`: use Python `3.10`, `3.11`, `3.12`, or `3.13`.
+- `Python version is not supported`: use Python `3.11`, `3.12`, or `3.13`.
 - `No module named qiskit_aer`: reinstall the project without `--no-deps`, or install a compatible `qiskit-aer>=0.17,<0.18`.
 - wheel build tries to download build tools: install `setuptools>=69` and `wheel`, then use `python -m pip wheel . --no-build-isolation`.
 - PowerShell blocks activation: invoke the verifier directly, or allow the current process with `Set-ExecutionPolicy -Scope Process Bypass`.
