@@ -22,6 +22,7 @@ from qudits_on_qubits.experiments.errors import (
 )
 from qudits_on_qubits.experiments.execution import ExecutionMode
 from qudits_on_qubits.experiments.models import AerIdeal, ExperimentSpec, PathBasis
+from qudits_on_qubits.experiments.store import ExperimentStore
 
 
 TIMESTAMP = "2026-08-20T12:00:00.000000Z"
@@ -193,3 +194,58 @@ def test_manifest_does_not_mutate_caller_during_validation():
     before = deepcopy(document)
     RunManifest.from_safe_dict(document)
     assert document == before
+
+
+def test_manifest_load_normalizes_v1_without_rewriting_file(tmp_path):
+    from qudits_on_qubits.experiments.manifest import RunManifest
+
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run("legacy-load")
+    document = manifest_document()
+    document["experiment_id"] = run.name
+    document["schema_version"] = 1
+    document["spec"]["backend"].pop("execution_mode")
+    document.pop("source")
+    document.pop("result_artifact")
+    path = store.write_experiment(run, document)
+    before = path.read_bytes()
+
+    manifest = RunManifest.load(run)
+
+    assert manifest.schema_version == 2
+    assert manifest.execution_mode is ExecutionMode.IDEAL_SIMULATOR
+    assert path.read_bytes() == before
+
+
+def test_manifest_load_wraps_invalid_field_without_leaking_payload(tmp_path):
+    from qudits_on_qubits.experiments.manifest import RunManifest
+
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run("invalid-load")
+    document = manifest_document()
+    document["experiment_id"] = run.name
+    document["spec"]["tags"] = {"purpose": "token=loader-secret"}
+    store.write_experiment(run, document)
+
+    with pytest.raises(ExperimentPersistenceError, match="manifest") as caught:
+        RunManifest.load(run)
+    assert "loader-secret" not in str(caught.value)
+    assert caught.value.__cause__ is None
+
+
+def test_manifest_load_rejects_directory_id_mismatch(tmp_path):
+    from qudits_on_qubits.experiments.manifest import RunManifest
+
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run("id-mismatch")
+    store.write_experiment(run, manifest_document())
+
+    with pytest.raises(ExperimentPersistenceError, match="ID"):
+        RunManifest.load(run)
+
+
+def test_manifest_load_rejects_missing_run_directory(tmp_path):
+    from qudits_on_qubits.experiments.manifest import RunManifest
+
+    with pytest.raises(ExperimentPersistenceError, match="run directory"):
+        RunManifest.load(tmp_path / "missing")
