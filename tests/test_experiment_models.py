@@ -14,6 +14,7 @@ sys.modules.pop("qudits_on_qubits", None)
 import pytest
 
 from qudits_on_qubits.experiments.errors import ExperimentValidationError
+from qudits_on_qubits.experiments.execution import ExecutionMode
 from qudits_on_qubits.experiments.models import (
     AerIdeal,
     BackendStatus,
@@ -33,6 +34,46 @@ from qudits_on_qubits.experiments.models import (
     RetryConfig,
     TranspilationConfig,
 )
+
+
+@pytest.mark.parametrize(
+    ("backend", "expected"),
+    [
+        (AerIdeal(), ExecutionMode.IDEAL_SIMULATOR),
+        (IQMHardware("garnet"), ExecutionMode.HARDWARE),
+        (PiastQHardware(), ExecutionMode.HARDWARE),
+        (
+            CustomBackend(
+                instance=object(),
+                execution_mode=ExecutionMode.HARDWARE,
+            ),
+            ExecutionMode.HARDWARE,
+        ),
+        (NoisySimulator(source=object()), ExecutionMode.NOISY_SIMULATOR),
+    ],
+)
+def test_backend_specs_serialize_one_explicit_execution_mode(backend, expected):
+    assert backend.execution_mode is expected
+    assert backend.to_safe_dict()["execution_mode"] == expected.value
+
+
+def test_custom_backend_requires_typed_execution_mode():
+    with pytest.raises(TypeError, match="execution_mode"):
+        CustomBackend(instance=object())
+
+    with pytest.raises(ExperimentValidationError, match="execution_mode"):
+        CustomBackend(instance=object(), execution_mode="hardware")
+
+
+def test_backend_deserialization_rejects_conflicting_execution_mode():
+    with pytest.raises(ExperimentValidationError, match="execution_mode"):
+        AerIdeal.from_safe_dict(
+            {
+                "kind": "aer_ideal",
+                "seed_simulator": 123,
+                "execution_mode": "hardware",
+            }
+        )
 
 
 def test_experiment_spec_normalizes_ghz_alias():
@@ -93,7 +134,12 @@ def test_mitigation_config_validates_zne(config_factory):
 
 
 def test_safe_serialization_excludes_backend_objects_and_credentials():
-    backend = CustomBackend(instance=object(), identity="local", supports_resume=False)
+    backend = CustomBackend(
+        instance=object(),
+        identity="local",
+        supports_resume=False,
+        execution_mode=ExecutionMode.IDEAL_SIMULATOR,
+    )
     spec = ExperimentSpec(
         state="ghz3",
         basis=PathBasis(Path("basis")),
@@ -119,7 +165,11 @@ def test_safe_serialization_excludes_backend_objects_and_credentials():
 )
 def test_persisted_model_strings_reject_credential_material_without_echo(unsafe_text):
     with pytest.raises(ExperimentValidationError) as caught:
-        CustomBackend(instance=object(), identity=unsafe_text)
+        CustomBackend(
+            instance=object(),
+            identity=unsafe_text,
+            execution_mode=ExecutionMode.IDEAL_SIMULATOR,
+        )
 
     assert unsafe_text not in str(caught.value)
     assert caught.value.__cause__ is None
@@ -248,7 +298,11 @@ def test_experiment_spec_rejects_conflicting_uncertainty_aliases():
 
 
 def test_custom_and_noisy_backends_require_injection_to_reconstruct():
-    custom = CustomBackend(instance=object(), identity="local")
+    custom = CustomBackend(
+        instance=object(),
+        identity="local",
+        execution_mode=ExecutionMode.IDEAL_SIMULATOR,
+    )
     with pytest.raises(ExperimentValidationError, match="injection"):
         CustomBackend.from_safe_dict(custom.to_safe_dict())
 
@@ -285,7 +339,11 @@ def test_persisted_float_configs_reject_non_finite_values(value):
     "factory",
     [
         lambda: IQMHardware("device", use_metrics="false"),
-        lambda: CustomBackend(object(), supports_resume="false"),
+        lambda: CustomBackend(
+            object(),
+            supports_resume="false",
+            execution_mode=ExecutionMode.IDEAL_SIMULATOR,
+        ),
         lambda: MitigationConfig(readout=1),
         lambda: MitigationConfig(zne="false"),
         lambda: MitigationConfig(force_recalibration=0),
@@ -302,7 +360,12 @@ def test_deserialization_does_not_coerce_boolean_strings():
         IQMHardware.from_safe_dict({"device": "device", "use_metrics": "false"})
     with pytest.raises(ExperimentValidationError):
         CustomBackend.from_safe_dict(
-            {"identity": "custom", "supports_resume": "false"}, instance=object()
+            {
+                "identity": "custom",
+                "supports_resume": "false",
+                "execution_mode": "ideal_simulator",
+            },
+            instance=object(),
         )
 
 

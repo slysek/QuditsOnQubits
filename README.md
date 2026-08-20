@@ -41,8 +41,10 @@ from pathlib import Path
 from qudits_on_qubits import (
     AerIdeal,
     BootstrapConfig,
+    ExecutionMode,
     ExperimentSpec,
     PathBasis,
+    RunManifest,
     run_experiment,
 )
 
@@ -55,6 +57,10 @@ ideal = ExperimentSpec(
 )
 result = run_experiment(ideal)
 print(result.status, result.artifact_dir, result.values["raw"])
+manifest = RunManifest.load(result.artifact_dir)
+print(manifest.execution_mode.value)
+document = manifest.to_safe_dict()
+print(document["circuits"], document["result_artifact"])
 ```
 
 Use a structured `BenchmarkBasis` instead of manually locating a selected candidate:
@@ -110,6 +116,7 @@ custom = replace(
         instance=my_backend,
         identity="laboratory-backend",
         supports_resume=True,
+        execution_mode=ExecutionMode.HARDWARE,
     ),
 )
 ```
@@ -144,7 +151,9 @@ artifacts/experiment_runs/YYYY-MM-DD/<experiment-id>/
   result.json
 ```
 
-`experiment.json` records immutable safe specification data, backend identity/capabilities, status history and timestamps, durable remote job IDs, artifact SHA-256 hashes, source provenance, raw counts, and calibration evidence. Status progresses through `created`, `validated`, `compiled`, submission/execution states, `postprocessing`, and a terminal state. Compiled circuits, submission, and retrieved results must share one backend identity: this compile + execution target invariant prevents accidental cross-target execution.
+`experiment.json` schema v2 records immutable safe specification data, backend identity/capabilities, status history and timestamps, durable remote job IDs, artifact SHA-256 hashes, source provenance, raw counts, and calibration evidence. The single serialized execution-mode source of truth is `spec.backend.execution_mode`; `RunManifest.execution_mode` is its typed convenience property. Status progresses through `created`, `validated`, `compiled`, submission/execution states, `postprocessing`, and a terminal state. Compiled circuits, submission, and retrieved results must share one backend identity: this compile + execution target invariant prevents accidental cross-target execution.
+
+`RunManifest.from_safe_dict()`, `to_safe_dict()`, and `load()` provide the public immutable manifest boundary. Loading a built-in schema-v1 manifest normalizes it to schema v2 only in memory and does not rewrite artifacts. Ambiguous schema-v1 custom backend manifests are rejected instead of guessing an execution mode.
 
 Remote submission uses a pessimistic `submission_unknown` checkpoint before provider contact. Unknown submission outcome is nonresumable because resubmission could duplicate hardware work. Remote backends must support durable job recovery. There is no silent fallback to ideal Aer or another target.
 

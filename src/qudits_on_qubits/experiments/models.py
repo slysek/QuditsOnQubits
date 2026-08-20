@@ -7,9 +7,10 @@ import math
 from enum import Enum
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any, ClassVar, Mapping
 
 from .errors import ExperimentValidationError
+from .execution import ExecutionMode, validate_backend_execution_mode
 from .safety import unsafe_persisted_text, validate_persisted_strings
 
 
@@ -126,16 +127,25 @@ class BenchmarkBasis:
 @dataclass(frozen=True)
 class AerIdeal:
     seed_simulator: int = 123
+    execution_mode: ClassVar[ExecutionMode] = ExecutionMode.IDEAL_SIMULATOR
 
     def __post_init__(self) -> None:
         if isinstance(self.seed_simulator, bool) or not isinstance(self.seed_simulator, int):
             raise ExperimentValidationError("seed_simulator must be an integer")
 
     def to_safe_dict(self) -> dict[str, Any]:
-        return {"kind": "aer_ideal", "seed_simulator": self.seed_simulator}
+        return {
+            "kind": "aer_ideal",
+            "seed_simulator": self.seed_simulator,
+            "execution_mode": self.execution_mode.value,
+        }
 
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any]) -> "AerIdeal":
+        validate_backend_execution_mode(
+            "aer_ideal",
+            data.get("execution_mode", ExecutionMode.IDEAL_SIMULATOR.value),
+        )
         return cls(seed_simulator=data.get("seed_simulator", 123))
 
 
@@ -144,6 +154,7 @@ class IQMHardware:
     device: str
     use_metrics: bool = False
     env_path: Path | None = None
+    execution_mode: ClassVar[ExecutionMode] = ExecutionMode.HARDWARE
 
     def __post_init__(self) -> None:
         _require_bool(self.use_metrics, "use_metrics")
@@ -155,10 +166,15 @@ class IQMHardware:
             "kind": "iqm_hardware",
             "device": self.device,
             "use_metrics": self.use_metrics,
+            "execution_mode": self.execution_mode.value,
         }
 
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any]) -> "IQMHardware":
+        validate_backend_execution_mode(
+            "iqm_hardware",
+            data.get("execution_mode", ExecutionMode.HARDWARE.value),
+        )
         return cls(data["device"], data.get("use_metrics", False))
 
 
@@ -167,6 +183,7 @@ class PiastQHardware:
     mode: str = "auto"
     owner: str | None = None
     env_path: Path | None = None
+    execution_mode: ClassVar[ExecutionMode] = ExecutionMode.HARDWARE
 
     def __post_init__(self) -> None:
         if self.mode not in {"auto", "managed", "direct"}:
@@ -176,10 +193,19 @@ class PiastQHardware:
         object.__setattr__(self, "env_path", _safe_optional_path(self.env_path, "env_path"))
 
     def to_safe_dict(self) -> dict[str, Any]:
-        return {"kind": "piastq_hardware", "mode": self.mode, "owner": self.owner}
+        return {
+            "kind": "piastq_hardware",
+            "mode": self.mode,
+            "owner": self.owner,
+            "execution_mode": self.execution_mode.value,
+        }
 
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any]) -> "PiastQHardware":
+        validate_backend_execution_mode(
+            "piastq_hardware",
+            data.get("execution_mode", ExecutionMode.HARDWARE.value),
+        )
         return cls(data.get("mode", "auto"), data.get("owner"))
 
 
@@ -188,19 +214,38 @@ class CustomBackend:
     instance: Any = field(repr=False, compare=False)
     identity: str = "custom"
     supports_resume: bool = False
+    execution_mode: ExecutionMode = field(kw_only=True)
 
     def __post_init__(self) -> None:
         _safe_text(self.identity, "identity")
         _require_bool(self.supports_resume, "supports_resume")
+        if not isinstance(self.execution_mode, ExecutionMode):
+            raise ExperimentValidationError(
+                "execution_mode must be ExecutionMode"
+            ) from None
 
     def to_safe_dict(self) -> dict[str, Any]:
-        return {"kind": "custom", "identity": self.identity, "supports_resume": self.supports_resume}
+        return {
+            "kind": "custom",
+            "identity": self.identity,
+            "supports_resume": self.supports_resume,
+            "execution_mode": self.execution_mode.value,
+        }
 
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any], *, instance: Any = None) -> "CustomBackend":
         if instance is None:
             raise ExperimentValidationError("custom backend reconstruction requires instance injection")
-        return cls(instance=instance, identity=data["identity"], supports_resume=data.get("supports_resume", False))
+        execution_mode = validate_backend_execution_mode(
+            "custom",
+            data.get("execution_mode"),
+        )
+        return cls(
+            instance=instance,
+            identity=data["identity"],
+            supports_resume=data.get("supports_resume", False),
+            execution_mode=execution_mode,
+        )
 
 
 @dataclass(frozen=True)
@@ -209,6 +254,7 @@ class NoisySimulator:
     noise_model: Any = field(default=None, repr=False, compare=False)
     target_backend: Any = field(default=None, repr=False, compare=False)
     identity: str | None = None
+    execution_mode: ClassVar[ExecutionMode] = ExecutionMode.NOISY_SIMULATOR
 
     def __post_init__(self) -> None:
         source_mode = self.source is not None and self.noise_model is None and self.target_backend is None
@@ -219,12 +265,21 @@ class NoisySimulator:
             _safe_text(self.identity, "identity")
 
     def to_safe_dict(self) -> dict[str, Any]:
-        return {"kind": "noisy_simulator", "identity": self.identity, "source_mode": self.source is not None}
+        return {
+            "kind": "noisy_simulator",
+            "identity": self.identity,
+            "source_mode": self.source is not None,
+            "execution_mode": self.execution_mode.value,
+        }
 
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any], **injected: Any) -> "NoisySimulator":
         if not injected:
             raise ExperimentValidationError("noisy simulator reconstruction requires object injection")
+        validate_backend_execution_mode(
+            "noisy_simulator",
+            data.get("execution_mode", ExecutionMode.NOISY_SIMULATOR.value),
+        )
         source_mode = data.get("source_mode")
         if type(source_mode) is not bool:
             raise ExperimentValidationError("noisy simulator source_mode must be a boolean")

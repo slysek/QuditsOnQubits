@@ -40,6 +40,8 @@ from .errors import (
     JobSubmissionError,
     OptionalDependencyError,
 )
+from .execution import expected_backend_identity_kind
+from .manifest import MANIFEST_SCHEMA_VERSION, RunManifest
 from .mitigation import (
     ReadoutCalibration,
     assignment_matrices_from_counts,
@@ -62,9 +64,6 @@ from .safety import (
 )
 from .store import ExperimentStore
 from .uncertainty import BootstrapInputs, bootstrap_bell_results
-
-
-SCHEMA_VERSION = 1
 
 
 def _utc_now() -> datetime:
@@ -148,7 +147,7 @@ def _initial_document(
 ) -> dict[str, Any]:
     created = _timestamp(clock)
     document = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": MANIFEST_SCHEMA_VERSION,
         "experiment_id": experiment_id,
         "spec": spec.to_safe_dict(),
         "status": ExperimentStatus.CREATED.value,
@@ -158,19 +157,28 @@ def _initial_document(
         "backend": None,
         "jobs": {},
         "job_ids": [],
+        "source": None,
         "counts": {},
         "circuits": {"source": None, "logical": None, "factors": {}},
         "postprocessing": None,
         "calibration": None,
         "result": None,
+        "result_artifact": None,
         "failure": None,
     }
-    _validate_persisted_strings(document, description="initial experiment document")
     return document
 
 
 def _write_state(store: ExperimentStore, run: Path, document: Mapping[str, Any]) -> None:
-    store.write_experiment(run, document)
+    try:
+        manifest = RunManifest.from_safe_dict(document)
+    except ExperimentPersistenceError:
+        raise
+    except ExperimentValidationError:
+        raise ExperimentPersistenceError(
+            "experiment manifest is invalid"
+        ) from None
+    store.write_experiment(run, manifest.to_safe_dict())
 
 
 def _transition(
@@ -306,6 +314,23 @@ def _validate_adapter(adapter: Any) -> tuple[BackendIdentity, BackendCapabilitie
     except Exception:
         raise BackendCompatibilityError("adapter metadata validation failed") from None
     return identity, capabilities, metadata
+
+
+def _validate_adapter_target(
+    spec: ExperimentSpec,
+    identity: BackendIdentity,
+) -> None:
+    backend_kind = spec.backend.to_safe_dict().get("kind")
+    try:
+        expected_kind = expected_backend_identity_kind(backend_kind)
+    except ExperimentValidationError:
+        raise BackendCompatibilityError(
+            "configured backend kind is unsupported"
+        ) from None
+    if identity.kind != expected_kind:
+        raise BackendCompatibilityError(
+            "resolved adapter identity does not match configured backend"
+        )
 
 
 def _require_durable_remote_jobs(capabilities: BackendCapabilities) -> None:
@@ -971,6 +996,7 @@ def run_experiment(
         stage = "backend-resolution"
         resolved_adapter = create_backend_adapter(spec.backend) if adapter is None else adapter
         identity, capabilities, adapter_metadata = _validate_adapter(resolved_adapter)
+        _validate_adapter_target(spec, identity)
         _require_durable_remote_jobs(capabilities)
         availability = _retry(
             "availability",
@@ -1098,24 +1124,13 @@ def run_experiment(
         raise
 
 
-def _open_run(experiment_dir: Path | str) -> tuple[ExperimentStore, Path, dict[str, Any]]:
-    try:
-        run = Path(experiment_dir).expanduser().resolve(strict=True)
-    except (OSError, RuntimeError, TypeError) as error:
-        raise ExperimentPersistenceError("experiment_dir must identify an existing run directory") from error
-    if not run.is_dir() or len(run.parents) < 2:
-        raise ExperimentPersistenceError("experiment_dir must identify a run directory")
+def _open_run(
+    artifact_dir: Path | str,
+) -> tuple[ExperimentStore, Path, dict[str, Any]]:
+    manifest = RunManifest.load(artifact_dir)
+    run = Path(artifact_dir).expanduser().resolve(strict=True)
     store = ExperimentStore(run.parents[1])
-    document = store.read_experiment(run)
-    if document.get("schema_version") != SCHEMA_VERSION:
-        raise ExperimentPersistenceError("unsupported experiment schema version")
-    if document.get("experiment_id") != run.name:
-        raise ExperimentPersistenceError("experiment ID does not match run directory")
-    try:
-        ExperimentStatus(document.get("status"))
-    except (TypeError, ValueError) as error:
-        raise ExperimentPersistenceError("experiment status is invalid") from error
-    return store, run, document
+    return store, run, manifest.to_safe_dict()
 
 
 def _verify_file(run: Path, record: Mapping[str, Any], description: str) -> None:
@@ -1416,6 +1431,7 @@ def resume_experiment(
             _write_state(store, run, document)
     resolved_adapter = create_backend_adapter(resumed_spec.backend) if adapter is None else adapter
     identity, capabilities, _ = _validate_adapter(resolved_adapter)
+    _validate_adapter_target(resumed_spec, identity)
     persisted_backend = document.get("backend")
     if not isinstance(persisted_backend, Mapping) or persisted_backend.get("identity") != identity.to_safe_dict():
         error = BackendCompatibilityError("resume backend identity does not match persisted target")

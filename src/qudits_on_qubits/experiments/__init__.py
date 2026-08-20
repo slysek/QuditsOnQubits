@@ -18,6 +18,8 @@ from .errors import (
     JobSubmissionError,
     OptionalDependencyError,
 )
+from .execution import ExecutionMode
+from .manifest import RunManifest
 
 from .models import (
     AerIdeal,
@@ -89,6 +91,7 @@ __all__ = [
     "ConfidenceInterval",
     "CustomBackend",
     "ExperimentError",
+    "ExecutionMode",
     "ExperimentPersistenceError",
     "ExperimentResult",
     "ExperimentSpec",
@@ -108,6 +111,7 @@ __all__ = [
     "ReadoutCalibration",
     "ReadoutMitigationStrategy",
     "RetryConfig",
+    "RunManifest",
     "TranspilationConfig",
     "ZNEBootstrapStrategy",
     "ZNEStrategy",
