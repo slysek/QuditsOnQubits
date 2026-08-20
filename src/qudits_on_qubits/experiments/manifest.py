@@ -20,6 +20,7 @@ from .execution import (
 )
 from .models import ExperimentStatus
 from .safety import validate_persisted_strings
+from .store import ExperimentStore
 
 
 MANIFEST_SCHEMA_VERSION = 2
@@ -378,6 +379,34 @@ class RunManifest:
             result_artifact=document["result_artifact"],
             failure=document["failure"],
         )
+
+    @classmethod
+    def load(cls, artifact_dir: Path | str) -> "RunManifest":
+        try:
+            run = Path(artifact_dir).expanduser().resolve(strict=True)
+        except (OSError, RuntimeError, TypeError):
+            raise ExperimentPersistenceError(
+                "artifact_dir must identify an existing run directory"
+            ) from None
+        if not run.is_dir() or len(run.parents) < 2:
+            raise ExperimentPersistenceError(
+                "artifact_dir must identify a run directory"
+            ) from None
+        store = ExperimentStore(run.parents[1])
+        document = store.read_experiment(run)
+        try:
+            manifest = cls.from_safe_dict(document)
+        except ExperimentPersistenceError:
+            raise
+        except ExperimentValidationError:
+            raise ExperimentPersistenceError(
+                "experiment manifest is invalid"
+            ) from None
+        if manifest.experiment_id != run.name:
+            raise ExperimentPersistenceError(
+                "experiment ID does not match run directory"
+            ) from None
+        return manifest
 
 
 __all__ = ["MANIFEST_SCHEMA_VERSION", "RunManifest"]
