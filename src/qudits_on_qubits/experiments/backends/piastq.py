@@ -115,8 +115,8 @@ class PiastQAdapter(BaseBackendAdapter):
             client_type, sampler_type = self._load_piastq_types()
         except (ImportError, ModuleNotFoundError) as error:
             raise OptionalDependencyError(
-                "PiastQHardware requires cft-piastq; install it with "
-                "`pip install -e .[piastq]` "
+                "PiastQHardware requires cft-piastq; "
+                "install cft-piastq separately in this environment "
                 f"({_exception_name(error)})"
             ) from None
         self._client_type = self._client_type or client_type
@@ -145,8 +145,8 @@ class PiastQAdapter(BaseBackendAdapter):
             backend = client.backend
         except (ImportError, ModuleNotFoundError) as error:
             raise OptionalDependencyError(
-                "PiastQHardware requires cft-piastq; install it with "
-                "`pip install -e .[piastq]` "
+                "PiastQHardware requires cft-piastq; "
+                "install cft-piastq separately in this environment "
                 f"({_exception_name(error)})"
             ) from None
         except Exception as error:

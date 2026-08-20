@@ -51,11 +51,18 @@ class CleanRepoSmokeTests(unittest.TestCase):
         self.assertIn('repo_root / "artifacts"', source)
         self.assertIn("qudits_on_qubits", source)
 
-    def test_readme_documents_piastq_aqt_bell_execution(self):
+    def test_readme_documents_piastq_managed_bell_execution(self):
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn("## PiastQ AQT Bell Execution", readme)
-        self.assertIn('mode=os.environ.get("CFT_PIASTQ_MODE", "auto")', readme)
+        self.assertIn("## PiastQ managed Bell execution", readme)
+        self.assertIn('mode="managed"', readme)
+        self.assertIn("CFT_PIASTQ_DASHBOARD_API_URL", readme)
+        self.assertIn("CFT_PIASTQ_DASHBOARD_API_KEY", readme)
+        self.assertNotIn("CFT_PIASTQ_MODE", readme)
+        self.assertNotIn("PCSS_TOKEN", readme)
+        self.assertNotIn("PCSS_QAPI_TOKEN", readme)
+        self.assertNotIn("git+https://", readme.casefold())
+        self.assertIn("Install `cft-piastq` separately", readme)
         self.assertIn("backend=client.backend", readme)
         self.assertIn("compute_bell_value_from_counts_aqt", readme)
         self.assertIn("one PiastQ job containing every generated circuit", readme)

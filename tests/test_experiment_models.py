@@ -119,6 +119,22 @@ def test_backend_selections_are_validated(backend_factory):
         ExperimentSpec(state="ghz3", basis=PathBasis(Path("basis")), backend=backend_factory())
 
 
+def test_piastq_defaults_and_missing_mode_deserialization_to_managed():
+    assert PiastQHardware().mode == "managed"
+    assert PiastQHardware.from_safe_dict(
+        {"kind": "piastq_hardware", "owner": "team"}
+    ).mode == "managed"
+
+
+@pytest.mark.parametrize("mode", ["auto", "direct"])
+def test_piastq_rejects_non_managed_modes_with_migration_guidance(mode):
+    with pytest.raises(
+        ExperimentValidationError,
+        match="managed.*separate environment",
+    ):
+        PiastQHardware(mode=mode)
+
+
 @pytest.mark.parametrize(
     "config_factory",
     [

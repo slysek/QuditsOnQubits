@@ -180,14 +180,16 @@ class IQMHardware:
 
 @dataclass(frozen=True)
 class PiastQHardware:
-    mode: str = "auto"
+    mode: str = "managed"
     owner: str | None = None
     env_path: Path | None = None
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.HARDWARE
 
     def __post_init__(self) -> None:
-        if self.mode not in {"auto", "managed", "direct"}:
-            raise ExperimentValidationError("mode must be auto, managed, or direct")
+        if self.mode != "managed":
+            raise ExperimentValidationError(
+                "PiastQHardware supports only managed mode; direct access requires a separate environment"
+            )
         if self.owner is not None:
             _safe_text(self.owner, "owner")
         object.__setattr__(self, "env_path", _safe_optional_path(self.env_path, "env_path"))
@@ -206,7 +208,7 @@ class PiastQHardware:
             "piastq_hardware",
             data.get("execution_mode", ExecutionMode.HARDWARE.value),
         )
-        return cls(data.get("mode", "auto"), data.get("owner"))
+        return cls(data.get("mode", "managed"), data.get("owner"))
 
 
 @dataclass(frozen=True)
