@@ -70,6 +70,9 @@ def test_notebook_has_three_separate_high_level_backend_runs():
         for cell in run_cells
     ] == list(backend_order)
 
+    assert all(cell["execution_count"] is None for cell in cells)
+    assert all(cell["outputs"] == [] for cell in cells)
+
     for cell in run_cells:
         call = named_calls(source(cell), "run_experiment")[0]
         repo_root_keywords = [keyword for keyword in call.keywords if keyword.arg == "repo_root"]
@@ -101,7 +104,7 @@ def test_notebook_has_no_secrets_user_paths_or_low_level_execution():
     full_source = "\n".join(source(cell) for cell in code_cells(notebook))
 
     assert not re.search(
-        r"(?im)^\s*\w*(?:token|api[_ -]?key|password)\w*\s*=", full_source
+        r"(?im)^\s*\w*(?:token|api[_ -]?key|password|credentials?|client_secret|secret)\w*\s*=", full_source
     )
     assert "dashboard_api" not in full_source
     assert not re.search(r"(?i)\\Users\\|[A-Za-z]:\\\\", full_source)
