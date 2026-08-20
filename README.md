@@ -10,12 +10,16 @@ Python 3.11--3.13 is supported. Install core library and ideal Aer backend:
 python -m pip install -e .
 ```
 
-PiastQ and M3 readout mitigation are optional:
+M3 readout mitigation is optional:
 
 ```bash
-python -m pip install -e ".[piastq]"
 python -m pip install -e ".[mitigation]"
 ```
+
+PiastQ support requires the private `cft-piastq` package. Install `cft-piastq`
+separately from a source available to you. QuditsOnQubits intentionally declares
+no PiastQ package dependency and stores no private repository URL.
+
 ## Two-qutrit Bell vertical slice
 
 After installation, run the public clean-room reference:
@@ -100,11 +104,11 @@ noisy_garnet = replace(
 # Real IQM Garnet hardware.
 real_garnet = replace(selected, backend=IQMHardware(device="garnet"))
 
-# PiastQ/AQT hardware. Credentials remain in environment/provider configuration.
-piastq_aqt = replace(
+# PiastQ managed hardware. Credentials remain in environment/provider configuration.
+piastq_managed = replace(
     selected,
     backend=PiastQHardware(
-        mode=os.environ.get("CFT_PIASTQ_MODE", "direct"),
+        mode="managed",
         owner=os.environ.get("CFT_PIASTQ_OWNER"),
     ),
 )
@@ -121,7 +125,7 @@ custom = replace(
 )
 ```
 
-Never put tokens, passwords, or API keys inline. Supply credentials only through environment variables or provider configuration. IQM uses its provider environment. PiastQ reads `PCSS_TOKEN`/`PCSS_QAPI_TOKEN` and related provider configuration.
+Never put tokens, passwords, or API keys inline. Supply credentials only through environment variables or provider configuration. IQM uses its provider environment. PiastQ managed execution reads `CFT_PIASTQ_DASHBOARD_API_URL` and `CFT_PIASTQ_DASHBOARD_API_KEY`.
 
 Run a batch in order, or resume from any durable run directory:
 
@@ -402,19 +406,20 @@ transpile_to_iqm_exact
 `(depth, cz_count, r_count, size)` and flags warning thresholds such as
 `depth_gt_100` and `cz_gt_50`.
 
-## PiastQ AQT Bell Execution
+## PiastQ managed Bell execution
 
-Install the optional PiastQ integration in the environment used by this
-project:
+Install `cft-piastq` separately in the environment used by this project. The
+QuditsOnQubits package metadata intentionally contains no private repository URL
+and does not install `cft-piastq`.
 
-```powershell
-python -m pip install -e ".[piastq]"
-```
+The QuditsOnQubits integration is managed-only. `PiastQHardware` accepts
+`mode="managed"`; `auto` and `direct` are rejected before any provider import or
+network action. Configure `CFT_PIASTQ_DASHBOARD_API_URL`,
+`CFT_PIASTQ_DASHBOARD_API_KEY`, and optionally `CFT_PIASTQ_OWNER` through the
+environment. Do not place dashboard credentials in notebooks or source files.
 
-Choose `auto`, `managed`, or `direct` when constructing `PiastQClient`. The Bell
-helper receives `client.backend` unchanged and does not choose or override the
-execution mode. Credentials must come from environment variables; do not place
-PCSS tokens or dashboard API keys in notebooks or source files.
+Direct PCSS/AQT experiments require a separate environment and are not installed
+by QuditsOnQubits.
 
 This explicit smoke example prepares the zero state in the two-qutrit encoding,
 builds every Bell-setting circuit required by the existing pipeline, and
@@ -441,11 +446,10 @@ sampler_circuits, metadata = build_sampler_circuits_for_candidate(
 )
 
 client = PiastQClient(
-    mode=os.environ.get("CFT_PIASTQ_MODE", "auto"),
+    mode="managed",
     owner=os.environ["CFT_PIASTQ_OWNER"],
-    token=os.environ.get("PCSS_TOKEN") or os.environ.get("PCSS_QAPI_TOKEN"),
-    dashboard_api_url=os.environ.get("CFT_PIASTQ_DASHBOARD_API_URL"),
-    dashboard_api_key=os.environ.get("CFT_PIASTQ_DASHBOARD_API_KEY"),
+    dashboard_api_url=os.environ["CFT_PIASTQ_DASHBOARD_API_URL"],
+    dashboard_api_key=os.environ["CFT_PIASTQ_DASHBOARD_API_KEY"],
 )
 
 bell_value, execution = compute_bell_value_from_counts_aqt(
@@ -467,5 +471,5 @@ print("PiastQ job:", execution["job"].job_id())
 returned by `PiastQJob.counts()`; this project does not independently multiply
 or round the quasi probabilities.
 
-The example can contact the managed dashboard or direct AQT provider and can
-consume real hardware shots. Run it only as an intentional manual smoke test.
+The example contacts the managed dashboard and can consume real hardware shots.
+Run it only as an intentional manual smoke test.

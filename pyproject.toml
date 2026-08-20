@@ -30,9 +30,6 @@ qoq-two-qutrit-bell = "qudits_on_qubits.vertical_slice.cli:entrypoint"
 
 
 [project.optional-dependencies]
-piastq = [
-    "cft-piastq[direct]>=0.1,<0.2",
-]
 dev = [
     "pytest>=8,<9",
     "pytest-cov>=5,<7",

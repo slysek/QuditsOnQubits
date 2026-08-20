@@ -1,0 +1,2 @@
+[console_scripts]
+qoq-two-qutrit-bell = qudits_on_qubits.vertical_slice.cli:entrypoint

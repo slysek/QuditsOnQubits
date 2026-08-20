@@ -94,6 +94,6 @@ def _load_piastq_sampler() -> Any:
     except ImportError as exc:
         raise ImportError(
             "compute_bell_value_from_counts_aqt requires the optional "
-            "cft-piastq integration. Install it with: pip install -e .[piastq]"
+            "cft-piastq integration; install cft-piastq separately in this environment"
         ) from exc
     return PiastQSampler

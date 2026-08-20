@@ -107,7 +107,7 @@ def test_canonical_baseline_configuration_and_empty_summary_are_semantically_com
     expected = {
         "AER_SPEC": ("AerIdeal", {"seed_simulator": 11}, "aer_ideal", False),
         "IQM_SPEC": ("IQMHardware", {"device": "garnet", "use_metrics": True}, "iqm_garnet", True),
-        "PIASTQ_SPEC": ("PiastQHardware", {"mode": "auto", "owner": "notebook"}, "piastq", True),
+        "PIASTQ_SPEC": ("PiastQHardware", {"mode": "managed", "owner": "notebook"}, "piastq", True),
     }
     assert set(specs) == set(expected)
     for name, (backend_name, backend_kwargs, backend_tag, needs_mitigation) in expected.items():

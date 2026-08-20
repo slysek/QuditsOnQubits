@@ -145,11 +145,12 @@ def test_piast_rejects_unsafe_owner_before_environment_or_client(unsafe_owner):
     _assert_sanitized(caught, unsafe_owner)
 
 
-@pytest.mark.parametrize("mode", ["auto", "managed", "direct"])
-def test_piast_preserves_mode_exactly(mode):
-    adapter, _, client_calls, _, _ = _adapter(spec=PiastQHardware(mode=mode, owner="owner"))
+def test_piast_passes_managed_mode_exactly():
+    adapter, _, client_calls, _, _ = _adapter(
+        spec=PiastQHardware(mode="managed", owner="owner")
+    )
     adapter.resolve()
-    assert client_calls[0]["mode"] == mode
+    assert client_calls[0]["mode"] == "managed"
     assert client_calls[0]["owner"] == "owner"
 
 
@@ -229,6 +230,7 @@ def test_piast_optional_dependency_and_environment_failures_are_typed_and_saniti
     )
     with pytest.raises(OptionalDependencyError, match="piastq") as caught:
         adapter.resolve()
+    assert "install cft-piastq separately in this environment" in str(caught.value)
     _assert_sanitized(caught, dependency_secret)
 
     environment_secret = "api_key=bad-config"

@@ -41,6 +41,7 @@ class PiastQBellRunnerTests(unittest.TestCase):
             hasattr(bell_measurements, "compute_bell_value_from_counts_aqt")
         )
 
+
     def test_runs_all_ordered_circuits_in_one_piastq_job(self):
         for circuit_count in (1, 3, 5):
             with self.subTest(circuit_count=circuit_count):
@@ -274,11 +275,11 @@ class PiastQBellRunnerTests(unittest.TestCase):
                 backend=object(),
             )
 
-    def test_missing_cft_piastq_reports_install_command(self):
+    def test_missing_cft_piastq_reports_separate_install(self):
         with patch.dict(sys.modules, {"cft_piastq": None}):
             with self.assertRaisesRegex(
                 ImportError,
-                r"pip install -e \.\[piastq\]",
+                "install cft-piastq separately in this environment",
             ):
                 piastq_runner._load_piastq_sampler()
 
