@@ -95,3 +95,64 @@ def test_notebook_has_no_secrets_user_paths_or_low_level_execution():
     assert not re.search(r"(?i)\\Users\\|[A-Za-z]:[\\/]", full_source)
     for forbidden in ("PiastQClient", "IQMProvider(", "compute_bell_value_from_counts", "build_sampler_circuits", ".run("):
         assert forbidden not in full_source
+def setup_namespace(cwd):
+    """Execute notebook setup without materializing inputs or running experiments."""
+    namespace = {"__name__": "__notebook_test__", "__file__": str(NOTEBOOK_PATH)}
+    for cell in code_cells(load_notebook()):
+        cell_source = source(cell)
+        if "canonical-input-materialization" in cell.get("metadata", {}).get("tags", []):
+            continue
+        if named_calls(cell_source, "run_experiment") or "display(" in cell_source:
+            continue
+        exec(compile(cell_source, str(NOTEBOOK_PATH), "exec"), namespace)
+    return namespace
+
+
+def sha256_file(path):
+    return __import__("hashlib").sha256(path.read_bytes()).hexdigest()
+
+
+def test_setup_discovers_repo_root_from_root_and_notebook_directory(monkeypatch):
+    namespace = setup_namespace(REPO_ROOT)
+    find_repo_root = namespace["find_repo_root"]
+    monkeypatch.chdir(REPO_ROOT)
+    assert find_repo_root() == REPO_ROOT
+    monkeypatch.chdir(NOTEBOOK_PATH.parent)
+    assert find_repo_root() == REPO_ROOT
+
+
+def test_prepare_canonical_basis_creates_exact_idempotent_bundle(tmp_path):
+    namespace = setup_namespace(REPO_ROOT)
+    target = namespace["prepare_canonical_basis"](tmp_path)
+    assert target == tmp_path / "experiment_inputs" / "reference_bases" / "two_qutrit" / "canonical_ez"
+    assert {path.name for path in target.iterdir()} == {
+        "graph_state_direct_basis.qpy",
+        "E.npy",
+        "metadata.json",
+    }
+    first_hashes = {path.name: sha256_file(path) for path in target.iterdir()}
+    assert namespace["prepare_canonical_basis"](tmp_path) == target
+    assert {path.name: sha256_file(path) for path in target.iterdir()} == first_hashes
+
+
+def test_prepare_canonical_basis_rejects_corrupt_metadata(tmp_path):
+    namespace = setup_namespace(REPO_ROOT)
+    target = namespace["prepare_canonical_basis"](tmp_path)
+    (target / "metadata.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="metadata"):
+        namespace["prepare_canonical_basis"](tmp_path)
+
+
+def test_validate_canonical_basis_enforces_isometry_and_unmeasured_qpy(tmp_path):
+    namespace = setup_namespace(REPO_ROOT)
+    target = namespace["prepare_canonical_basis"](tmp_path)
+    expected_encoding = namespace["get_encoding"]("canonical_ez").as_array()
+    expected_circuit = namespace["build_direct_basis_graph_state_circuit"]("two_qutrit", expected_encoding)
+    namespace["validate_canonical_basis"](target, expected_encoding, expected_circuit)
+    assert expected_encoding.shape == (4, 3)
+    numpy = __import__("numpy")
+    assert numpy.allclose(expected_encoding.conj().T @ expected_encoding, numpy.eye(3))
+    circuit = namespace["load_single_circuit"](target / "graph_state_direct_basis.qpy")
+    assert circuit.num_qubits == 4
+    assert circuit.num_clbits == 0
+    assert not any(instruction.operation.name == "measure" for instruction in circuit.data)
