@@ -1,5 +1,6 @@
 import ast
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -98,13 +99,18 @@ def test_notebook_has_no_secrets_user_paths_or_low_level_execution():
 def setup_namespace(cwd):
     """Execute notebook setup without materializing inputs or running experiments."""
     namespace = {"__name__": "__notebook_test__", "__file__": str(NOTEBOOK_PATH)}
-    for cell in code_cells(load_notebook()):
-        cell_source = source(cell)
-        if "canonical-input-materialization" in cell.get("metadata", {}).get("tags", []):
-            continue
-        if named_calls(cell_source, "run_experiment") or "display(" in cell_source:
-            continue
-        exec(compile(cell_source, str(NOTEBOOK_PATH), "exec"), namespace)
+    previous_cwd = Path.cwd()
+    try:
+        os.chdir(cwd)
+        for cell in code_cells(load_notebook()):
+            cell_source = source(cell)
+            if "canonical-input-materialization" in cell.get("metadata", {}).get("tags", []):
+                continue
+            if named_calls(cell_source, "run_experiment") or "display(" in cell_source:
+                continue
+            exec(compile(cell_source, str(NOTEBOOK_PATH), "exec"), namespace)
+    finally:
+        os.chdir(previous_cwd)
     return namespace
 
 
@@ -112,13 +118,12 @@ def sha256_file(path):
     return __import__("hashlib").sha256(path.read_bytes()).hexdigest()
 
 
-def test_setup_discovers_repo_root_from_root_and_notebook_directory(monkeypatch):
-    namespace = setup_namespace(REPO_ROOT)
-    find_repo_root = namespace["find_repo_root"]
-    monkeypatch.chdir(REPO_ROOT)
-    assert find_repo_root() == REPO_ROOT
-    monkeypatch.chdir(NOTEBOOK_PATH.parent)
-    assert find_repo_root() == REPO_ROOT
+@pytest.mark.parametrize("cwd", [REPO_ROOT, NOTEBOOK_PATH.parent])
+def test_setup_discovers_repo_root_from_root_and_notebook_directory(monkeypatch, tmp_path, cwd):
+    monkeypatch.chdir(tmp_path)
+    namespace = setup_namespace(cwd)
+    assert namespace["REPO_ROOT"] == REPO_ROOT
+    assert Path.cwd() == tmp_path
 
 
 def test_prepare_canonical_basis_creates_exact_idempotent_bundle(tmp_path):
