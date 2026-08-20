@@ -16,6 +16,7 @@ from qudits_on_qubits.experiments.errors import (
     JobSubmissionError,
     OptionalDependencyError,
 )
+from qudits_on_qubits.experiments.execution import ExecutionMode
 from qudits_on_qubits.experiments.models import AerIdeal, CustomBackend, TranspilationConfig
 
 
@@ -41,6 +42,14 @@ class _Backend:
     def run(self, circuits, **options):
         self.calls.append((circuits, options))
         return self.job
+
+
+def _custom_backend(instance, **kwargs):
+    return CustomBackend(
+        instance,
+        execution_mode=ExecutionMode.IDEAL_SIMULATOR,
+        **kwargs,
+    )
 
 
 def _assert_sanitized_error(caught, sensitive_text):
@@ -94,7 +103,7 @@ def test_custom_compile_uses_same_backend_and_non_none_transpile_options(monkeyp
     from qudits_on_qubits.experiments.backends import CustomBackendAdapter
 
     backend = _Backend()
-    adapter = CustomBackendAdapter(CustomBackend(backend, identity="local"))
+    adapter = CustomBackendAdapter(_custom_backend(backend, identity="local"))
     source = (QuantumCircuit(1), QuantumCircuit(1))
     compiled_circuits = [QuantumCircuit(1), QuantumCircuit(1)]
     seen = {}
@@ -122,7 +131,7 @@ def test_custom_compile_uses_same_backend_and_non_none_transpile_options(monkeyp
 def test_custom_resolve_preserves_valid_human_readable_identity():
     from qudits_on_qubits.experiments.backends import CustomBackendAdapter
 
-    adapter = CustomBackendAdapter(CustomBackend(_Backend(), identity="lab backend / slot 1"))
+    adapter = CustomBackendAdapter(_custom_backend(_Backend(), identity="lab backend / slot 1"))
     assert adapter.resolve().name == "lab backend / slot 1"
 
 
@@ -130,7 +139,7 @@ def test_custom_submit_preserves_circuit_objects_and_options_exactly_once():
     from qudits_on_qubits.experiments.backends import CustomBackendAdapter
 
     backend = _Backend()
-    adapter = CustomBackendAdapter(CustomBackend(backend, identity="local"))
+    adapter = CustomBackendAdapter(_custom_backend(backend, identity="local"))
     compiled = _compiled(adapter)
     submitted = adapter.submit(compiled.circuits, 25, {"memory": True})
 
@@ -147,7 +156,7 @@ def test_submit_rejects_duplicate_shots(options):
     from qudits_on_qubits.experiments.backends import CustomBackendAdapter
 
     backend = _Backend()
-    adapter = CustomBackendAdapter(CustomBackend(backend))
+    adapter = CustomBackendAdapter(_custom_backend(backend))
     with pytest.raises(BackendCompatibilityError, match="shots"):
         adapter.submit(_compiled(adapter).circuits, 10, options)
     assert not backend.calls
@@ -162,7 +171,7 @@ def test_submit_wraps_backend_exception_without_leaking_options():
         def run(self, circuits, **options):
             raise RuntimeError(sensitive_text)
 
-    adapter = CustomBackendAdapter(CustomBackend(FailingBackend(), identity="safe-name"))
+    adapter = CustomBackendAdapter(_custom_backend(FailingBackend(), identity="safe-name"))
     with pytest.raises(JobSubmissionError, match="safe-name") as caught:
         adapter.submit(_compiled(adapter, 1).circuits, 10, {"api_key": "secret"})
     _assert_sanitized_error(caught, sensitive_text)
@@ -171,7 +180,7 @@ def test_submit_wraps_backend_exception_without_leaking_options():
 def test_compile_wraps_transpiler_exception_without_leaking_details(monkeypatch):
     from qudits_on_qubits.experiments.backends import CustomBackendAdapter
 
-    adapter = CustomBackendAdapter(CustomBackend(_Backend(), identity="safe-name"))
+    adapter = CustomBackendAdapter(_custom_backend(_Backend(), identity="safe-name"))
     sensitive_text = "token=do-not-leak"
     monkeypatch.setattr(
         import_module("qudits_on_qubits.experiments.backends.custom"),
@@ -194,7 +203,7 @@ def test_compile_wraps_transpiler_exception_without_leaking_details(monkeypatch)
 def test_job_id_callable_attribute_and_local_fallback(job, expected):
     from qudits_on_qubits.experiments.backends import CustomBackendAdapter
 
-    adapter = CustomBackendAdapter(CustomBackend(_Backend(job), identity="local"))
+    adapter = CustomBackendAdapter(_custom_backend(_Backend(job), identity="local"))
     job_id = adapter.submit(_compiled(adapter, 1).circuits, 1).job_id
     if expected == "local":
         assert job_id.startswith("local-")
@@ -205,7 +214,7 @@ def test_job_id_callable_attribute_and_local_fallback(job, expected):
 def test_invalid_local_job_id_uses_local_fallback():
     from qudits_on_qubits.experiments.backends import CustomBackendAdapter
 
-    adapter = CustomBackendAdapter(CustomBackend(_Backend(_Job(job_id="../../unsafe"))))
+    adapter = CustomBackendAdapter(_custom_backend(_Backend(_Job(job_id="../../unsafe"))))
     assert adapter.submit(_compiled(adapter, 1).circuits, 1).job_id.startswith("local-")
 
 
@@ -215,7 +224,7 @@ def test_remote_or_unknown_custom_job_requires_job_id(local):
 
     backend = _Backend(SimpleNamespace(result=lambda: None))
     backend.local = local
-    adapter = CustomBackendAdapter(CustomBackend(backend, identity="remote"))
+    adapter = CustomBackendAdapter(_custom_backend(backend, identity="remote"))
     with pytest.raises(JobSubmissionError, match="job ID"):
         adapter.submit(_compiled(adapter, 1).circuits, 1)
 
@@ -227,7 +236,7 @@ def test_result_extracts_indexed_backend_counts_in_input_order():
         def get_counts(self, index):
             return ({"00": 7, "11": 3}, {"01": 4, "10": 6})[index]
 
-    adapter = CustomBackendAdapter(CustomBackend(_Backend(), identity="local"))
+    adapter = CustomBackendAdapter(_custom_backend(_Backend(), identity="local"))
     submitted = SubmittedJob("job-1", _Job(IndexedResult()), adapter.resolve(), 2, 10)
     result = adapter.result(submitted)
 
@@ -239,7 +248,7 @@ def test_result_extracts_singleton_get_counts():
     from qudits_on_qubits.experiments.backends import CustomBackendAdapter, SubmittedJob
 
     raw = SimpleNamespace(get_counts=lambda: {"0": 2, "1": 3})
-    adapter = CustomBackendAdapter(CustomBackend(_Backend()))
+    adapter = CustomBackendAdapter(_custom_backend(_Backend()))
     result = adapter.result(SubmittedJob("job-1", _Job(raw), adapter.resolve(), 1, 5))
     assert result.counts == ({"0": 2, "1": 3},)
 
@@ -255,7 +264,7 @@ def test_result_extracts_primitive_meas_and_named_data_bins(named):
         data = SimpleNamespace(aux=register) if named else SimpleNamespace(meas=register)
         entries.append(SimpleNamespace(data=data))
     raw = tuple(entries)
-    adapter = CustomBackendAdapter(CustomBackend(_Backend()))
+    adapter = CustomBackendAdapter(_custom_backend(_Backend()))
     result = adapter.result(SubmittedJob("job-1", _Job(raw), adapter.resolve(), 2, 3))
     assert result.counts == counts
 
@@ -273,7 +282,7 @@ def test_result_extracts_primitive_meas_and_named_data_bins(named):
 def test_result_rejects_mismatched_or_malformed_counts(raw, circuit_count, shots, message):
     from qudits_on_qubits.experiments.backends import CustomBackendAdapter, SubmittedJob
 
-    adapter = CustomBackendAdapter(CustomBackend(_Backend()))
+    adapter = CustomBackendAdapter(_custom_backend(_Backend()))
     submitted = SubmittedJob("job-1", _Job(raw), adapter.resolve(), circuit_count, shots)
     with pytest.raises(JobResultError, match=message):
         adapter.result(submitted)
@@ -288,7 +297,7 @@ def test_result_wraps_handle_result_exception():
         def result(self, **_kwargs):
             raise RuntimeError(sensitive_text)
 
-    adapter = CustomBackendAdapter(CustomBackend(_Backend(), identity="safe"))
+    adapter = CustomBackendAdapter(_custom_backend(_Backend(), identity="safe"))
     submitted = SubmittedJob("job-1", FailingJob(), adapter.resolve(), 1, 1)
     with pytest.raises(JobResultError, match="job-1") as caught:
         adapter.result(submitted, timeout=2.0)
@@ -301,7 +310,7 @@ def test_result_wraps_count_extraction_exception_without_leaking_details(excepti
 
     sensitive_text = "api_key=do-not-leak"
     raw = SimpleNamespace(get_counts=lambda: (_ for _ in ()).throw(exception_type(sensitive_text)))
-    adapter = CustomBackendAdapter(CustomBackend(_Backend()))
+    adapter = CustomBackendAdapter(_custom_backend(_Backend()))
     submitted = SubmittedJob("job-1", _Job(raw), adapter.resolve(), 1, 1)
     with pytest.raises(JobResultError) as caught:
         adapter.result(submitted)
@@ -313,9 +322,9 @@ def test_custom_restore_job_requires_capability_and_retrieve_method():
 
     backend = _Backend()
     with pytest.raises(BackendCompatibilityError, match="resume"):
-        CustomBackendAdapter(CustomBackend(backend, supports_resume=False)).restore_job("job-1")
+        CustomBackendAdapter(_custom_backend(backend, supports_resume=False)).restore_job("job-1")
 
-    resumable = CustomBackendAdapter(CustomBackend(backend, supports_resume=True))
+    resumable = CustomBackendAdapter(_custom_backend(backend, supports_resume=True))
     with pytest.raises(BackendCompatibilityError, match="retrieve_job"):
         resumable.restore_job("job-1")
 
@@ -333,7 +342,7 @@ def test_custom_restore_job_retrieves_remote_handle_with_matching_id(handle):
     backend = _Backend()
     backend.local = False
     backend.retrieve_job = lambda job_id: handle if job_id == "remote-1" else None
-    adapter = CustomBackendAdapter(CustomBackend(backend, supports_resume=True))
+    adapter = CustomBackendAdapter(_custom_backend(backend, supports_resume=True))
     submitted = adapter.restore_job("remote-1", circuit_count=2, shots=100)
     assert submitted.handle is handle
     assert submitted.circuit_count == 2
@@ -354,7 +363,7 @@ def test_custom_restore_job_rejects_missing_or_mismatched_actual_id(handle):
     backend = _Backend()
     backend.local = False
     backend.retrieve_job = lambda _job_id: handle
-    adapter = CustomBackendAdapter(CustomBackend(backend, supports_resume=True))
+    adapter = CustomBackendAdapter(_custom_backend(backend, supports_resume=True))
     with pytest.raises(JobResultError, match="job ID") as caught:
         adapter.restore_job("remote-1")
     assert caught.value.__cause__ is None
@@ -367,7 +376,7 @@ def test_custom_restore_job_sanitizes_retrieval_exception():
     backend = _Backend()
     backend.local = False
     backend.retrieve_job = lambda _job_id: (_ for _ in ()).throw(RuntimeError(sensitive_text))
-    adapter = CustomBackendAdapter(CustomBackend(backend, supports_resume=True))
+    adapter = CustomBackendAdapter(_custom_backend(backend, supports_resume=True))
     with pytest.raises(JobResultError, match="restore") as caught:
         adapter.restore_job("remote-1")
     _assert_sanitized_error(caught, sensitive_text)
@@ -378,7 +387,7 @@ def test_custom_availability_reports_backend_status():
 
     backend = _Backend()
     backend.status = lambda: SimpleNamespace(operational=False, status_msg="maintenance")
-    availability = CustomBackendAdapter(CustomBackend(backend)).availability()
+    availability = CustomBackendAdapter(_custom_backend(backend)).availability()
     assert not availability.available
     assert availability.reason == "maintenance"
 
@@ -392,7 +401,7 @@ def test_registry_builds_aer_and_custom_and_rejects_unknown():
     )
 
     assert isinstance(create_backend_adapter(AerIdeal(), simulator=_Backend()), AerAdapter)
-    assert isinstance(create_backend_adapter(CustomBackend(_Backend())), CustomBackendAdapter)
+    assert isinstance(create_backend_adapter(_custom_backend(_Backend())), CustomBackendAdapter)
     with pytest.raises(BackendCompatibilityError, match="unsupported"):
         BackendAdapterRegistry().create(object())
 
@@ -499,7 +508,7 @@ def test_result_discards_unsafe_provider_status(status):
 
     handle = _Job(SimpleNamespace(get_counts=lambda: {"0": 1}))
     handle.status = lambda: status
-    adapter = CustomBackendAdapter(CustomBackend(_Backend()))
+    adapter = CustomBackendAdapter(_custom_backend(_Backend()))
     submitted = SubmittedJob("job-1", handle, adapter.resolve(), 1, 1)
     assert adapter.result(submitted).status is None
 
@@ -509,7 +518,7 @@ def test_result_normalizes_safe_provider_enum_status():
 
     handle = _Job(SimpleNamespace(get_counts=lambda: {"0": 1}))
     handle.status = lambda: _ProviderStatus.DONE
-    adapter = CustomBackendAdapter(CustomBackend(_Backend()))
+    adapter = CustomBackendAdapter(_custom_backend(_Backend()))
     submitted = SubmittedJob("job-1", handle, adapter.resolve(), 1, 1)
     assert adapter.result(submitted).status == "done"
 

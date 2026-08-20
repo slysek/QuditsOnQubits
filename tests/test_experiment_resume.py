@@ -42,6 +42,7 @@ from qudits_on_qubits.experiments.errors import (
     ExperimentValidationError,
     JobSubmissionError,
 )
+from qudits_on_qubits.experiments.execution import ExecutionMode
 
 
 class InterruptThenRestoreAdapter:
@@ -93,7 +94,12 @@ def _spec(tmp_path):
     return ExperimentSpec(
         state="two_qutrit",
         basis=PathBasis(tmp_path / "unused"),
-        backend=CustomBackend(object(), identity="resume-target", supports_resume=True),
+        backend=CustomBackend(
+            object(),
+            identity="resume-target",
+            supports_resume=True,
+            execution_mode=ExecutionMode.HARDWARE,
+        ),
         shots=7,
         bootstrap=BootstrapConfig(samples=2),
         retry=RetryConfig(max_attempts=2, initial_delay=0.01, max_delay=0.02),

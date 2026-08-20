@@ -38,6 +38,7 @@ from qudits_on_qubits.experiments.errors import (
     BackendCompatibilityError,
     BackendUnavailableError,
 )
+from qudits_on_qubits.experiments.execution import ExecutionMode
 
 
 class RecordingAdapter:
@@ -132,7 +133,12 @@ def make_spec(tmp_path, **kwargs):
     values = {
         "state": "two_qutrit",
         "basis": PathBasis(tmp_path / "unused-basis"),
-        "backend": CustomBackend(object(), identity="target", supports_resume=True),
+        "backend": CustomBackend(
+            object(),
+            identity="target",
+            supports_resume=True,
+            execution_mode=ExecutionMode.HARDWARE,
+        ),
         "shots": 10,
         "bootstrap": BootstrapConfig(samples=2),
         "retry": RetryConfig(max_attempts=3, initial_delay=0.01, max_delay=0.04),

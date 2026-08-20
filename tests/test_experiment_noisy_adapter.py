@@ -10,6 +10,7 @@ from qudits_on_qubits.experiments.errors import (
     BackendUnavailableError,
     ExperimentValidationError,
 )
+from qudits_on_qubits.experiments.execution import ExecutionMode
 from qudits_on_qubits.experiments.models import (
     AerIdeal,
     CustomBackend,
@@ -205,7 +206,15 @@ def test_singleton_registry_has_all_five_specs_but_fresh_registry_is_empty():
 
     source_backend = _Backend()
     assert isinstance(create_backend_adapter(AerIdeal(), simulator=source_backend), AerAdapter)
-    assert isinstance(create_backend_adapter(CustomBackend(source_backend)), CustomBackendAdapter)
+    assert isinstance(
+        create_backend_adapter(
+            CustomBackend(
+                source_backend,
+                execution_mode=ExecutionMode.IDEAL_SIMULATOR,
+            )
+        ),
+        CustomBackendAdapter,
+    )
     assert isinstance(create_backend_adapter(IQMHardware("garnet"), backend=source_backend), IQMAdapter)
 
     class Client:
