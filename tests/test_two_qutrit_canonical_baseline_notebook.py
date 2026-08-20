@@ -3,6 +3,7 @@ import json
 import os
 import re
 import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -135,6 +136,41 @@ def test_canonical_baseline_configuration_and_empty_summary_are_semantically_com
     for row in summary:
         assert row["classical_bound"] == namespace["REFERENCE"].bell_functional.classical_bound
         assert row["ideal_bell_value"] == namespace["REFERENCE"].expected.ideal_bell_value
+
+
+def test_summary_preserves_present_result_values_and_explicit_skips():
+    namespace = setup_namespace(REPO_ROOT)
+    result_values = {
+        "raw": {"estimate": 1.23},
+        "readout_mitigated": {"estimate": 1.24},
+        "zne": {"estimate": 1.25},
+        "zne_readout_mitigated": {"estimate": 1.26},
+        "diagnostics": {"resamples": 2_000},
+        "leakage_rate": 0.01,
+    }
+    artifact_dir = Path("artifacts") / "present-aer-result"
+    present_aer = SimpleNamespace(
+        status=SimpleNamespace(value="completed"),
+        artifact_dir=artifact_dir,
+        values=result_values,
+    )
+
+    summary = namespace["summarize_results"](
+        {"aer_ideal": present_aer}, namespace["REFERENCE"]
+    )
+    json.dumps(summary)
+
+    aer_row, iqm_row, piastq_row = summary
+    assert aer_row["backend"] == "aer_ideal"
+    assert aer_row["status"] == "completed"
+    for field, value in result_values.items():
+        assert aer_row[field] == value
+    assert aer_row["classical_bound"] == namespace["REFERENCE"].bell_functional.classical_bound
+    assert aer_row["ideal_bell_value"] == namespace["REFERENCE"].expected.ideal_bell_value
+    assert aer_row["artifact_dir"] == str(artifact_dir)
+    assert iqm_row["status"] == "skipped"
+    assert piastq_row["status"] == "skipped"
+
 
 def test_notebook_has_no_secrets_user_paths_or_low_level_execution():
     notebook = load_notebook()
