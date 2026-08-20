@@ -90,6 +90,96 @@ def _calibration() -> ReadoutCalibration:
     )
 
 
+def _union_calibration() -> ReadoutCalibration:
+    mapping = (10, 15, 16, 11)
+    return ReadoutCalibration(
+        backend_identity="backend-a",
+        calibration_id="cal-union",
+        qubit_mapping=mapping,
+        timestamp=datetime(2026, 8, 17, tzinfo=timezone.utc),
+        shots=10,
+        raw_counts=tuple(
+            {"0": 10, "1": 0} if index % 2 == 0 else {"0": 0, "1": 10}
+            for index in range(2 * len(mapping))
+        ),
+        assignment_matrices=tuple(((1.0, 0.0), (0.0, 1.0)) for _ in mapping),
+    )
+
+
+def test_default_readout_bootstrap_uses_each_setting_physical_mapping_for_all_factors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mappings = ((10, 15, 16, 11), (15, 16, 11, 10))
+    seen_mappings: list[tuple[int, ...]] = []
+
+    class RecordingMitigation:
+        def apply_correction(
+            self, counts: Mapping[str, int], qubits: tuple[int, ...]
+        ) -> dict[str, float]:
+            seen_mappings.append(qubits)
+            total = sum(counts.values())
+            return {outcome: count / total for outcome, count in counts.items()}
+
+    mitigation = RecordingMitigation()
+    uncertainty_module = sys.modules[bootstrap_bell_results.__module__]
+    monkeypatch.setattr(
+        uncertainty_module,
+        "build_m3_mitigation",
+        lambda calibration: mitigation,
+    )
+    counts = {
+        1: {
+            "setting-a": {"0000": 8, "1111": 2},
+            "setting-b": {"0000": 7, "1111": 3},
+        },
+        3: {
+            "setting-a": {"0000": 6, "1111": 4},
+            "setting-b": {"0000": 5, "1111": 5},
+        },
+    }
+
+    bootstrap_bell_results(
+        BootstrapInputs(
+            counts_by_factor=counts,
+            terms=(),
+            qutrit_bit_indices_by_setting={},
+            readout_calibration=_union_calibration(),
+            physical_qubit_mappings=mappings,
+        ),
+        BootstrapConfig(samples=2, seed=4, include_readout_calibration=False),
+        _evaluator=lambda _: 0j,
+    )
+
+    assert seen_mappings == list(mappings) * 6
+
+
+@pytest.mark.parametrize(
+    "physical_qubit_mappings",
+    [
+        ((10, 15, 16, 11),),
+        ((10, 15, 16), (15, 16, 11)),
+        ((10, 15, 16, 16), (15, 16, 11, 10)),
+        ((10, 15, 16, 99), (15, 16, 11, 10)),
+    ],
+)
+def test_bootstrap_inputs_reject_invalid_per_setting_physical_mappings(
+    physical_qubit_mappings: tuple[tuple[int, ...], ...],
+) -> None:
+    with pytest.raises(ExperimentValidationError, match="physical"):
+        BootstrapInputs(
+            counts_by_factor={
+                1: {
+                    "setting-a": {"0000": 1},
+                    "setting-b": {"0000": 1},
+                }
+            },
+            terms=(),
+            qutrit_bit_indices_by_setting={},
+            readout_calibration=_union_calibration(),
+            physical_qubit_mappings=physical_qubit_mappings,
+        )
+
+
 class _RecordingReadout:
     def __init__(self) -> None:
         self.build_calls = 0

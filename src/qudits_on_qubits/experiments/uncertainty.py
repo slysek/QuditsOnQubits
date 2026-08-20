@@ -131,6 +131,7 @@ class BootstrapInputs:
     qutrit_bit_indices_by_setting: Mapping[Setting, Sequence[tuple[int, int]]]
     decoding_kwargs: Mapping[str, object] = field(default_factory=dict)
     readout_calibration: ReadoutCalibration | None = None
+    physical_qubit_mappings: Sequence[Sequence[int]] | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -155,13 +156,60 @@ class BootstrapInputs:
             self.readout_calibration, ReadoutCalibration
         ):
             raise ExperimentValidationError("readout_calibration must be ReadoutCalibration")
+        if self.physical_qubit_mappings is not None and self.readout_calibration is None:
+            raise ExperimentValidationError(
+                "physical_qubit_mappings requires readout_calibration"
+            )
         if self.readout_calibration is not None:
-            first_setting = next(iter(next(iter(self.counts_by_factor.values())).values()))
+            first_factor = next(iter(self.counts_by_factor.values()))
+            setting_count = len(first_factor)
+            first_setting = next(iter(first_factor.values()))
             width = len(next(iter(first_setting)))
-            if width != len(self.readout_calibration.qubit_mapping):
-                raise ExperimentValidationError(
-                    "count bitstring width must match readout calibration mapping"
-                )
+            calibrated_qubits = set(self.readout_calibration.qubit_mapping)
+            if self.physical_qubit_mappings is None:
+                if width != len(self.readout_calibration.qubit_mapping):
+                    raise ExperimentValidationError(
+                        "count bitstring width must match readout calibration mapping"
+                    )
+                normalized_mappings = (
+                    self.readout_calibration.qubit_mapping,
+                ) * setting_count
+            else:
+                mappings = self.physical_qubit_mappings
+                if not isinstance(mappings, Sequence) or isinstance(
+                    mappings, (str, bytes)
+                ):
+                    raise ExperimentValidationError(
+                        "physical_qubit_mappings must be a sequence"
+                    )
+                if len(mappings) != setting_count:
+                    raise ExperimentValidationError(
+                        "physical qubit mapping count must match measurement settings"
+                    )
+                normalized: list[tuple[int, ...]] = []
+                for mapping in mappings:
+                    if not isinstance(mapping, Sequence) or isinstance(
+                        mapping, (str, bytes)
+                    ):
+                        raise ExperimentValidationError(
+                            "each physical qubit mapping must be a sequence"
+                        )
+                    physical = tuple(mapping)
+                    if (
+                        len(physical) != width
+                        or any(type(qubit) is not int or qubit < 0 for qubit in physical)
+                        or len(set(physical)) != len(physical)
+                        or not set(physical).issubset(calibrated_qubits)
+                    ):
+                        raise ExperimentValidationError(
+                            "physical qubit mappings must match count width, contain "
+                            "unique calibrated non-negative qubits"
+                        )
+                    normalized.append(physical)
+                normalized_mappings = tuple(normalized)
+            object.__setattr__(
+                self, "physical_qubit_mappings", normalized_mappings
+            )
 
 
 @dataclass(frozen=True)
@@ -239,6 +287,15 @@ class _Task6ReadoutContext:
 class _Task6ReadoutBootstrap:
     """Adapt Task 6 M3 helpers to the bootstrap-context protocol."""
 
+    def __init__(
+        self, physical_qubit_mappings: Sequence[Sequence[int]] | None
+    ) -> None:
+        self._physical_qubit_mappings = (
+            None
+            if physical_qubit_mappings is None
+            else tuple(tuple(mapping) for mapping in physical_qubit_mappings)
+        )
+
     def build_context(self, calibration: ReadoutCalibration) -> _Task6ReadoutContext:
         return _Task6ReadoutContext(calibration, build_m3_mitigation(calibration))
 
@@ -274,9 +331,16 @@ class _Task6ReadoutBootstrap:
             f"setting-{index}": counts_by_setting[setting]
             for index, setting in enumerate(original_settings)
         }
+        mappings = self._physical_qubit_mappings
+        if mappings is None or len(mappings) != len(original_settings):
+            raise ExperimentValidationError("physical qubit mappings are invalid")
+        encoded_mappings = {
+            f"setting-{index}": mappings[index]
+            for index in range(len(original_settings))
+        }
         corrected = apply_readout_mitigation(
             encoded,
-            mapping=context.calibration.qubit_mapping,
+            mapping_by_setting=encoded_mappings,
             mitigation=context.mitigation,  # type: ignore[arg-type]
         )
         return {
@@ -429,7 +493,11 @@ def bootstrap_bell_results(
     if zne_strategy is not None and not use_zne:
         raise ExperimentValidationError("ZNE requires at least two factors")
 
-    readout = _Task6ReadoutBootstrap() if readout_strategy is None else readout_strategy
+    readout = (
+        _Task6ReadoutBootstrap(inputs.physical_qubit_mappings)
+        if readout_strategy is None
+        else readout_strategy
+    )
     zne = _Task6ZNEBootstrap() if zne_strategy is None else zne_strategy
     raw_points = tuple(
         _evaluate(evaluator, inputs.counts_by_factor[factor]) for factor in factors

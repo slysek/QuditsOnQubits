@@ -485,6 +485,7 @@ def test_resume_known_calibration_restores_once_without_duplicate_submit(
         "sha256": hashlib.sha256(counts_path.read_bytes()).hexdigest(),
         "settings": [("A0",)],
     }
+    interrupted["calibration"].pop("mapping_by_circuit_index")
     interrupted["jobs"]["1"]["status"] = "completed"
     store.write_experiment(run, interrupted)
     resumed = CalibrationResume()

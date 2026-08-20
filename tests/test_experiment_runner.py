@@ -266,6 +266,125 @@ def test_result_retries_use_same_submitted_job_and_exact_exponential_delays(
     ] == ["failed", "failed", "succeeded"]
 
 
+def test_readout_calibration_compile_rejects_changed_physical_target():
+    from qudits_on_qubits.experiments.runner import (
+        _validate_physical_calibration_compile,
+    )
+
+    source = QuantumCircuit(3, 1)
+    source.metadata = {"physical_qubit": 2}
+    source.measure(2, 0)
+    changed = QuantumCircuit(3, 1)
+    changed.measure(0, 0)
+
+    with pytest.raises(BackendCompatibilityError, match="changed its physical qubit"):
+        _validate_physical_calibration_compile((source,), (changed,))
+
+
+def test_readout_accepts_per_setting_physical_mapping_and_calibrates_union(
+    tmp_path, prepared_run, monkeypatch
+):
+    from qudits_on_qubits.experiments.runner import run_experiment
+    import qudits_on_qubits.experiments.runner as runner
+
+    mappings = ((10, 15, 16, 11), (15, 16, 11, 10))
+
+    def measured_circuit(mapping):
+        circuit = QuantumCircuit(17, 4)
+        for classical, physical in enumerate(mapping):
+            circuit.measure(physical, classical)
+        return circuit
+
+    logical = tuple(measured_circuit((0, 1, 2, 3)) for _ in mappings)
+    settings = (("A0",), ("A1",))
+    metadata = {
+        "setting_by_circuit_index": settings,
+        "terms": [],
+        "qutrit_bit_indices_by_setting": {
+            settings[0]: [(0, 1), (2, 3)],
+            settings[1]: [(0, 1), (2, 3)],
+        },
+        "physical_to_logical_outcome_map": {"0": 0, "1": 1},
+        "d": 3,
+        "qutrit_qubits": [(0, 1), (2, 3)],
+        "candidate": "two_qutrit",
+    }
+    monkeypatch.setattr(
+        runner,
+        "prepare_measurements",
+        lambda _artifacts: SimpleNamespace(circuits=logical, metadata=metadata),
+    )
+
+    class PerSettingAdapter(RecordingAdapter):
+        def __init__(self):
+            super().__init__()
+            self.measurement_compile_calls = 0
+            self.physical_compile_calls = 0
+
+        def compile(self, circuits, config):
+            self.measurement_compile_calls += 1
+            compiled = tuple(measured_circuit(mapping) for mapping in mappings)
+            return CompiledBatch(compiled, self.identity)
+
+        def compile_physical(self, circuits, config):
+            self.physical_compile_calls += 1
+            return CompiledBatch(tuple(circuits), self.identity)
+
+        def result(self, submitted, timeout=None):
+            if submitted.circuit_count == 8:
+                counts = tuple(
+                    {"0": submitted.shots} if index % 2 == 0 else {"1": submitted.shots}
+                    for index in range(8)
+                )
+            else:
+                counts = tuple(
+                    {"0000": submitted.shots}
+                    for _ in range(submitted.circuit_count)
+                )
+            return ExecutionResult(
+                counts,
+                submitted.job_id,
+                self.identity,
+                status="done",
+            )
+
+    class PureReadout:
+        def build_context(self, calibration):
+            return calibration.assignment_matrices
+
+        def resample_calibration(self, calibration, rng):
+            return calibration.assignment_matrices
+
+        def apply(self, counts_by_setting, context):
+            return {
+                setting: {
+                    outcome: count / sum(counts.values())
+                    for outcome, count in counts.items()
+                }
+                for setting, counts in counts_by_setting.items()
+            }
+
+    adapter = PerSettingAdapter()
+    result = run_experiment(
+        make_spec(tmp_path, mitigation=MitigationConfig(readout=True)),
+        adapter=adapter,
+        _sleep=lambda _delay: None,
+        _readout_strategy=PureReadout(),
+        _evaluator=lambda _counts: 1 + 0j,
+    )
+    document = __import__("json").loads(
+        (result.artifact_dir / "experiment.json").read_text(encoding="utf-8")
+    )
+
+    assert result.status is ExperimentStatus.COMPLETED
+    assert adapter.measurement_compile_calls == 1
+    assert adapter.physical_compile_calls == 1
+    assert document["calibration"]["qubit_mapping"] == [10, 15, 16, 11]
+    assert document["calibration"]["mapping_by_circuit_index"] == [
+        [10, 15, 16, 11],
+        [15, 16, 11, 10],
+    ]
+
 def test_readout_calibration_is_checkpointed_with_raw_evidence_before_measurements(
     tmp_path, prepared_run
 ):

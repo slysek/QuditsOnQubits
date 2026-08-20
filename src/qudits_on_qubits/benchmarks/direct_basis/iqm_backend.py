@@ -86,6 +86,7 @@ def build_iqm_pass_manager(
     routing_method: str | None = None,
     scheduling_method: str | None = EXACT_RZ_SCHEDULING_METHOD,
     approximation_degree: float | None = None,
+    initial_layout: Any | None = None,
 ) -> Any:
     kwargs: dict[str, Any] = {
         "backend": backend,
@@ -100,6 +101,8 @@ def build_iqm_pass_manager(
         kwargs["scheduling_method"] = scheduling_method
     if approximation_degree is not None:
         kwargs["approximation_degree"] = float(approximation_degree)
+    if initial_layout is not None:
+        kwargs["initial_layout"] = initial_layout
     return generate_preset_pass_manager(**kwargs)
 
 

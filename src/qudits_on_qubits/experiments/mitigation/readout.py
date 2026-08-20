@@ -307,18 +307,39 @@ def _physical_qubits(
 def apply_readout_mitigation(
     counts_by_setting: Mapping[str, Mapping[str, int]],
     *,
-    mapping: Sequence[int] | Mapping[int, int],
+    mapping: Sequence[int] | Mapping[int, int] | None = None,
+    mapping_by_setting: Mapping[
+        str, Sequence[int] | Mapping[int, int]
+    ] | None = None,
     mitigation: ReadoutMitigationStrategy,
 ) -> dict[str, dict[str, float]]:
-    """Apply M3 per setting, preserving signed weights without normalization.
-
-    Corrected weights must sum to one within absolute and relative tolerance
-    ``1e-8``.
-    """
+    """Apply M3 using one common mapping or one physical mapping per setting."""
 
     if not isinstance(counts_by_setting, Mapping):
         raise ExperimentValidationError("counts_by_setting must be a mapping")
-    physical_qubits = _physical_qubits(mapping)
+    if (mapping is None) == (mapping_by_setting is None):
+        raise ExperimentValidationError(
+            "provide exactly one of mapping or mapping_by_setting"
+        )
+
+    setting_names = tuple(counts_by_setting)
+    if mapping_by_setting is not None:
+        if not isinstance(mapping_by_setting, Mapping):
+            raise ExperimentValidationError("mapping_by_setting must be a mapping")
+        if tuple(mapping_by_setting) != setting_names:
+            raise ExperimentValidationError(
+                "mapping_by_setting must have the same keys and order as counts_by_setting"
+            )
+        physical_qubits_by_setting = {
+            setting: _physical_qubits(mapping_by_setting[setting])
+            for setting in setting_names
+        }
+    else:
+        common_physical_qubits = _physical_qubits(mapping)
+        physical_qubits_by_setting = {
+            setting: common_physical_qubits for setting in setting_names
+        }
+
     correct = getattr(mitigation, "apply_correction", None)
     if not callable(correct):
         raise ExperimentValidationError("mitigation object must provide apply_correction")
@@ -327,6 +348,7 @@ def apply_readout_mitigation(
     for setting, counts in counts_by_setting.items():
         if not isinstance(setting, str) or not setting:
             raise ExperimentValidationError("setting names must be non-empty strings")
+        physical_qubits = physical_qubits_by_setting[setting]
         normalized_counts = _validated_setting_counts(counts, len(physical_qubits))
         try:
             output = correct(normalized_counts, physical_qubits)
