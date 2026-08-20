@@ -181,6 +181,7 @@ def test_experiments_public_surface_is_explicit() -> None:
         "ConfidenceInterval",
         "CustomBackend",
         "ExperimentError",
+        "ExecutionMode",
         "ExperimentPersistenceError",
         "ExperimentResult",
         "ExperimentSpec",
@@ -200,6 +201,7 @@ def test_experiments_public_surface_is_explicit() -> None:
         "ReadoutCalibration",
         "ReadoutMitigationStrategy",
         "RetryConfig",
+        "RunManifest",
         "TranspilationConfig",
         "ZNEBootstrapStrategy",
         "ZNEStrategy",
@@ -253,7 +255,8 @@ for name in (
     'ExperimentSpec', 'PathBasis', 'BenchmarkBasis', 'AerIdeal', 'NoisySimulator',
     'IQMHardware', 'PiastQHardware', 'CustomBackend', 'MitigationConfig',
     'BootstrapConfig', 'TranspilationConfig', 'RetryConfig', 'ExperimentResult',
-    'BellEstimate', 'ComplexConfidenceInterval', 'run_experiment',
+    'BellEstimate', 'ComplexConfidenceInterval', 'ExecutionMode', 'RunManifest',
+    'run_experiment',
     'run_experiments', 'resume_experiment',
 ) + uncertainty_names:
     assert getattr(qoq, name) is not None
@@ -308,4 +311,7 @@ def test_readme_documents_library_runner_contracts() -> None:
     )
     assert all(statement in readme for statement in required)
     assert "uncertainty=BootstrapConfig(" in readme_source
+    assert "ExecutionMode" in readme_source
+    assert "RunManifest.load(result.artifact_dir)" in readme_source
+    assert "execution_mode=ExecutionMode.HARDWARE" in readme_source
     assert "bootstrap=BootstrapConfig(" not in readme_source
