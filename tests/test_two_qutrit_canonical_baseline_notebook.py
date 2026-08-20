@@ -264,3 +264,49 @@ def test_prepare_canonical_basis_cleans_staging_after_write_failure(tmp_path, mo
     assert not final_directory.exists()
     parent = final_directory.parent
     assert not parent.exists() or not any(path.name.startswith(".canonical_ez.tmp-") for path in parent.iterdir())
+
+
+def test_canonical_notebook_setup_runs_two_qutrit_bell_on_aer(tmp_path):
+    namespace = setup_namespace(REPO_ROOT)
+    basis = namespace["prepare_canonical_basis"](tmp_path)
+    spec = namespace["ExperimentSpec"](
+        state="two_qutrit",
+        basis=namespace["PathBasis"](basis),
+        backend=namespace["AerIdeal"](seed_simulator=11),
+        shots=64,
+        bootstrap=namespace["BootstrapConfig"](samples=20, seed=7),
+        output_root=tmp_path / "runs",
+    )
+
+    result = namespace["run_experiment"](spec, repo_root=tmp_path)
+
+    assert result.status.value == "completed"
+    assert set(result.values) == {"raw", "config", "diagnostics"}
+    raw_real = result.values["raw"]["estimate"]["real"]
+    # Seed 11 and 64 shots produce 6.004560301527426; 0.01 covers only this
+    # deterministic finite-shot deviation from the frozen ideal value 6.0.
+    assert raw_real == pytest.approx(
+        namespace["REFERENCE"].expected.ideal_bell_value,
+        abs=0.01,
+    )
+
+    artifact_dir = Path(result.artifact_dir)
+    assert artifact_dir.is_relative_to(tmp_path / "runs")
+    assert (artifact_dir / "experiment.json").is_file()
+    assert (artifact_dir / "result.json").is_file()
+
+    numpy = namespace["np"]
+    expected_encoding = namespace["get_encoding"]("canonical_ez").as_array()
+    numpy.testing.assert_array_equal(
+        numpy.load(basis / "E.npy", allow_pickle=False), expected_encoding
+    )
+    circuit = namespace["load_single_circuit"](basis / "graph_state_direct_basis.qpy")
+    assert circuit.num_qubits == 4
+    assert circuit.num_clbits == 0
+    assert circuit.data
+    expected_circuit = namespace["build_direct_basis_graph_state_circuit"](
+        "two_qutrit", expected_encoding
+    )
+    assert namespace["Statevector"].from_instruction(circuit).equiv(
+        namespace["Statevector"].from_instruction(expected_circuit)
+    )
