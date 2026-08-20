@@ -29,6 +29,7 @@ from qudits_on_qubits.experiments.models import (
     CustomBackend,
     ExperimentSpec,
     ExperimentStatus,
+    IQMHardware,
     PathBasis,
     RetryConfig,
     MitigationConfig,
@@ -37,6 +38,7 @@ from qudits_on_qubits.experiments.errors import JobResultError, JobSubmissionErr
 from qudits_on_qubits.experiments.errors import (
     BackendCompatibilityError,
     BackendUnavailableError,
+    ExperimentPersistenceError,
 )
 from qudits_on_qubits.experiments.execution import ExecutionMode
 
@@ -626,12 +628,84 @@ def test_initial_document_is_validated_before_first_persistent_write(
 
     monkeypatch.setattr(ExperimentSpec, "to_safe_dict", unsafe_safe_dict)
 
-    with pytest.raises(BackendCompatibilityError) as caught:
+    with pytest.raises(ExperimentPersistenceError) as caught:
         run_experiment(make_spec(tmp_path), adapter=RecordingAdapter())
 
     assert list((tmp_path / "runs").rglob("experiment.json")) == []
     assert sensitive_text not in str(caught.value)
     assert caught.value.__cause__ is None
+
+
+def test_every_runner_checkpoint_crosses_manifest_validation_boundary(
+    tmp_path, prepared_run, monkeypatch
+):
+    from qudits_on_qubits.experiments.manifest import RunManifest
+    from qudits_on_qubits.experiments.runner import run_experiment
+    from qudits_on_qubits.experiments.store import ExperimentStore
+
+    validation_statuses: list[str] = []
+    write_statuses: list[str] = []
+    original_from_safe_dict = RunManifest.from_safe_dict.__func__
+    original_write_experiment = ExperimentStore.write_experiment
+
+    def recording_from_safe_dict(cls, document):
+        validation_statuses.append(document["status"])
+        return original_from_safe_dict(cls, document)
+
+    def recording_write_experiment(
+        self, run, document=None, **fields_by_name
+    ):
+        assert document is not None
+        write_statuses.append(document["status"])
+        assert validation_statuses == write_statuses
+        return original_write_experiment(
+            self, run, document, **fields_by_name
+        )
+
+    monkeypatch.setattr(
+        RunManifest,
+        "from_safe_dict",
+        classmethod(recording_from_safe_dict),
+    )
+    monkeypatch.setattr(
+        ExperimentStore,
+        "write_experiment",
+        recording_write_experiment,
+    )
+
+    result = run_experiment(
+        make_spec(tmp_path),
+        adapter=RecordingAdapter(),
+        _sleep=lambda _: None,
+        _evaluator=lambda _: 1.0 + 0.0j,
+    )
+
+    assert result.status is ExperimentStatus.COMPLETED
+    assert validation_statuses == write_statuses
+    assert validation_statuses[0] == "created"
+    assert validation_statuses[-1] == "completed"
+
+
+def test_runner_rejects_adapter_identity_that_disagrees_with_backend(
+    tmp_path, prepared_run
+):
+    from qudits_on_qubits.experiments.runner import run_experiment
+
+    adapter = RecordingAdapter()
+    spec = make_spec(tmp_path, backend=IQMHardware("garnet"))
+
+    with pytest.raises(
+        BackendCompatibilityError,
+        match="resolved adapter identity does not match configured backend",
+    ):
+        run_experiment(
+            spec,
+            adapter=adapter,
+            _sleep=lambda _: None,
+            _evaluator=lambda _: 1.0 + 0.0j,
+        )
+
+    assert adapter.submit_calls == 0
 
 
 def test_preflight_mutation_cannot_cross_persisted_qpy_submit_boundary(

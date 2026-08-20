@@ -241,7 +241,7 @@ def _validate_document(document: Mapping[str, Any]) -> None:
     job_ids = _sequence(document.get("job_ids"), "job_ids")
     if any(not isinstance(item, str) or not item for item in job_ids):
         raise ExperimentValidationError("job_ids are invalid") from None
-    if list(job_ids) != recorded_ids:
+    if sorted(job_ids) != sorted(recorded_ids):
         raise ExperimentValidationError(
             "job_ids do not match job records"
         ) from None

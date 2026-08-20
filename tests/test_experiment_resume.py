@@ -26,6 +26,7 @@ from qudits_on_qubits.experiments.backends import (
     SubmittedJob,
 )
 from qudits_on_qubits.experiments.models import (
+    AerIdeal,
     BootstrapConfig,
     CustomBackend,
     ExperimentSpec,
@@ -213,6 +214,37 @@ def test_completed_resume_is_idempotent_without_adapter_calls(tmp_path, monkeypa
 
     assert result.status is ExperimentStatus.COMPLETED
     assert result.to_safe_dict() == completed.to_safe_dict()
+
+
+def test_completed_schema_v1_resume_normalizes_without_rewriting(
+    tmp_path, monkeypatch
+):
+    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
+
+    _patch_preparation(monkeypatch)
+    spec = replace(_spec(tmp_path), backend=AerIdeal())
+    adapter = InterruptThenRestoreAdapter()
+    adapter.identity = BackendIdentity("aer_ideal", "aer_simulator")
+    completed = run_experiment(
+        spec,
+        adapter=adapter,
+        _sleep=lambda _delay: None,
+        _evaluator=lambda _counts: 1 + 0j,
+    )
+    experiment_path = completed.artifact_dir / "experiment.json"
+    document = json.loads(experiment_path.read_text(encoding="utf-8"))
+    document["schema_version"] = 1
+    document["spec"]["backend"].pop("execution_mode")
+    ExperimentStore(tmp_path / "runs").write_experiment(
+        completed.artifact_dir,
+        document,
+    )
+    before = experiment_path.read_bytes()
+
+    result = resume_experiment(completed.artifact_dir, adapter=object())
+
+    assert experiment_path.read_bytes() == before
+    assert result.status is ExperimentStatus.COMPLETED
 
 
 def test_resume_identity_mismatch_is_terminal_and_never_restores_or_submits(
