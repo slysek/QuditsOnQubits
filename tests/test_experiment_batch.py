@@ -23,6 +23,7 @@ from qudits_on_qubits.experiments.backends import (
     SubmittedJob,
 )
 from qudits_on_qubits.experiments.errors import BackendCompatibilityError, ExperimentValidationError
+from qudits_on_qubits.experiments.execution import ExecutionMode
 from qudits_on_qubits.experiments.models import (
     BootstrapConfig,
     CustomBackend,
@@ -77,7 +78,12 @@ def _spec(root, name):
     return ExperimentSpec(
         state="two_qutrit",
         basis=PathBasis(root / "unused"),
-        backend=CustomBackend(object(), identity="batch-target", supports_resume=True),
+        backend=CustomBackend(
+            object(),
+            identity="batch-target",
+            supports_resume=True,
+            execution_mode=ExecutionMode.HARDWARE,
+        ),
         shots=4,
         bootstrap=BootstrapConfig(samples=2),
         output_root=root / name,
