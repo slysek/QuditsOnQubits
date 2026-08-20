@@ -72,13 +72,14 @@ def test_hardware_cells_are_false_by_default_and_separately_guarded():
     full_source = "\n".join(source(cell) for cell in cells)
     assert re.search(r"^RUN_IQM\s*=\s*False\s*$", full_source, re.MULTILINE)
     assert re.search(r"^RUN_PIASTQ\s*=\s*False\s*$", full_source, re.MULTILINE)
+    runner_cells = [cell for cell in cells if len(named_calls(source(cell), "run_experiment")) == 1]
     for backend, flag in (("IQMHardware", "RUN_IQM"), ("PiastQHardware", "RUN_PIASTQ")):
-        cell = next(cell for cell in cells if backend in source(cell))
+        cell = next(cell for cell in runner_cells if runner_backend(source(cell), named_calls(source(cell), "run_experiment")[0]) == backend)
         tree = ast.parse(source(cell))
         guards = [node for node in ast.walk(tree) if isinstance(node, ast.If) and isinstance(node.test, ast.Name) and node.test.id == flag]
         runner = [node for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "run_experiment"]
         assert guards and len(runner) == 1
-        assert any(runner[0] in ast.walk(guard) for guard in guards)
+        assert any(runner[0] in ast.walk(statement) for guard in guards for statement in guard.body)
         assert runner_backend(source(cell), runner[0]) == backend
 
 
@@ -88,7 +89,8 @@ def test_notebook_has_no_secrets_user_paths_or_low_level_execution():
     credential = r"(?:token|api[_ -]?key|password|credentials?|client_secret|secret)"
     assert not re.search(rf"(?im)^\s*\w*{credential}\w*\s*=", full_source)
     assert not re.search(rf"(?im)os\.environ(?:\.get)?\([^)]*{credential}", full_source)
-    assert not re.search(rf"(?im)[\"']{credential}[\"']\s*:", full_source)
+    assert not re.search(rf"(?im)os\.environ\[[^\]]*{credential}[^\]]*\]\s*=", full_source)
+    assert not re.search(rf"(?im)[\"']\w*{credential}\w*[\"']\s*:", full_source)
     assert "dashboard_api" not in full_source
     assert not re.search(r"(?i)\\Users\\|[A-Za-z]:[\\/]", full_source)
     for forbidden in ("PiastQClient", "IQMProvider(", "compute_bell_value_from_counts", "build_sampler_circuits", ".run("):
