@@ -84,6 +84,58 @@ def test_hardware_cells_are_false_by_default_and_separately_guarded():
         assert runner_backend(source(cell), runner[0]) == backend
 
 
+def test_canonical_baseline_configuration_and_empty_summary_are_semantically_complete():
+    namespace = setup_namespace(REPO_ROOT)
+    assert namespace["SHOTS"] == 20_480
+    assert namespace["UNCERTAINTY"].samples == 2_000
+    assert namespace["UNCERTAINTY"].seed == 7
+    assert namespace["HARDWARE_MITIGATION"].readout is True
+    assert namespace["HARDWARE_MITIGATION"].zne is True
+    assert namespace["HARDWARE_MITIGATION"].zne_factors == (1, 3, 5)
+
+    cells = [cell for cell in code_cells(load_notebook()) if named_calls(source(cell), "run_experiment")]
+    specs = {}
+    for cell in cells:
+        tree = ast.parse(source(cell))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+                if isinstance(node.value.func, ast.Name) and node.value.func.id == "ExperimentSpec":
+                    target = next(target for target in node.targets if isinstance(target, ast.Name))
+                    specs[target.id] = node.value
+
+    expected = {
+        "AER_SPEC": ("AerIdeal", {"seed_simulator": 11}, "aer_ideal", False),
+        "IQM_SPEC": ("IQMHardware", {"device": "garnet", "use_metrics": True}, "iqm_garnet", True),
+        "PIASTQ_SPEC": ("PiastQHardware", {"mode": "auto", "owner": "notebook"}, "piastq", True),
+    }
+    assert set(specs) == set(expected)
+    for name, (backend_name, backend_kwargs, backend_tag, needs_mitigation) in expected.items():
+        spec = specs[name]
+        keywords = {keyword.arg: keyword.value for keyword in spec.keywords}
+        assert ast.literal_eval(keywords["state"]) == "two_qutrit"
+        assert isinstance(keywords["basis"], ast.Call)
+        assert isinstance(keywords["basis"].func, ast.Name) and keywords["basis"].func.id == "PathBasis"
+        assert isinstance(keywords["basis"].args[0], ast.Name)
+        assert keywords["basis"].args[0].id == "CANONICAL_BASIS_DIRECTORY"
+        assert isinstance(keywords["shots"], ast.Name) and keywords["shots"].id == "SHOTS"
+        assert isinstance(keywords["uncertainty"], ast.Name) and keywords["uncertainty"].id == "UNCERTAINTY"
+        assert isinstance(keywords["backend"], ast.Call)
+        assert isinstance(keywords["backend"].func, ast.Name) and keywords["backend"].func.id == backend_name
+        assert {keyword.arg: ast.literal_eval(keyword.value) for keyword in keywords["backend"].keywords} == backend_kwargs
+        assert ast.literal_eval(keywords["tags"]) == {"baseline": "canonical_ez", "backend": backend_tag}
+        if needs_mitigation:
+            assert isinstance(keywords["mitigation"], ast.Name)
+            assert keywords["mitigation"].id == "HARDWARE_MITIGATION"
+        else:
+            assert "mitigation" not in keywords
+
+    summary = namespace["summarize_results"]({}, namespace["REFERENCE"])
+    assert [row["backend"] for row in summary] == ["aer_ideal", "iqm_garnet", "piastq"]
+    assert [row["status"] for row in summary] == ["not_run", "skipped", "skipped"]
+    for row in summary:
+        assert row["classical_bound"] == namespace["REFERENCE"].bell_functional.classical_bound
+        assert row["ideal_bell_value"] == namespace["REFERENCE"].expected.ideal_bell_value
+
 def test_notebook_has_no_secrets_user_paths_or_low_level_execution():
     notebook = load_notebook()
     full_source = "\n".join(source(cell) for cell in code_cells(notebook))
