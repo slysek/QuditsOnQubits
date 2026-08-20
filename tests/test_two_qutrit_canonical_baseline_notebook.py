@@ -161,3 +161,18 @@ def test_validate_canonical_basis_enforces_isometry_and_unmeasured_qpy(tmp_path)
     assert circuit.num_qubits == 4
     assert circuit.num_clbits == 0
     assert not any(instruction.operation.name == "measure" for instruction in circuit.data)
+
+def test_prepare_canonical_basis_cleans_staging_after_write_failure(tmp_path, monkeypatch):
+    namespace = setup_namespace(REPO_ROOT)
+
+    def fail_save(*args, **kwargs):
+        raise RuntimeError("simulated NPY failure")
+
+    monkeypatch.setattr(namespace["np"], "save", fail_save)
+    with pytest.raises(RuntimeError, match="simulated NPY failure"):
+        namespace["prepare_canonical_basis"](tmp_path)
+
+    final_directory = tmp_path / "experiment_inputs" / "reference_bases" / "two_qutrit" / "canonical_ez"
+    assert not final_directory.exists()
+    parent = final_directory.parent
+    assert not parent.exists() or not any(path.name.startswith(".canonical_ez.tmp-") for path in parent.iterdir())
