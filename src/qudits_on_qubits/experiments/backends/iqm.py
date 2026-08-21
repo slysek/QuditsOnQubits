@@ -173,17 +173,17 @@ class IQMAdapter(BaseBackendAdapter):
                     f"circuit requires {required} qubits but IQM backend provides {capacity} qubits"
                 )
 
-    def compile(self, circuits: Sequence[Any], config: TranspilationConfig) -> CompiledBatch:
-        batch = _validated_circuit_tuple(circuits)
-        if not isinstance(config, TranspilationConfig):
-            raise BackendCompatibilityError("compile requires TranspilationConfig")
+    def _run_pass_manager(
+        self,
+        circuits: tuple[Any, ...],
+        options: Mapping[str, Any],
+        *,
+        operation: str,
+    ) -> tuple[Any, ...]:
         backend = self._backend_instance()
-        options = dict(config.to_safe_dict())
-        if options["scheduling_method"] is None:
-            options["scheduling_method"] = EXACT_RZ_SCHEDULING_METHOD
         try:
             pass_manager = self._pass_manager_factory(backend, **options)
-            compiled = pass_manager.run(list(batch))
+            compiled = pass_manager.run(list(circuits))
         except (ImportError, ModuleNotFoundError) as error:
             raise OptionalDependencyError(
                 "IQM transpilation requires the IQM Qiskit adapter "
@@ -192,11 +192,54 @@ class IQMAdapter(BaseBackendAdapter):
         except Exception as error:
             identity = self.resolve()
             raise BackendCompatibilityError(
-                f"could not compile circuits for backend {identity.kind}:{identity.name} "
+                f"could not {operation} for backend {identity.kind}:{identity.name} "
                 f"({_exception_name(error)})"
             ) from None
-        compiled_batch = tuple(compiled) if isinstance(compiled, (list, tuple)) else (compiled,)
-        return CompiledBatch(compiled_batch, self.resolve(), {"transpilation": options})
+        return tuple(compiled) if isinstance(compiled, (list, tuple)) else (compiled,)
+
+    def compile(self, circuits: Sequence[Any], config: TranspilationConfig) -> CompiledBatch:
+        batch = _validated_circuit_tuple(circuits)
+        if not isinstance(config, TranspilationConfig):
+            raise BackendCompatibilityError("compile requires TranspilationConfig")
+        options = dict(config.to_safe_dict())
+        if options["scheduling_method"] is None:
+            options["scheduling_method"] = EXACT_RZ_SCHEDULING_METHOD
+        compiled = self._run_pass_manager(batch, options, operation="compile circuits")
+        return CompiledBatch(compiled, self.resolve(), {"transpilation": options})
+
+    def compile_physical(
+        self, circuits: Sequence[Any], config: TranspilationConfig
+    ) -> CompiledBatch:
+        """Compile single-qubit calibration circuits without changing targets."""
+
+        batch = _validated_circuit_tuple(circuits)
+        if not isinstance(config, TranspilationConfig):
+            raise BackendCompatibilityError(
+                "compile_physical requires TranspilationConfig"
+            )
+        widths = {_num_qubits(circuit) for circuit in batch}
+        if None in widths or len(widths) != 1:
+            raise BackendCompatibilityError(
+                "physical calibration circuits must have one common qubit width"
+            )
+        width = next(iter(widths))
+        assert width is not None
+        options = dict(config.to_safe_dict())
+        options["layout_method"] = None
+        options["routing_method"] = "none"
+        options["initial_layout"] = list(range(width))
+        if options["scheduling_method"] is None:
+            options["scheduling_method"] = EXACT_RZ_SCHEDULING_METHOD
+        compiled = self._run_pass_manager(
+            batch,
+            options,
+            operation="compile physical calibration circuits",
+        )
+        return CompiledBatch(
+            compiled,
+            self.resolve(),
+            {"transpilation": options, "physical_layout": True},
+        )
 
     def submit(
         self,

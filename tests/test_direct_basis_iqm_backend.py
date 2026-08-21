@@ -169,6 +169,33 @@ class IqmBackendAdapterTests(unittest.TestCase):
         self.assertIn("cz", json.loads(metadata["backend_operation_names"]))
         self.assertGreater(metadata["backend_coupling_map_size"], 0)
 
+    @patch(
+        "qudits_on_qubits.benchmarks.direct_basis.iqm_backend.generate_preset_pass_manager"
+    )
+    def test_build_iqm_pass_manager_forwards_initial_layout(self, generate):
+        sentinel = object()
+        generate.return_value = sentinel
+        backend = object()
+
+        returned = build_iqm_pass_manager(
+            backend,
+            optimization_level=2,
+            seed_transpiler=7,
+            layout_method=None,
+            routing_method="none",
+            initial_layout=[0, 1, 2],
+        )
+
+        self.assertIs(returned, sentinel)
+        generate.assert_called_once_with(
+            backend=backend,
+            optimization_level=2,
+            seed_transpiler=7,
+            routing_method="none",
+            scheduling_method=EXACT_RZ_SCHEDULING_METHOD,
+            initial_layout=[0, 1, 2],
+        )
+
     def test_build_iqm_pass_manager_uses_backend_plugins(self):
         backend = _fake_garnet()
         circuit = QuantumCircuit(3)

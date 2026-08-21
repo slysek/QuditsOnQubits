@@ -700,28 +700,71 @@ def _calibration_id(identity: BackendIdentity) -> str:
     return identity.version or identity.name
 
 
-def _physical_qubit_mapping(circuits: Sequence[QuantumCircuit]) -> tuple[int, ...]:
-    expected: tuple[int, ...] | None = None
+def _physical_qubit_mappings(
+    circuits: Sequence[QuantumCircuit],
+) -> tuple[tuple[int, ...], ...]:
+    mappings: list[tuple[int, ...]] = []
     for circuit in circuits:
         measured: dict[int, int] = {}
         for instruction in circuit.data:
-            if instruction.operation.name != "measure" or len(instruction.qubits) != 1 or len(instruction.clbits) != 1:
+            if (
+                instruction.operation.name != "measure"
+                or len(instruction.qubits) != 1
+                or len(instruction.clbits) != 1
+            ):
                 continue
             classical = circuit.find_bit(instruction.clbits[0]).index
             physical = circuit.find_bit(instruction.qubits[0]).index
             measured[classical] = physical
         if not measured or tuple(sorted(measured)) != tuple(range(len(measured))):
-            raise BackendCompatibilityError("compiled measurements require contiguous classical-bit mapping")
+            raise BackendCompatibilityError(
+                "compiled measurements require contiguous classical-bit mapping"
+            )
         mapping = tuple(measured[index] for index in range(len(measured)))
         if len(set(mapping)) != len(mapping):
-            raise BackendCompatibilityError("compiled measurement maps multiple bits to one physical qubit")
-        if expected is None:
-            expected = mapping
-        elif mapping != expected:
-            raise BackendCompatibilityError("compiled measurement circuits have inconsistent physical mapping")
-    if expected is None:
-        raise BackendCompatibilityError("compiled measurement circuits contain no measurements")
-    return expected
+            raise BackendCompatibilityError(
+                "compiled measurement maps multiple bits to one physical qubit"
+            )
+        mappings.append(mapping)
+    if not mappings:
+        raise BackendCompatibilityError(
+            "compiled measurement circuits contain no measurements"
+        )
+    return tuple(mappings)
+
+
+def _physical_qubit_union(
+    mappings: Sequence[Sequence[int]],
+) -> tuple[int, ...]:
+    return tuple(
+        dict.fromkeys(
+            physical
+            for mapping in mappings
+            for physical in mapping
+        )
+    )
+
+
+def _validate_physical_calibration_compile(
+    source: Sequence[QuantumCircuit],
+    compiled: Sequence[QuantumCircuit],
+) -> None:
+    if len(compiled) != len(source):
+        raise BackendCompatibilityError(
+            "compiled readout calibration circuit count does not match source"
+        )
+    for source_circuit, compiled_circuit in zip(source, compiled, strict=True):
+        metadata = source_circuit.metadata or {}
+        expected = metadata.get("physical_qubit")
+        if type(expected) is not int or expected < 0:
+            raise BackendCompatibilityError(
+                "readout calibration source physical qubit is invalid"
+            )
+        actual = _physical_qubit_mappings((compiled_circuit,))[0]
+        if actual != (expected,):
+            raise BackendCompatibilityError(
+                "compiled readout calibration circuit changed its physical qubit"
+            )
 
 
 def _calibration_from_safe_dict(data: Mapping[str, Any]) -> ReadoutCalibration:
@@ -766,7 +809,8 @@ def _obtain_calibration(
     sleep: Callable[[float], None],
     clock: Callable[[], datetime],
 ) -> ReadoutCalibration:
-    mapping = _physical_qubit_mapping(compiled_circuits)
+    mappings = _physical_qubit_mappings(compiled_circuits)
+    mapping = _physical_qubit_union(mappings)
     now = clock()
     identity_key = _identity_key(identity)
     calibration_id = _calibration_id(identity)
@@ -786,14 +830,23 @@ def _obtain_calibration(
             "evidence_sha256": _sha256(path),
             "status": "reused",
             "qubit_mapping": list(mapping),
+            "mapping_by_circuit_index": [list(item) for item in mappings],
         }
         _write_state(store, run, document)
         return reusable
 
     source = build_readout_calibration_circuits(mapping)
-    compiled = adapter.compile(source, spec.transpilation)
+    compile_physical = getattr(adapter, "compile_physical", None)
+    compiled = (
+        compile_physical(source, spec.transpilation)
+        if callable(compile_physical)
+        else adapter.compile(source, spec.transpilation)
+    )
     if not isinstance(compiled, CompiledBatch) or compiled.target_identity != identity:
-        raise BackendCompatibilityError("readout calibration compile target does not match backend")
+        raise BackendCompatibilityError(
+            "readout calibration compile target does not match backend"
+        )
+    _validate_physical_calibration_compile(source, compiled.circuits)
     filename = "readout-calibration-circuits.qpy"
     digest = store.write_circuits(run, compiled.circuits, filename)
     document["calibration"] = {
@@ -803,6 +856,7 @@ def _obtain_calibration(
         "evidence_sha256": None,
         "status": "compiled",
         "qubit_mapping": list(mapping),
+        "mapping_by_circuit_index": [list(item) for item in mappings],
         "circuit_count": len(compiled.circuits),
         "shots": spec.shots,
     }
@@ -888,6 +942,46 @@ def _obtain_calibration(
     return calibration
 
 
+def _persisted_physical_qubit_mappings(
+    document: Mapping[str, Any],
+    calibration: ReadoutCalibration | None,
+    setting_count: int,
+) -> tuple[tuple[int, ...], ...] | None:
+    if calibration is None:
+        return None
+    record = document.get("calibration")
+    if not isinstance(record, Mapping):
+        raise ExperimentPersistenceError("readout calibration manifest is missing")
+    persisted = record.get("mapping_by_circuit_index")
+    if persisted is None:
+        return (calibration.qubit_mapping,) * setting_count
+    if not isinstance(persisted, Sequence) or isinstance(persisted, (str, bytes)):
+        raise ExperimentPersistenceError(
+            "readout physical mapping manifest is invalid"
+        )
+    try:
+        mappings = tuple(tuple(mapping) for mapping in persisted)
+    except TypeError:
+        raise ExperimentPersistenceError(
+            "readout physical mapping manifest is invalid"
+        ) from None
+    calibrated = set(calibration.qubit_mapping)
+    if (
+        len(mappings) != setting_count
+        or any(
+            not mapping
+            or any(type(qubit) is not int or qubit < 0 for qubit in mapping)
+            or len(set(mapping)) != len(mapping)
+            or not set(mapping).issubset(calibrated)
+            for mapping in mappings
+        )
+    ):
+        raise ExperimentPersistenceError(
+            "readout physical mapping manifest is invalid"
+        )
+    return mappings
+
+
 def _postprocess(
     spec: ExperimentSpec,
     factors: Sequence[int],
@@ -910,6 +1004,9 @@ def _postprocess(
         qutrit_bit_indices_by_setting=metadata["qutrit_bit_indices_by_setting"],
         decoding_kwargs=metadata["decoding_kwargs"],
         readout_calibration=calibration,
+        physical_qubit_mappings=_persisted_physical_qubit_mappings(
+            document, calibration, len(metadata["setting_by_circuit_index"])
+        ),
     )
     result = bootstrap_bell_results(
         inputs,

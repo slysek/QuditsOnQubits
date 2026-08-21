@@ -188,6 +188,61 @@ def test_apply_readout_mitigation_preserves_setting_order_mapping_and_signed_flo
     assert fake.calls == [(counts["setting-b"], (2, 0)), (counts["setting-a"], (2, 0))]
 
 
+def test_apply_readout_mitigation_uses_physical_mapping_for_each_setting() -> None:
+    fake = _FakeMitigation(outputs=[{"0000": 1.0}, {"0000": 1.0}])
+    counts = {"setting-a": {"0000": 10}, "setting-b": {"0000": 10}}
+    mappings = {
+        "setting-a": (10, 15, 16, 11),
+        "setting-b": (15, 16, 11, 10),
+    }
+
+    corrected = apply_readout_mitigation(
+        counts, mapping_by_setting=mappings, mitigation=fake
+    )
+
+    assert list(corrected) == ["setting-a", "setting-b"]
+    assert fake.calls == [
+        (counts["setting-a"], mappings["setting-a"]),
+        (counts["setting-b"], mappings["setting-b"]),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("mapping", "mapping_by_setting"),
+    [(None, None), ((0,), {"setting": (0,)})],
+)
+def test_apply_readout_mitigation_requires_exactly_one_mapping_mode(
+    mapping: tuple[int, ...] | None,
+    mapping_by_setting: dict[str, tuple[int, ...]] | None,
+) -> None:
+    with pytest.raises(ExperimentValidationError, match="exactly one"):
+        apply_readout_mitigation(
+            {"setting": {"0": 1}},
+            mapping=mapping,
+            mapping_by_setting=mapping_by_setting,
+            mitigation=_FakeMitigation([{"0": 1.0}]),
+        )
+
+
+@pytest.mark.parametrize(
+    "mapping_by_setting",
+    [
+        {"setting-a": (0,), "extra": (1,)},
+        {"setting-b": (1,), "setting-a": (0,)},
+    ],
+)
+def test_apply_readout_mitigation_requires_mapping_keys_in_setting_order(
+    mapping_by_setting: dict[str, tuple[int, ...]],
+) -> None:
+    counts = {"setting-a": {"0": 1}, "setting-b": {"0": 1}}
+
+    with pytest.raises(ExperimentValidationError, match="same keys and order"):
+        apply_readout_mitigation(
+            counts,
+            mapping_by_setting=mapping_by_setting,
+            mitigation=_FakeMitigation([{"0": 1.0}, {"0": 1.0}]),
+        )
+
 @pytest.mark.parametrize(
     ("counts", "mapping"),
     [

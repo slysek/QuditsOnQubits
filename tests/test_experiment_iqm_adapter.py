@@ -112,6 +112,45 @@ def test_iqm_reuses_one_backend_for_resolve_compile_and_submit():
     assert submitted.target_identity is identity
 
 
+def test_iqm_compile_physical_pins_identity_layout_and_disables_routing():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    seen = {}
+
+    class PassManager:
+        def run(self, circuits):
+            return circuits
+
+    def pass_manager_factory(backend, **options):
+        seen.update(backend=backend, options=options)
+        return PassManager()
+
+    source = (SimpleNamespace(num_qubits=17), SimpleNamespace(num_qubits=17))
+    backend = _Backend()
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=backend,
+        pass_manager_factory=pass_manager_factory,
+    )
+
+    compiled = adapter.compile_physical(
+        source,
+        TranspilationConfig(
+            optimization_level=2,
+            seed_transpiler=7,
+            layout_method="dense",
+            routing_method="sabre",
+            scheduling_method=None,
+        ),
+    )
+
+    assert compiled.circuits == source
+    assert seen["options"]["initial_layout"] == list(range(17))
+    assert seen["options"]["layout_method"] is None
+    assert seen["options"]["routing_method"] == "none"
+    assert seen["options"]["scheduling_method"] == "move_routing_exact_global_phase"
+
+
 def test_iqm_default_compile_preserves_exact_rz_scheduling():
     from qudits_on_qubits.experiments.backends import IQMAdapter
 
