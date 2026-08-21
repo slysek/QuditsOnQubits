@@ -278,17 +278,26 @@ def _plain_finite_quasi(output: object, expected_bits: int) -> dict[str, float]:
         if isinstance(weight, bool) or not isinstance(weight, Real) or not math.isfinite(weight):
             raise ExperimentValidationError("corrected weights must be finite real values")
         normalized[bitstring] = float(weight)
-    total = sum(normalized.values())
+    total = math.fsum(normalized.values())
+    source_precision = 0.0
+    for weight in output.values():
+        dtype = np.asarray(weight).dtype
+        if np.issubdtype(dtype, np.floating):
+            source_precision = max(source_precision, float(np.finfo(dtype).eps))
+    tolerance = max(
+        _QUASI_TOTAL_TOLERANCE,
+        len(normalized) * source_precision,
+    )
     if not math.isfinite(total) or not math.isclose(
         total,
         1.0,
-        rel_tol=_QUASI_TOTAL_TOLERANCE,
-        abs_tol=_QUASI_TOTAL_TOLERANCE,
+        rel_tol=tolerance,
+        abs_tol=tolerance,
     ):
         raise ExperimentValidationError(
-            "corrected weights must sum to 1 within absolute and relative tolerance 1e-8"
+            "corrected weights must sum to 1 within source numeric precision"
         )
-    return normalized
+    return {outcome: weight / total for outcome, weight in normalized.items()}
 
 
 def _physical_qubits(

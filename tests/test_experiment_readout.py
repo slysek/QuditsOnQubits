@@ -188,6 +188,19 @@ def test_apply_readout_mitigation_preserves_setting_order_mapping_and_signed_flo
     assert fake.calls == [(counts["setting-b"], (2, 0)), (counts["setting-a"], (2, 0))]
 
 
+def test_apply_readout_mitigation_normalizes_float32_roundoff() -> None:
+    quasi = {format(index, "04b"): np.float32(0.1) for index in range(10)}
+    assert abs(sum(float(weight) for weight in quasi.values()) - 1.0) > 1e-8
+    fake = _FakeMitigation(outputs=[quasi])
+
+    corrected = apply_readout_mitigation(
+        {"setting": {"0000": 10}}, mapping=(0, 1, 2, 3), mitigation=fake
+    )
+
+    assert math.fsum(corrected["setting"].values()) == pytest.approx(1.0, abs=1e-15)
+    assert all(type(weight) is float for weight in corrected["setting"].values())
+
+
 def test_apply_readout_mitigation_uses_physical_mapping_for_each_setting() -> None:
     fake = _FakeMitigation(outputs=[{"0000": 1.0}, {"0000": 1.0}])
     counts = {"setting-a": {"0000": 10}, "setting-b": {"0000": 10}}
