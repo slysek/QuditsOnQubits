@@ -19,6 +19,14 @@ def _operation_names(circuit: QuantumCircuit) -> list[str]:
     return [instruction.operation.name for instruction in circuit.data]
 
 
+def _operation_loci(circuit: QuantumCircuit, operation_name: str) -> list[tuple[int, ...]]:
+    return [
+        tuple(circuit.find_bit(bit).index for bit in instruction.qubits)
+        for instruction in circuit.data
+        if instruction.operation.name == operation_name
+    ]
+
+
 def test_validate_zne_factors_normalizes_to_deterministic_order() -> None:
     assert validate_zne_factors([5, 1, 3]) == (1, 3, 5)
 
@@ -80,6 +88,31 @@ def test_fold_cz_batch_preserves_transpiler_layout_when_present() -> None:
     [folded] = fold_cz_batch([laid_out], 3)
 
     assert folded.layout == laid_out.layout
+
+
+def test_fold_cz_batch_preserves_iqm_physical_cz_loci() -> None:
+    fake_garnet = pytest.importorskip("iqm.qiskit_iqm.fake_backends.fake_garnet")
+    from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import (
+        build_iqm_pass_manager,
+    )
+
+    source = QuantumCircuit(4, 4)
+    source.h(range(4))
+    source.cz(0, 1)
+    source.cz(2, 3)
+    source.h([1, 3])
+    source.measure(range(4), range(4))
+    compiled = build_iqm_pass_manager(
+        fake_garnet.IQMFakeGarnet(), optimization_level=3
+    ).run(source)
+    source_loci = _operation_loci(compiled, "cz")
+    assert source_loci
+
+    [folded] = fold_cz_batch([compiled], 3)
+
+    assert _operation_loci(folded, "cz") == [
+        locus for locus in source_loci for _ in range(3)
+    ]
 
 
 @pytest.mark.parametrize("factor", [0, -1, 2, True, 1.0])

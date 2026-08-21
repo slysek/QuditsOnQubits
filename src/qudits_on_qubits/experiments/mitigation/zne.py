@@ -107,10 +107,12 @@ def fold_cz_batch(
             continue
 
         folded = _empty_structural_copy(circuit)
+        qubit_map = dict(zip(circuit.qubits, folded.qubits, strict=True))
+        clbit_map = dict(zip(circuit.clbits, folded.clbits, strict=True))
         for instruction in circuit.data:
             operation = instruction.operation
-            qargs = tuple(folded.qubits[circuit.find_bit(bit).index] for bit in instruction.qubits)
-            cargs = tuple(folded.clbits[circuit.find_bit(bit).index] for bit in instruction.clbits)
+            qargs = tuple(qubit_map[bit] for bit in instruction.qubits)
+            cargs = tuple(clbit_map[bit] for bit in instruction.clbits)
             repetitions = fold_factor if operation.name == "cz" else 1
             for _ in range(repetitions):
                 folded.append(operation.copy(), qargs, cargs, copy=False)
