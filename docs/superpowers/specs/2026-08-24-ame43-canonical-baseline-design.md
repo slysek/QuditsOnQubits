@@ -43,6 +43,12 @@ Run All always executes Aer. Hardware cells are separate and guarded by `RUN_IQM
 
 The summary reports `aer_ideal`, `iqm_garnet`, and `piastq` in fixed order. Missing hardware results remain explicit `skipped` rows. Completed rows expose runner-produced raw, readout-mitigated, ZNE, combined mitigation, diagnostics, leakage, reference bounds, and artifact directories without recomputation.
 
+## Runner party mapping
+
+The canonical encoded statevector uses logical parties in left-to-right tensor order, while Qiskit numbers qubits little-endian. Measurement preparation must therefore map party 0 to the highest-index two-qubit block and the final party to the lowest-index block. For AME(4,3), the required party-ordered pairs are `((6, 7), (4, 5), (2, 3), (0, 1))`.
+
+The existing ascending mapping measures asymmetric AME(4,3) observables on the wrong parties: a deterministic 64-shot Aer runner reproduction returns `0.3730510383608098` instead of `8.0`. Supplying the reversed party mapping to the same measurement pipeline returns `8.007223315710362` at 4096 shots. Fix `prepare_measurements` at the shared runner boundary and add regression coverage. This preserves the canonical QPY state and avoids notebook-specific execution logic.
+
 ## Error handling
 
 Input validation fails with actionable `RuntimeError` messages for unavailable directories, unexpected files, malformed NPY/QPY/JSON data, incorrect circuit width, non-isometric encoding, state mismatch, or metadata mismatch. Hardware errors remain handled and persisted by the existing experiment runner.
@@ -58,6 +64,7 @@ Dedicated tests verify:
 - summary content and explicit skip behavior;
 - absence of secrets, user paths, low-level execution, and provider clients;
 - repository-root discovery from repository and notebook directories;
+- shared preparation maps parties to reversed two-qubit blocks, including `((6, 7), (4, 5), (2, 3), (0, 1))` for AME(4,3);
 - exact, idempotent bundle creation and staging cleanup;
 - rejection of corrupt metadata and invalid canonical content;
 - an Aer integration run returns a completed AME(4,3) result near ideal Bell value `8.0` and writes artifacts.
@@ -68,6 +75,7 @@ Verification runs the dedicated tests, relevant experiment/reference regressions
 
 - Refactoring the existing two-qutrit notebook into shared helpers.
 - Modifying the existing two-qutrit notebook or its pending changes.
+- Changing canonical graph-state generation or permuting the stored AME(4,3) state to compensate for measurement mapping.
 - Benchmark-rank selection or replacing canonical encoding with a selected-best encoding.
 - PiastQ hardware submission.
 - Embedding credentials or provider configuration.
