@@ -97,9 +97,10 @@ After local tests pass, verification may run one connected IQM Garnet smoke expe
 
 - the materialized GHZ3 `canonical_ez` basis;
 - `IQMHardware(device="garnet", use_metrics=True)`;
-- `shots=50`;
+- `shots=50` per submitted circuit;
 - minimal uncertainty work suitable for smoke verification;
-- no readout mitigation or ZNE, to keep hardware usage bounded;
+- `MitigationConfig(readout=True, zne=True, zne_factors=(1, 3, 5))`;
+- the full runner-managed readout-calibration and ZNE flow;
 - provider/environment credentials only, never credentials stored in the repository.
 
 The connected run is conditional on an available IQM provider configuration. Its job identifier, final status, artifact directory, and shortest decisive failure message are reported. It is not a deterministic unit test and is not required in offline CI.
@@ -109,6 +110,5 @@ The focused notebook test must demonstrate RED because the notebook is absent, t
 ## Out of scope
 
 - PiastQ execution;
-- readout mitigation or ZNE;
 - selected-best/ranked encoding bases;
 - changes to existing two-qutrit notebook or experiment-runner behavior.
