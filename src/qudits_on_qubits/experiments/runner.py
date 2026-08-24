@@ -14,6 +14,7 @@ import hashlib
 import importlib.util
 import math
 from pathlib import Path
+import re
 import time
 from typing import Any
 
@@ -64,6 +65,16 @@ from .safety import (
 )
 from .store import ExperimentStore
 from .uncertainty import BootstrapInputs, bootstrap_bell_results
+
+
+_PROVIDER_EXCEPTION_TYPE = re.compile(r"[A-Za-z_][A-Za-z0-9_.]{0,127}")
+
+
+def _safe_provider_exception_type(error: BaseException) -> str | None:
+    value = getattr(error, "provider_exception_type", None)
+    if isinstance(value, str) and _PROVIDER_EXCEPTION_TYPE.fullmatch(value):
+        return value
+    return None
 
 
 def _utc_now() -> datetime:
@@ -531,6 +542,7 @@ def _submit_once(
     try:
         submitted = adapter.submit(circuits, shots, run_options)
     except BaseException as error:
+        provider_exception_type = _safe_provider_exception_type(error)
         document["failure"] = {
             "stage": "submission",
             "exception_type": type(error).__name__,
@@ -538,6 +550,8 @@ def _submit_once(
             "attempt": 1,
             "timestamp": _timestamp(clock),
         }
+        if provider_exception_type is not None:
+            document["failure"]["provider_exception_type"] = provider_exception_type
         if pessimistic_checkpoint:
             document["timestamps"]["updated"] = document["failure"]["timestamp"]
             _write_state(store, run, document)
@@ -549,7 +563,10 @@ def _submit_once(
             pass
         if isinstance(error, (KeyboardInterrupt, SystemExit)):
             raise
-        sanitized = JobSubmissionError(f"job submission failed ({type(error).__name__})")
+        detail = type(error).__name__
+        if provider_exception_type is not None:
+            detail = f"{detail}; provider exception: {provider_exception_type}"
+        sanitized = JobSubmissionError(f"job submission failed ({detail})")
         setattr(sanitized, "__qoq_artifact_dir__", run)
         raise sanitized from None
     if not isinstance(submitted, SubmittedJob):

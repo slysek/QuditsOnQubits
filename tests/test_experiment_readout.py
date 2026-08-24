@@ -188,6 +188,16 @@ def test_apply_readout_mitigation_preserves_setting_order_mapping_and_signed_flo
     assert fake.calls == [(counts["setting-b"], (2, 0)), (counts["setting-a"], (2, 0))]
 
 
+def test_apply_readout_mitigation_accepts_float32_normalization_roundoff() -> None:
+    fake = _FakeMitigation(outputs=[{"0": np.float32(0.99999994)}])
+
+    corrected = apply_readout_mitigation(
+        {"setting": {"0": 10}}, mapping=(0,), mitigation=fake
+    )
+
+    assert corrected == {"setting": {"0": float(np.float32(0.99999994))}}
+
+
 def test_apply_readout_mitigation_uses_physical_mapping_for_each_setting() -> None:
     fake = _FakeMitigation(outputs=[{"0000": 1.0}, {"0000": 1.0}])
     counts = {"setting-a": {"0000": 10}, "setting-b": {"0000": 10}}

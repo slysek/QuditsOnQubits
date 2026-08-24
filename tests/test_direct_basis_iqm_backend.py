@@ -28,6 +28,7 @@ from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import (
     load_iqm_environment,
     safe_backend_slug,
 )
+from qudits_on_qubits.experiments.mitigation import fold_cz_batch
 
 
 def _fake_garnet():
@@ -237,6 +238,51 @@ class IqmBackendAdapterTests(unittest.TestCase):
 
         self.assertIsNotNone(fidelity, notes)
         self.assertGreater(float(fidelity), 0.999999)
+
+    def test_canonical_two_qutrit_state_compiles_with_small_cz_budget(self):
+        backend = _fake_garnet()
+        circuit = build_direct_basis_graph_state_circuit(
+            "two_qutrit",
+            np.eye(3, dtype=complex),
+            n_qutrits=2,
+        )
+
+        transpiled = build_iqm_pass_manager(
+            backend,
+            optimization_level=3,
+            seed_transpiler=0,
+            layout_method=None,
+            routing_method=None,
+        ).run(circuit)
+
+        self.assertLessEqual(transpiled.count_ops().get("cz", 0), 20)
+
+    def test_zne_folding_preserves_iqm_physical_cz_loci(self):
+        backend = _fake_garnet()
+        circuit = build_direct_basis_graph_state_circuit(
+            "two_qutrit",
+            np.eye(3, dtype=complex),
+            n_qutrits=2,
+        )
+        transpiled = build_iqm_pass_manager(
+            backend,
+            optimization_level=3,
+            seed_transpiler=0,
+            layout_method=None,
+            routing_method=None,
+        ).run(circuit)
+
+        [folded] = fold_cz_batch([transpiled], 3)
+
+        def cz_loci(candidate):
+            return [
+                tuple(candidate.find_bit(qubit).index for qubit in instruction.qubits)
+                for instruction in candidate.data
+                if instruction.operation.name == "cz"
+            ]
+
+        expected = [locus for locus in cz_loci(transpiled) for _ in range(3)]
+        self.assertEqual(cz_loci(folded), expected)
 
 
 if __name__ == "__main__":

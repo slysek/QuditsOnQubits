@@ -174,6 +174,7 @@ def test_submit_wraps_backend_exception_without_leaking_options():
     adapter = CustomBackendAdapter(_custom_backend(FailingBackend(), identity="safe-name"))
     with pytest.raises(JobSubmissionError, match="safe-name") as caught:
         adapter.submit(_compiled(adapter, 1).circuits, 10, {"api_key": "secret"})
+    assert caught.value.provider_exception_type == "RuntimeError"
     _assert_sanitized_error(caught, sensitive_text)
 
 

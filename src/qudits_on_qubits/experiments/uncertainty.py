@@ -21,6 +21,7 @@ from .mitigation import (
     linear_zne_extrapolate,
     validate_zne_factors,
 )
+from .mitigation.readout import _QUASI_TOTAL_TOLERANCE
 from .models import (
     BellEstimate,
     BootstrapConfig,
@@ -442,7 +443,10 @@ def _correct_counts(
                     raise ValueError
                 normalized_weights[outcome] = float(weight)
             if not math.isclose(
-                sum(normalized_weights.values()), 1.0, rel_tol=1e-8, abs_tol=1e-8
+                sum(normalized_weights.values()),
+                1.0,
+                rel_tol=_QUASI_TOTAL_TOLERANCE,
+                abs_tol=_QUASI_TOTAL_TOLERANCE,
             ):
                 raise ValueError
             normalized[setting] = normalized_weights
