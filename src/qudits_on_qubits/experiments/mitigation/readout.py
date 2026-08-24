@@ -72,11 +72,21 @@ def _validated_calibration_counts(
 
 def build_readout_calibration_circuits(
     qubit_mapping: Sequence[int],
+    *,
+    circuit_width: int | None = None,
 ) -> tuple[QuantumCircuit, ...]:
     """Build prepare-0 then prepare-1 evidence circuits in mapping order."""
 
     qubits = _validate_qubit_mapping(qubit_mapping)
-    width = max(qubits) + 1
+    minimum_width = max(qubits) + 1
+    if circuit_width is None:
+        width = minimum_width
+    elif type(circuit_width) is not int or circuit_width < minimum_width:
+        raise ExperimentValidationError(
+            "calibration circuit width must include every mapped qubit"
+        )
+    else:
+        width = circuit_width
     circuits: list[QuantumCircuit] = []
     for qubit in qubits:
         for prepared_state in (0, 1):
