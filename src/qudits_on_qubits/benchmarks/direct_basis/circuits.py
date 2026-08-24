@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 from qiskit.circuit import QuantumCircuit
-from qiskit.circuit.library import StatePreparation, UnitaryGate
+from qiskit.circuit.library import DiagonalGate, StatePreparation, UnitaryGate
 
 from qudits_on_qubits.benchmarks.direct_basis.math_utils import (
     local_plus_state_in_direct_basis,
@@ -24,9 +24,14 @@ def build_direct_basis_local_preparation(encoding: np.ndarray) -> StatePreparati
     return StatePreparation(local_state, label="plus_W")
 
 
-def build_direct_basis_edge_gate(encoding: np.ndarray) -> UnitaryGate:
+def build_direct_basis_edge_gate(encoding: np.ndarray) -> DiagonalGate | UnitaryGate:
     """Build the four-qubit encoded qutrit CZ gate."""
     embedded = physical_two_qutrit_gate_in_encoding(qutrit_cz(), encoding)
+    diagonal = np.diag(embedded)
+    if np.array_equal(embedded, np.diag(diagonal)):
+        gate = DiagonalGate(diagonal)
+        gate.label = "CZ_W"
+        return gate
     gate = UnitaryGate(embedded, label="CZ_W")
     gate.name = "CZ_W"
     return gate

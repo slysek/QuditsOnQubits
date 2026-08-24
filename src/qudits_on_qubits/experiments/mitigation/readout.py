@@ -19,7 +19,7 @@ from .base import ReadoutMitigationStrategy
 
 
 _CREDENTIAL_MARKERS = ("token=", "api_key=", "password=", "secret=")
-_QUASI_TOTAL_TOLERANCE = 1e-8
+_QUASI_TOTAL_TOLERANCE = 1e-6
 
 
 def _safe_identity(value: object, field_name: str) -> str:
@@ -286,7 +286,7 @@ def _plain_finite_quasi(output: object, expected_bits: int) -> dict[str, float]:
         abs_tol=_QUASI_TOTAL_TOLERANCE,
     ):
         raise ExperimentValidationError(
-            "corrected weights must sum to 1 within absolute and relative tolerance 1e-8"
+            "corrected weights must sum to 1 within absolute and relative tolerance 1e-6"
         )
     return normalized
 

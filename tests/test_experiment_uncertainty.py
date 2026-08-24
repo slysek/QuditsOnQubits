@@ -579,6 +579,31 @@ def test_signed_corrected_quasi_counts_are_passed_to_bell_evaluator_unchanged() 
     assert any(seen_negative)
 
 
+def test_float32_readout_normalization_roundoff_is_accepted() -> None:
+    class Float32Readout(_RecordingReadout):
+        def apply(
+            self, counts_by_setting: Mapping[object, Mapping[str, int]], context: object
+        ) -> Mapping[object, Mapping[str, float]]:
+            return {
+                setting: {"0": np.float32(0.99999994)}
+                for setting in counts_by_setting
+            }
+
+    result = bootstrap_bell_results(
+        BootstrapInputs(
+            counts_by_factor={1: {"setting": {"0": 10}}},
+            terms=(),
+            qutrit_bit_indices_by_setting={},
+            readout_calibration=_calibration(),
+        ),
+        BootstrapConfig(samples=2, seed=2, include_readout_calibration=False),
+        readout_strategy=Float32Readout(),
+        _evaluator=_single_probability,
+    )
+
+    assert result.readout_mitigated is not None
+
+
 @pytest.mark.parametrize("method", ["build", "resample", "apply"])
 def test_readout_strategy_failures_are_typed_and_sanitized(method: str) -> None:
     class FailingReadout(_RecordingReadout):

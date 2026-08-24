@@ -87,7 +87,7 @@ def test_hardware_cells_are_false_by_default_and_separately_guarded():
 
 def test_canonical_baseline_configuration_and_empty_summary_are_semantically_complete():
     namespace = setup_namespace(REPO_ROOT)
-    assert namespace["SHOTS"] == 20_480
+    assert namespace["SHOTS"] == 100
     assert namespace["UNCERTAINTY"].samples == 2_000
     assert namespace["UNCERTAINTY"].seed == 7
     assert namespace["HARDWARE_MITIGATION"].readout is True

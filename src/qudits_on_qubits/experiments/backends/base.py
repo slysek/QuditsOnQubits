@@ -359,10 +359,12 @@ class BaseBackendAdapter(ABC):
             handle = backend.run(batch, shots=shots, **run_options)
         except Exception as error:
             identity = self.resolve()
-            raise JobSubmissionError(
+            sanitized = JobSubmissionError(
                 f"backend {identity.kind}:{identity.name} rejected job submission "
                 f"({_exception_name(error)})"
-            ) from None
+            )
+            sanitized.provider_exception_type = _exception_name(error)
+            raise sanitized from None
         try:
             job_id = _extract_job_id(handle, allow_local_fallback=self.capabilities().local)
         except ExperimentValidationError as error:

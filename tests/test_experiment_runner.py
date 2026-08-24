@@ -237,6 +237,38 @@ def test_ambiguous_submission_is_never_retried_and_persists_sanitized_unknown(
     assert "RuntimeError" in rendered
 
 
+def test_submission_error_preserves_only_safe_provider_exception_type(
+    tmp_path, prepared_run
+):
+    from qudits_on_qubits.experiments.runner import run_experiment
+
+    sensitive_text = "token=do-not-leak"
+
+    class ProviderRejectingAdapter(RecordingAdapter):
+        def submit(self, circuits, shots, options=None):
+            error = JobSubmissionError(sensitive_text)
+            error.provider_exception_type = "HTTPError"
+            raise error
+
+    with pytest.raises(JobSubmissionError) as caught:
+        run_experiment(
+            make_spec(tmp_path),
+            adapter=ProviderRejectingAdapter(),
+            _sleep=lambda _delay: None,
+            _evaluator=lambda _counts: 1 + 0j,
+        )
+    document = __import__("json").loads(
+        (caught.value.__qoq_artifact_dir__ / "experiment.json").read_text(encoding="utf-8")
+    )
+    rendered = "".join(traceback.format_exception(caught.type, caught.value, caught.tb))
+
+    assert document["failure"]["exception_type"] == "JobSubmissionError"
+    assert document["failure"]["provider_exception_type"] == "HTTPError"
+    assert "provider exception: HTTPError" in rendered
+    assert sensitive_text not in rendered
+    assert sensitive_text not in str(document)
+
+
 def test_result_retries_use_same_submitted_job_and_exact_exponential_delays(
     tmp_path, prepared_run
 ):
