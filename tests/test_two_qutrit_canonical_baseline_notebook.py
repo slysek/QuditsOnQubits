@@ -2,11 +2,15 @@ import ast
 import json
 import os
 import re
+import stat
 import sys
 from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
+from qiskit.circuit import CircuitInstruction
+from qiskit.circuit.library import DiagonalGate, UnitaryGate
+from qiskit.quantum_info import Operator
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "src"
@@ -206,6 +210,29 @@ def sha256_file(path):
     return __import__("hashlib").sha256(path.read_bytes()).hexdigest()
 
 
+def replace_edge_with_legacy_unitary(namespace, target):
+    circuit_path = target / "graph_state_direct_basis.qpy"
+    circuit = namespace["load_single_circuit"](circuit_path)
+    edge = circuit.data[-1]
+    assert isinstance(edge.operation, DiagonalGate)
+    circuit.data[-1] = CircuitInstruction(
+        UnitaryGate(Operator(edge.operation).data, label="CZ_W"),
+        edge.qubits,
+        edge.clbits,
+    )
+    with circuit_path.open("wb") as handle:
+        namespace["qpy"].dump(circuit, handle)
+
+    metadata_path = target / "metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["files"]["graph_state_direct_basis.qpy"]["sha256"] = sha256_file(
+        circuit_path
+    )
+    metadata_path.write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
 @pytest.mark.parametrize("cwd", [REPO_ROOT, NOTEBOOK_PATH.parent])
 def test_setup_discovers_repo_root_from_root_and_notebook_directory(monkeypatch, tmp_path, cwd):
     monkeypatch.chdir(tmp_path)
@@ -226,6 +253,48 @@ def test_prepare_canonical_basis_creates_exact_idempotent_bundle(tmp_path):
     first_hashes = {path.name: sha256_file(path) for path in target.iterdir()}
     assert namespace["prepare_canonical_basis"](tmp_path) == target
     assert {path.name: sha256_file(path) for path in target.iterdir()} == first_hashes
+
+
+def test_prepare_canonical_basis_rebuilds_legacy_unitary_gate_bundle(tmp_path):
+    namespace = setup_namespace(REPO_ROOT)
+    target = namespace["prepare_canonical_basis"](tmp_path)
+    replace_edge_with_legacy_unitary(namespace, target)
+
+    returned = namespace["prepare_canonical_basis"](tmp_path)
+
+    rebuilt = namespace["load_single_circuit"](
+        returned / "graph_state_direct_basis.qpy"
+    )
+    assert isinstance(rebuilt.data[-1].operation, DiagonalGate)
+
+
+@pytest.mark.parametrize(
+    ("mode", "file_attributes"),
+    [(stat.S_IFLNK, 0), (stat.S_IFDIR, 0x400)],
+)
+def test_prepare_canonical_basis_rejects_legacy_symlink_or_reparse_cache(
+    tmp_path, monkeypatch, mode, file_attributes
+):
+    namespace = setup_namespace(REPO_ROOT)
+    target = namespace["prepare_canonical_basis"](tmp_path)
+    replace_edge_with_legacy_unitary(namespace, target)
+    original_files = {path.name: path.read_bytes() for path in target.iterdir()}
+    real_lstat = Path.lstat
+
+    def simulated_lstat(path):
+        if path == target:
+            return SimpleNamespace(
+                st_mode=mode,
+                st_file_attributes=file_attributes,
+            )
+        return real_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", simulated_lstat)
+
+    with pytest.raises(RuntimeError, match="symlink or reparse"):
+        namespace["prepare_canonical_basis"](tmp_path)
+
+    assert {path.name: path.read_bytes() for path in target.iterdir()} == original_files
 
 
 def test_prepare_canonical_basis_rejects_corrupt_metadata(tmp_path):
