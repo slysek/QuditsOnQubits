@@ -2,7 +2,7 @@
 
 ## Goal
 
-Add a reproducible notebook for the `ghz3` Bell experiment using the `canonical_ez` qutrit encoding and the local ideal Aer backend. Keep its workflow and artifact contract analogous to `notebooks/two_qutrit_bell_canonical_baseline.ipynb`, while excluding hardware backends from the initial scope.
+Add a reproducible notebook for the `ghz3` Bell experiment using the `canonical_ez` qutrit encoding and the local ideal Aer backend. Keep its workflow and artifact contract analogous to `notebooks/two_qutrit_bell_canonical_baseline.ipynb`. The committed notebook remains Aer-only, while verification may submit one low-shot connected smoke run to IQM Garnet.
 
 ## User journey
 
@@ -56,7 +56,7 @@ Use:
 - `BootstrapConfig(samples=2_000, seed=7)`;
 - tags `{"baseline": "canonical_ez", "backend": "aer_ideal"}`.
 
-The notebook invokes `run_experiment` once and passes `repo_root=REPO_ROOT`. IQM, PiastQ, credentials, low-level provider clients, and hardware submission flags are excluded.
+The notebook invokes `run_experiment` once and passes `repo_root=REPO_ROOT`. IQM, PiastQ, credentials, low-level provider clients, and hardware submission flags are excluded from the committed notebook.
 
 ## Summary
 
@@ -93,11 +93,21 @@ Tests cover:
 - staging cleanup after a simulated write failure;
 - end-to-end local Aer execution with 64 shots and a small deterministic bootstrap sample count.
 
+After local tests pass, verification may run one connected IQM Garnet smoke experiment through the same high-level `run_experiment` pipeline with:
+
+- the materialized GHZ3 `canonical_ez` basis;
+- `IQMHardware(device="garnet", use_metrics=True)`;
+- `shots=50`;
+- minimal uncertainty work suitable for smoke verification;
+- no readout mitigation or ZNE, to keep hardware usage bounded;
+- provider/environment credentials only, never credentials stored in the repository.
+
+The connected run is conditional on an available IQM provider configuration. Its job identifier, final status, artifact directory, and shortest decisive failure message are reported. It is not a deterministic unit test and is not required in offline CI.
+
 The focused notebook test must demonstrate RED because the notebook is absent, then GREEN after implementation. Relevant existing regression tests are rerun afterward.
 
 ## Out of scope
 
-- IQM Garnet execution;
 - PiastQ execution;
 - readout mitigation or ZNE;
 - selected-best/ranked encoding bases;
