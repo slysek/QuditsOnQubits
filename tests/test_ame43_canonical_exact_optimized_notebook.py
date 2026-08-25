@@ -118,18 +118,72 @@ def test_notebook_uses_high_level_runner_with_optimized_configuration():
     full_source = "\n".join(source(cell) for cell in cells)
     assert "build_exact_optimized_direct_basis_graph_state_circuit" in full_source
     assert "canonical_ez_exact_optimized" in full_source
-    assert "TranspilationConfig(optimization_level=3, seed_transpiler=6)" in full_source
+    assert "TranspilationConfig(optimization_level=3, seed_transpiler=13)" in full_source
     assert "# Canonical AME(4,3) exact-optimized Bell baseline" in "\n".join(
         source(cell) for cell in notebook["cells"]
     )
     assert len([cell for cell in cells if calls(source(cell), "run_experiment")]) == 3
     assert "RUN_IQM = False" in full_source
     assert "RUN_PIASTQ = False" in full_source
-    assert "IQMHardware(device='garnet', use_metrics=True)" in full_source
+    assert "IQMHardware(device='garnet', use_metrics=True, env_path=IQM_ENV_PATH)" in full_source
     assert "PiastQHardware" in full_source
     for forbidden in ("PiastQClient", "IQMProvider(", ".run(", "token", "api_key"):
         assert forbidden not in full_source
     assert all(cell["execution_count"] is None and cell["outputs"] == [] for cell in cells)
+
+
+def test_iqm_env_path_resolver_prefers_repo_and_worktree_fallback(tmp_path):
+    namespace = setup_namespace(REPO_ROOT)
+    resolver = namespace["resolve_iqm_env_path"]
+
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    checkout_env = checkout / ".env"
+    checkout_env.write_text("IQM_TOKEN=not-read\n", encoding="utf-8")
+    assert resolver(checkout) == checkout_env
+
+    worktree_parent = tmp_path / ".worktrees"
+    worktree = worktree_parent / "feature"
+    worktree.mkdir(parents=True)
+    fallback_env = tmp_path / ".env"
+    fallback_env.write_text("IQM_TOKEN=not-read\n", encoding="utf-8")
+    assert resolver(worktree) == fallback_env
+
+
+def test_iqm_env_path_resolver_reports_missing_iqm_env(tmp_path):
+    namespace = setup_namespace(REPO_ROOT)
+    with pytest.raises(RuntimeError, match=r"IQM .*\.env"):
+        namespace["resolve_iqm_env_path"](tmp_path / "checkout")
+
+
+def test_iqm_cell_resolves_env_only_inside_guard_and_passes_explicit_path():
+    cells = code_cells(load_notebook())
+    cell = next(
+        cell
+        for cell in cells
+        if "IQMHardware" in source(cell) and "RUN_IQM" in source(cell)
+    )
+    tree = ast.parse(source(cell))
+    iqm_guard = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.If)
+        and isinstance(node.test, ast.Name)
+        and node.test.id == "RUN_IQM"
+    )
+    resolver_calls = [
+        node
+        for node in ast.walk(iqm_guard)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "resolve_iqm_env_path"
+    ]
+    assert len(resolver_calls) == 1
+    iqm_calls = calls(source(cell), "IQMHardware")
+    assert len(iqm_calls) == 1
+    env_path = next(keyword for keyword in iqm_calls[0].keywords if keyword.arg == "env_path")
+    assert isinstance(env_path.value, ast.Name)
+    assert env_path.value.id == "IQM_ENV_PATH"
 
 
 def test_exact_optimized_bundle_is_idempotent_and_state_equivalent(tmp_path):

@@ -161,6 +161,66 @@ def test_hardware_cells_are_false_by_default_and_separately_guarded():
         assert guards
 
 
+def test_iqm_env_path_resolver_prefers_repo_and_worktree_fallback(tmp_path):
+    namespace = setup_namespace(REPO_ROOT)
+    resolver = namespace["resolve_iqm_env_path"]
+
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    checkout_env = checkout / ".env"
+    checkout_env.write_text("IQM_TOKEN=not-read\n", encoding="utf-8")
+    assert resolver(checkout) == checkout_env
+
+    worktree_parent = tmp_path / ".worktrees"
+    worktree = worktree_parent / "feature"
+    worktree.mkdir(parents=True)
+    fallback_env = tmp_path / ".env"
+    fallback_env.write_text("IQM_TOKEN=not-read\n", encoding="utf-8")
+    assert resolver(worktree) == fallback_env
+
+
+def test_iqm_env_path_resolver_reports_missing_iqm_env(tmp_path):
+    namespace = setup_namespace(REPO_ROOT)
+    with pytest.raises(RuntimeError, match=r"IQM .*\.env"):
+        namespace["resolve_iqm_env_path"](tmp_path / "checkout")
+
+
+def test_iqm_cell_resolves_env_only_inside_guard_and_passes_explicit_path():
+    cells = code_cells(load_notebook())
+    cell = next(
+        cell
+        for cell in cells
+        if any(
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "run_experiment"
+            for node in ast.walk(ast.parse(source(cell)))
+        )
+        and "IQMHardware" in source(cell)
+    )
+    tree = ast.parse(source(cell))
+    iqm_guard = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.If)
+        and isinstance(node.test, ast.Name)
+        and node.test.id == "RUN_IQM"
+    )
+    resolver_calls = [
+        node
+        for node in ast.walk(iqm_guard)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "resolve_iqm_env_path"
+    ]
+    assert len(resolver_calls) == 1
+    iqm_calls = named_calls(source(cell), "IQMHardware")
+    assert len(iqm_calls) == 1
+    env_path = next(keyword for keyword in iqm_calls[0].keywords if keyword.arg == "env_path")
+    assert isinstance(env_path.value, ast.Name)
+    assert env_path.value.id == "IQM_ENV_PATH"
+
+
 def test_notebook_configuration_is_canonical_ame43():
     namespace = setup_namespace(REPO_ROOT)
     assert namespace["SHOTS"] == 100
