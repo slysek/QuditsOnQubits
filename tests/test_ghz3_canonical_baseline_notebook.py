@@ -64,6 +64,16 @@ def runner_backend(cell_source, call):
     return backend.func.id
 
 
+def run_cell_for_backend(backend_name):
+    for cell in code_cells(load_notebook()):
+        if any(
+            runner_backend(source(cell), call) == backend_name
+            for call in named_calls(source(cell), "run_experiment")
+        ):
+            return cell
+    raise AssertionError(f"missing run cell for backend {backend_name}")
+
+
 def setup_namespace(cwd):
     """Execute setup cells without materializing inputs or running experiments."""
     namespace = {"__name__": "__notebook_test__", "__file__": str(NOTEBOOK_PATH)}
@@ -88,17 +98,24 @@ def sha256_file(path):
     return __import__("hashlib").sha256(path.read_bytes()).hexdigest()
 
 
-def test_notebook_has_one_high_level_aer_run_and_clean_cells():
+def test_notebook_has_aer_and_opt_in_iqm_runs_and_clean_cells():
     notebook = load_notebook()
     cells = code_cells(notebook)
     run_cells = [cell for cell in cells if named_calls(source(cell), "run_experiment")]
-    assert len(run_cells) == 1
-    assert len(named_calls(source(run_cells[0]), "run_experiment")) == 1
-    call = named_calls(source(run_cells[0]), "run_experiment")[0]
-    assert runner_backend(source(run_cells[0]), call) == "AerIdeal"
-    repo = [keyword for keyword in call.keywords if keyword.arg == "repo_root"]
-    assert len(repo) == 1
-    assert isinstance(repo[0].value, ast.Name) and repo[0].value.id == "REPO_ROOT"
+    assert len(run_cells) == 2
+    assert {
+        runner_backend(source(cell), named_calls(source(cell), "run_experiment")[0])
+        for cell in run_cells
+    } == {"AerIdeal", "IQMHardware"}
+    assert all(
+        len(named_calls(source(cell), "run_experiment")) == 1 for cell in run_cells
+    )
+    for cell in run_cells:
+        call = named_calls(source(cell), "run_experiment")[0]
+        repo = [keyword for keyword in call.keywords if keyword.arg == "repo_root"]
+        assert len(repo) == 1
+        assert isinstance(repo[0].value, ast.Name)
+        assert repo[0].value.id == "REPO_ROOT"
 
     tree = ast.parse("\n".join(source(cell) for cell in cells))
     imported = {
@@ -112,13 +129,28 @@ def test_notebook_has_one_high_level_aer_run_and_clean_cells():
         "AerIdeal",
         "BootstrapConfig",
         "ExperimentSpec",
+        "IQMHardware",
+        "MitigationConfig",
         "PathBasis",
         "run_experiment",
     } <= imported
-    assert "IQMHardware" not in imported
     assert "PiastQHardware" not in imported
     assert all(cell["execution_count"] is None for cell in cells)
     assert all(cell["outputs"] == [] for cell in cells)
+
+
+def test_iqm_cell_is_opt_in_and_does_not_submit_by_default():
+    namespace = setup_namespace(REPO_ROOT)
+    iqm_cell = run_cell_for_backend("IQMHardware")
+    submissions = []
+    namespace["run_experiment"] = lambda *args, **kwargs: submissions.append(
+        (args, kwargs)
+    )
+
+    exec(compile(source(iqm_cell), str(NOTEBOOK_PATH), "exec"), namespace)
+
+    assert namespace["RUN_IQM"] is False
+    assert submissions == []
 
 
 def test_configuration_and_empty_summary_are_semantically_complete():
@@ -126,6 +158,9 @@ def test_configuration_and_empty_summary_are_semantically_complete():
     assert namespace["SHOTS"] == 100
     assert namespace["UNCERTAINTY"].samples == 2_000
     assert namespace["UNCERTAINTY"].seed == 7
+    assert namespace["HARDWARE_MITIGATION"].readout is True
+    assert namespace["HARDWARE_MITIGATION"].zne is True
+    assert namespace["HARDWARE_MITIGATION"].zne_factors == (1, 3, 5)
 
     run_cell = next(
         cell
@@ -164,17 +199,61 @@ def test_configuration_and_empty_summary_are_semantically_complete():
         "backend": "aer_ideal",
     }
 
-    summary = namespace["summarize_results"]({}, namespace["REFERENCE"])
-    assert len(summary) == 1
-    assert summary[0]["backend"] == "aer_ideal"
-    assert summary[0]["status"] == "not_run"
+    iqm_run_cell = run_cell_for_backend("IQMHardware")
+    iqm_tree = ast.parse(source(iqm_run_cell))
+    iqm_spec = next(
+        node.value
+        for node in ast.walk(iqm_tree)
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == "IQM_SPEC"
+            for target in node.targets
+        )
+        and isinstance(node.value, ast.Call)
+    )
+    iqm_keywords = {keyword.arg: keyword.value for keyword in iqm_spec.keywords}
+    assert ast.literal_eval(iqm_keywords["state"]) == "ghz3"
+    assert isinstance(iqm_keywords["basis"], ast.Call)
+    assert isinstance(iqm_keywords["basis"].func, ast.Name)
+    assert iqm_keywords["basis"].func.id == "PathBasis"
+    assert isinstance(iqm_keywords["basis"].args[0], ast.Name)
+    assert iqm_keywords["basis"].args[0].id == "CANONICAL_BASIS_DIRECTORY"
+    assert isinstance(iqm_keywords["backend"], ast.Call)
+    assert isinstance(iqm_keywords["backend"].func, ast.Name)
+    assert iqm_keywords["backend"].func.id == "IQMHardware"
+    assert {
+        keyword.arg: ast.literal_eval(keyword.value)
+        for keyword in iqm_keywords["backend"].keywords
+    } == {"device": "garnet", "use_metrics": True}
     assert (
-        summary[0]["classical_bound"]
-        == namespace["REFERENCE"].bell_functional.classical_bound
+        isinstance(iqm_keywords["shots"], ast.Name)
+        and iqm_keywords["shots"].id == "SHOTS"
     )
     assert (
-        summary[0]["ideal_bell_value"]
+        isinstance(iqm_keywords["mitigation"], ast.Name)
+        and iqm_keywords["mitigation"].id == "HARDWARE_MITIGATION"
+    )
+    assert (
+        isinstance(iqm_keywords["uncertainty"], ast.Name)
+        and iqm_keywords["uncertainty"].id == "UNCERTAINTY"
+    )
+    assert ast.literal_eval(iqm_keywords["tags"]) == {
+        "baseline": "canonical_ez",
+        "backend": "iqm_garnet",
+    }
+
+    summary = namespace["summarize_results"]({}, namespace["REFERENCE"])
+    assert [row["backend"] for row in summary] == ["aer_ideal", "iqm_garnet"]
+    assert [row["status"] for row in summary] == ["not_run", "skipped"]
+    assert all(
+        row["classical_bound"]
+        == namespace["REFERENCE"].bell_functional.classical_bound
+        for row in summary
+    )
+    assert all(
+        row["ideal_bell_value"]
         == namespace["REFERENCE"].expected.ideal_bell_value
+        for row in summary
     )
     json.dumps(summary)
 
@@ -189,21 +268,37 @@ def test_summary_preserves_runner_values():
         "diagnostics": {"factors": [1, 3, 5]},
         "leakage_rate": 0.01,
     }
-    result = SimpleNamespace(
+    aer_result = SimpleNamespace(
         status=SimpleNamespace(value="completed"),
         artifact_dir=Path("artifacts") / "ghz3-aer",
         values=values,
     )
-    row = namespace["summarize_results"](
-        {"aer_ideal": result}, namespace["REFERENCE"]
-    )[0]
-    assert row["status"] == "completed"
+    iqm_values = {
+        **values,
+        "raw": {"estimate": 4.3},
+        "zne_readout_mitigated": {"estimate": 5.1},
+    }
+    iqm_result = SimpleNamespace(
+        status=SimpleNamespace(value="completed"),
+        artifact_dir=Path("artifacts") / "ghz3-iqm",
+        values=iqm_values,
+    )
+    rows = namespace["summarize_results"](
+        {"aer_ideal": aer_result, "iqm_garnet": iqm_result},
+        namespace["REFERENCE"],
+    )
+    assert [row["backend"] for row in rows] == ["aer_ideal", "iqm_garnet"]
+    assert rows[0]["status"] == "completed"
     for field, value in values.items():
-        assert row[field] == value
-    assert row["artifact_dir"] == str(result.artifact_dir)
+        assert rows[0][field] == value
+    assert rows[0]["artifact_dir"] == str(aer_result.artifact_dir)
+    assert rows[1]["status"] == "completed"
+    for field, value in iqm_values.items():
+        assert rows[1][field] == value
+    assert rows[1]["artifact_dir"] == str(iqm_result.artifact_dir)
 
 
-def test_notebook_has_no_secrets_paths_hardware_or_low_level_execution():
+def test_notebook_has_no_secrets_paths_provider_or_low_level_execution():
     full_source = "\n".join(source(cell) for cell in code_cells(load_notebook()))
     credential = r"(?:token|api[_ -]?key|password|credentials?|client_secret|secret)"
     assert not re.search(rf"(?im)^\s*\w*{credential}\w*\s*=", full_source)
@@ -215,7 +310,6 @@ def test_notebook_has_no_secrets_paths_hardware_or_low_level_execution():
         "PiastQClient",
         "PiastQHardware",
         "IQMProvider(",
-        "IQMHardware",
         "compute_bell_value_from_counts",
         "build_sampler_circuits",
         ".run(",
