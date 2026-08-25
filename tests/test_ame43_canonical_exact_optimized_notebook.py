@@ -193,6 +193,31 @@ def test_iqm_env_path_resolver_rejects_spoofed_worktree_admin_directory(tmp_path
     assert "top-secret" not in str(raised.value)
 
 
+def test_iqm_env_path_resolver_rejects_external_fake_admin_directory(tmp_path):
+    resolver = setup_namespace(REPO_ROOT)["resolve_iqm_env_path"]
+    checkout = tmp_path / "external-checkout"
+    fake_admin = tmp_path / "fake-admin-secret"
+    other_repo = tmp_path / "other-repository"
+    other_git = other_repo / ".git"
+    checkout.mkdir()
+    fake_admin.mkdir()
+    other_git.mkdir(parents=True)
+    (checkout / ".git").write_text(f"gitdir: {fake_admin}\n", encoding="utf-8")
+    (fake_admin / "gitdir").write_text(f"{checkout / '.git'}\n", encoding="utf-8")
+    (fake_admin / "commondir").write_text(f"{other_git}\n", encoding="utf-8")
+    (other_repo / ".env").write_text("IQM_TOKEN=top-secret\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as raised:
+        resolver(checkout)
+
+    assert str(raised.value) == (
+        "Cannot validate non-bare owning repository for IQM .env fallback; "
+        "provide checkout-local .env or explicit env_path."
+    )
+    assert "fake-admin-secret" not in str(raised.value)
+    assert "top-secret" not in str(raised.value)
+
+
 @pytest.mark.parametrize("backlink_kind", ["missing", "empty", "directory", "symlink", "reparse"])
 def test_iqm_env_path_resolver_rejects_invalid_worktree_backlink(
     tmp_path, monkeypatch, backlink_kind
