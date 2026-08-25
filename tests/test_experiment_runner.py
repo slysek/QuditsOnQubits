@@ -237,6 +237,38 @@ def test_ambiguous_submission_is_never_retried_and_persists_sanitized_unknown(
     assert "RuntimeError" in rendered
 
 
+def test_submission_error_preserves_only_safe_provider_exception_type(
+    tmp_path, prepared_run
+):
+    from qudits_on_qubits.experiments.runner import run_experiment
+
+    sensitive_text = "token=do-not-leak"
+
+    class ProviderRejectingAdapter(RecordingAdapter):
+        def submit(self, circuits, shots, options=None):
+            error = JobSubmissionError(sensitive_text)
+            error.provider_exception_type = "HTTPError"
+            raise error
+
+    with pytest.raises(JobSubmissionError) as caught:
+        run_experiment(
+            make_spec(tmp_path),
+            adapter=ProviderRejectingAdapter(),
+            _sleep=lambda _delay: None,
+            _evaluator=lambda _counts: 1 + 0j,
+        )
+    document = __import__("json").loads(
+        (caught.value.__qoq_artifact_dir__ / "experiment.json").read_text(encoding="utf-8")
+    )
+    rendered = "".join(traceback.format_exception(caught.type, caught.value, caught.tb))
+
+    assert document["failure"]["exception_type"] == "JobSubmissionError"
+    assert document["failure"]["provider_exception_type"] == "HTTPError"
+    assert "provider exception: HTTPError" in rendered
+    assert sensitive_text not in rendered
+    assert sensitive_text not in str(document)
+
+
 def test_result_retries_use_same_submitted_job_and_exact_exponential_delays(
     tmp_path, prepared_run
 ):
@@ -287,7 +319,7 @@ def test_readout_accepts_per_setting_physical_mapping_and_calibrates_union(
     from qudits_on_qubits.experiments.runner import run_experiment
     import qudits_on_qubits.experiments.runner as runner
 
-    mappings = ((10, 15, 16, 11), (15, 16, 11, 10))
+    mappings = ((10, 15, 12, 11), (15, 12, 11, 10))
 
     def measured_circuit(mapping):
         circuit = QuantumCircuit(17, 4)
@@ -320,6 +352,7 @@ def test_readout_accepts_per_setting_physical_mapping_and_calibrates_union(
             super().__init__()
             self.measurement_compile_calls = 0
             self.physical_compile_calls = 0
+            self.physical_compile_widths = set()
 
         def compile(self, circuits, config):
             self.measurement_compile_calls += 1
@@ -328,6 +361,9 @@ def test_readout_accepts_per_setting_physical_mapping_and_calibrates_union(
 
         def compile_physical(self, circuits, config):
             self.physical_compile_calls += 1
+            self.physical_compile_widths = {
+                circuit.num_qubits for circuit in circuits
+            }
             return CompiledBatch(tuple(circuits), self.identity)
 
         def result(self, submitted, timeout=None):
@@ -379,10 +415,11 @@ def test_readout_accepts_per_setting_physical_mapping_and_calibrates_union(
     assert result.status is ExperimentStatus.COMPLETED
     assert adapter.measurement_compile_calls == 1
     assert adapter.physical_compile_calls == 1
-    assert document["calibration"]["qubit_mapping"] == [10, 15, 16, 11]
+    assert adapter.physical_compile_widths == {17}
+    assert document["calibration"]["qubit_mapping"] == [10, 15, 12, 11]
     assert document["calibration"]["mapping_by_circuit_index"] == [
-        [10, 15, 16, 11],
-        [15, 16, 11, 10],
+        [10, 15, 12, 11],
+        [15, 12, 11, 10],
     ]
 
 def test_readout_calibration_is_checkpointed_with_raw_evidence_before_measurements(

@@ -63,6 +63,22 @@ def test_build_readout_calibration_circuits_has_deterministic_mapping_order() ->
     assert all(circuit.num_qubits == 3 and circuit.num_clbits == 1 for circuit in circuits)
 
 
+def test_build_readout_calibration_circuits_can_preserve_backend_width() -> None:
+    circuits = build_readout_calibration_circuits([2, 0], circuit_width=20)
+
+    assert all(circuit.num_qubits == 20 for circuit in circuits)
+
+
+@pytest.mark.parametrize("circuit_width", [0, 2, True, 3.0])
+def test_build_readout_calibration_circuits_rejects_invalid_width(
+    circuit_width: object,
+) -> None:
+    with pytest.raises(ExperimentValidationError, match="width"):
+        build_readout_calibration_circuits(
+            [2, 0], circuit_width=circuit_width  # type: ignore[arg-type]
+        )
+
+
 @pytest.mark.parametrize("qubits", [[], [0, 0], [-1], [True], [1.0]])
 def test_build_readout_calibration_circuits_rejects_invalid_mapping(qubits: list[object]) -> None:
     with pytest.raises(ExperimentValidationError):
@@ -186,6 +202,16 @@ def test_apply_readout_mitigation_preserves_setting_order_mapping_and_signed_flo
     }
     assert all(type(value) is float for setting in corrected.values() for value in setting.values())
     assert fake.calls == [(counts["setting-b"], (2, 0)), (counts["setting-a"], (2, 0))]
+
+
+def test_apply_readout_mitigation_accepts_float32_normalization_roundoff() -> None:
+    fake = _FakeMitigation(outputs=[{"0": np.float32(0.99999994)}])
+
+    corrected = apply_readout_mitigation(
+        {"setting": {"0": 10}}, mapping=(0,), mitigation=fake
+    )
+
+    assert corrected == {"setting": {"0": float(np.float32(0.99999994))}}
 
 
 def test_apply_readout_mitigation_uses_physical_mapping_for_each_setting() -> None:

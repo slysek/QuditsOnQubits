@@ -47,7 +47,10 @@ def _freeze_value(value: Any) -> Any:
 
 def prepare_measurements(artifacts: BasisArtifacts) -> PreparedMeasurements:
     """Build measured sampler circuits for a validated candidate artifact."""
-    qutrit_qubits = tuple((index, index + 1) for index in range(0, artifacts.state_circuit.num_qubits, 2))
+    qutrit_qubits = tuple(
+        (index, index + 1)
+        for index in range(artifacts.state_circuit.num_qubits - 2, -1, -2)
+    )
     try:
         circuits, metadata = build_sampler_circuits_for_candidate(
             artifacts.state,
