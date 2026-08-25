@@ -69,6 +69,15 @@ def test_notebook_exists():
     assert NOTEBOOK_PATH.is_file()
 
 
+def test_notebook_uses_project_kernelspec():
+    kernelspec = load_notebook()["metadata"]["kernelspec"]
+    assert kernelspec == {
+        "display_name": "QuditsOnQubitsEnv",
+        "language": "python",
+        "name": "quditsonqubitsenv",
+    }
+
+
 def test_notebook_is_unexecuted_offline_first_and_uses_existing_builders():
     notebook = load_notebook()
     cells = code_cells(notebook)
@@ -158,6 +167,24 @@ def test_iqm_env_path_resolver_prefers_checkout_and_supports_linked_worktrees(tm
     owner_env = owner / ".env"
     owner_env.write_text("IQM_TOKEN=not-read\n", encoding="utf-8")
     assert resolver(worktree) == owner_env.resolve()
+
+
+def test_iqm_env_path_resolver_rejects_unrelated_directory_named_git(tmp_path):
+    resolver = setup_namespace()["resolve_iqm_env_path"]
+
+    owner = tmp_path / "owner"
+    worktree = tmp_path / "worktree"
+    gitdir = owner / ".git" / "worktrees" / "comparison"
+    unrelated_git = tmp_path / "unrelated" / ".git"
+    gitdir.mkdir(parents=True)
+    unrelated_git.mkdir(parents=True)
+    worktree.mkdir()
+    (gitdir / "commondir").write_text(str(unrelated_git), encoding="utf-8")
+    (worktree / ".git").write_text(f"gitdir: {gitdir}\n", encoding="utf-8")
+    (unrelated_git.parent / ".env").write_text("IQM_TOKEN=not-read\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="owning repository|Git common directory"):
+        resolver(worktree)
 
 
 def test_materializes_distinct_valid_state_equivalent_bundles(tmp_path):

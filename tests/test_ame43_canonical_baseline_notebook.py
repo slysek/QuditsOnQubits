@@ -456,6 +456,22 @@ def test_prepare_canonical_basis_creates_exact_idempotent_ame43_bundle(tmp_path)
     assert {path.name: sha256_file(path) for path in target.iterdir()} == first_hashes
 
 
+def test_prepare_canonical_basis_rejects_unsafe_existing_ancestor(tmp_path, monkeypatch):
+    namespace = setup_namespace(REPO_ROOT)
+    ancestor = tmp_path / "experiment_inputs"
+    ancestor.mkdir()
+    real_lstat = Path.lstat
+
+    def simulated_lstat(path):
+        if path == ancestor:
+            return SimpleNamespace(st_mode=stat.S_IFDIR, st_file_attributes=0x400)
+        return real_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", simulated_lstat)
+    with pytest.raises(RuntimeError, match="symlink or reparse"):
+        namespace["prepare_canonical_basis"](tmp_path)
+
+
 def test_validate_canonical_basis_enforces_ame43_state(tmp_path):
     namespace = setup_namespace(REPO_ROOT)
     target = namespace["prepare_canonical_basis"](tmp_path)
