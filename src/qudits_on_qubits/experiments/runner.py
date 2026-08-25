@@ -852,7 +852,10 @@ def _obtain_calibration(
         _write_state(store, run, document)
         return reusable
 
-    source = build_readout_calibration_circuits(mapping)
+    source = build_readout_calibration_circuits(
+        mapping,
+        circuit_width=max(circuit.num_qubits for circuit in compiled_circuits),
+    )
     compile_physical = getattr(adapter, "compile_physical", None)
     compiled = (
         compile_physical(source, spec.transpilation)

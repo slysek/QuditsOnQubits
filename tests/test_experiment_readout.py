@@ -63,6 +63,22 @@ def test_build_readout_calibration_circuits_has_deterministic_mapping_order() ->
     assert all(circuit.num_qubits == 3 and circuit.num_clbits == 1 for circuit in circuits)
 
 
+def test_build_readout_calibration_circuits_can_preserve_backend_width() -> None:
+    circuits = build_readout_calibration_circuits([2, 0], circuit_width=20)
+
+    assert all(circuit.num_qubits == 20 for circuit in circuits)
+
+
+@pytest.mark.parametrize("circuit_width", [0, 2, True, 3.0])
+def test_build_readout_calibration_circuits_rejects_invalid_width(
+    circuit_width: object,
+) -> None:
+    with pytest.raises(ExperimentValidationError, match="width"):
+        build_readout_calibration_circuits(
+            [2, 0], circuit_width=circuit_width  # type: ignore[arg-type]
+        )
+
+
 @pytest.mark.parametrize("qubits", [[], [0, 0], [-1], [True], [1.0]])
 def test_build_readout_calibration_circuits_rejects_invalid_mapping(qubits: list[object]) -> None:
     with pytest.raises(ExperimentValidationError):

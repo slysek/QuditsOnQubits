@@ -16,12 +16,12 @@ from qudits_on_qubits.experiments.preparation import metadata_summary, prepare_m
 @pytest.mark.parametrize(
     ("state", "qubits", "pairs"),
     [
-        ("two_qutrit", 4, ((0, 1), (2, 3))),
-        ("ghz3", 6, ((0, 1), (2, 3), (4, 5))),
-        ("ame43", 8, ((0, 1), (2, 3), (4, 5), (6, 7))),
+        ("two_qutrit", 4, ((2, 3), (0, 1))),
+        ("ghz3", 6, ((4, 5), (2, 3), (0, 1))),
+        ("ame43", 8, ((6, 7), (4, 5), (2, 3), (0, 1))),
     ],
 )
-def test_prepares_measured_circuits_and_json_safe_summary(state, qubits, pairs, tmp_path):
+def test_prepares_measurements_in_logical_party_order(state, qubits, pairs, tmp_path):
     artifacts = BasisArtifacts(
         directory=tmp_path,
         state=state,
