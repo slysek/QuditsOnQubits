@@ -167,22 +167,56 @@ def test_iqm_env_path_resolver_prefers_repo_and_worktree_fallback(tmp_path):
 
     checkout = tmp_path / "checkout"
     checkout.mkdir()
+    (checkout / ".git").mkdir()
     checkout_env = checkout / ".env"
     checkout_env.write_text("IQM_TOKEN=not-read\n", encoding="utf-8")
     assert resolver(checkout) == checkout_env
 
-    worktree_parent = tmp_path / ".worktrees"
-    worktree = worktree_parent / "feature"
-    worktree.mkdir(parents=True)
-    fallback_env = tmp_path / ".env"
-    fallback_env.write_text("IQM_TOKEN=not-read\n", encoding="utf-8")
-    assert resolver(worktree) == fallback_env
+    for index, absolute in enumerate((False, True)):
+        owner = tmp_path / f"owner-repository-{index}"
+        worktree = tmp_path / f"external-checkout-{index}"
+        owner_git = owner / ".git"
+        worktree_git = owner_git / "worktrees" / "external"
+        worktree.mkdir()
+        worktree_git.mkdir(parents=True)
+        common_value = str(owner_git) if absolute else "../.."
+        (worktree_git / "commondir").write_text(f"{common_value}\n", encoding="utf-8")
+        gitdir_value = str(worktree_git) if absolute else os.path.relpath(worktree_git, worktree)
+        (worktree / ".git").write_text(f"gitdir: {gitdir_value}\n", encoding="utf-8")
+        fallback_env = owner / ".env"
+        fallback_env.write_text("IQM_TOKEN=not-read\n", encoding="utf-8")
+        assert resolver(worktree) == fallback_env
 
 
-def test_iqm_env_path_resolver_reports_missing_iqm_env(tmp_path):
+@pytest.mark.parametrize("metadata", ["missing", "malformed"])
+def test_iqm_env_path_resolver_reports_missing_or_malformed_git_metadata(tmp_path, metadata):
     namespace = setup_namespace(REPO_ROOT)
-    with pytest.raises(RuntimeError, match=r"IQM .*\.env"):
-        namespace["resolve_iqm_env_path"](tmp_path / "checkout")
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    if metadata == "malformed":
+        (checkout / ".git").write_text("not git metadata\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match=r"IQM .*\.env|Git metadata"):
+        namespace["resolve_iqm_env_path"](checkout)
+
+
+@pytest.mark.parametrize(("mode", "file_attributes"), [(stat.S_IFLNK, 0), (stat.S_IFREG, 0x400)])
+def test_iqm_env_path_resolver_rejects_symlink_or_reparse_env(tmp_path, monkeypatch, mode, file_attributes):
+    namespace = setup_namespace(REPO_ROOT)
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    (checkout / ".git").mkdir()
+    env_path = checkout / ".env"
+    env_path.write_text("IQM_TOKEN=not-read\n", encoding="utf-8")
+    real_lstat = Path.lstat
+
+    def simulated_lstat(path):
+        if path == env_path:
+            return SimpleNamespace(st_mode=mode, st_file_attributes=file_attributes)
+        return real_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", simulated_lstat)
+    with pytest.raises(RuntimeError, match="symlink or reparse"):
+        namespace["resolve_iqm_env_path"](checkout)
 
 
 def test_iqm_cell_resolves_env_only_inside_guard_and_passes_explicit_path():
@@ -206,6 +240,7 @@ def test_iqm_cell_resolves_env_only_inside_guard_and_passes_explicit_path():
         and isinstance(node.test, ast.Name)
         and node.test.id == "RUN_IQM"
     )
+    guard_nodes = set(ast.walk(iqm_guard))
     resolver_calls = [
         node
         for node in ast.walk(iqm_guard)
@@ -214,8 +249,30 @@ def test_iqm_cell_resolves_env_only_inside_guard_and_passes_explicit_path():
         and node.func.id == "resolve_iqm_env_path"
     ]
     assert len(resolver_calls) == 1
-    iqm_calls = named_calls(source(cell), "IQMHardware")
-    assert len(iqm_calls) == 1
+    iqm_calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "IQMHardware"
+    ]
+    run_calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "run_experiment"
+    ]
+    run_assignments = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "run_experiment"
+    ]
+    assert len(iqm_calls) == len(run_calls) == len(run_assignments) == 1
+    assert all(node in guard_nodes for node in (*resolver_calls, *iqm_calls, *run_calls, *run_assignments))
     env_path = next(keyword for keyword in iqm_calls[0].keywords if keyword.arg == "env_path")
     assert isinstance(env_path.value, ast.Name)
     assert env_path.value.id == "IQM_ENV_PATH"
