@@ -183,9 +183,85 @@ def test_iqm_env_path_resolver_prefers_repo_and_worktree_fallback(tmp_path):
         (worktree_git / "commondir").write_text(f"{common_value}\n", encoding="utf-8")
         gitdir_value = str(worktree_git) if absolute else os.path.relpath(worktree_git, worktree)
         (worktree / ".git").write_text(f"gitdir: {gitdir_value}\n", encoding="utf-8")
+        backlink_value = (
+            str(worktree / ".git")
+            if absolute
+            else os.path.relpath(worktree / ".git", worktree_git)
+        )
+        (worktree_git / "gitdir").write_text(f"{backlink_value}\n", encoding="utf-8")
         fallback_env = owner / ".env"
         fallback_env.write_text("IQM_TOKEN=not-read\n", encoding="utf-8")
         assert resolver(worktree) == fallback_env
+
+
+def test_iqm_env_path_resolver_rejects_spoofed_worktree_admin_directory(tmp_path):
+    resolver = setup_namespace(REPO_ROOT)["resolve_iqm_env_path"]
+    owner = tmp_path / "owner-repository"
+    original = tmp_path / "original-checkout"
+    spoof = tmp_path / "spoof-checkout"
+    worktree_git = owner / ".git" / "worktrees" / "external"
+    original.mkdir()
+    spoof.mkdir()
+    worktree_git.mkdir(parents=True)
+    (worktree_git / "commondir").write_text("../..\n", encoding="utf-8")
+    (worktree_git / "gitdir").write_text(
+        f"{os.path.relpath(original / '.git', worktree_git)}\n", encoding="utf-8"
+    )
+    (original / ".git").write_text(f"gitdir: {worktree_git}\n", encoding="utf-8")
+    (spoof / ".git").write_text(f"gitdir: {worktree_git}\n", encoding="utf-8")
+    (owner / ".env").write_text("IQM_TOKEN=top-secret\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as raised:
+        resolver(spoof)
+
+    assert str(raised.value) == (
+        "Cannot validate worktree ownership for IQM .env fallback; "
+        "provide checkout-local .env or explicit env_path."
+    )
+    assert "spoof-checkout" not in str(raised.value)
+    assert "top-secret" not in str(raised.value)
+
+
+@pytest.mark.parametrize("backlink_kind", ["missing", "empty", "directory", "symlink", "reparse"])
+def test_iqm_env_path_resolver_rejects_invalid_worktree_backlink(
+    tmp_path, monkeypatch, backlink_kind
+):
+    resolver = setup_namespace(REPO_ROOT)["resolve_iqm_env_path"]
+    owner = tmp_path / "owner-repository"
+    worktree = tmp_path / "external-checkout"
+    worktree_git = owner / ".git" / "worktrees" / "external"
+    worktree.mkdir()
+    worktree_git.mkdir(parents=True)
+    (worktree_git / "commondir").write_text("../..\n", encoding="utf-8")
+    (worktree / ".git").write_text(f"gitdir: {worktree_git}\n", encoding="utf-8")
+    backlink = worktree_git / "gitdir"
+    if backlink_kind == "directory":
+        backlink.mkdir()
+    elif backlink_kind != "missing":
+        backlink.write_text(
+            "\n" if backlink_kind == "empty" else f"{worktree / '.git'}\n",
+            encoding="utf-8",
+        )
+    if backlink_kind in {"symlink", "reparse"}:
+        real_lstat = Path.lstat
+
+        def simulated_lstat(path):
+            if path == backlink:
+                return SimpleNamespace(
+                    st_mode=stat.S_IFLNK if backlink_kind == "symlink" else stat.S_IFREG,
+                    st_file_attributes=0 if backlink_kind == "symlink" else 0x400,
+                )
+            return real_lstat(path)
+
+        monkeypatch.setattr(Path, "lstat", simulated_lstat)
+
+    with pytest.raises(RuntimeError) as raised:
+        resolver(worktree)
+
+    assert str(raised.value) == (
+        "Cannot validate worktree ownership for IQM .env fallback; "
+        "provide checkout-local .env or explicit env_path."
+    )
 
 
 def test_iqm_env_path_resolver_allows_local_env_without_git_metadata(tmp_path):
