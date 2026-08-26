@@ -24,9 +24,19 @@ def build_direct_basis_local_preparation(encoding: np.ndarray) -> StatePreparati
     return StatePreparation(local_state, label="plus_W")
 
 
-def build_direct_basis_edge_gate(encoding: np.ndarray) -> DiagonalGate | UnitaryGate:
+def build_direct_basis_edge_gate(
+    encoding: np.ndarray,
+    *,
+    power: int = 1,
+) -> DiagonalGate | UnitaryGate:
     """Build the four-qubit encoded qutrit CZ gate."""
-    embedded = physical_two_qutrit_gate_in_encoding(qutrit_cz(), encoding)
+    if isinstance(power, bool) or not isinstance(power, int):
+        raise ValueError("power must be an integer.")
+    normalized_power = power % 3
+    embedded = physical_two_qutrit_gate_in_encoding(
+        np.linalg.matrix_power(qutrit_cz(), normalized_power),
+        encoding,
+    )
     diagonal = np.diag(embedded)
     if np.array_equal(embedded, np.diag(diagonal)):
         gate = DiagonalGate(diagonal)
@@ -89,5 +99,57 @@ def build_direct_basis_graph_state_circuit(
                 right_pair[1],
             ],
         )
+
+    return qc
+
+
+def build_exact_optimized_direct_basis_graph_state_circuit(
+    state_name: str,
+    basis_matrix: np.ndarray,
+    *,
+    n_qutrits: int | None = None,
+) -> QuantumCircuit:
+    """Build an exactly equivalent graph state with weighted edge layers."""
+    state = resolve_direct_state(state_name, n_qutrits=n_qutrits)
+    qubit_pairs = [[2 * idx, 2 * idx + 1] for idx in range(state.num_qutrits)]
+
+    qc = QuantumCircuit(
+        2 * state.num_qutrits,
+        name=f"{state.state_id}_direct_basis_exact_optimized",
+    )
+    local_prep = build_direct_basis_local_preparation(basis_matrix)
+    for pair in qubit_pairs:
+        qc.append(local_prep, pair)
+
+    weighted_edges: dict[tuple[int, int], int] = {}
+    for left, right in state.edges:
+        if left == right:
+            continue
+        edge = tuple(sorted((left, right)))
+        weighted_edges[edge] = (weighted_edges.get(edge, 0) + 1) % 3
+
+    layers: list[list[tuple[int, int, int]]] = []
+    for (left, right), power in weighted_edges.items():
+        if power == 0:
+            continue
+        for layer in layers:
+            if all(left not in edge[:2] and right not in edge[:2] for edge in layer):
+                layer.append((left, right, power))
+                break
+        else:
+            layers.append([(left, right, power)])
+
+    edge_gates = {
+        power: build_direct_basis_edge_gate(basis_matrix, power=power)
+        for power in {power for layer in layers for _, _, power in layer}
+    }
+    for layer in layers:
+        for left, right, power in layer:
+            left_pair = qubit_pairs[state.num_qutrits - 1 - left]
+            right_pair = qubit_pairs[state.num_qutrits - 1 - right]
+            qc.append(
+                edge_gates[power],
+                [left_pair[0], left_pair[1], right_pair[0], right_pair[1]],
+            )
 
     return qc

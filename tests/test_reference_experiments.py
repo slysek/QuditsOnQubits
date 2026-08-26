@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
+from qiskit import transpile
 from qiskit.quantum_info import Statevector
 
 from qudits_on_qubits.bell_functionals.bell_builders import (
@@ -30,6 +31,7 @@ from qudits_on_qubits.bell_functionals.operators import (
     qutrit_lambda,
 )
 from qudits_on_qubits.benchmarks.direct_basis.circuits import (
+    build_exact_optimized_direct_basis_graph_state_circuit,
     build_direct_basis_graph_state_circuit,
 )
 from qudits_on_qubits.core.graph_states import resolve_graph_state_or_raise
@@ -382,6 +384,50 @@ class ReferenceExperimentRegistryTests(unittest.TestCase):
 
                 fidelity = abs(np.vdot(expected, actual)) ** 2
                 self.assertAlmostEqual(fidelity, 1.0, places=10)
+
+    def test_exact_optimized_ame43_matches_baseline_in_two_edge_layers(self) -> None:
+        encoding = get_encoding("canonical_ez").as_array()
+
+        baseline = build_direct_basis_graph_state_circuit("ame43", encoding)
+        optimized = build_exact_optimized_direct_basis_graph_state_circuit(
+            "ame43", encoding
+        )
+
+        baseline_state = Statevector.from_instruction(baseline).data
+        optimized_state = Statevector.from_instruction(optimized).data
+        fidelity = abs(np.vdot(baseline_state, optimized_state)) ** 2
+        self.assertAlmostEqual(fidelity, 1.0, places=10)
+        self.assertEqual(optimized.count_ops().get("diagonal"), 4)
+        self.assertEqual(optimized.depth(), 3)
+
+    def test_exact_optimized_ame43_has_expected_native_cost(self) -> None:
+        encoding = get_encoding("canonical_ez").as_array()
+        baseline = transpile(
+            build_direct_basis_graph_state_circuit("ame43", encoding),
+            basis_gates=["u", "cz"],
+            optimization_level=3,
+            seed_transpiler=0,
+        )
+        optimized = transpile(
+            build_exact_optimized_direct_basis_graph_state_circuit("ame43", encoding),
+            basis_gates=["u", "cz"],
+            optimization_level=3,
+            seed_transpiler=0,
+        )
+
+        baseline_cost = (baseline.count_ops().get("cz"), baseline.depth())
+        optimized_cost = (optimized.count_ops().get("cz"), optimized.depth())
+
+        self.assertLess(
+            optimized_cost[0],
+            baseline_cost[0],
+            f"expected fewer CZ gates, baseline={baseline_cost}, optimized={optimized_cost}",
+        )
+        self.assertLess(
+            optimized_cost[1],
+            baseline_cost[1],
+            f"expected lower depth, baseline={baseline_cost}, optimized={optimized_cost}",
+        )
 
     def test_registry_and_nested_values_are_immutable(self) -> None:
         spec = get_reference_experiment("two_qutrit")
