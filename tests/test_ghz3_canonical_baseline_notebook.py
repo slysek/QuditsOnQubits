@@ -164,6 +164,7 @@ def test_notebook_has_aer_and_opt_in_iqm_runs_and_clean_cells():
         "BootstrapConfig",
         "ExperimentSpec",
         "IQMHardware",
+        "IQMQubitSelectorConfig",
         "MitigationConfig",
         "PathBasis",
         "WorkloadOptimizationConfig",
@@ -219,11 +220,20 @@ def test_configuration_and_empty_summary_are_semantically_complete(tmp_path):
         )
     ) == ((0, 1), (2, 7), (3, 4))
     assert namespace["IQM_SEED_CANDIDATES"] == (3, 7, 13)
+    assert namespace["IQM_LAYOUT_SELECTOR"] == namespace[
+        "IQMQubitSelectorConfig"
+    ](
+        top_k=10,
+        num_trials=2000,
+        cost_function="cz",
+        readout_mode="none",
+    )
     assert namespace["workload_optimization"] == namespace[
         "WorkloadOptimizationConfig"
     ](
         initial_layouts=((0, 1, 2, 7, 3, 4),),
         seed_transpilers=(3, 7, 13),
+        iqm_qubit_selector=namespace["IQM_LAYOUT_SELECTOR"],
     )
     assert namespace["UNCERTAINTY"].samples == 2_000
     assert namespace["UNCERTAINTY"].seed == 7
@@ -636,12 +646,24 @@ def test_ghz3_notebook_full_mitigation_pipeline_offline(tmp_path):
                 "garnet",
                 metadata={"calibration_set_id": "offline-cal"},
             )
+            self.selector_calls = 0
             self.compile_calls = 0
             self.compile_physical_calls = 0
             self.submissions = []
 
         def resolve(self):
             return self.identity
+
+        def suggest_layouts(self, circuit, config):
+            self.selector_calls += 1
+            assert circuit.num_qubits == 6
+            return {
+                "provider": "iqm-qubit-selector",
+                "version": "1.1",
+                "configuration": config.to_safe_dict(),
+                "layouts": ((0, 1, 2, 7, 3, 4),),
+                "costs": (0.02,),
+            }
 
         def compile(self, circuits, config):
             self.compile_calls += 1
@@ -750,6 +772,7 @@ def test_ghz3_notebook_full_mitigation_pipeline_offline(tmp_path):
     )
 
     assert result.status.value == "completed"
+    assert adapter.selector_calls == 1
     assert adapter.compile_calls == 3
     assert adapter.compile_physical_calls == 1
     assert len(transform_calls) == 1
@@ -776,6 +799,28 @@ def test_ghz3_notebook_full_mitigation_pipeline_offline(tmp_path):
         "diagnostics",
     } <= set(result.values)
     assert result.values["raw"] == result.values["raw_conditional"]
+
+    document = json.loads(
+        (Path(result.artifact_dir) / "experiment.json").read_text(encoding="utf-8")
+    )
+    assert document["workload_optimization"]["selector"] == {
+        "provider": "iqm-qubit-selector",
+        "version": "1.1",
+        "calibration_set_id": "offline-cal",
+        "configuration": {
+            "top_k": 10,
+            "num_trials": 2000,
+            "cost_function": "cz",
+            "readout_mode": "none",
+            "remove_qubits": [],
+        },
+        "representative_circuit_index": 0,
+        "representative_circuit_name": "ghz3_direct_basis",
+        "generated_layouts": [[0, 1, 2, 7, 3, 4]],
+        "generated_costs": [0.02],
+        "explicit_layouts": [[0, 1, 2, 7, 3, 4]],
+        "merged_layouts": [[0, 1, 2, 7, 3, 4]],
+    }
 
     assert_full_twirling_artifact(result)
 
