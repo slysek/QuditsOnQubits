@@ -162,6 +162,7 @@ def test_experiments_public_surface_is_explicit() -> None:
         "ExperimentStore",
         "ExperimentValidationError",
         "IQMHardware",
+        "IQMQubitSelectorConfig",
         "JobResultError",
         "JobSubmissionError",
         "LinearZNEFit",
