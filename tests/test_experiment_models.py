@@ -27,6 +27,7 @@ from qudits_on_qubits.experiments.models import (
     ConfidenceInterval,
     ExperimentSpec,
     IQMHardware,
+    IQMQubitSelectorConfig,
     MitigationConfig,
     NoisySimulator,
     PathBasis,
@@ -356,6 +357,100 @@ def test_workload_optimization_config_round_trips_with_safe_shape():
     assert WorkloadOptimizationConfig.from_safe_dict(payload) == config
 
 
+def test_iqm_qubit_selector_config_round_trips_with_safe_shape():
+    config = IQMQubitSelectorConfig(remove_qubits=[1, 4])
+
+    payload = config.to_safe_dict()
+
+    assert payload == {
+        "top_k": 10,
+        "num_trials": 2000,
+        "cost_function": "cz",
+        "readout_mode": "none",
+        "remove_qubits": [1, 4],
+    }
+    assert config.remove_qubits == (1, 4)
+    assert IQMQubitSelectorConfig.from_safe_dict(payload) == config
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    [
+        ("top_k", 0),
+        ("top_k", True),
+        ("num_trials", 0),
+        ("num_trials", 1.5),
+        ("cost_function", "iswap"),
+        ("cost_function", []),
+        ("readout_mode", "raw"),
+        ("readout_mode", []),
+        ("remove_qubits", (1, 1)),
+        ("remove_qubits", (-1,)),
+    ],
+)
+def test_iqm_qubit_selector_config_rejects_invalid_values(field_name, value):
+    kwargs = {field_name: value}
+
+    with pytest.raises(ExperimentValidationError, match=field_name):
+        IQMQubitSelectorConfig(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "remove_qubits",
+    ["1", b"1", {1}, (index for index in range(2)), {1: "one"}, (True,)],
+)
+def test_iqm_qubit_selector_config_rejects_non_sequence_or_invalid_qubits(remove_qubits):
+    with pytest.raises(ExperimentValidationError, match="remove_qubits"):
+        IQMQubitSelectorConfig(remove_qubits=remove_qubits)
+
+
+def test_workload_optimization_config_allows_selector_as_only_layout_source():
+    selector = IQMQubitSelectorConfig(
+        top_k=4,
+        num_trials=100,
+        cost_function="clifford",
+        readout_mode="fidelity",
+        remove_qubits=(2,),
+    )
+    config = WorkloadOptimizationConfig(
+        initial_layouts=(), iqm_qubit_selector=selector
+    )
+
+    payload = config.to_safe_dict()
+
+    assert config.initial_layouts == ()
+    assert config.iqm_qubit_selector is selector
+    assert payload["iqm_qubit_selector"] == selector.to_safe_dict()
+    assert WorkloadOptimizationConfig.from_safe_dict(payload) == config
+
+
+def test_workload_optimization_config_requires_a_layout_source():
+    with pytest.raises(
+        ExperimentValidationError,
+        match="initial_layouts require at least one layout source",
+    ):
+        WorkloadOptimizationConfig(initial_layouts=())
+
+
+def test_workload_optimization_config_rejects_invalid_selector_payload():
+    with pytest.raises(ExperimentValidationError, match="iqm_qubit_selector"):
+        WorkloadOptimizationConfig(initial_layouts=((0, 1),), iqm_qubit_selector={})
+
+
+def test_workload_optimization_config_preserves_legacy_payload_shape():
+    payload = {
+        "initial_layouts": [[0, 1]],
+        "seed_transpilers": [3],
+        "require_exact_physical_qubit_set": True,
+        "prefer_calibration_metrics": False,
+    }
+
+    config = WorkloadOptimizationConfig.from_safe_dict(payload)
+
+    assert config.iqm_qubit_selector is None
+    assert config.to_safe_dict() == payload
+
+
 def test_workload_optimization_config_normalizes_sequences_to_tuples():
     config = WorkloadOptimizationConfig(
         initial_layouts=[[0, 1], [2, 3]],
@@ -369,7 +464,6 @@ def test_workload_optimization_config_normalizes_sequences_to_tuples():
 @pytest.mark.parametrize(
     "initial_layouts",
     [
-        (),
         ((0, 1), (2, 3, 4)),
         ((0, 0),),
         ((-1, 0),),
