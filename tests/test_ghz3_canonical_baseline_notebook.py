@@ -659,7 +659,7 @@ def test_ghz3_notebook_full_mitigation_pipeline_offline(tmp_path):
             assert circuit.num_qubits == 6
             return {
                 "provider": "iqm-qubit-selector",
-                "version": "1.1",
+                "version": "1.1.0",
                 "configuration": config.to_safe_dict(),
                 "layouts": ((0, 1, 2, 7, 3, 4),),
                 "costs": (0.02,),
@@ -805,7 +805,7 @@ def test_ghz3_notebook_full_mitigation_pipeline_offline(tmp_path):
     )
     assert document["workload_optimization"]["selector"] == {
         "provider": "iqm-qubit-selector",
-        "version": "1.1",
+        "version": "1.1.0",
         "calibration_set_id": "offline-cal",
         "configuration": {
             "top_k": 10,
