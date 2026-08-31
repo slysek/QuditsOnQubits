@@ -525,8 +525,8 @@ class WorkloadOptimizationConfig:
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any]) -> "WorkloadOptimizationConfig":
         selector = None
-        if "iqm_qubit_selector" in data:
-            selector_payload = data["iqm_qubit_selector"]
+        selector_payload = data.get("iqm_qubit_selector")
+        if selector_payload is not None:
             if not isinstance(selector_payload, Mapping):
                 raise ExperimentValidationError(
                     "iqm_qubit_selector must be a mapping"

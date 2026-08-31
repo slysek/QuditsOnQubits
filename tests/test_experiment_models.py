@@ -451,6 +451,14 @@ def test_workload_optimization_config_preserves_legacy_payload_shape():
     assert config.to_safe_dict() == payload
 
 
+def test_workload_optimization_config_accepts_null_selector_payload():
+    config = WorkloadOptimizationConfig.from_safe_dict(
+        {"initial_layouts": [[0, 1]], "iqm_qubit_selector": None}
+    )
+
+    assert config.iqm_qubit_selector is None
+
+
 def test_workload_optimization_config_normalizes_sequences_to_tuples():
     config = WorkloadOptimizationConfig(
         initial_layouts=[[0, 1], [2, 3]],
