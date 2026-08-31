@@ -55,6 +55,7 @@ def test_iqm_selector_and_full_workload_compile_never_submit(
     )
     from qudits_on_qubits.experiments.preparation import prepare_measurements
     from qudits_on_qubits.experiments.runner import (
+        _active_physical_qubit_union,
         _compile_measurement_workload,
     )
 
@@ -83,7 +84,7 @@ def test_iqm_selector_and_full_workload_compile_never_submit(
         ),
         shots=1,
         workload_optimization=WorkloadOptimizationConfig(
-            initial_layouts=((0, 1, 2, 7, 3, 4),),
+            initial_layouts=((0, 1, 2, 3, 4, 7),),
             seed_transpilers=(3,),
             iqm_qubit_selector=selector,
         ),
@@ -105,12 +106,31 @@ def test_iqm_selector_and_full_workload_compile_never_submit(
         expected_identity=identity,
     )
 
-    assert selection.metadata["selector"]["provider"] == (
+    selector_metadata = selection.metadata["selector"]
+    assert selector_metadata["provider"] == (
         "iqm-qubit-selector"
     )
-    assert len(selection.metadata["selector"]["generated_layouts"]) >= 1
+    assert selector_metadata["layout_semantics"] == "routing_subgraph"
+    assert len(selector_metadata["generated_layouts"]) >= 1
+    assert all(
+        layout == sorted(set(layout))
+        for layout in selector_metadata["merged_layouts"]
+    )
     assert len(selection.batch.circuits) == len(settings) == 12
-    assert selection.metadata["selected_layout"]
+    selected_subgraph = tuple(selection.metadata["selected_layout"])
+    assert selected_subgraph
+    assert selected_subgraph == tuple(sorted(set(selected_subgraph)))
+    assert all(
+        set(mapping).issubset(selected_subgraph)
+        for mapping in selection.physical_mappings
+    )
+    active_physical_qubits = _active_physical_qubit_union(
+        selection.batch.circuits
+    )
+    assert active_physical_qubits == selected_subgraph
+    assert tuple(selection.metadata["active_physical_qubit_union"]) == (
+        active_physical_qubits
+    )
     assert selection.metadata["selected_seed_transpiler"] == 3
     submit_guard.assert_not_called()
     backend_run_guard.assert_not_called()

@@ -1491,6 +1491,46 @@ def _adapter_workload_target(adapter: Any) -> Any | None:
     return None
 
 
+def _adapter_qubit_capacity(
+    adapter: Any,
+    identity: BackendIdentity | None,
+) -> int:
+    if identity is not None:
+        candidate = identity.metadata.get("backend_num_qubits")
+        if type(candidate) is int and candidate > 0:
+            return candidate
+
+    for backend_attribute in ("backend", "target_backend"):
+        try:
+            backend = getattr(adapter, backend_attribute, None)
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except Exception:
+            continue
+        if backend is None:
+            continue
+        try:
+            target = getattr(backend, "target", None)
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except Exception:
+            target = None
+        for source in (backend, target):
+            try:
+                candidate = getattr(source, "num_qubits", None)
+                if callable(candidate):
+                    candidate = candidate()
+            except (KeyboardInterrupt, SystemExit, MemoryError):
+                raise
+            except Exception:
+                continue
+            if type(candidate) is int and candidate > 0:
+                return candidate
+    raise BackendCompatibilityError(
+        "IQM selector requires backend qubit capacity"
+    ) from None
+
+
 def _workload_metrics_metadata(
     metrics: WorkloadMetrics,
     *,
@@ -1586,7 +1626,10 @@ def _compile_measurement_workload(
         )
     logical_width = next(iter(logical_widths))
     search = spec.workload_optimization
-    if any(len(layout) != logical_width for layout in search.initial_layouts):
+    selector_enabled = search.iqm_qubit_selector is not None
+    if not selector_enabled and any(
+        len(layout) != logical_width for layout in search.initial_layouts
+    ):
         raise ExperimentValidationError(
             "workload optimization layout width must match logical circuit width"
         )
@@ -1597,6 +1640,22 @@ def _compile_measurement_workload(
         logical_width,
         expected_identity,
     )
+    if selector_enabled:
+        capacity = _adapter_qubit_capacity(adapter, expected_identity)
+        for candidate in layout_candidates:
+            layout = candidate.layout
+            if len(layout) < logical_width:
+                raise ExperimentValidationError(
+                    "IQM routing subgraph is smaller than the logical circuit width"
+                ) from None
+            if len(layout) > capacity or any(index >= capacity for index in layout):
+                if candidate.source == "explicit":
+                    raise ExperimentValidationError(
+                        "IQM routing subgraph physical qubits exceed backend capacity"
+                    ) from None
+                raise BackendCompatibilityError(
+                    "IQM qubit selector output is invalid"
+                ) from None
 
     target = (
         _adapter_workload_target(adapter)

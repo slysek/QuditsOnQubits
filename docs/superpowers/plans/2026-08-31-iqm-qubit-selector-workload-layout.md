@@ -2,6 +2,22 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Implementation correction from the live compile smoke:** The detailed steps
+> below are a historical execution plan. `iqm-qubit-selector` 1.1.2 returns
+> unordered physical routing subgraphs, not ordered logical-to-physical layouts,
+> and a subgraph may be wider than the logical circuit. The implemented selector
+> path canonical-sorts and deduplicates candidates as sets. Both generated
+> candidates and selector-enabled explicit `initial_layouts` are routing
+> restrictions compiled with
+> `transpile_to_IQM(..., restrict_to_qubits=list(subgraph))`, never by passing a
+> selector candidate as `initial_layout`. Restricted local-index circuits are
+> then inflated to full
+> backend width at their real provider indices. Outside selector mode,
+> `TranspilationConfig(initial_layout=...)` retains ordered logical-to-physical
+> semantics. Any later selector-specific snippet that assumes ordered values,
+> exact logical width, or direct `initial_layout` compilation is superseded by
+> this correction.
+
 **Goal:** Integrate IQM's calibration-aware qubit selector into the shared experiment pipeline, then validate and rank its Top-K layouts over the complete GHZ Bell workload before any hardware submission.
 
 **Architecture:** Add a JSON-safe selector configuration model, keep IQM package imports and provider error handling inside `IQMAdapter.suggest_layouts`, and let `_compile_measurement_workload` merge generated layouts with explicit baselines before its existing layout-by-seed full-workload search. The notebook becomes only the first configuration consumer; Aer and PIAST-Q retain their current behavior.
@@ -1953,7 +1969,7 @@ git add pyproject.toml requirements.txt src/qudits_on_qubits.egg-info/PKG-INFO s
 git commit -m "docs: require IQM selector 1.1 pipeline API"
 ```
 
-### Task 7: Add an opt-in live selector/compile smoke test with zero submissions
+### Task 7: Add an opt-in zero-submit live selector/compile smoke test
 
 **Files:**
 - Create: `tests/test_iqm_layout_selector_live.py`

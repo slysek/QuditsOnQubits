@@ -424,6 +424,30 @@ def test_workload_optimization_config_allows_selector_as_only_layout_source():
     assert WorkloadOptimizationConfig.from_safe_dict(payload) == config
 
 
+def test_workload_optimization_config_canonicalizes_selector_routing_subgraphs():
+    selector = IQMQubitSelectorConfig(top_k=2)
+
+    config = WorkloadOptimizationConfig(
+        initial_layouts=((4, 2, 3), (7, 6), (3, 4, 2)),
+        iqm_qubit_selector=selector,
+    )
+
+    assert config.initial_layouts == ((2, 3, 4), (6, 7))
+    assert config.to_safe_dict()["initial_layouts"] == [[2, 3, 4], [6, 7]]
+    assert WorkloadOptimizationConfig.from_safe_dict(config.to_safe_dict()) == config
+
+
+def test_workload_optimization_config_preserves_ordered_legacy_layout_semantics():
+    config = WorkloadOptimizationConfig(
+        initial_layouts=((4, 2), (3, 1)),
+    )
+
+    assert config.initial_layouts == ((4, 2), (3, 1))
+
+    with pytest.raises(ExperimentValidationError, match="equal-width"):
+        WorkloadOptimizationConfig(initial_layouts=((4, 2), (3, 1, 0)))
+
+
 def test_workload_optimization_config_requires_a_layout_source():
     with pytest.raises(
         ExperimentValidationError,

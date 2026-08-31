@@ -471,12 +471,23 @@ class WorkloadOptimizationConfig:
                 )
             layouts.append(layout)
 
-        normalized_layouts = tuple(layouts)
+        if self.iqm_qubit_selector is None:
+            normalized_layouts = tuple(layouts)
+        else:
+            canonical_layouts: list[tuple[int, ...]] = []
+            seen_layouts: set[tuple[int, ...]] = set()
+            for layout in layouts:
+                canonical = tuple(sorted(layout))
+                if canonical in seen_layouts:
+                    continue
+                seen_layouts.add(canonical)
+                canonical_layouts.append(canonical)
+            normalized_layouts = tuple(canonical_layouts)
         if not normalized_layouts and self.iqm_qubit_selector is None:
             raise ExperimentValidationError(
                 "initial_layouts require at least one layout source"
             )
-        if normalized_layouts and (
+        if self.iqm_qubit_selector is None and normalized_layouts and (
             any(
                 len(layout) != len(normalized_layouts[0])
                 for layout in normalized_layouts[1:]

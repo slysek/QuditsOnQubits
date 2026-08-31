@@ -148,7 +148,7 @@ from qudits_on_qubits import (
 )
 
 workload_optimization = WorkloadOptimizationConfig(
-    initial_layouts=((0, 1, 2, 7, 3, 4),),
+    initial_layouts=((0, 1, 2, 3, 4, 7),),
     seed_transpilers=(3, 7, 13),
     iqm_qubit_selector=IQMQubitSelectorConfig(
         top_k=10,
@@ -159,14 +159,16 @@ workload_optimization = WorkloadOptimizationConfig(
 )
 ```
 
-The IQM selector is a pipeline-level candidate source. It reads the full device calibration and contributes its Top-10 layouts; the explicit `(0, 1, 2, 7, 3, 4)` baseline remains in the comparison. The pipeline merges those layouts, evaluates every layout×seed candidate against the complete Bell measurement workload, and ranks the complete candidates before submission. All selector evaluation, candidate validation, and compilation happens before submission. Candidate-specific validation or compilation failures are recorded and skipped; fatal selector errors or a candidate set with no accepted compilation stop the run before any hardware job is submitted. Aer and PiastQ specifications reject IQM automatic layout selection instead of silently ignoring it.
+The IQM selector is a pipeline-level candidate source. With the tested `iqm-qubit-selector` 1.1.2 API, each returned value is an unordered physical routing subgraph, not an ordered logical-to-physical map. A subgraph may therefore contain more physical qubits than the logical circuit width. The pipeline sorts each subgraph, deduplicates candidates as sets, and keeps the first associated selector cost. While `iqm_qubit_selector` is enabled, explicit `initial_layouts` use the same routing-subgraph semantics; the sorted `(0, 1, 2, 3, 4, 7)` baseline above remains in the comparison. Outside selector mode, `TranspilationConfig(initial_layout=...)` remains an ordered logical-to-physical Qiskit mapping.
+
+For each routing-subgraph×seed candidate, the IQM adapter calls `iqm.qiskit_iqm.transpile_to_IQM(..., restrict_to_qubits=list(subgraph))`. IQM returns a circuit indexed locally within that restriction, so the adapter inflates it to the backend's full width and restores real provider qubit indices before ranking, transforms, persistence, or submission. The pipeline evaluates every candidate against the complete Bell measurement workload and ranks the complete candidates before submission. Active physical qubits must stay inside the selected routing subgraph; with `require_exact_physical_qubit_set=True`, their union must equal it. All selector evaluation, candidate validation, and compilation happens before submission. Candidate-specific validation or compilation failures are recorded and skipped; fatal selector errors or a candidate set with no accepted compilation stop the run before any hardware job is submitted. Aer and PiastQ specifications reject IQM automatic layout selection instead of silently ignoring it.
 
 ### Direct pipeline and final artifact
 
 Fresh runs use this pipeline:
 
 1. Load the source basis and prepare all Bell measurement circuits in memory.
-2. With workload optimization enabled, compile every configured layout×seed candidate across the complete Bell measurement workload and select the best candidate by calibrated or structural metrics. Without it, compile one batch. IQM hardware compilation calls the official `iqm.qiskit_iqm.transpile_to_IQM` wrapper for each candidate with the configured transpilation options.
+2. With workload optimization enabled, compile every configured layout×seed candidate across the complete Bell measurement workload and select the best candidate by calibrated or structural metrics. Without it, compile one batch. In IQM selector mode, each candidate is compiled with the official `iqm.qiskit_iqm.transpile_to_IQM` wrapper using `restrict_to_qubits`; other IQM paths use their configured transpilation options normally.
 3. Submit the selected compiler-returned circuit objects directly through the adapter to `backend.run`. Optional readout calibration runs first; ZNE factor batches follow in order.
 4. Keep counts in memory, ordered by ZNE factor and measurement setting, then run readout mitigation, ZNE, and bootstrap postprocessing.
 5. After every requested job succeeds, atomically publish one schema-v3 `postprocessing` checkpoint. Run bootstrap, then atomically replace it with the completed `experiment.json`.
