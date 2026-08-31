@@ -144,10 +144,13 @@ The `workload_optimization` artifact records:
 - every layout-seed candidate status and workload metrics;
 - selected layout, seed, ranking basis, and selected workload metrics.
 
-Selector metadata is checkpointed before any hardware submission. Resume uses
-the persisted selected compiled workload/job information and does not silently
-run a fresh selector against a different calibration snapshot for an existing
-submission. A new experiment run performs fresh selection.
+Selector metadata is constructed, normalized, and validated before any
+hardware submission. It is then included in the runner's existing
+postprocessing checkpoint and final experiment artifact. Resume from an
+existing checkpoint uses its persisted selection metadata and does not run a
+fresh selector against a different calibration snapshot. A new experiment run
+performs fresh selection. Changing the runner's current artifact-staging order
+is outside this feature.
 
 No authentication token, server URL containing credentials, raw exception
 message, or calibration payload is persisted.
