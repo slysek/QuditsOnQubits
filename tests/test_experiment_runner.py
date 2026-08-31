@@ -230,12 +230,19 @@ class _SelectorCandidateAdapter(_CandidateAdapter):
         )
         self.selector_result = selector_result
         self.selector_calls = []
+        self.restricted_compile_calls = []
 
     def suggest_layouts(self, circuit, config):
         self.selector_calls.append((circuit, config))
         if isinstance(self.selector_result, BaseException):
             raise self.selector_result
         return self.selector_result
+
+    def compile_restricted(self, circuits, config, physical_qubits):
+        batch = tuple(circuits)
+        restricted = tuple(physical_qubits)
+        self.restricted_compile_calls.append((batch, config, restricted))
+        return self.compiler(config, self.identity, restricted)
 
 
 def _selector_payload(config, *, layouts=((2, 3), (4, 5)), costs=(0.01, 0.02)):
@@ -660,9 +667,10 @@ def test_selector_metadata_survives_checkpoint_resume_without_reselection(
         lambda _artifacts: SimpleNamespace(circuits=(logical,), metadata=metadata),
     )
 
-    def compiler(config, identity):
+    def compiler(config, identity, physical_qubits):
+        assert config.initial_layout is None
         compiled = _physical_measurement_circuit(
-            config.initial_layout,
+            physical_qubits,
             name="selector-resume-compiled",
         )
         return CompiledBatch(
@@ -730,15 +738,18 @@ def test_selector_metadata_survives_checkpoint_resume_without_reselection(
         "configuration": selector.to_safe_dict(),
         "representative_circuit_index": 0,
         "representative_circuit_name": "logical-selector-resume",
+        "layout_semantics": "routing_subgraph",
         "generated_layouts": [[0, 1]],
         "generated_costs": [0.02],
         "explicit_layouts": [[0, 1]],
         "merged_layouts": [[0, 1]],
     }
     assert adapter.selector_calls == [(logical, selector)]
-    assert len(adapter.compile_calls) == 1
+    assert adapter.compile_calls == []
+    assert len(adapter.restricted_compile_calls) == 1
     adapter_calls = tuple(adapter.calls)
     compile_calls = tuple(adapter.compile_calls)
+    restricted_compile_calls = tuple(adapter.restricted_compile_calls)
 
     monkeypatch.setattr(runner, "bootstrap_bell_results", real_bootstrap)
     create_adapter = Mock(side_effect=AssertionError("backend lifecycle restarted"))
@@ -756,6 +767,7 @@ def test_selector_metadata_survives_checkpoint_resume_without_reselection(
     compile_workload.assert_not_called()
     assert adapter.selector_calls == [(logical, selector)]
     assert tuple(adapter.compile_calls) == compile_calls
+    assert tuple(adapter.restricted_compile_calls) == restricted_compile_calls
     assert tuple(adapter.calls) == adapter_calls
     final_document = json.loads(
         (artifact_dir / "experiment.json").read_text(encoding="utf-8")
@@ -1984,6 +1996,86 @@ def test_fresh_readout_compile_fallback_matches_real_non_iqm_adapter_contracts(
     assert layouts == [list(range(20))] * 4
 
 
+@pytest.mark.parametrize("restricted_attribute", ("missing", None))
+def test_restricted_compile_requires_callable_method_without_generic_fallback(
+    restricted_attribute,
+):
+    from qudits_on_qubits.experiments.runner import (
+        _compile_restricted_with_adapter,
+    )
+
+    generic = Mock(side_effect=AssertionError("generic compile called"))
+    adapter = SimpleNamespace(compile=generic)
+    if restricted_attribute is None:
+        adapter.compile_restricted = None
+
+    with pytest.raises(
+        BackendCompatibilityError,
+        match=r"^adapter restricted compilation failed \(TypeError\)$",
+    ) as caught:
+        _compile_restricted_with_adapter(
+            adapter,
+            (QuantumCircuit(2),),
+            TranspilationConfig(),
+            (2, 3),
+        )
+
+    assert caught.value.__cause__ is None
+    generic.assert_not_called()
+
+
+def test_restricted_compile_getter_failure_is_redacted_without_fallback():
+    from qudits_on_qubits.experiments.runner import (
+        _compile_restricted_with_adapter,
+    )
+
+    sensitive_message = "Authorization " + "Bearer restricted-compile-secret"
+    generic = Mock(side_effect=AssertionError("generic compile called"))
+
+    class GetterFailingAdapter:
+        compile = generic
+
+        @property
+        def compile_restricted(self):
+            raise RuntimeError(sensitive_message)
+
+    with pytest.raises(BackendCompatibilityError) as caught:
+        _compile_restricted_with_adapter(
+            GetterFailingAdapter(),
+            (QuantumCircuit(2),),
+            TranspilationConfig(),
+            (2, 3),
+        )
+
+    assert sensitive_message not in str(caught.value)
+    assert caught.value.__cause__ is None
+    generic.assert_not_called()
+
+
+@pytest.mark.parametrize("error_type", (KeyboardInterrupt, SystemExit, MemoryError))
+def test_restricted_compile_propagates_critical_getter_errors(error_type):
+    from qudits_on_qubits.experiments.runner import (
+        _compile_restricted_with_adapter,
+    )
+
+    error = error_type("restricted compilation interrupted")
+
+    class GetterFailingAdapter:
+        @property
+        def compile_restricted(self):
+            raise error
+
+    with pytest.raises(error_type, match="restricted compilation interrupted") as caught:
+        _compile_restricted_with_adapter(
+            GetterFailingAdapter(),
+            (QuantumCircuit(2),),
+            TranspilationConfig(),
+            (2, 3),
+        )
+
+    assert caught.value is error
+
+
 @pytest.mark.parametrize(
     "failure_point",
     ("temporary", "write", "fsync", "file-replace", "directory-publish"),
@@ -2622,16 +2714,36 @@ def test_selector_representative_rejects_empty_workload():
         _representative_circuit_index(())
 
 
-def test_validated_iqm_selector_result_normalizes_layouts_and_costs():
+def test_validated_iqm_selector_result_accepts_routing_subgraphs_wider_than_logical():
     from qudits_on_qubits.experiments.runner import _validated_iqm_selector_result
 
     config = IQMQubitSelectorConfig(top_k=2, remove_qubits=(9,))
 
     assert _validated_iqm_selector_result(
-        _selector_payload(config),
+        _selector_payload(
+            config,
+            layouts=((4, 2, 3), (7, 6)),
+            costs=(0.01, 0.02),
+        ),
         config,
         2,
-    ) == ("1.2.3", ((2, 3), (4, 5)), (0.01, 0.02))
+    ) == ("1.2.3", ((2, 3, 4), (6, 7)), (0.01, 0.02))
+
+
+def test_validated_iqm_selector_result_deduplicates_subgraph_permutations():
+    from qudits_on_qubits.experiments.runner import _validated_iqm_selector_result
+
+    config = IQMQubitSelectorConfig(top_k=3)
+
+    assert _validated_iqm_selector_result(
+        _selector_payload(
+            config,
+            layouts=((4, 2, 3), (3, 4, 2), (7, 6)),
+            costs=(0.01, 0.02, 0.03),
+        ),
+        config,
+        2,
+    ) == ("1.2.3", ((2, 3, 4), (6, 7)), (0.01, 0.03))
 
 
 @pytest.mark.parametrize(
@@ -2648,7 +2760,6 @@ def test_validated_iqm_selector_result_normalizes_layouts_and_costs():
         {"layouts": ((True, 3),), "costs": (0.01,)},
         {"layouts": ((2, 2),), "costs": (0.01,)},
         {"layouts": ((2, 9),), "costs": (0.01,)},
-        {"layouts": ((2, 3), (2, 3))},
         {"layouts": ((0, 1), (2, 3), (4, 5)), "costs": (0.0, 0.1, 0.2)},
         {"costs": (False, 0.02)},
         {"costs": (-0.01, 0.02)},
@@ -2702,10 +2813,13 @@ def test_iqm_selector_generated_first_merge_deduplicates_and_ranks_full_workload
 
     logical, _settings = _install_two_setting_workload(monkeypatch)
     selector = IQMQubitSelectorConfig(top_k=2, num_trials=17)
-    selector_result = _selector_payload(selector)
+    selector_result = _selector_payload(
+        selector,
+        layouts=((4, 2, 3), (5, 4)),
+    )
     cz_counts = {
-        ((2, 3), 3): (0, 4),
-        ((2, 3), 7): (0, 5),
+        ((2, 3, 4), 3): (0, 4),
+        ((2, 3, 4), 7): (0, 5),
         ((4, 5), 3): (1, 1),
         ((4, 5), 7): (1, 2),
         ((0, 1), 3): (3, 3),
@@ -2713,17 +2827,23 @@ def test_iqm_selector_generated_first_merge_deduplicates_and_ranks_full_workload
     }
     batches = {}
 
-    def compiler(config, identity):
-        key = (config.initial_layout, config.seed_transpiler)
-        circuits = tuple(
-            _physical_measurement_circuit(
-                key[0],
+    def compiler(config, identity, physical_qubits):
+        assert config.initial_layout is None
+        key = (physical_qubits, config.seed_transpiler)
+        circuits = []
+        for index in range(2):
+            circuit = QuantumCircuit(
+                max(physical_qubits) + 1,
+                2,
                 name=f"selector-candidate-{key[0]}-{key[1]}-{index}",
-                cz_count=cz_counts[key][index],
             )
-            for index in range(2)
-        )
-        batch = CompiledBatch(circuits, identity)
+            for _ in range(cz_counts[key][index]):
+                circuit.cz(physical_qubits[0], physical_qubits[1])
+            if len(physical_qubits) > 2 and index == 0:
+                circuit.cz(physical_qubits[-2], physical_qubits[-1])
+            circuit.measure(physical_qubits[:2], (0, 1))
+            circuits.append(circuit)
+        batch = CompiledBatch(tuple(circuits), identity)
         batches[key] = batch
         return batch
 
@@ -2733,7 +2853,7 @@ def test_iqm_selector_generated_first_merge_deduplicates_and_ranks_full_workload
             tmp_path,
             backend=IQMHardware("garnet"),
             workload_optimization=WorkloadOptimizationConfig(
-                initial_layouts=((4, 5), (0, 1)),
+                initial_layouts=((5, 4), (0, 1)),
                 seed_transpilers=(3, 7),
                 prefer_calibration_metrics=False,
                 iqm_qubit_selector=selector,
@@ -2744,18 +2864,19 @@ def test_iqm_selector_generated_first_merge_deduplicates_and_ranks_full_workload
     )
 
     assert adapter.selector_calls == [(logical[0], selector)]
+    assert adapter.compile_calls == []
     assert [
-        (call[1].initial_layout, call[1].seed_transpiler)
-        for call in adapter.compile_calls
+        (call[1].initial_layout, call[1].seed_transpiler, call[2])
+        for call in adapter.restricted_compile_calls
     ] == [
-        ((2, 3), 3),
-        ((2, 3), 7),
-        ((4, 5), 3),
-        ((4, 5), 7),
-        ((0, 1), 3),
-        ((0, 1), 7),
+        (None, 3, (2, 3, 4)),
+        (None, 7, (2, 3, 4)),
+        (None, 3, (4, 5)),
+        (None, 7, (4, 5)),
+        (None, 3, (0, 1)),
+        (None, 7, (0, 1)),
     ]
-    assert all(call[0] == logical for call in adapter.compile_calls)
+    assert all(call[0] == logical for call in adapter.restricted_compile_calls)
     submissions = [call for call in adapter.calls if call[0] == "submit"]
     assert len(submissions) == 1
     assert all(
@@ -2771,6 +2892,8 @@ def test_iqm_selector_generated_first_merge_deduplicates_and_ranks_full_workload
         (result.artifact_dir / "experiment.json").read_text(encoding="utf-8")
     )
     metadata = document["workload_optimization"]
+    assert metadata["layout_semantics"] == "routing_subgraph"
+    assert metadata["active_physical_qubit_union"] == [4, 5]
     assert metadata["selected_layout"] == [4, 5]
     assert metadata["selected_seed_transpiler"] == 3
     assert [
@@ -2784,6 +2907,17 @@ def test_iqm_selector_generated_first_merge_deduplicates_and_ranks_full_workload
         ("explicit", None),
         ("explicit", None),
     ]
+    assert [
+        row["active_physical_qubit_union"]
+        for row in metadata["candidates"]
+    ] == [
+        [2, 3, 4],
+        [2, 3, 4],
+        [4, 5],
+        [4, 5],
+        [0, 1],
+        [0, 1],
+    ]
     assert metadata["selector"] == {
         "provider": "iqm-qubit-selector",
         "version": "1.2.3",
@@ -2791,11 +2925,56 @@ def test_iqm_selector_generated_first_merge_deduplicates_and_ranks_full_workload
         "configuration": selector.to_safe_dict(),
         "representative_circuit_index": 0,
         "representative_circuit_name": "logical-0",
-        "generated_layouts": [[2, 3], [4, 5]],
+        "layout_semantics": "routing_subgraph",
+        "generated_layouts": [[2, 3, 4], [4, 5]],
         "generated_costs": [0.01, 0.02],
         "explicit_layouts": [[4, 5], [0, 1]],
-        "merged_layouts": [[2, 3], [4, 5], [0, 1]],
+        "merged_layouts": [[2, 3, 4], [4, 5], [0, 1]],
     }
+
+
+def test_iqm_selector_selected_routing_subgraph_accepts_measurement_subset(
+    tmp_path, prepared_run, monkeypatch
+):
+    from qudits_on_qubits.experiments.runner import run_experiment
+
+    _install_two_setting_workload(monkeypatch)
+    selector = IQMQubitSelectorConfig(top_k=1)
+
+    def compiler(config, identity, physical_qubits):
+        assert config.initial_layout is None
+        assert physical_qubits == (2, 3, 4)
+        circuits = []
+        for index in range(2):
+            circuit = QuantumCircuit(5, 2, name=f"restricted-{index}")
+            if index == 0:
+                circuit.cz(3, 4)
+            circuit.measure((2, 3), (0, 1))
+            circuits.append(circuit)
+        return CompiledBatch(tuple(circuits), identity)
+
+    adapter = _SelectorCandidateAdapter(
+        compiler,
+        _selector_payload(selector, layouts=((4, 2, 3),), costs=(0.01,)),
+    )
+    result = run_experiment(
+        make_spec(
+            tmp_path,
+            backend=IQMHardware("garnet"),
+            workload_optimization=WorkloadOptimizationConfig(
+                initial_layouts=(),
+                seed_transpilers=(3,),
+                iqm_qubit_selector=selector,
+            ),
+        ),
+        adapter=adapter,
+        _evaluator=lambda _counts: 1 + 0j,
+    )
+
+    assert result.status is ExperimentStatus.COMPLETED
+    assert adapter.compile_calls == []
+    assert len(adapter.restricted_compile_calls) == 1
+    assert adapter.submit_calls == 1
 
 
 def test_iqm_selector_failure_is_redacted_before_compile_submit_or_artifact(
@@ -3149,18 +3328,20 @@ def test_iqm_selector_layout_escape_is_rejected_without_submission(
     _install_two_setting_workload(monkeypatch)
     selector = IQMQubitSelectorConfig(top_k=1)
 
-    def compiler(_config, identity):
-        return CompiledBatch(
-            tuple(
-                _physical_measurement_circuit((0, 1), name=f"escaped-{index}")
-                for index in range(2)
-            ),
-            identity,
-        )
+    def compiler(config, identity, physical_qubits):
+        assert config.initial_layout is None
+        assert physical_qubits == (2, 3, 4)
+        circuits = []
+        for index in range(2):
+            circuit = QuantumCircuit(5, 2, name=f"escaped-{index}")
+            circuit.x(0)
+            circuit.measure((2, 3), (0, 1))
+            circuits.append(circuit)
+        return CompiledBatch(tuple(circuits), identity)
 
     adapter = _SelectorCandidateAdapter(
         compiler,
-        _selector_payload(selector, layouts=((2, 3),), costs=(0.01,)),
+        _selector_payload(selector, layouts=((4, 2, 3),), costs=(0.01,)),
     )
 
     with pytest.raises(BackendCompatibilityError, match="no workload candidate"):
@@ -3171,6 +3352,7 @@ def test_iqm_selector_layout_escape_is_rejected_without_submission(
                 workload_optimization=WorkloadOptimizationConfig(
                     initial_layouts=(),
                     seed_transpilers=(3,),
+                    require_exact_physical_qubit_set=False,
                     iqm_qubit_selector=selector,
                 ),
             ),
@@ -3178,7 +3360,8 @@ def test_iqm_selector_layout_escape_is_rejected_without_submission(
             _evaluator=lambda _counts: 1 + 0j,
         )
 
-    assert len(adapter.compile_calls) == 1
+    assert adapter.compile_calls == []
+    assert len(adapter.restricted_compile_calls) == 1
     assert adapter.submit_calls == 0
     assert not (tmp_path / "runs").exists()
 
@@ -3252,11 +3435,17 @@ def test_workload_candidate_search_compiles_cartesian_product_and_reuses_winner(
         (result.artifact_dir / "experiment.json").read_text(encoding="utf-8")
     )
     metadata = document["workload_optimization"]
+    assert "layout_semantics" not in metadata
+    assert "active_physical_qubit_union" not in metadata
     assert metadata["ranking_basis"] == "structural"
     assert metadata["selected_candidate_index"] == 1
     assert metadata["selected_layout"] == [0, 1]
     assert metadata["selected_seed_transpiler"] == 7
     assert len(metadata["candidates"]) == 4
+    assert all(
+        "active_physical_qubit_union" not in row
+        for row in metadata["candidates"]
+    )
     assert metadata["candidates"][0]["metrics"]["circuit_count"] == 2
     assert metadata["selected_workload"]["aggregate"]["circuit_count"] == 2
     assert set(result.values) == {"raw", "config", "diagnostics"}
@@ -3732,6 +3921,153 @@ def test_workload_selected_layout_rejects_twirling_escape_before_submit(
     assert adapter.submit_calls == 0
 
 
+def test_iqm_selector_routing_subgraph_rejects_twirling_active_escape(
+    tmp_path, prepared_run, monkeypatch
+):
+    from qudits_on_qubits.experiments.mitigation import TwirledBatch
+    from qudits_on_qubits.experiments.runner import run_experiment
+
+    _install_two_setting_workload(monkeypatch)
+    selector = IQMQubitSelectorConfig(top_k=1)
+
+    def compiler(config, identity, physical_qubits):
+        assert config.initial_layout is None
+        circuits = tuple(
+            _physical_measurement_circuit(
+                (2, 3),
+                name=f"restricted-{index}",
+            )
+            for index in range(2)
+        )
+        return CompiledBatch(circuits, identity)
+
+    adapter = _SelectorCandidateAdapter(
+        compiler,
+        _selector_payload(selector, layouts=((4, 2, 3),), costs=(0.01,)),
+    )
+
+    def transform(_circuits, *, instances, seed):
+        assert (instances, seed) == (2, None)
+        escaped = []
+        for index in range(4):
+            circuit = QuantumCircuit(5, 2, name=f"twirled-escaped-{index}")
+            circuit.x(0)
+            circuit.measure((2, 3), (0, 1))
+            escaped.append(circuit)
+        return TwirledBatch(
+            circuits=tuple(escaped),
+            original_indices=(0, 0, 1, 1),
+            instance_indices=(0, 1, 0, 1),
+            metadata={
+                "provider": "iqm-error-reduction-tools",
+                "method": "circuit_twirling",
+                "readout_strategy": "NONE",
+                "instances_per_circuit": 2,
+                "seed": None,
+            },
+        )
+
+    with pytest.raises(
+        BackendCompatibilityError,
+        match="twirled workload.*routing subgraph",
+    ):
+        run_experiment(
+            make_spec(
+                tmp_path,
+                backend=IQMHardware("garnet"),
+                mitigation=MitigationConfig(
+                    circuit_twirling=True,
+                    twirling_instances=2,
+                ),
+                workload_optimization=WorkloadOptimizationConfig(
+                    initial_layouts=(),
+                    seed_transpilers=(3,),
+                    require_exact_physical_qubit_set=False,
+                    iqm_qubit_selector=selector,
+                ),
+            ),
+            adapter=adapter,
+            _twirling_transform=transform,
+            _evaluator=lambda _counts: 1 + 0j,
+        )
+
+    assert adapter.submit_calls == 0
+
+
+def test_iqm_selector_rejects_twirling_measurement_remap_within_subgraph(
+    tmp_path, prepared_run, monkeypatch
+):
+    from qudits_on_qubits.experiments.mitigation import TwirledBatch
+    from qudits_on_qubits.experiments.runner import run_experiment
+
+    _install_two_setting_workload(monkeypatch)
+    selector = IQMQubitSelectorConfig(top_k=1)
+
+    def compiler(config, identity, physical_qubits):
+        assert config.initial_layout is None
+        circuits = tuple(
+            _physical_measurement_circuit(
+                (2, 3),
+                name=f"restricted-{index}",
+            )
+            for index in range(2)
+        )
+        return CompiledBatch(circuits, identity)
+
+    adapter = _SelectorCandidateAdapter(
+        compiler,
+        _selector_payload(selector, layouts=((4, 2, 3),), costs=(0.01,)),
+    )
+
+    def transform(_circuits, *, instances, seed):
+        assert (instances, seed) == (2, None)
+        remapped = tuple(
+            _physical_measurement_circuit(
+                (3, 2),
+                name=f"twirled-remapped-{index}",
+            )
+            for index in range(4)
+        )
+        return TwirledBatch(
+            circuits=remapped,
+            original_indices=(0, 0, 1, 1),
+            instance_indices=(0, 1, 0, 1),
+            metadata={
+                "provider": "iqm-error-reduction-tools",
+                "method": "circuit_twirling",
+                "readout_strategy": "NONE",
+                "instances_per_circuit": 2,
+                "seed": None,
+            },
+        )
+
+    with pytest.raises(
+        BackendCompatibilityError,
+        match="twirled workload.*measurement mapping",
+    ):
+        run_experiment(
+            make_spec(
+                tmp_path,
+                backend=IQMHardware("garnet"),
+                mitigation=MitigationConfig(
+                    circuit_twirling=True,
+                    twirling_instances=2,
+                ),
+                workload_optimization=WorkloadOptimizationConfig(
+                    initial_layouts=(),
+                    seed_transpilers=(3,),
+                    require_exact_physical_qubit_set=False,
+                    iqm_qubit_selector=selector,
+                ),
+            ),
+            adapter=adapter,
+            _twirling_transform=transform,
+            _evaluator=lambda _counts: 1 + 0j,
+        )
+
+    assert adapter.submit_calls == 0
+
+
 def test_workload_selected_layout_rejects_zne_escape_before_any_submit(
     tmp_path, prepared_run, monkeypatch
 ):
@@ -3763,6 +4099,124 @@ def test_workload_selected_layout_rejects_zne_escape_before_any_submit(
                 workload_optimization=WorkloadOptimizationConfig(
                     initial_layouts=((0,),),
                     seed_transpilers=(3,),
+                ),
+            ),
+            adapter=adapter,
+            _evaluator=lambda _counts: 1 + 0j,
+        )
+
+    assert adapter.submit_calls == 0
+
+
+def test_iqm_selector_routing_subgraph_rejects_zne_active_escape(
+    tmp_path, prepared_run, monkeypatch
+):
+    import qudits_on_qubits.experiments.runner as runner
+
+    _install_two_setting_workload(monkeypatch)
+    selector = IQMQubitSelectorConfig(top_k=1)
+
+    def compiler(config, identity, physical_qubits):
+        assert config.initial_layout is None
+        circuits = tuple(
+            _physical_measurement_circuit(
+                (2, 3),
+                name=f"restricted-{index}",
+            )
+            for index in range(2)
+        )
+        return CompiledBatch(circuits, identity)
+
+    def escaping_fold(circuits, factor):
+        assert len(circuits) == 2
+        assert factor == 3
+        escaped = []
+        for index in range(2):
+            circuit = QuantumCircuit(5, 2, name=f"factor-3-escaped-{index}")
+            circuit.x(0)
+            circuit.measure((2, 3), (0, 1))
+            escaped.append(circuit)
+        return tuple(escaped)
+
+    monkeypatch.setattr(runner, "fold_cz_batch", escaping_fold)
+    adapter = _SelectorCandidateAdapter(
+        compiler,
+        _selector_payload(selector, layouts=((4, 2, 3),), costs=(0.01,)),
+    )
+
+    with pytest.raises(
+        BackendCompatibilityError,
+        match="ZNE factor 3.*routing subgraph",
+    ):
+        runner.run_experiment(
+            make_spec(
+                tmp_path,
+                backend=IQMHardware("garnet"),
+                mitigation=MitigationConfig(zne=True, zne_factors=(1, 3)),
+                workload_optimization=WorkloadOptimizationConfig(
+                    initial_layouts=(),
+                    seed_transpilers=(3,),
+                    require_exact_physical_qubit_set=False,
+                    iqm_qubit_selector=selector,
+                ),
+            ),
+            adapter=adapter,
+            _evaluator=lambda _counts: 1 + 0j,
+        )
+
+    assert adapter.submit_calls == 0
+
+
+def test_iqm_selector_rejects_zne_measurement_remap_within_subgraph(
+    tmp_path, prepared_run, monkeypatch
+):
+    import qudits_on_qubits.experiments.runner as runner
+
+    _install_two_setting_workload(monkeypatch)
+    selector = IQMQubitSelectorConfig(top_k=1)
+
+    def compiler(config, identity, physical_qubits):
+        assert config.initial_layout is None
+        circuits = tuple(
+            _physical_measurement_circuit(
+                (2, 3),
+                name=f"restricted-{index}",
+            )
+            for index in range(2)
+        )
+        return CompiledBatch(circuits, identity)
+
+    def remapping_fold(circuits, factor):
+        assert len(circuits) == 2
+        assert factor == 3
+        return tuple(
+            _physical_measurement_circuit(
+                (3, 2),
+                name=f"factor-3-remapped-{index}",
+            )
+            for index in range(2)
+        )
+
+    monkeypatch.setattr(runner, "fold_cz_batch", remapping_fold)
+    adapter = _SelectorCandidateAdapter(
+        compiler,
+        _selector_payload(selector, layouts=((4, 2, 3),), costs=(0.01,)),
+    )
+
+    with pytest.raises(
+        BackendCompatibilityError,
+        match="ZNE factor 3.*measurement mapping",
+    ):
+        runner.run_experiment(
+            make_spec(
+                tmp_path,
+                backend=IQMHardware("garnet"),
+                mitigation=MitigationConfig(zne=True, zne_factors=(1, 3)),
+                workload_optimization=WorkloadOptimizationConfig(
+                    initial_layouts=(),
+                    seed_transpilers=(3,),
+                    require_exact_physical_qubit_set=False,
+                    iqm_qubit_selector=selector,
                 ),
             ),
             adapter=adapter,
@@ -3870,5 +4324,90 @@ def test_workload_readout_calibrates_only_selected_physical_union(
     )
 
     assert selected_unions == [(2, 3)]
+    assert document["calibration"]["qubit_mapping"] == [2, 3]
+    assert adapter.submit_calls == 2
+
+
+def test_iqm_selector_readout_calibrates_measured_union_not_routing_ancilla(
+    tmp_path, prepared_run, monkeypatch
+):
+    import qudits_on_qubits.experiments.runner as runner
+
+    _install_two_setting_workload(monkeypatch)
+    selector = IQMQubitSelectorConfig(top_k=1)
+
+    def compiler(config, identity, physical_qubits):
+        assert config.initial_layout is None
+        circuits = []
+        for index in range(2):
+            circuit = QuantumCircuit(5, 2, name=f"restricted-{index}")
+            if index == 0:
+                circuit.cz(3, 4)
+            circuit.measure((2, 3), (0, 1))
+            circuits.append(circuit)
+        return CompiledBatch(tuple(circuits), identity)
+
+    class SelectorReadoutAdapter(_SelectorCandidateAdapter):
+        def compile_physical(self, circuits, _config):
+            return CompiledBatch(tuple(circuits), self.identity)
+
+        def result(self, submitted, timeout=None):
+            self.calls.append(("result", submitted, timeout))
+            counts = (
+                tuple(
+                    {"0": submitted.shots}
+                    if index % 2 == 0
+                    else {"1": submitted.shots}
+                    for index in range(4)
+                )
+                if submitted.circuit_count == 4
+                else tuple(
+                    {"00": submitted.shots}
+                    for _ in range(submitted.circuit_count)
+                )
+            )
+            return ExecutionResult(
+                counts,
+                submitted.job_id,
+                self.identity,
+                status="done",
+            )
+
+    measured_unions = []
+    real_builder = runner.build_readout_calibration_circuits
+
+    def recording_builder(physical_qubits):
+        measured_unions.append(tuple(physical_qubits))
+        return real_builder(physical_qubits)
+
+    monkeypatch.setattr(
+        runner,
+        "build_readout_calibration_circuits",
+        recording_builder,
+    )
+    adapter = SelectorReadoutAdapter(
+        compiler,
+        _selector_payload(selector, layouts=((4, 2, 3),), costs=(0.01,)),
+    )
+    result = runner.run_experiment(
+        make_spec(
+            tmp_path,
+            backend=IQMHardware("garnet"),
+            mitigation=MitigationConfig(readout=True),
+            workload_optimization=WorkloadOptimizationConfig(
+                initial_layouts=(),
+                seed_transpilers=(3,),
+                iqm_qubit_selector=selector,
+            ),
+        ),
+        adapter=adapter,
+        _readout_strategy=_PureReadout(),
+        _evaluator=lambda _counts: 1 + 0j,
+    )
+    document = json.loads(
+        (result.artifact_dir / "experiment.json").read_text(encoding="utf-8")
+    )
+
+    assert measured_unions == [(2, 3)]
     assert document["calibration"]["qubit_mapping"] == [2, 3]
     assert adapter.submit_calls == 2
