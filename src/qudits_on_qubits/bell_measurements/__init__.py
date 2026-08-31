@@ -16,12 +16,14 @@ from .basis import (
 )
 from .graph_settings import build_general_graph_bell_settings
 from .postprocessing import (
+    InvalidCodewordStatistics,
     ReferenceBellEvaluation,
     bit_pair_to_qutrit_outcome,
     bitstring_to_qutrit_outcomes,
     compute_bell_value_from_counts,
     compute_complex_expectation,
     evaluate_reference_bell_values_from_counts,
+    invalid_codeword_statistics,
     leakage_rate,
 )
 from .piastq_runner import compute_bell_value_from_counts_aqt
@@ -37,6 +39,7 @@ from .sampler_circuits import (
 )
 
 __all__ = [
+    "InvalidCodewordStatistics",
     "ReferenceBellEvaluation",
     "append_measurement_for_global_setting",
     "bit_pair_to_qutrit_outcome",
@@ -55,6 +58,7 @@ __all__ = [
     "default_observable_from_label",
     "encoding_leakage_subspace",
     "evaluate_reference_bell_values_from_counts",
+    "invalid_codeword_statistics",
     "leakage_rate",
     "local_measurement_basis_unitary",
     "logical_part_from_matrix",

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import replace
-import hashlib
 import json
 from pathlib import Path
 import socket
@@ -17,10 +16,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
-
-
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _write_two_qutrit_basis(directory: Path) -> None:
@@ -86,11 +81,6 @@ class _IQMBackend:
         return SimpleNamespace(operational=True)
 
 
-class _PassManager:
-    def run(self, circuits):
-        return circuits
-
-
 class _PiastJob:
     def __init__(self, circuits, shots, job_id="piastq-contract-job"):
         self._job_id = job_id
@@ -121,7 +111,7 @@ class _PiastBackend:
         return SimpleNamespace(operational=True)
 
 
-def _piast_types(output_root: Path):
+def _piast_types():
     jobs = {}
     backend = _PiastBackend()
 
@@ -138,27 +128,11 @@ def _piast_types(output_root: Path):
             assert options == {}
 
         def run(self, circuits, *, shots):
-            current_runs = []
-            for manifest_path in output_root.rglob("experiment.json"):
-                document = json.loads(manifest_path.read_text(encoding="utf-8"))
-                if document["spec"]["backend"]["kind"] == "piastq_hardware":
-                    current_runs.append(manifest_path.parent)
-            assert len(current_runs) == 1
-            assert (current_runs[0] / "compiled-factor-1.qpy").is_file()
             job = _PiastJob(circuits, shots)
             jobs[job.job_id()] = job
             return job
 
     return Client, Sampler
-
-
-def _artifact_records(document):
-    circuits = document["circuits"]
-    records = [circuits["source"], circuits["logical"]]
-    records.extend(circuits["factors"].values())
-    records.extend(document["counts"].values())
-    records.extend((document["postprocessing"], document["result_artifact"]))
-    return records
 
 
 def test_one_scientific_spec_uses_aer_iqm_and_piastq_provider_contracts(
@@ -167,7 +141,6 @@ def test_one_scientific_spec_uses_aer_iqm_and_piastq_provider_contracts(
     from qudits_on_qubits.experiments.backends import IQMAdapter, PiastQAdapter
     import qudits_on_qubits.experiments.backends.piastq as piastq_module
     from qudits_on_qubits.experiments.execution import ExecutionMode
-    from qudits_on_qubits.experiments.manifest import RunManifest
     from qudits_on_qubits.experiments.models import (
         AerIdeal,
         BootstrapConfig,
@@ -177,7 +150,7 @@ def test_one_scientific_spec_uses_aer_iqm_and_piastq_provider_contracts(
         PathBasis,
         PiastQHardware,
     )
-    from qudits_on_qubits.experiments.runner import run_experiment
+    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
 
     monkeypatch.setattr(socket, "getaddrinfo", _reject_network)
     monkeypatch.setattr(socket, "create_connection", _reject_network)
@@ -205,9 +178,9 @@ def test_one_scientific_spec_uses_aer_iqm_and_piastq_provider_contracts(
     iqm_adapter = IQMAdapter(
         iqm_spec.backend,
         backend=_IQMBackend(),
-        pass_manager_factory=lambda *_args, **_kwargs: _PassManager(),
+        transpiler=lambda circuit, _backend, **_options: circuit,
     )
-    client_type, sampler_type = _piast_types(output_root)
+    client_type, sampler_type = _piast_types()
     piastq_adapter = PiastQAdapter(
         piastq_spec.backend,
         client_type=client_type,
@@ -221,36 +194,59 @@ def test_one_scientific_spec_uses_aer_iqm_and_piastq_provider_contracts(
         (iqm_spec, iqm_adapter, ExecutionMode.HARDWARE, "iqm"),
         (piastq_spec, piastq_adapter, ExecutionMode.HARDWARE, "piastq"),
     )
-    manifests = []
+    documents = []
+    setting_orders = []
     for spec, adapter, expected_mode, expected_identity in cases:
         result = run_experiment(spec, adapter=adapter, _sleep=lambda _: None)
-        manifest = RunManifest.load(result.artifact_dir)
-        document = manifest.to_safe_dict()
+        document = json.loads(
+            (result.artifact_dir / "experiment.json").read_text(encoding="utf-8")
+        )
 
         assert result.status is ExperimentStatus.COMPLETED
-        assert manifest.schema_version == 2
-        assert manifest.execution_mode is expected_mode
-        assert manifest.backend["identity"]["kind"] == expected_identity
-        assert manifest.result_artifact is not None
-        assert (
-            result.artifact_dir / manifest.result_artifact["artifact"]
-        ).is_file()
-        compiled_name = manifest.circuits["factors"]["1"]["artifact"]
-        assert compiled_name == "compiled-factor-1.qpy"
-        assert (result.artifact_dir / compiled_name).is_file()
+        assert document["schema_version"] == 3
+        assert document["status"] == "completed"
+        assert document["backend"] == result.backend
+        assert document["backend"]["kind"] == expected_identity
+        assert document["spec"]["backend"]["execution_mode"] == expected_mode.value
+        assert document["result"] == result.values
+        assert set(document["result"]) == {
+            "raw",
+            "raw_conditional",
+            "raw_unconditional",
+            "raw_invalid_codeword_rate",
+            "raw_invalid_codeword_shots",
+            "config",
+            "diagnostics",
+        }
+        assert document["result"]["raw"] == document["result"]["raw_conditional"]
+        assert set(document["result"]["raw"]["estimate"]) == {"real", "imag"}
+        assert {path.name for path in result.artifact_dir.iterdir()} == {
+            "experiment.json"
+        }
+        assert "sha256" not in json.dumps(document).lower()
         assert "token" not in repr(document).lower()
-        for record in _artifact_records(document):
-            assert _sha256(result.artifact_dir / record["artifact"]) == record["sha256"]
-        assert _sha256(
-            result.artifact_dir / document["source"]["encoding_artifact"]
-        ) == document["source"]["encoding_sha256"]
-        manifests.append(document)
 
-    assert {frozenset(document) for document in manifests} == {
-        frozenset(manifests[0])
+        assert list(document["counts_by_factor"]) == ["1"]
+        factor_counts = document["counts_by_factor"]["1"]
+        assert factor_counts
+        assert all(
+            sum(item["counts"].values()) == spec.shots
+            for item in factor_counts
+        )
+        setting_orders.append(
+            tuple(tuple(item["setting"]) for item in factor_counts)
+        )
+
+        loaded = resume_experiment(result.artifact_dir, adapter=object())
+        assert loaded.to_safe_dict() == result.to_safe_dict()
+        documents.append(document)
+
+    assert setting_orders[0] == setting_orders[1] == setting_orders[2]
+    assert {frozenset(document) for document in documents} == {
+        frozenset(documents[0])
     }
     scientific_specs = []
-    for document in manifests:
+    for document in documents:
         serialized_spec = deepcopy(document["spec"])
         serialized_spec.pop("backend")
         scientific_specs.append(serialized_spec)

@@ -193,6 +193,64 @@ def test_create_run_uses_utc_date_unique_component_and_never_overwrites(tmp_path
     assert marker.read_text(encoding="utf-8") == "keep"
 
 
+def test_stage_run_fsyncs_root_after_creating_date_directory(tmp_path, monkeypatch):
+    store = ExperimentStore(tmp_path / "runs")
+    synced = []
+    monkeypatch.setattr(store_module, "_fsync_directory", synced.append)
+
+    staging, _ = store.stage_run()
+
+    assert synced == [store.root]
+    store.discard_staged_run(staging)
+
+
+def test_stage_run_root_fsync_failure_prevents_staging_creation(tmp_path, monkeypatch):
+    store = ExperimentStore(tmp_path / "runs")
+
+    def fail_root_fsync(directory):
+        assert directory == store.root
+        raise ExperimentPersistenceError("injected root fsync failure")
+
+    monkeypatch.setattr(store_module, "_fsync_directory", fail_root_fsync)
+
+    with pytest.raises(ExperimentPersistenceError, match="fsync experiment root"):
+        store.stage_run()
+
+    assert not any(path.name.startswith(".staging-") for path in store.root.rglob("*"))
+
+
+def test_first_run_fsyncs_every_new_output_directory_entry(tmp_path, monkeypatch):
+    output_root = tmp_path / "new-parent" / "runs"
+    synced = []
+    monkeypatch.setattr(store_module, "_fsync_directory", synced.append)
+
+    store = ExperimentStore(output_root)
+    staging, _ = store.stage_run()
+
+    assert synced == [tmp_path.resolve(), output_root.parent.resolve(), store.root]
+    store.discard_staged_run(staging)
+
+
+def test_first_run_output_root_fsync_failure_is_typed_and_creates_no_run(
+    tmp_path, monkeypatch
+):
+    output_root = tmp_path / "new-parent" / "runs"
+
+    def fail_output_root_entry(directory):
+        if directory == output_root.parent.resolve():
+            raise ExperimentPersistenceError("injected output-root fsync failure")
+
+    monkeypatch.setattr(store_module, "_fsync_directory", fail_output_root_entry)
+
+    with pytest.raises(
+        ExperimentPersistenceError, match="directory entry durability"
+    ):
+        ExperimentStore(output_root)
+
+    if output_root.exists():
+        assert list(output_root.iterdir()) == []
+
+
 @pytest.mark.parametrize("run_id", ["../escape", "a/b", "a\\b", ".", "..", "C:\\escape", "/absolute", ""])
 def test_create_run_rejects_unsafe_run_ids(tmp_path, run_id):
     store = ExperimentStore(tmp_path / "runs")

@@ -5,6 +5,7 @@ from enum import Enum
 from importlib import import_module
 from types import SimpleNamespace
 import traceback
+from unittest.mock import Mock
 
 import pytest
 from qiskit import QuantumCircuit
@@ -149,6 +150,35 @@ def test_custom_submit_preserves_circuit_objects_and_options_exactly_once():
     assert options == {"memory": True, "shots": 25}
     assert submitted.circuit_count == 2
     assert submitted.shots == 25
+
+
+def test_submit_delegates_to_backend_run_without_preflight():
+    from qudits_on_qubits.experiments.backends import CustomBackendAdapter
+
+    circuit = QuantumCircuit(1, 1)
+    circuit.measure(0, 0)
+    backend = _Backend()
+    adapter = CustomBackendAdapter(_custom_backend(backend, identity="local"))
+    adapter.preflight = Mock(side_effect=AssertionError("preflight called"))
+
+    submitted = adapter.submit((circuit,), 100)
+
+    adapter.preflight.assert_not_called()
+    assert backend.calls == [((circuit,), {"shots": 100})]
+    assert submitted.circuit_count == 1
+
+
+@pytest.mark.parametrize("shots", [0, -1, True, 1.5])
+def test_submit_rejects_invalid_shots_before_backend_run(shots):
+    from qudits_on_qubits.experiments.backends import CustomBackendAdapter
+
+    backend = _Backend()
+    adapter = CustomBackendAdapter(_custom_backend(backend))
+
+    with pytest.raises(ExperimentValidationError, match="shots"):
+        adapter.submit(_compiled(adapter, 1).circuits, shots)
+
+    assert not backend.calls
 
 
 @pytest.mark.parametrize("options", [{"shots": 10}, {"shots": None}])
@@ -522,6 +552,35 @@ def test_result_normalizes_safe_provider_enum_status():
     adapter = CustomBackendAdapter(_custom_backend(_Backend()))
     submitted = SubmittedJob("job-1", handle, adapter.resolve(), 1, 1)
     assert adapter.result(submitted).status == "done"
+
+
+@pytest.mark.parametrize("stage", ("retrieval", "counts"))
+def test_base_adapter_result_propagates_memory_error_once(stage):
+    from qudits_on_qubits.experiments.backends import CustomBackendAdapter
+
+    calls = {"result": 0, "counts": 0}
+
+    def fail_counts():
+        calls["counts"] += 1
+        raise MemoryError("out of memory")
+
+    class MemoryJob(_Job):
+        def result(self, **_kwargs):
+            calls["result"] += 1
+            if stage == "retrieval":
+                raise MemoryError("out of memory")
+            return SimpleNamespace(get_counts=fail_counts)
+
+    adapter = CustomBackendAdapter(
+        _custom_backend(_Backend(MemoryJob()), identity="local")
+    )
+    submitted = adapter.submit(_compiled(adapter, 1).circuits, 1)
+
+    with pytest.raises(MemoryError, match="out of memory"):
+        adapter.result(submitted)
+
+    assert calls["result"] == 1
+    assert calls["counts"] == (1 if stage == "counts" else 0)
 
 
 def test_aer_ideal_real_execution_measured_zero_counts():

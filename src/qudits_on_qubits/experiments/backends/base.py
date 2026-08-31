@@ -353,7 +353,7 @@ class BaseBackendAdapter(ABC):
         options: Mapping[str, Any] | None,
     ) -> SubmittedJob:
         batch = _validated_circuit_tuple(circuits)
-        self.preflight(batch, shots)
+        _positive_integer(shots, "shots")
         run_options = _validated_run_options(options)
         try:
             handle = backend.run(batch, shots=shots, **run_options)
@@ -396,6 +396,8 @@ class BaseBackendAdapter(ABC):
                 raw_result = submitted.handle.result()
             else:
                 raw_result = submitted.handle.result(timeout=timeout)
+        except MemoryError:
+            raise
         except Exception as error:
             raise JobResultError(
                 f"could not retrieve result for job {submitted.job_id} ({_exception_name(error)})"
@@ -412,6 +414,8 @@ class BaseBackendAdapter(ABC):
                     if sum(item.values()) != submitted.shots:
                         raise JobResultError("result counts do not sum to expected shots")
         except JobResultError:
+            raise
+        except MemoryError:
             raise
         except Exception as error:
             raise JobResultError(
@@ -506,6 +510,8 @@ def _extract_counts(raw_result: Any, circuit_count: int | None) -> tuple[Mapping
             except (TypeError, IndexError):
                 value = _call_provider_counts(getter)
                 return tuple(value) if isinstance(value, (list, tuple)) else (value,)
+            except MemoryError:
+                raise
             except Exception as error:
                 raise JobResultError(
                     f"provider get_counts failed ({_exception_name(error)})"
@@ -515,6 +521,8 @@ def _extract_counts(raw_result: Any, circuit_count: int | None) -> tuple[Mapping
 
     try:
         entries = tuple(raw_result)
+    except MemoryError:
+        raise
     except Exception as error:
         raise JobResultError(
             f"result does not expose counts ({_exception_name(error)})"
@@ -538,6 +546,8 @@ def _counts_from_primitive_entry(entry: Any) -> Mapping[str, int]:
     if callable(keys):
         try:
             names.extend(key for key in keys() if isinstance(key, str))
+        except MemoryError:
+            raise
         except Exception:
             pass
     values = getattr(data, "__dict__", {})
@@ -554,6 +564,8 @@ def _counts_from_primitive_entry(entry: Any) -> Mapping[str, int]:
 def _call_provider_counts(getter: Any) -> Any:
     try:
         return getter()
+    except MemoryError:
+        raise
     except Exception as error:
         raise JobResultError(
             f"provider get_counts failed ({_exception_name(error)})"

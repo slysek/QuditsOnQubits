@@ -1,0 +1,18 @@
+{
+  "encoding_id": "canonical_ez",
+  "encoding_shape": [
+    4,
+    3
+  ],
+  "files": {
+    "E.npy": {
+      "sha256": "4829b0594b7769b357789834467f875ad10deabd185296858671119155dc6e21"
+    },
+    "graph_state_direct_basis.qpy": {
+      "sha256": "d3c9e4975e2d14c4f7ffa18f6f1cb48f5489093c255f7f52ab3435761eac6b87"
+    }
+  },
+  "num_qubits": 4,
+  "schema": "qoq-reference-basis-v1",
+  "state": "two_qutrit"
+}

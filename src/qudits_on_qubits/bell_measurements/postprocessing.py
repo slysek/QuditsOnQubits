@@ -18,6 +18,14 @@ from .basis import (
 
 
 @dataclass(frozen=True)
+class InvalidCodewordStatistics:
+    total_weight: float
+    accepted_weight: float
+    invalid_weight: float
+    invalid_fraction: float
+
+
+@dataclass(frozen=True)
 class ReferenceBellEvaluation:
     unconditional: complex
     conditional: complex
@@ -69,6 +77,52 @@ def bitstring_to_qutrit_outcomes(
         bit1 = _bit_at(bitstring, bit1_index, bit_order)
         outcomes.append(bit_pair_to_qutrit_outcome(bit0, bit1, **decode_kwargs))
     return tuple(outcomes)
+
+
+def invalid_codeword_statistics(
+    counts_by_setting: Mapping[tuple, Mapping[str, float]],
+    qutrit_bit_indices_by_setting: Mapping[tuple, Sequence[tuple[int, int]]],
+    bit_order: str = "qiskit",
+    *,
+    E: np.ndarray | None = None,
+    outcome_map: dict[int, int | None] | None = None,
+    d: int = 3,
+    require_non_negative: bool,
+) -> InvalidCodewordStatistics:
+    """Summarize weights whose bitstrings contain an invalid qutrit codeword."""
+    if not isinstance(require_non_negative, bool):
+        raise ValueError("require_non_negative must be a bool")
+
+    decode_kwargs = {"E": E, "outcome_map": outcome_map, "d": d}
+    total_weight = 0.0
+    invalid_weight = 0.0
+    for setting, counts in counts_by_setting.items():
+        qutrit_bit_indices = qutrit_bit_indices_by_setting[setting]
+        for bitstring, weight in counts.items():
+            _validate_weight(weight)
+            if require_non_negative and weight < 0:
+                raise ValueError("weights must be non-negative")
+
+            total_weight += weight
+            outcomes = bitstring_to_qutrit_outcomes(
+                bitstring,
+                qutrit_bit_indices,
+                bit_order,
+                **decode_kwargs,
+            )
+            if any(outcome is None for outcome in outcomes):
+                invalid_weight += weight
+
+    accepted_weight = total_weight - invalid_weight
+    invalid_fraction = (
+        0.0 if total_weight == 0 else invalid_weight / total_weight
+    )
+    return InvalidCodewordStatistics(
+        total_weight=total_weight,
+        accepted_weight=accepted_weight,
+        invalid_weight=invalid_weight,
+        invalid_fraction=invalid_fraction,
+    )
 
 
 def leakage_rate(

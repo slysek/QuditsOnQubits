@@ -7,9 +7,7 @@ import math
 from typing import Any, Mapping, Sequence
 
 from ...benchmarks.direct_basis.iqm_backend import (
-    EXACT_RZ_SCHEDULING_METHOD,
     backend_metadata,
-    build_iqm_pass_manager,
     load_iqm_backend,
 )
 from ..errors import (
@@ -41,8 +39,18 @@ def _default_backend_loader(device: str, use_metrics: bool, env_path: Any) -> An
     return load_iqm_backend(device, use_metrics=use_metrics, env_path=env_path)
 
 
-def _default_pass_manager_factory(backend: Any, **options: Any) -> Any:
-    return build_iqm_pass_manager(backend, **options)
+def _default_transpiler(circuit: Any, backend: Any, **options: Any) -> Any:
+    from iqm.qiskit_iqm import transpile_to_IQM
+
+    return transpile_to_IQM(circuit, backend=backend, **options)
+
+
+def _effective_options(config: TranspilationConfig) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in config.to_safe_dict().items()
+        if value is not None
+    }
 
 
 def _default_backend_metadata(backend: Any, spec: IQMHardware) -> Mapping[str, Any]:
@@ -65,7 +73,7 @@ class IQMAdapter(BaseBackendAdapter):
         spec: IQMHardware,
         backend: Any = None,
         backend_loader: Any = None,
-        pass_manager_factory: Any = None,
+        transpiler: Any = None,
         loader: Any = None,
     ) -> None:
         if not isinstance(spec, IQMHardware):
@@ -77,12 +85,12 @@ class IQMAdapter(BaseBackendAdapter):
         selected_loader = loader if loader is not None else backend_loader
         if selected_loader is not None and not callable(selected_loader):
             raise BackendCompatibilityError("IQM backend loader must be callable")
-        if pass_manager_factory is not None and not callable(pass_manager_factory):
-            raise BackendCompatibilityError("IQM pass-manager factory must be callable")
+        if transpiler is not None and not callable(transpiler):
+            raise BackendCompatibilityError("IQM transpiler must be callable")
         self._spec = spec
         self._backend = backend
         self._backend_loader = selected_loader or _default_backend_loader
-        self._pass_manager_factory = pass_manager_factory or _default_pass_manager_factory
+        self._transpiler = transpiler or _default_transpiler
         self._identity: BackendIdentity | None = None
 
     @property
@@ -173,7 +181,7 @@ class IQMAdapter(BaseBackendAdapter):
                     f"circuit requires {required} qubits but IQM backend provides {capacity} qubits"
                 )
 
-    def _run_pass_manager(
+    def _transpile_batch(
         self,
         circuits: tuple[Any, ...],
         options: Mapping[str, Any],
@@ -182,8 +190,12 @@ class IQMAdapter(BaseBackendAdapter):
     ) -> tuple[Any, ...]:
         backend = self._backend_instance()
         try:
-            pass_manager = self._pass_manager_factory(backend, **options)
-            compiled = pass_manager.run(list(circuits))
+            return tuple(
+                self._transpiler(circuit, backend, **dict(options))
+                for circuit in circuits
+            )
+        except MemoryError:
+            raise
         except (ImportError, ModuleNotFoundError) as error:
             raise OptionalDependencyError(
                 "IQM transpilation requires the IQM Qiskit adapter "
@@ -195,17 +207,18 @@ class IQMAdapter(BaseBackendAdapter):
                 f"could not {operation} for backend {identity.kind}:{identity.name} "
                 f"({_exception_name(error)})"
             ) from None
-        return tuple(compiled) if isinstance(compiled, (list, tuple)) else (compiled,)
 
     def compile(self, circuits: Sequence[Any], config: TranspilationConfig) -> CompiledBatch:
         batch = _validated_circuit_tuple(circuits)
         if not isinstance(config, TranspilationConfig):
             raise BackendCompatibilityError("compile requires TranspilationConfig")
-        options = dict(config.to_safe_dict())
-        if options["scheduling_method"] is None:
-            options["scheduling_method"] = EXACT_RZ_SCHEDULING_METHOD
-        compiled = self._run_pass_manager(batch, options, operation="compile circuits")
-        return CompiledBatch(compiled, self.resolve(), {"transpilation": options})
+        options = _effective_options(config)
+        compiled = self._transpile_batch(batch, options, operation="compile circuits")
+        return CompiledBatch(
+            compiled,
+            self.resolve(),
+            {"transpilation": options},
+        )
 
     def compile_physical(
         self, circuits: Sequence[Any], config: TranspilationConfig
@@ -224,13 +237,9 @@ class IQMAdapter(BaseBackendAdapter):
             )
         width = next(iter(widths))
         assert width is not None
-        options = dict(config.to_safe_dict())
-        options["layout_method"] = None
-        options["routing_method"] = "none"
+        options = _effective_options(config)
         options["initial_layout"] = list(range(width))
-        if options["scheduling_method"] is None:
-            options["scheduling_method"] = EXACT_RZ_SCHEDULING_METHOD
-        compiled = self._run_pass_manager(
+        compiled = self._transpile_batch(
             batch,
             options,
             operation="compile physical calibration circuits",

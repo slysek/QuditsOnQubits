@@ -19,6 +19,14 @@ RANK_BY_DEPTH_COLUMNS = (
     "best_one_qubit_gate_count",
     "best_size",
 )
+WORKLOAD_SELECTION_COLUMNS = (
+    "workload_max_two_qubit_gate_count",
+    "workload_total_two_qubit_gate_count",
+    "workload_max_depth",
+    "workload_total_depth",
+    "workload_max_size",
+    "workload_total_size",
+)
 
 
 @dataclass(frozen=True)
@@ -148,11 +156,26 @@ def select_top_k(
         if ranked.empty:
             return ranked
 
-    for column in RANK_BY_DEPTH_COLUMNS:
+    selection_columns = RANK_BY_DEPTH_COLUMNS
+    has_complete_workload = (
+        "ranking_workload" in ranked.columns
+        and ranked["ranking_workload"].eq("bell_measurements").all()
+        and all(column in ranked.columns for column in WORKLOAD_SELECTION_COLUMNS)
+    )
+    if has_complete_workload:
+        workload_values = ranked.loc[:, WORKLOAD_SELECTION_COLUMNS].apply(
+            pd.to_numeric,
+            errors="coerce",
+        )
+        if np.isfinite(workload_values.to_numpy(dtype=float)).all():
+            ranked.loc[:, WORKLOAD_SELECTION_COLUMNS] = workload_values
+            selection_columns = WORKLOAD_SELECTION_COLUMNS
+
+    for column in selection_columns:
         ranked[column] = _numeric_column(ranked, column)
 
     ranked = ranked.sort_values(
-        list(RANK_BY_DEPTH_COLUMNS),
+        list(selection_columns),
         ascending=True,
         na_position="last",
     ).head(int(top_k)).copy()

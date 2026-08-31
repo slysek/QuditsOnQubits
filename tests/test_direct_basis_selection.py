@@ -26,6 +26,7 @@ from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandi
 from qudits_on_qubits.benchmarks.direct_basis.selection import (
     DEFAULT_APPROXIMATION_THRESHOLDS,
     SUPPORTED_BELL_STATES,
+    WORKLOAD_SELECTION_COLUMNS,
     SelectionConfig,
     materialize_selected_artifacts,
     parse_approximation_thresholds,
@@ -86,6 +87,112 @@ class DirectBasisSelectionLabelTests(unittest.TestCase):
 
 
 class DirectBasisSelectionRankingTests(unittest.TestCase):
+    @staticmethod
+    def _ranking_row(candidate_name, *, ranking_workload, best_depth, workload_cost):
+        return {
+            "selection_label": "exact",
+            "status": "ok",
+            "success": True,
+            "class_name": "product",
+            "candidate_name": candidate_name,
+            "best_depth": best_depth,
+            "best_two_qubit_gate_count": best_depth,
+            "best_one_qubit_gate_count": best_depth,
+            "best_size": best_depth,
+            "fidelity": 1.0,
+            "ranking_workload": ranking_workload,
+            "workload_max_two_qubit_gate_count": workload_cost,
+            "workload_total_two_qubit_gate_count": workload_cost,
+            "workload_max_depth": workload_cost,
+            "workload_total_depth": workload_cost,
+            "workload_max_size": workload_cost,
+            "workload_total_size": workload_cost,
+        }
+
+    def test_workload_selection_columns_match_full_structural_order(self):
+        self.assertEqual(
+            WORKLOAD_SELECTION_COLUMNS,
+            (
+                "workload_max_two_qubit_gate_count",
+                "workload_total_two_qubit_gate_count",
+                "workload_max_depth",
+                "workload_total_depth",
+                "workload_max_size",
+                "workload_total_size",
+            ),
+        )
+
+    def test_bell_rows_rank_by_complete_workload_instead_of_state_depth(self):
+        df = pd.DataFrame(
+            [
+                self._ranking_row(
+                    "best_state",
+                    ranking_workload="bell_measurements",
+                    best_depth=1,
+                    workload_cost=20,
+                ),
+                self._ranking_row(
+                    "best_workload",
+                    ranking_workload="bell_measurements",
+                    best_depth=10,
+                    workload_cost=2,
+                ),
+            ]
+        )
+
+        selected = select_top_k(df, label="exact", top_k=1, fidelity_threshold=None)
+
+        self.assertEqual(selected["candidate_name"].tolist(), ["best_workload"])
+
+    def test_state_rows_fall_back_to_legacy_state_ranking(self):
+        df = pd.DataFrame(
+            [
+                self._ranking_row(
+                    "best_state",
+                    ranking_workload="state_preparation",
+                    best_depth=1,
+                    workload_cost=20,
+                ),
+                self._ranking_row(
+                    "best_workload",
+                    ranking_workload="state_preparation",
+                    best_depth=10,
+                    workload_cost=2,
+                ),
+            ]
+        )
+
+        selected = select_top_k(df, label="exact", top_k=1, fidelity_threshold=None)
+
+        self.assertEqual(selected["candidate_name"].tolist(), ["best_state"])
+
+    def test_incomplete_or_mixed_workload_rows_fall_back_to_legacy_ranking(self):
+        for case in ("incomplete", "mixed"):
+            with self.subTest(case=case):
+                best_state = self._ranking_row(
+                    "best_state",
+                    ranking_workload="bell_measurements",
+                    best_depth=1,
+                    workload_cost=20,
+                )
+                best_workload = self._ranking_row(
+                    "best_workload",
+                    ranking_workload="bell_measurements",
+                    best_depth=10,
+                    workload_cost=2,
+                )
+                if case == "incomplete":
+                    best_workload.pop("workload_total_size")
+                else:
+                    best_state["ranking_workload"] = "state_preparation"
+                selected = select_top_k(
+                    pd.DataFrame([best_state, best_workload]),
+                    label="exact",
+                    top_k=1,
+                    fidelity_threshold=None,
+                )
+                self.assertEqual(selected["candidate_name"].tolist(), ["best_state"])
+
     def test_threshold_selection_filters_success_status_and_fidelity_then_sorts_by_depth(self):
         df = pd.DataFrame(
             [

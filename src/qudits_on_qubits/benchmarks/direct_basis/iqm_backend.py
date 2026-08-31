@@ -66,7 +66,7 @@ def load_iqm_backend(
                 "Missing IQM Qiskit adapter. Install the pinned project "
                 "dependencies with `python -m pip install -e .`, or reinstall "
                 "IQM with `python -m pip install --force-reinstall "
-                "\"iqm-client[qiskit]>=34,<35\"`."
+                "\"iqm-client[qiskit]>=35,<36\"`."
             ) from exc
         raise
 

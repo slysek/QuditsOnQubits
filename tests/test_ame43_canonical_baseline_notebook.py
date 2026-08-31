@@ -684,4 +684,4 @@ def test_canonical_notebook_setup_runs_ame43_on_aer(tmp_path):
     artifact_dir = Path(result.artifact_dir)
     assert artifact_dir.is_relative_to(tmp_path / "runs")
     assert (artifact_dir / "experiment.json").is_file()
-    assert (artifact_dir / "result.json").is_file()
+    assert {path.name for path in artifact_dir.iterdir()} == {"experiment.json"}

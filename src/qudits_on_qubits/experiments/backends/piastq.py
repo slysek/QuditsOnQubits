@@ -242,7 +242,7 @@ class PiastQAdapter(BaseBackendAdapter):
         options: Mapping[str, Any] | None = None,
     ) -> SubmittedJob:
         batch = _validated_circuit_tuple(circuits)
-        self.preflight(batch, shots)
+        _positive_integer(shots, "shots")
         sampler_options = _validated_run_options(options)
         _, sampler_type = self._types()
         try:
@@ -280,6 +280,8 @@ class PiastQAdapter(BaseBackendAdapter):
                 poll_interval=self._poll_interval,
             )
             raw_counts = submitted.handle.counts()
+        except MemoryError:
+            raise
         except Exception as error:
             raise JobResultError(
                 f"could not retrieve result for job {submitted.job_id} ({_exception_name(error)})"
@@ -300,6 +302,8 @@ class PiastQAdapter(BaseBackendAdapter):
             ):
                 raise JobResultError("result counts do not sum to expected shots")
         except JobResultError:
+            raise
+        except MemoryError:
             raise
         except Exception as error:
             raise JobResultError(

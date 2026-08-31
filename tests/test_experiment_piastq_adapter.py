@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 import traceback
+from unittest.mock import Mock
 
 import pytest
 
@@ -203,6 +204,32 @@ def test_piast_submits_one_ordered_sampler_job_and_uses_counts_timeout_path():
     assert result.timing == {"time_taken": 1.25}
 
 
+def test_piast_submit_uses_only_local_validation_without_preflight_queries():
+    job = _PiastJob()
+    adapter, _, _, sampler_calls, _ = _adapter(job=job)
+    adapter.preflight = Mock(side_effect=AssertionError("preflight called"))
+    adapter.availability = Mock(side_effect=AssertionError("availability called"))
+    adapter.capabilities = Mock(side_effect=AssertionError("capabilities called"))
+
+    submitted = adapter.submit((object(),), 7, {"cft_job_name": "direct"})
+
+    assert submitted.job_id == "piast-3"
+    assert sampler_calls[-1][1] == 7
+    adapter.preflight.assert_not_called()
+    adapter.availability.assert_not_called()
+    adapter.capabilities.assert_not_called()
+
+
+@pytest.mark.parametrize("shots", (0, -1, True, 1.5))
+def test_piast_submit_rejects_invalid_shots_before_sampler_creation(shots):
+    adapter, _, _, sampler_calls, _ = _adapter()
+
+    with pytest.raises(ExperimentValidationError, match="shots"):
+        adapter.submit((object(),), shots)
+
+    assert sampler_calls == []
+
+
 @pytest.mark.parametrize(
     ("counts", "message"),
     [
@@ -216,6 +243,31 @@ def test_piast_result_validates_count_order_length_format_and_shots(counts, mess
     submitted = adapter.submit((object(), object()), 7)
     with pytest.raises(JobResultError, match=message):
         adapter.result(submitted, timeout=3)
+
+
+@pytest.mark.parametrize("stage", ("retrieval", "counts"))
+def test_piast_result_propagates_memory_error_once(stage):
+    calls = {"result": 0, "counts": 0}
+
+    class MemoryJob(_PiastJob):
+        def result(self, **_kwargs):
+            calls["result"] += 1
+            if stage == "retrieval":
+                raise MemoryError("out of memory")
+            return SimpleNamespace(status="DONE")
+
+        def counts(self):
+            calls["counts"] += 1
+            raise MemoryError("out of memory")
+
+    adapter, _, _, _, _ = _adapter(job=MemoryJob())
+    submitted = adapter.submit((object(),), 7)
+
+    with pytest.raises(MemoryError, match="out of memory"):
+        adapter.result(submitted)
+
+    assert calls["result"] == 1
+    assert calls["counts"] == (1 if stage == "counts" else 0)
 
 
 def test_piast_optional_dependency_and_environment_failures_are_typed_and_sanitized(monkeypatch):

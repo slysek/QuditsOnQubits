@@ -45,10 +45,8 @@ from pathlib import Path
 from qudits_on_qubits import (
     AerIdeal,
     BootstrapConfig,
-    ExecutionMode,
     ExperimentSpec,
     PathBasis,
-    RunManifest,
     run_experiment,
 )
 
@@ -61,10 +59,6 @@ ideal = ExperimentSpec(
 )
 result = run_experiment(ideal)
 print(result.status, result.artifact_dir, result.values["raw"])
-manifest = RunManifest.load(result.artifact_dir)
-print(manifest.execution_mode.value)
-document = manifest.to_safe_dict()
-print(document["circuits"], document["result_artifact"])
 ```
 
 Use a structured `BenchmarkBasis` instead of manually locating a selected candidate:
@@ -90,9 +84,11 @@ Backend choices keep simulation and hardware targets explicit:
 import os
 from qudits_on_qubits import (
     CustomBackend,
+    ExecutionMode,
     IQMHardware,
     NoisySimulator,
     PiastQHardware,
+    TranspilationConfig,
 )
 
 # Local Aer execution using current IQM Garnet calibration profile and Garnet as compile target.
@@ -101,8 +97,12 @@ noisy_garnet = replace(
     backend=NoisySimulator(source=IQMHardware(device="garnet")),
 )
 
-# Real IQM Garnet hardware.
-real_garnet = replace(selected, backend=IQMHardware(device="garnet"))
+# Real IQM Garnet hardware with an explicit logical-to-physical layout.
+real_garnet = replace(
+    selected,
+    backend=IQMHardware(device="garnet"),
+    transpilation=TranspilationConfig(initial_layout=(16, 17, 18, 19)),
+)
 
 # PiastQ managed hardware. Credentials remain in environment/provider configuration.
 piastq_managed = replace(
@@ -113,13 +113,12 @@ piastq_managed = replace(
     ),
 )
 
-# User-supplied backend object. Mark resume support only when its jobs are durable.
+# User-supplied backend object. Execution mode remains explicit.
 custom = replace(
     selected,
     backend=CustomBackend(
         instance=my_backend,
         identity="laboratory-backend",
-        supports_resume=True,
         execution_mode=ExecutionMode.HARDWARE,
     ),
 )
@@ -127,50 +126,93 @@ custom = replace(
 
 Never put tokens, passwords, or API keys inline. Supply credentials only through environment variables or provider configuration. IQM uses its provider environment. PiastQ managed execution reads `CFT_PIASTQ_DASHBOARD_API_URL` and `CFT_PIASTQ_DASHBOARD_API_KEY`.
 
-Run a batch in order, or resume from any durable run directory:
+Run a batch in order, load a completed result, or finish saved postprocessing:
 
 ```python
 from qudits_on_qubits import resume_experiment, run_experiments
 
 results = run_experiments((ideal, noisy_garnet))
-resumed = resume_experiment(results[0].artifact_dir)
+loaded = resume_experiment(results[0].artifact_dir)
 ```
 
-Completed-run resume is idempotent and makes no backend call. Remote resume restores recorded job IDs; it never silently submits a known job again. PiastQ requires client `retrieve_job` support for the durable high-level runner. A client without `retrieve_job` gets an explicit compatibility error; use the lower-level PiastQ Bell API when durable resume is unavailable.
+`resume_experiment` loads completed schema-v3 direct results and completed legacy schema-v1/schema-v2 experiments without an adapter or backend call. A fresh schema-v3 run also publishes a `postprocessing` checkpoint after all requested counts, job metadata, workload selection, and optional calibration are durable. If bootstrap or final persistence is interrupted, `resume_experiment(checkpoint_dir, spec=matching_spec, ...)` recomputes postprocessing from those saved counts; it never retrieves or resubmits backend work. Custom/noisy specs require the matching `spec`. Runs using injected evaluators or mitigation strategies are intentionally not resumable. Other unfinished runs, including failures before complete counts, are rejected.
 
-### Durable artifacts and safety
+### Direct pipeline and final artifact
 
-Each run gets a distinct UTC/UUID directory:
+Fresh runs use this pipeline:
+
+1. Load the source basis and prepare all Bell measurement circuits in memory.
+2. With workload optimization enabled, compile every configured layout×seed candidate across the complete Bell measurement workload and select the best candidate by calibrated or structural metrics. Without it, compile one batch. IQM hardware compilation calls the official `iqm.qiskit_iqm.transpile_to_IQM` wrapper for each candidate with the configured transpilation options.
+3. Submit the selected compiler-returned circuit objects directly through the adapter to `backend.run`. Optional readout calibration runs first; ZNE factor batches follow in order.
+4. Keep counts in memory, ordered by ZNE factor and measurement setting, then run readout mitigation, ZNE, and bootstrap postprocessing.
+5. After every requested job succeeds, atomically publish one schema-v3 `postprocessing` checkpoint. Run bootstrap, then atomically replace it with the completed `experiment.json`.
+
+Each successful run gets a distinct UTC/UUID directory containing one file. An interrupted postprocessing run uses the same path and filename with `status: "postprocessing"` until resumed:
 
 ```text
 artifacts/experiment_runs/YYYY-MM-DD/<experiment-id>/
   experiment.json
-  source-state.qpy
-  source-encoding.json
-  logical-measurements.qpy
-  postprocessing.json
-  compiled-factor-1.qpy
-  counts-factor-1.json
-  readout-calibration.json       # only with readout mitigation
-  result.json
 ```
 
-`experiment.json` schema v2 records immutable safe specification data, backend identity/capabilities, status history and timestamps, durable remote job IDs, artifact SHA-256 hashes, source provenance, raw counts, and calibration evidence. The single serialized execution-mode source of truth is `spec.backend.execution_mode`; `RunManifest.execution_mode` is its typed convenience property. Status progresses through `created`, `validated`, `compiled`, submission/execution states, `postprocessing`, and a terminal state. Compiled circuits, submission, and retrieved results must share one backend identity: this compile + execution target invariant prevents accidental cross-target execution.
+Schema-v3 `experiment.json` has this shape:
 
-`RunManifest.from_safe_dict()`, `to_safe_dict()`, and `load()` provide the public immutable manifest boundary. Loading a built-in schema-v1 manifest normalizes it to schema v2 only in memory and does not rewrite artifacts. Ambiguous schema-v1 custom backend manifests are rejected instead of guessing an execution mode.
+```text
+experiment.json
+  schema_version: 3
+  experiment_id
+  status: "completed"
+  completed_at
+  spec
+  source
+    provenance
+    paths
+  backend
+  transpilation
+  job_ids
+  counts_by_factor
+    "1"
+      - setting
+        counts
+    "3"                         # only when requested by ZNE configuration
+      - setting
+        counts
+  calibration                   # object with readout mitigation; otherwise null
+  result
+    raw                           # legacy alias of raw_conditional
+    raw_conditional
+    raw_unconditional
+    raw_invalid_codeword_rate
+    raw_invalid_codeword_shots
+    readout_mitigated             # conditional alias; only when enabled
+    readout_mitigated_conditional
+    readout_mitigated_unconditional
+    readout_effective_invalid_codeword_weight
+    zne                           # conditional alias; only when enabled
+    zne_conditional
+    zne_unconditional
+    zne_readout_mitigated         # conditional alias; only with both
+    zne_readout_mitigated_conditional
+    zne_readout_mitigated_unconditional
+    config
+    diagnostics
+```
 
-Remote submission uses a pessimistic `submission_unknown` checkpoint before provider contact. Unknown submission outcome is nonresumable because resubmission could duplicate hardware work. Remote backends must support durable job recovery. There is no silent fallback to ideal Aer or another target.
+Fresh runs do not write separate compiled QPY files, source SHA-256 manifests, or multi-file status artifacts. The runner does not call a separate availability check or runner-level preflight before submission; adapter validation and the provider's `backend.run` boundary remain authoritative. A submit or result failure before complete counts leaves no artifact. A later postprocessing failure retains the inline checkpoint but no completed result. There is no silent fallback to ideal Aer or another target.
+
+`RunManifest` is retained only as the immutable boundary for legacy schema-v1/schema-v2 checkpoint manifests. Its `from_safe_dict()`, `to_safe_dict()`, and `load()` methods do not model fresh schema-v3 results. Use `resume_experiment()` to load completed schema-v3 results and completed historical schema-v1/schema-v2 results.
+
+The active checkpoint contains complete local counts, so `resume_experiment()` never retrieves a remote job and never resubmits work. Pre-count unfinished runs remain nonresumable. Preserve provider job IDs from the JSON for external audit or provider tooling.
 
 ### Bootstrap uncertainty
 
-Default uncertainty is 2000 LOCAL resamples of saved counts, not 2000 backend experiments. Bootstrap never contacts a backend. Seeded runs calculate component-wise estimate, standard error, and confidence interval for up to four results:
+Default uncertainty is 2000 LOCAL resamples of saved counts, not 2000 backend experiments. Bootstrap never contacts a backend. Seeded runs calculate component-wise estimate, standard error, and confidence interval for every enabled conditional and unconditional result family, plus invalid-codeword evidence:
 
-- `raw`
-- `readout_mitigated`
-- `zne`
-- `zne_readout_mitigated`
+- `raw_conditional`, `raw_unconditional`, `raw_invalid_codeword_rate`, and `raw_invalid_codeword_shots`
+- `readout_mitigated_conditional`, `readout_mitigated_unconditional`, and `readout_effective_invalid_codeword_weight`
+- `zne_conditional` and `zne_unconditional`
+- `zne_readout_mitigated_conditional` and `zne_readout_mitigated_unconditional`
 
-Only enabled mitigation combinations appear. Intervals reflect finite-shot sampling and optional calibration resampling. They do not model hardware drift or ZNE model bias.
+The legacy `raw`, `readout_mitigated`, `zne`, and `zne_readout_mitigated` keys remain conditional aliases. Only enabled mitigation combinations appear. Intervals reflect finite-shot sampling and optional calibration resampling. They do not model hardware drift or ZNE model bias.
 
 This repo intentionally starts without historical bulk benchmark dumps. The previous repository should be kept locally as `QuditsOnQubits_legacy` for archival lookup. Future IQM/direct-basis simulation outputs should go under `artifacts/`, with selected best circuits copied into the relevant `selected_best/` folder.
 

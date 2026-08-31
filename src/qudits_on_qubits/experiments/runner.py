@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import hashlib
 import importlib.util
+import json
 import math
 from pathlib import Path
 import re
@@ -32,6 +34,7 @@ from .backends import (
     SubmittedJob,
     create_backend_adapter,
 )
+from .backends.base import _safe_identifier
 from .errors import (
     BackendCompatibilityError,
     BackendUnavailableError,
@@ -45,17 +48,21 @@ from .execution import expected_backend_identity_kind
 from .manifest import MANIFEST_SCHEMA_VERSION, RunManifest
 from .mitigation import (
     ReadoutCalibration,
+    TwirledBatch,
     assignment_matrices_from_counts,
     build_readout_calibration_circuits,
     calibration_cache_is_valid,
     fold_cz_batch,
+    twirl_iqm_circuits,
     validate_zne_factors,
 )
 from .models import (
     ExperimentResult,
     ExperimentSpec,
     ExperimentStatus,
+    IQMHardware,
     RetryConfig,
+    TranspilationConfig,
     _normalize_experiment_spec_dict,
 )
 from .preparation import prepare_measurements
@@ -65,16 +72,68 @@ from .safety import (
 )
 from .store import ExperimentStore
 from .uncertainty import BootstrapInputs, bootstrap_bell_results
+from .workload_metrics import (
+    WorkloadMetrics,
+    choose_workload_ranking_basis,
+    summarize_compiled_workload,
+    workload_rank_key,
+)
 
 
 _PROVIDER_EXCEPTION_TYPE = re.compile(r"[A-Za-z_][A-Za-z0-9_.]{0,127}")
+_DIRECT_POSTPROCESSING_CHECKPOINT_VERSION = 1
+_CHECKPOINT_CODEC_KIND = "kind"
+
+
+@dataclass(frozen=True)
+class _CompiledWorkloadCandidate:
+    layout: tuple[int, ...]
+    seed: int
+    batch: CompiledBatch
+    metrics: WorkloadMetrics
+
+
+@dataclass(frozen=True)
+class _CompiledWorkloadSelection:
+    batch: CompiledBatch
+    physical_mappings: tuple[tuple[int, ...], ...]
+    metadata: Mapping[str, object]
+
+
+@dataclass(frozen=True)
+class _DirectPostprocessingCheckpoint:
+    spec: ExperimentSpec
+    identity: BackendIdentity
+    job_ids: tuple[str, ...]
+    factors: tuple[int, ...]
+    calibration: ReadoutCalibration | None
+    inputs: BootstrapInputs
+    schema_fragments: Mapping[str, Any]
 
 
 def _safe_provider_exception_type(error: BaseException) -> str | None:
-    value = getattr(error, "provider_exception_type", None)
+    try:
+        value = getattr(error, "provider_exception_type", None)
+    except (KeyboardInterrupt, SystemExit, MemoryError):
+        raise
+    except Exception:
+        return None
     if isinstance(value, str) and _PROVIDER_EXCEPTION_TYPE.fullmatch(value):
         return value
     return None
+
+
+def _provider_failure_detail(error: BaseException) -> tuple[str, str | None]:
+    error_type = type(error).__name__
+    detail = (
+        error_type
+        if _PROVIDER_EXCEPTION_TYPE.fullmatch(error_type)
+        else "provider error"
+    )
+    provider_exception_type = _safe_provider_exception_type(error)
+    if provider_exception_type is not None:
+        detail = f"{detail}; provider exception: {provider_exception_type}"
+    return detail, provider_exception_type
 
 
 def _utc_now() -> datetime:
@@ -331,14 +390,23 @@ def _validate_adapter_target(
     spec: ExperimentSpec,
     identity: BackendIdentity,
 ) -> None:
-    backend_kind = spec.backend.to_safe_dict().get("kind")
+    backend_config = spec.backend.to_safe_dict()
+    backend_kind = backend_config.get("kind")
     try:
         expected_kind = expected_backend_identity_kind(backend_kind)
     except ExperimentValidationError:
         raise BackendCompatibilityError(
             "configured backend kind is unsupported"
         ) from None
-    if identity.kind != expected_kind:
+    name_field = {
+        "iqm_hardware": "device",
+        "custom": "identity",
+        "noisy_simulator": "identity",
+    }.get(backend_kind)
+    expected_name = backend_config.get(name_field) if name_field is not None else None
+    if identity.kind != expected_kind or (
+        expected_name is not None and identity.name != expected_name
+    ):
         raise BackendCompatibilityError(
             "resolved adapter identity does not match configured backend"
         )
@@ -409,6 +477,284 @@ def _factor_batches(
         else:
             batches[factor] = fold_cz_batch(compiled.circuits, factor)
     return batches
+
+
+def _execute_batch(
+    adapter: Any,
+    identity: BackendIdentity,
+    circuits: Sequence[QuantumCircuit],
+    shots: int,
+    *,
+    timeout: float | None,
+    run_options: Mapping[str, Any] | None,
+    retry: RetryConfig,
+    sleep: Callable[[float], None],
+) -> tuple[SubmittedJob, ExecutionResult]:
+    batch = tuple(circuits)
+    try:
+        submitted = adapter.submit(batch, shots, run_options)
+    except BaseException as error:
+        if isinstance(error, (KeyboardInterrupt, SystemExit)):
+            raise
+        detail, provider_exception_type = _provider_failure_detail(error)
+        sanitized = JobSubmissionError(f"job submission failed ({detail})")
+        if provider_exception_type is not None:
+            setattr(sanitized, "provider_exception_type", provider_exception_type)
+        raise sanitized from None
+    if not isinstance(submitted, SubmittedJob):
+        raise BackendCompatibilityError("adapter submit must return SubmittedJob")
+    if submitted.target_identity != identity:
+        raise BackendCompatibilityError(
+            "submitted job target does not match resolved backend"
+        )
+    if submitted.circuit_count != len(batch):
+        raise BackendCompatibilityError(
+            "submitted job circuit count does not match submitted batch"
+        )
+    if submitted.shots != shots:
+        raise BackendCompatibilityError(
+            "submitted job shots do not match requested shots"
+        )
+    result = None
+    for attempt in range(retry.max_attempts):
+        try:
+            result = adapter.result(submitted, timeout=timeout)
+            break
+        except JobResultError as error:
+            if attempt + 1 < retry.max_attempts:
+                delay = min(
+                    retry.initial_delay * (retry.multiplier ** attempt),
+                    retry.max_delay,
+                )
+                sleep(delay)
+                continue
+            detail, provider_exception_type = _provider_failure_detail(error)
+            sanitized = JobResultError(f"job result retrieval failed ({detail})")
+            if provider_exception_type is not None:
+                setattr(sanitized, "provider_exception_type", provider_exception_type)
+            raise sanitized from None
+        except (BackendCompatibilityError, MemoryError):
+            raise
+        except Exception as error:
+            detail, provider_exception_type = _provider_failure_detail(error)
+            sanitized = JobResultError(f"job result retrieval failed ({detail})")
+            if provider_exception_type is not None:
+                setattr(sanitized, "provider_exception_type", provider_exception_type)
+            raise sanitized from None
+    if not isinstance(result, ExecutionResult):
+        raise BackendCompatibilityError("adapter result must return ExecutionResult")
+    if result.target_identity != identity:
+        raise BackendCompatibilityError(
+            "execution result target does not match resolved backend"
+        )
+    if result.job_id != submitted.job_id:
+        raise BackendCompatibilityError("execution result does not match submitted job")
+    if len(result.counts) != len(batch):
+        raise BackendCompatibilityError(
+            "execution result count does not match circuit batch"
+        )
+    if any(sum(counts.values()) != shots for counts in result.counts):
+        raise BackendCompatibilityError(
+            "execution result counts do not sum to requested shots"
+        )
+    return submitted, result
+
+
+def _compile_with_adapter(
+    adapter: Any,
+    circuits: Sequence[QuantumCircuit],
+    config: Any,
+    *,
+    physical: bool = False,
+) -> Any:
+    operation = "physical compilation" if physical else "compilation"
+    try:
+        compiler = (
+            getattr(adapter, "compile_physical", None)
+            if physical
+            else getattr(adapter, "compile", None)
+        )
+        uses_generic_physical_compile = not callable(compiler) and physical
+        if uses_generic_physical_compile:
+            compiler = getattr(adapter, "compile", None)
+        if not callable(compiler):
+            raise TypeError("adapter compile operation is not callable")
+        if uses_generic_physical_compile:
+            widths = {circuit.num_qubits for circuit in circuits}
+            if len(widths) != 1:
+                raise TypeError("physical calibration circuits must share one width")
+            width = next(iter(widths))
+            if not isinstance(config, TranspilationConfig):
+                raise TypeError("physical compilation requires TranspilationConfig")
+            config = replace(config, initial_layout=tuple(range(width)))
+        return compiler(circuits, config)
+    except (KeyboardInterrupt, SystemExit, MemoryError):
+        raise
+    except BaseException as error:
+        detail, provider_exception_type = _provider_failure_detail(error)
+        sanitized = BackendCompatibilityError(
+            f"adapter {operation} failed ({detail})"
+        )
+        if provider_exception_type is not None:
+            setattr(sanitized, "provider_exception_type", provider_exception_type)
+        raise sanitized from None
+
+
+def _counts_by_setting(
+    settings: Sequence[Any], result: ExecutionResult
+) -> OrderedDict[Any, dict[str, int]]:
+    if len(settings) != len(result.counts):
+        raise BackendCompatibilityError("setting order does not match result batch")
+    return OrderedDict(
+        (setting, dict(counts))
+        for setting, counts in zip(settings, result.counts, strict=True)
+    )
+
+
+def _validate_twirling_spec(spec: ExperimentSpec) -> None:
+    mitigation = spec.mitigation
+    if not mitigation.circuit_twirling:
+        return
+    if not isinstance(spec.backend, IQMHardware):
+        raise ExperimentValidationError(
+            "circuit twirling requires an IQMHardware backend"
+        )
+    if spec.shots % mitigation.twirling_instances != 0:
+        raise ExperimentValidationError(
+            "shots must be divisible by twirling_instances"
+        )
+
+
+def _validated_twirled_batch(
+    value: Any,
+    *,
+    original_count: int,
+    instances: int,
+    seed: int | None,
+) -> TwirledBatch:
+    if not isinstance(value, TwirledBatch):
+        raise BackendCompatibilityError(
+            "IQM twirling transform must return TwirledBatch"
+        )
+    expected_originals = tuple(
+        original_index
+        for original_index in range(original_count)
+        for _ in range(instances)
+    )
+    expected_instances = tuple(range(instances)) * original_count
+    if value.original_indices != expected_originals:
+        raise BackendCompatibilityError(
+            "twirled circuit original-setting order is invalid"
+        )
+    if value.instance_indices != expected_instances:
+        raise BackendCompatibilityError(
+            "twirled circuit instance order is invalid"
+        )
+    expected_metadata = {
+        "provider": "iqm-error-reduction-tools",
+        "method": "circuit_twirling",
+        "readout_strategy": "NONE",
+        "instances_per_circuit": instances,
+        "seed": seed,
+    }
+    if dict(value.metadata) != expected_metadata:
+        raise BackendCompatibilityError("twirling metadata is invalid")
+    return value
+
+
+def _aggregate_twirled_counts(
+    settings: Sequence[Any],
+    result: ExecutionResult,
+    twirled: TwirledBatch,
+    *,
+    total_shots: int,
+) -> OrderedDict[Any, dict[str, int]]:
+    if len(result.counts) != len(twirled.circuits):
+        raise BackendCompatibilityError(
+            "twirled result count does not match randomized circuit batch"
+        )
+    aggregated: list[dict[str, int]] = [{} for _ in settings]
+    for original_index, counts in zip(
+        twirled.original_indices, result.counts, strict=True
+    ):
+        if original_index >= len(settings):
+            raise BackendCompatibilityError(
+                "twirled result references an unknown measurement setting"
+            )
+        target = aggregated[original_index]
+        for outcome, count in counts.items():
+            target[outcome] = target.get(outcome, 0) + count
+    if any(sum(counts.values()) != total_shots for counts in aggregated):
+        raise BackendCompatibilityError(
+            "aggregated twirling counts do not sum to requested shots"
+        )
+    return OrderedDict(
+        (setting, counts)
+        for setting, counts in zip(settings, aggregated, strict=True)
+    )
+
+
+def _run_readout_calibration(
+    adapter: Any,
+    identity: BackendIdentity,
+    physical_qubit_mappings: Sequence[Sequence[int]],
+    spec: ExperimentSpec,
+    *,
+    timeout: float | None,
+    run_options: Mapping[str, Any] | None,
+    clock: Callable[[], datetime],
+    sleep: Callable[[float], None],
+) -> tuple[ReadoutCalibration, SubmittedJob]:
+    physical_qubits = tuple(
+        sorted(
+            {
+                physical
+                for mapping in physical_qubit_mappings
+                for physical in mapping
+            }
+        )
+    )
+    source = build_readout_calibration_circuits(physical_qubits)
+    compiled = _compile_with_adapter(
+        adapter,
+        source,
+        spec.transpilation,
+        physical=True,
+    )
+    if not isinstance(compiled, CompiledBatch):
+        raise BackendCompatibilityError(
+            "adapter compile_physical must return CompiledBatch"
+        )
+    if compiled.target_identity != identity:
+        raise BackendCompatibilityError(
+            "compiled readout calibration target does not match resolved backend"
+        )
+    _validate_physical_calibration_compile(source, compiled.circuits)
+    submitted, execution = _execute_batch(
+        adapter,
+        identity,
+        compiled.circuits,
+        spec.shots,
+        timeout=timeout,
+        run_options=run_options,
+        retry=spec.retry,
+        sleep=sleep,
+    )
+    raw = tuple(dict(counts) for counts in execution.counts)
+    calibration = ReadoutCalibration(
+        backend_identity=_identity_key(identity),
+        calibration_id=_calibration_id(identity),
+        qubit_mapping=physical_qubits,
+        timestamp=clock(),
+        shots=spec.shots,
+        raw_counts=raw,
+        assignment_matrices=assignment_matrices_from_counts(
+            physical_qubits,
+            raw,
+            shots=spec.shots,
+        ),
+    )
+    return calibration, submitted
 
 
 def _persist_factor_batches(
@@ -723,6 +1069,17 @@ def _physical_qubit_mappings(
     mappings: list[tuple[int, ...]] = []
     for circuit in circuits:
         measured: dict[int, int] = {}
+        physical_by_qubit = None
+        layout = getattr(circuit, "layout", None)
+        initial_layout = getattr(layout, "initial_layout", None)
+        get_registers = getattr(initial_layout, "get_registers", None)
+        if callable(get_registers) and get_registers() == set(circuit.qregs):
+            get_virtual_bits = getattr(initial_layout, "get_virtual_bits", None)
+            if not callable(get_virtual_bits):
+                raise BackendCompatibilityError(
+                    "compiled measurement physical layout is invalid"
+                )
+            physical_by_qubit = get_virtual_bits()
         for instruction in circuit.data:
             if (
                 instruction.operation.name != "measure"
@@ -731,7 +1088,19 @@ def _physical_qubit_mappings(
             ):
                 continue
             classical = circuit.find_bit(instruction.clbits[0]).index
-            physical = circuit.find_bit(instruction.qubits[0]).index
+            qubit = instruction.qubits[0]
+            if physical_by_qubit is not None:
+                physical = physical_by_qubit.get(qubit)
+                if (
+                    type(physical) is not int
+                    or physical < 0
+                    or physical >= circuit.num_qubits
+                ):
+                    raise BackendCompatibilityError(
+                        "compiled measurement physical layout is invalid"
+                    )
+            else:
+                physical = circuit.find_bit(qubit).index
             measured[classical] = physical
         if not measured or tuple(sorted(measured)) != tuple(range(len(measured))):
             raise BackendCompatibilityError(
@@ -748,6 +1117,292 @@ def _physical_qubit_mappings(
             "compiled measurement circuits contain no measurements"
         )
     return tuple(mappings)
+
+
+def _adapter_workload_target(adapter: Any) -> Any | None:
+    for backend_attribute in ("backend", "target_backend"):
+        try:
+            backend = getattr(adapter, backend_attribute, None)
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except Exception:
+            continue
+        if backend is None:
+            continue
+        try:
+            target = getattr(backend, "target", None)
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except Exception:
+            continue
+        if target is not None:
+            return target
+    return None
+
+
+def _workload_metrics_metadata(
+    metrics: WorkloadMetrics,
+    *,
+    compact: bool,
+) -> dict[str, object]:
+    if compact:
+        aggregate = _plain_json_value(metrics.aggregate)
+        if not isinstance(aggregate, dict):
+            raise BackendCompatibilityError("compiled workload metrics are invalid")
+        return aggregate
+
+    payload = metrics.to_safe_dict()
+    aggregate = payload.get("aggregate")
+    circuits = payload.get("circuits")
+    if not isinstance(aggregate, dict) or not isinstance(circuits, list):
+        raise BackendCompatibilityError("compiled workload metrics are invalid")
+    return {
+        "circuits": list(circuits),
+        "aggregate": dict(aggregate),
+    }
+
+
+def _workload_rejection_category(error: Exception) -> str:
+    category = type(error).__name__
+    return (
+        category
+        if _PROVIDER_EXCEPTION_TYPE.fullmatch(category)
+        else "Exception"
+    )
+
+
+def _validate_compiled_workload_batch(
+    batch: Any,
+    *,
+    expected_identity: BackendIdentity | None,
+    expected_count: int,
+    spec: ExperimentSpec,
+) -> CompiledBatch:
+    if not isinstance(batch, CompiledBatch):
+        raise BackendCompatibilityError("adapter compile must return CompiledBatch")
+    if expected_identity is not None:
+        if batch.target_identity != expected_identity:
+            raise BackendCompatibilityError(
+                "compiled target does not match resolved backend"
+            )
+    else:
+        _validate_adapter_target(spec, batch.target_identity)
+    if len(batch.circuits) != expected_count:
+        raise BackendCompatibilityError(
+            "compiled circuit count does not match measurement settings"
+        )
+    return batch
+
+
+def _compile_measurement_workload(
+    adapter: Any,
+    circuits: Sequence[QuantumCircuit],
+    settings: Sequence[Sequence[str]],
+    spec: ExperimentSpec,
+    *,
+    expected_identity: BackendIdentity | None = None,
+) -> _CompiledWorkloadSelection:
+    workload_circuits = tuple(circuits)
+    workload_settings = tuple(settings)
+    if spec.workload_optimization is None:
+        batch = _validate_compiled_workload_batch(
+            _compile_with_adapter(adapter, workload_circuits, spec.transpilation),
+            expected_identity=expected_identity,
+            expected_count=len(workload_settings),
+            spec=spec,
+        )
+        return _CompiledWorkloadSelection(
+            batch=batch,
+            physical_mappings=(),
+            metadata={},
+        )
+
+    if not workload_circuits:
+        raise ExperimentValidationError(
+            "workload optimization requires logical measurement circuits"
+        )
+    if any(
+        not isinstance(circuit, QuantumCircuit)
+        for circuit in workload_circuits
+    ):
+        raise ExperimentValidationError(
+            "workload optimization requires QuantumCircuit inputs"
+        )
+    logical_widths = {circuit.num_qubits for circuit in workload_circuits}
+    if len(logical_widths) != 1:
+        raise ExperimentValidationError(
+            "workload optimization requires one logical circuit width"
+        )
+    logical_width = next(iter(logical_widths))
+    search = spec.workload_optimization
+    if any(len(layout) != logical_width for layout in search.initial_layouts):
+        raise ExperimentValidationError(
+            "workload optimization layout width must match logical circuit width"
+        )
+
+    target = (
+        _adapter_workload_target(adapter)
+        if search.prefer_calibration_metrics
+        else None
+    )
+    accepted: list[
+        tuple[
+            int,
+            _CompiledWorkloadCandidate,
+            tuple[tuple[int, ...], ...],
+        ]
+    ] = []
+    candidate_rows: list[dict[str, object]] = []
+    candidate_index = 0
+    for layout in search.initial_layouts:
+        for seed in search.seed_transpilers:
+            row: dict[str, object] = {
+                "status": "rejected",
+                "candidate_index": candidate_index,
+                "layout": list(layout),
+                "seed_transpiler": seed,
+            }
+            try:
+                config = replace(
+                    spec.transpilation,
+                    initial_layout=layout,
+                    seed_transpiler=seed,
+                )
+                batch = _validate_compiled_workload_batch(
+                    _compile_with_adapter(adapter, workload_circuits, config),
+                    expected_identity=expected_identity,
+                    expected_count=len(workload_settings),
+                    spec=spec,
+                )
+                if any(
+                    not isinstance(circuit, QuantumCircuit)
+                    for circuit in batch.circuits
+                ):
+                    raise BackendCompatibilityError(
+                        "compiled workload circuits must be QuantumCircuit values"
+                    )
+                physical_mappings = _physical_qubit_mappings(batch.circuits)
+                if any(
+                    len(mapping) != logical_width
+                    for mapping in physical_mappings
+                ):
+                    raise BackendCompatibilityError(
+                        "compiled workload measurement mapping width is invalid"
+                    )
+                metrics = summarize_compiled_workload(
+                    batch.circuits,
+                    settings=workload_settings,
+                    physical_mappings=physical_mappings,
+                    requested_physical_qubits=layout,
+                    target=target,
+                )
+                if search.require_exact_physical_qubit_set and not metrics.aggregate[
+                    "uses_exact_physical_qubit_set"
+                ]:
+                    raise BackendCompatibilityError(
+                        "compiled workload escaped requested physical layout"
+                    )
+            except (KeyboardInterrupt, SystemExit, MemoryError):
+                raise
+            except Exception as error:
+                row["category"] = _workload_rejection_category(error)
+                candidate_rows.append(row)
+            else:
+                candidate = _CompiledWorkloadCandidate(
+                    layout=layout,
+                    seed=seed,
+                    batch=batch,
+                    metrics=metrics,
+                )
+                row["status"] = "accepted"
+                row["metrics"] = _workload_metrics_metadata(
+                    metrics,
+                    compact=True,
+                )
+                candidate_rows.append(row)
+                accepted.append((candidate_index, candidate, physical_mappings))
+            candidate_index += 1
+
+    if not accepted:
+        raise BackendCompatibilityError(
+            f"no workload candidate was accepted ({len(candidate_rows)} rejected)"
+        ) from None
+
+    use_error, use_duration = choose_workload_ranking_basis(
+        tuple(candidate.metrics for _, candidate, _ in accepted),
+        prefer_calibration=search.prefer_calibration_metrics,
+    )
+    selected_index, selected, selected_mappings = min(
+        accepted,
+        key=lambda item: workload_rank_key(
+            item[1].metrics,
+            use_error=use_error,
+            use_duration=use_duration,
+            seed=item[1].seed,
+            layout=item[1].layout,
+        ),
+    )
+    metadata: dict[str, object] = {
+        "ranking_basis": (
+            "calibration_error_duration" if use_error else "structural"
+        ),
+        "selected_candidate_index": selected_index,
+        "selected_layout": list(selected.layout),
+        "selected_seed_transpiler": selected.seed,
+        "candidates": candidate_rows,
+        "selected_workload": _workload_metrics_metadata(
+            selected.metrics,
+            compact=False,
+        ),
+    }
+    return _CompiledWorkloadSelection(
+        batch=selected.batch,
+        physical_mappings=selected_mappings,
+        metadata=metadata,
+    )
+
+
+def _validate_selected_physical_set(
+    physical_mappings: Sequence[Sequence[int]],
+    selected_layout: Sequence[int],
+    *,
+    require_exact: bool,
+    context: str,
+) -> None:
+    if not require_exact:
+        return
+    expected = set(selected_layout)
+    if not physical_mappings or any(
+        set(mapping) != expected
+        for mapping in physical_mappings
+    ):
+        raise BackendCompatibilityError(
+            f"{context} measured physical qubit set does not match "
+            "selected physical layout"
+        )
+
+
+def _collapse_twirled_physical_qubit_mappings(
+    twirled: TwirledBatch,
+) -> tuple[tuple[int, ...], ...]:
+    variant_mappings = _physical_qubit_mappings(twirled.circuits)
+    original_count = max(twirled.original_indices) + 1
+    collapsed: list[tuple[int, ...] | None] = [None] * original_count
+    for original_index, mapping in zip(
+        twirled.original_indices, variant_mappings, strict=True
+    ):
+        expected = collapsed[original_index]
+        if expected is None:
+            collapsed[original_index] = mapping
+        elif mapping != expected:
+            raise BackendCompatibilityError(
+                "twirled variants have inconsistent physical measurement mapping"
+            )
+    if any(mapping is None for mapping in collapsed):
+        raise BackendCompatibilityError(
+            "twirled physical measurement mapping is incomplete"
+        )
+    return tuple(mapping for mapping in collapsed if mapping is not None)
 
 
 def _physical_qubit_union(
@@ -1014,7 +1669,57 @@ def _postprocess(
     readout_strategy: Any | None,
     zne_strategy: Any | None,
     evaluator: Callable[[Any], complex] | None,
+    checkpoint: _DirectPostprocessingCheckpoint | None = None,
 ) -> ExperimentResult:
+    if checkpoint is not None:
+        checkpoint_context = document["postprocessing_checkpoint"]
+        evaluator_mode = checkpoint_context["evaluator_mode"]
+        readout_strategy_mode = (
+            "unused"
+            if not checkpoint.spec.mitigation.readout
+            else ("default" if readout_strategy is None else "injected")
+        )
+        zne_strategy_mode = (
+            "unused"
+            if not checkpoint.spec.mitigation.zne
+            else ("default" if zne_strategy is None else "injected")
+        )
+        if (
+            spec.to_safe_dict() != checkpoint.spec.to_safe_dict()
+            or tuple(factors) != checkpoint.factors
+            or (
+                calibration.to_safe_dict() if calibration is not None else None
+            )
+            != (
+                checkpoint.calibration.to_safe_dict()
+                if checkpoint.calibration is not None
+                else None
+            )
+            or (evaluator is None) != (evaluator_mode == "default")
+            or readout_strategy_mode
+            != checkpoint_context["readout_strategy_mode"]
+            or zne_strategy_mode != checkpoint_context["zne_strategy_mode"]
+        ):
+            raise ExperimentValidationError(
+                "postprocessing context does not match the durable checkpoint"
+            ) from None
+        if checkpoint.spec.mitigation.readout:
+            _require_readout_dependency(readout_strategy)
+        result = bootstrap_bell_results(
+            checkpoint.inputs,
+            checkpoint.spec.uncertainty,
+            readout_strategy=readout_strategy,
+            zne_strategy=zne_strategy,
+            _evaluator=evaluator,
+        )
+        return _write_completed_checkpoint(
+            checkpoint,
+            result.to_safe_dict(),
+            clock,
+            store=store,
+            run=run,
+        )
+
     _transition(store, run, document, ExperimentStatus.POSTPROCESSING, clock)
     metadata = store.read_json(run, document["postprocessing"]["artifact"])
     counts = OrderedDict((factor, store.read_counts(run, factor)) for factor in factors)
@@ -1078,6 +1783,447 @@ def _persist_terminal_failure(
     _transition(store, run, document, ExperimentStatus.FAILED, clock)
 
 
+def _serialise_counts(
+    counts_by_factor: Mapping[int, Mapping[Any, Mapping[str, int]]],
+) -> dict[str, list[dict[str, Any]]]:
+    return {
+        str(factor): [
+            {"setting": list(setting), "counts": dict(counts)}
+            for setting, counts in by_setting.items()
+        ]
+        for factor, by_setting in counts_by_factor.items()
+    }
+
+
+def _encode_checkpoint_value(value: Any, active: set[int] | None = None) -> Any:
+    """Encode only the metadata types needed for deterministic postprocessing."""
+
+    if value is None or type(value) in {bool, int, str}:
+        return value
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint contains a non-finite number"
+            ) from None
+        return value
+    if type(value) is complex:
+        if not math.isfinite(value.real) or not math.isfinite(value.imag):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint contains a non-finite complex number"
+            ) from None
+        return {
+            _CHECKPOINT_CODEC_KIND: "complex",
+            "real": value.real,
+            "imag": value.imag,
+        }
+    if active is None:
+        active = set()
+    if not isinstance(value, (Mapping, list, tuple)):
+        raise ExperimentPersistenceError(
+            "postprocessing checkpoint contains an unsupported metadata value"
+        ) from None
+    identity = id(value)
+    if identity in active:
+        raise ExperimentPersistenceError(
+            "postprocessing checkpoint contains recursive metadata"
+        ) from None
+    active.add(identity)
+    try:
+        if isinstance(value, Mapping):
+            return {
+                _CHECKPOINT_CODEC_KIND: "mapping",
+                "entries": [
+                    [
+                        _encode_checkpoint_value(key, active),
+                        _encode_checkpoint_value(item, active),
+                    ]
+                    for key, item in value.items()
+                ],
+            }
+        return {
+            _CHECKPOINT_CODEC_KIND: "sequence",
+            "items": [_encode_checkpoint_value(item, active) for item in value],
+        }
+    finally:
+        active.remove(identity)
+
+
+def _decode_checkpoint_value(value: Any) -> Any:
+    if value is None or type(value) in {bool, int, str}:
+        return value
+    if type(value) is float:
+        if math.isfinite(value):
+            return value
+        raise ExperimentPersistenceError(
+            "postprocessing checkpoint contains a non-finite number"
+        ) from None
+    if not isinstance(value, dict):
+        raise ExperimentPersistenceError(
+            "postprocessing checkpoint metadata encoding is invalid"
+        ) from None
+    kind = value.get(_CHECKPOINT_CODEC_KIND)
+    if kind == "complex" and set(value) == {
+        _CHECKPOINT_CODEC_KIND,
+        "real",
+        "imag",
+    }:
+        real = value["real"]
+        imag = value["imag"]
+        if (
+            type(real) not in {int, float}
+            or type(imag) not in {int, float}
+            or not math.isfinite(real)
+            or not math.isfinite(imag)
+        ):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint complex encoding is invalid"
+            ) from None
+        return complex(real, imag)
+    if kind == "sequence" and set(value) == {_CHECKPOINT_CODEC_KIND, "items"}:
+        items = value["items"]
+        if not isinstance(items, list):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint sequence encoding is invalid"
+            ) from None
+        return tuple(_decode_checkpoint_value(item) for item in items)
+    if kind == "mapping" and set(value) == {_CHECKPOINT_CODEC_KIND, "entries"}:
+        entries = value["entries"]
+        if not isinstance(entries, list):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint mapping encoding is invalid"
+            ) from None
+        decoded: dict[Any, Any] = {}
+        for entry in entries:
+            if not isinstance(entry, list) or len(entry) != 2:
+                raise ExperimentPersistenceError(
+                    "postprocessing checkpoint mapping entry is invalid"
+                ) from None
+            key = _decode_checkpoint_value(entry[0])
+            try:
+                if key in decoded:
+                    raise ExperimentPersistenceError(
+                        "postprocessing checkpoint mapping contains a duplicate key"
+                    ) from None
+                decoded[key] = _decode_checkpoint_value(entry[1])
+            except TypeError:
+                raise ExperimentPersistenceError(
+                    "postprocessing checkpoint mapping key is not hashable"
+                ) from None
+        return decoded
+    raise ExperimentPersistenceError(
+        "postprocessing checkpoint metadata encoding is invalid"
+    ) from None
+
+
+def _postprocessing_checkpoint_payload(
+    metadata: Mapping[str, Any],
+    factors: Sequence[int],
+    physical_qubit_mappings: Sequence[Sequence[int]] | None,
+    *,
+    evaluator: Callable[[Any], complex] | None,
+    readout_enabled: bool,
+    readout_strategy: Any | None,
+    zne_enabled: bool,
+    zne_strategy: Any | None,
+) -> dict[str, Any]:
+    return {
+        "version": _DIRECT_POSTPROCESSING_CHECKPOINT_VERSION,
+        "evaluator_mode": "default" if evaluator is None else "injected",
+        "readout_strategy_mode": (
+            "unused"
+            if not readout_enabled
+            else ("default" if readout_strategy is None else "injected")
+        ),
+        "zne_strategy_mode": (
+            "unused"
+            if not zne_enabled
+            else ("default" if zne_strategy is None else "injected")
+        ),
+        "factors": list(factors),
+        "setting_by_circuit_index": _encode_checkpoint_value(
+            metadata["setting_by_circuit_index"]
+        ),
+        "terms": _encode_checkpoint_value(metadata["terms"]),
+        "qutrit_bit_indices_by_setting": _encode_checkpoint_value(
+            metadata["qutrit_bit_indices_by_setting"]
+        ),
+        "decoding_kwargs": _encode_checkpoint_value(
+            decoding_kwargs_from_metadata(metadata)
+        ),
+        "physical_qubit_mappings": _encode_checkpoint_value(
+            physical_qubit_mappings
+        ),
+        "qutrit_qubits": _encode_checkpoint_value(metadata.get("qutrit_qubits", ())),
+        "candidate": _encode_checkpoint_value(metadata.get("candidate")),
+    }
+
+
+def _plain_json_value(value: Any, active: set[int] | None = None) -> Any:
+    if value is None or type(value) in {bool, int, float, str}:
+        return value
+    if active is None:
+        active = set()
+    if not isinstance(value, (Mapping, list, tuple, set, frozenset)):
+        raise ExperimentPersistenceError(
+            "final experiment document contains a non-JSON value"
+        ) from None
+    identity = id(value)
+    if identity in active:
+        raise ExperimentPersistenceError(
+            "final experiment document contains a recursive value"
+        ) from None
+    active.add(identity)
+    try:
+        if isinstance(value, Mapping):
+            if any(not isinstance(key, str) for key in value):
+                raise ExperimentPersistenceError(
+                    "final experiment document keys must be strings"
+                ) from None
+            if "__qoq_type__" in value:
+                raise ExperimentPersistenceError(
+                    "final experiment document contains a reserved JSON key"
+                ) from None
+            return {
+                key: _plain_json_value(item, active)
+                for key, item in value.items()
+            }
+        values = (
+            sorted(value, key=repr)
+            if isinstance(value, (set, frozenset))
+            else value
+        )
+        return [_plain_json_value(item, active) for item in values]
+    finally:
+        active.remove(identity)
+
+
+def _validate_final_document(document: Mapping[str, Any]) -> None:
+    validate_persisted_strings(
+        document,
+        description="final experiment document",
+        error_type=ExperimentPersistenceError,
+    )
+    ExperimentStore.validate_plain_json(document)
+
+
+def _validated_schema_fragments(
+    spec: ExperimentSpec,
+    artifacts: Any,
+    identity: BackendIdentity,
+    compiled: CompiledBatch,
+) -> dict[str, Any]:
+    safe_spec = spec.to_safe_dict()
+    if spec.workload_optimization is None:
+        safe_spec.pop("workload_optimization", None)
+    fragments = _plain_json_value(
+        {
+            "spec": safe_spec,
+            "source": {
+                "provenance": dict(artifacts.provenance),
+                "paths": {
+                    name: str(path)
+                    for name, path in artifacts.source_paths.items()
+                },
+            },
+            "backend": identity.to_safe_dict(),
+            "transpilation": dict(
+                compiled.metadata.get(
+                    "transpilation", spec.transpilation.to_safe_dict()
+                )
+            ),
+        }
+    )
+    if not isinstance(fragments, dict):
+        raise ExperimentPersistenceError(
+            "final experiment schema fragments must be a mapping"
+        ) from None
+    _validate_final_document(fragments)
+    return fragments
+
+
+def _completed_direct_document(
+    schema_fragments: Mapping[str, Any],
+    job_ids: Sequence[str],
+    counts: Mapping[int, Mapping[Any, Mapping[str, int]]],
+    calibration: ReadoutCalibration | None,
+    safe_result: Mapping[str, Any],
+    completed_at: str,
+    *,
+    experiment_id: str,
+) -> dict[str, Any]:
+    document = _plain_json_value(
+        {
+            "schema_version": 3,
+            "experiment_id": experiment_id,
+            "status": ExperimentStatus.COMPLETED.value,
+            "completed_at": completed_at,
+            **dict(schema_fragments),
+            "job_ids": list(job_ids),
+            "counts_by_factor": _serialise_counts(counts),
+            "calibration": calibration.to_safe_dict() if calibration else None,
+            "result": dict(safe_result),
+        }
+    )
+    if not isinstance(document, dict):
+        raise ExperimentPersistenceError(
+            "final experiment document must be a mapping"
+        ) from None
+    _validate_final_document(document)
+    return document
+
+
+def _expected_execution_job_shape(
+    spec: ExperimentSpec,
+    setting_count: int,
+) -> tuple[int, int]:
+    instances = (
+        spec.mitigation.twirling_instances
+        if spec.mitigation.circuit_twirling
+        else 1
+    )
+    return setting_count * instances, spec.shots // instances
+
+
+def _checkpoint_job_records(
+    spec: ExperimentSpec,
+    jobs: Sequence[SubmittedJob],
+    factors: Sequence[int],
+    calibration: ReadoutCalibration | None,
+    *,
+    setting_count: int,
+) -> list[dict[str, Any]]:
+    calibration_job_count = len(jobs) - len(factors)
+    if calibration_job_count not in {0, 1} or (
+        calibration_job_count == 1 and calibration is None
+    ):
+        raise ExperimentPersistenceError(
+            "postprocessing checkpoint jobs are inconsistent with executed workload"
+        ) from None
+
+    execution_circuit_count, execution_shots = _expected_execution_job_shape(
+        spec, setting_count
+    )
+    records: list[dict[str, Any]] = []
+    for index, job in enumerate(jobs):
+        is_calibration = calibration_job_count == 1 and index == 0
+        factor = None if is_calibration else factors[index - calibration_job_count]
+        expected_circuit_count = (
+            len(calibration.raw_counts)
+            if is_calibration and calibration is not None
+            else execution_circuit_count
+        )
+        expected_shots = spec.shots if is_calibration else execution_shots
+        if (
+            job.circuit_count != expected_circuit_count
+            or job.shots != expected_shots
+        ):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint job record is inconsistent with executed workload"
+            ) from None
+        records.append(
+            {
+                **job.to_safe_dict(),
+                "role": "calibration" if is_calibration else "execution",
+                "factor": factor,
+            }
+        )
+    return records
+
+
+def _write_postprocessing_checkpoint(
+    spec: ExperimentSpec,
+    schema_fragments: Mapping[str, Any],
+    jobs: Sequence[SubmittedJob],
+    counts: Mapping[int, Mapping[Any, Mapping[str, int]]],
+    calibration: ReadoutCalibration | None,
+    metadata: Mapping[str, Any],
+    factors: Sequence[int],
+    physical_qubit_mappings: Sequence[Sequence[int]] | None,
+    clock: Callable[[], datetime],
+    *,
+    repo_root: Path | str | None,
+    evaluator: Callable[[Any], complex] | None,
+    readout_strategy: Any | None,
+    zne_strategy: Any | None,
+) -> tuple[ExperimentStore, Path, dict[str, Any]]:
+    job_records = _checkpoint_job_records(
+        spec,
+        jobs,
+        factors,
+        calibration,
+        setting_count=len(metadata["setting_by_circuit_index"]),
+    )
+    document = _plain_json_value(
+        {
+            "schema_version": 3,
+            "experiment_id": ExperimentStore.generated_run_name_placeholder(),
+            "status": ExperimentStatus.POSTPROCESSING.value,
+            "checkpointed_at": _timestamp(clock),
+            **dict(schema_fragments),
+            "job_ids": [job.job_id for job in jobs],
+            "jobs": job_records,
+            "counts_by_factor": _serialise_counts(counts),
+            "calibration": calibration.to_safe_dict() if calibration else None,
+            "postprocessing_checkpoint": _postprocessing_checkpoint_payload(
+                metadata,
+                factors,
+                physical_qubit_mappings,
+                evaluator=evaluator,
+                readout_enabled=spec.mitigation.readout,
+                readout_strategy=readout_strategy,
+                zne_enabled=spec.mitigation.zne,
+                zne_strategy=zne_strategy,
+            ),
+        }
+    )
+    if not isinstance(document, dict):
+        raise ExperimentPersistenceError(
+            "postprocessing checkpoint must be a mapping"
+        ) from None
+    _validate_final_document(document)
+
+    store = ExperimentStore(_output_root(spec, repo_root))
+    staging, run = store.stage_run()
+    document["experiment_id"] = run.name
+    _validate_final_document(document)
+    try:
+        store.write_plain_json(staging, "experiment.json", document)
+        published = store.publish_staged_run(staging, run)
+    except BaseException:
+        if staging.exists():
+            store.discard_staged_run(staging)
+        raise
+    return store, published, document
+
+
+def _write_completed_checkpoint(
+    checkpoint: _DirectPostprocessingCheckpoint,
+    safe_result: Mapping[str, Any],
+    clock: Callable[[], datetime],
+    *,
+    store: ExperimentStore,
+    run: Path,
+) -> ExperimentResult:
+    document = _completed_direct_document(
+        checkpoint.schema_fragments,
+        checkpoint.job_ids,
+        checkpoint.inputs.counts_by_factor,
+        checkpoint.calibration,
+        safe_result,
+        _timestamp(clock),
+        experiment_id=run.name,
+    )
+    store.write_plain_json(run, "experiment.json", document)
+    return ExperimentResult(
+        experiment_id=run.name,
+        status=ExperimentStatus.COMPLETED,
+        artifact_dir=run,
+        values=safe_result,
+        backend=checkpoint.identity.to_safe_dict(),
+        job_ids=checkpoint.job_ids,
+    )
+
+
 def run_experiment(
     spec: ExperimentSpec,
     *,
@@ -1090,117 +2236,264 @@ def run_experiment(
     _clock: Callable[[], datetime] = _utc_now,
     _readout_strategy: Any | None = None,
     _zne_strategy: Any | None = None,
+    _twirling_transform: Callable[..., TwirledBatch] = twirl_iqm_circuits,
     _evaluator: Callable[[Any], complex] | None = None,
 ) -> ExperimentResult:
-    """Run one experiment with durable checkpoints before every remote wait."""
+    """Run one experiment directly from compiler output held in memory."""
 
     if not isinstance(spec, ExperimentSpec):
         raise ExperimentValidationError("spec must be ExperimentSpec")
     _validate_execution_options(timeout, run_options)
+    _validate_twirling_spec(spec)
 
-    store = ExperimentStore(_output_root(spec, repo_root))
-    run = store.create_run()
-    document = _initial_document(spec, run.name, _clock)
-    _write_state(store, run, document)
-    stage = "validation"
-    known_job_result_failure = False
+    artifacts = load_basis_artifacts(spec.basis, spec.state, repo_root)
+    prepared = prepare_measurements(artifacts)
+    metadata = prepared.metadata
+    required_metadata = (
+        "setting_by_circuit_index",
+        "terms",
+        "qutrit_bit_indices_by_setting",
+    )
+    if not isinstance(metadata, Mapping) or any(
+        name not in metadata for name in required_metadata
+    ):
+        raise ExperimentValidationError("measurement metadata is incomplete")
+    settings = tuple(
+        tuple(setting) for setting in metadata["setting_by_circuit_index"]
+    )
+    circuits = tuple(prepared.circuits)
+    if len(settings) != len(circuits):
+        raise ExperimentValidationError(
+            "measurement settings do not match logical circuits"
+        )
+
+    resolved_adapter = create_backend_adapter(spec.backend) if adapter is None else adapter
     try:
-        artifacts = load_basis_artifacts(spec.basis, spec.state, repo_root)
-        prepared = prepare_measurements(artifacts)
-        settings, _ = _persist_prepared(store, run, document, artifacts, prepared)
-        _transition(store, run, document, ExperimentStatus.VALIDATED, _clock)
+        identity = resolved_adapter.resolve()
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:
+        raise BackendCompatibilityError("adapter resolution failed") from None
+    if not isinstance(identity, BackendIdentity):
+        raise BackendCompatibilityError("adapter resolve must return BackendIdentity")
+    safe_identity = identity.to_safe_dict()
+    _validate_persisted_strings(safe_identity, description="backend identity")
+    _validate_adapter_target(spec, identity)
 
-        stage = "backend-resolution"
-        resolved_adapter = create_backend_adapter(spec.backend) if adapter is None else adapter
-        identity, capabilities, adapter_metadata = _validate_adapter(resolved_adapter)
-        _validate_adapter_target(spec, identity)
-        _require_durable_remote_jobs(capabilities)
-        availability = _retry(
-            "availability",
-            lambda: _check_availability(resolved_adapter),
-            spec.retry,
-            (BackendUnavailableError,),
-            store=store,
-            run=run,
-            document=document,
-            sleep=_sleep,
-            clock=_clock,
+    workload_selection = _compile_measurement_workload(
+        resolved_adapter,
+        circuits,
+        settings,
+        spec,
+        expected_identity=identity,
+    )
+    compiled = workload_selection.batch
+    selected_layout: tuple[int, ...] = ()
+    require_exact_selected_layout = False
+    if spec.workload_optimization is not None:
+        selected_layout = tuple(
+            workload_selection.metadata["selected_layout"]
         )
-        backend_record = {
-            "identity": identity.to_safe_dict(),
-            "capabilities": capabilities.to_safe_dict(),
-            "metadata": adapter_metadata,
-            "availability": availability.to_safe_dict(),
+        require_exact_selected_layout = (
+            spec.workload_optimization.require_exact_physical_qubit_set
+        )
+        _validate_selected_physical_set(
+            workload_selection.physical_mappings,
+            selected_layout,
+            require_exact=require_exact_selected_layout,
+            context="selected workload",
+        )
+
+    twirled = None
+    twirled_physical_qubit_mappings = None
+    twirling_metadata = None
+    execution_compiled = compiled
+    execution_shots = spec.shots
+    if spec.mitigation.circuit_twirling:
+        try:
+            transformed = _twirling_transform(
+                compiled.circuits,
+                instances=spec.mitigation.twirling_instances,
+                seed=spec.mitigation.twirling_seed,
+            )
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except (BackendCompatibilityError, OptionalDependencyError):
+            raise
+        except Exception as error:
+            raise BackendCompatibilityError(
+                f"IQM circuit twirling failed ({type(error).__name__})"
+            ) from None
+        twirled = _validated_twirled_batch(
+            transformed,
+            original_count=len(settings),
+            instances=spec.mitigation.twirling_instances,
+            seed=spec.mitigation.twirling_seed,
+        )
+        twirled_physical_qubit_mappings = (
+            _collapse_twirled_physical_qubit_mappings(twirled)
+        )
+        _validate_selected_physical_set(
+            twirled_physical_qubit_mappings,
+            selected_layout,
+            require_exact=require_exact_selected_layout,
+            context="twirled workload",
+        )
+        execution_compiled = CompiledBatch(
+            twirled.circuits,
+            identity,
+            compiled.metadata,
+        )
+        execution_shots = spec.shots // spec.mitigation.twirling_instances
+        twirling_metadata = {
+            **dict(twirled.metadata),
+            "shots_per_instance": execution_shots,
+            "total_shots_per_circuit": spec.shots,
         }
-        _validate_persisted_strings(backend_record, description="backend metadata")
-        document["backend"] = backend_record
-        _write_state(store, run, document)
-        if spec.mitigation.readout:
-            _require_readout_dependency(_readout_strategy)
-
-        stage = "compilation"
-        compiled = resolved_adapter.compile(tuple(prepared.circuits), spec.transpilation)
-        if not isinstance(compiled, CompiledBatch):
-            raise BackendCompatibilityError("adapter compile must return CompiledBatch")
-        if compiled.target_identity != identity:
-            raise BackendCompatibilityError("compiled target does not match resolved backend")
-        factors = (
-            validate_zne_factors(spec.mitigation.zne_factors)
-            if spec.mitigation.zne
-            else (1,)
+    schema_fragments = _validated_schema_fragments(
+        spec,
+        artifacts,
+        identity,
+        compiled,
+    )
+    if spec.workload_optimization is not None:
+        schema_fragments["workload_optimization"] = _plain_json_value(
+            workload_selection.metadata
         )
-        batches = _factor_batches(compiled, factors)
-        _persist_factor_batches(store, run, document, batches)
-        _transition(store, run, document, ExperimentStatus.COMPILED, _clock)
+    schema_fragments["twirling"] = _plain_json_value(twirling_metadata)
+    _validate_final_document(schema_fragments)
 
-        calibration = None
-        if spec.mitigation.readout:
-            stage = "readout-calibration"
-            calibration = _obtain_calibration(
+    factors = (
+        validate_zne_factors(spec.mitigation.zne_factors)
+        if spec.mitigation.zne
+        else (1,)
+    )
+    batches = _factor_batches(execution_compiled, factors)
+    if require_exact_selected_layout:
+        for factor, batch in batches.items():
+            _validate_selected_physical_set(
+                _physical_qubit_mappings(batch),
+                selected_layout,
+                require_exact=True,
+                context=f"ZNE factor {factor} workload",
+            )
+    jobs: list[SubmittedJob] = []
+    physical_qubit_mappings = None
+    calibration = None
+    if spec.mitigation.readout:
+        _require_readout_dependency(_readout_strategy)
+        physical_qubit_mappings = (
+            twirled_physical_qubit_mappings
+            if twirled_physical_qubit_mappings is not None
+            else (
+                workload_selection.physical_mappings
+                if spec.workload_optimization is not None
+                else _physical_qubit_mappings(batches[1])
+            )
+        )
+        calibration_physical_mappings = (
+            workload_selection.physical_mappings
+            if spec.workload_optimization is not None
+            else physical_qubit_mappings
+        )
+        physical_qubits = tuple(
+            sorted(
+                {
+                    physical
+                    for mapping in calibration_physical_mappings
+                    for physical in mapping
+                }
+            )
+        )
+        if readout_calibration is None or spec.mitigation.force_recalibration:
+            calibration, calibration_job = _run_readout_calibration(
                 resolved_adapter,
                 identity,
-                capabilities,
-                tuple(compiled.circuits),
+                calibration_physical_mappings,
                 spec,
-                readout_calibration,
-                timeout,
-                run_options,
-                store=store,
-                run=run,
-                document=document,
-                sleep=_sleep,
+                timeout=timeout,
+                run_options=run_options,
                 clock=_clock,
+                sleep=_sleep,
             )
-
-        stage = "execution"
-        for factor in factors:
-            try:
-                _execute_measurement_factor(
-                    factor,
-                    settings,
-                    resolved_adapter,
-                    identity,
-                    capabilities,
-                    spec,
-                    timeout,
-                    run_options,
-                    store=store,
-                    run=run,
-                    document=document,
-                    sleep=_sleep,
-                    clock=_clock,
+            _validate_persisted_strings(
+                calibration_job.job_id,
+                description="readout calibration job ID",
+            )
+            jobs.append(calibration_job)
+        else:
+            if not calibration_cache_is_valid(
+                readout_calibration,
+                backend_identity=_identity_key(identity),
+                calibration_id=_calibration_id(identity),
+                qubit_mapping=physical_qubits,
+                now=_clock(),
+                max_age_hours=spec.mitigation.readout_max_age_hours,
+            ):
+                raise BackendCompatibilityError(
+                    "injected readout calibration is not valid for this target"
                 )
-            except JobResultError:
-                known_job_result_failure = document["jobs"][str(factor)]["job_id"] is not None
-                if known_job_result_failure and document["status"] == ExperimentStatus.SUBMITTED.value:
-                    _transition(store, run, document, ExperimentStatus.RUNNING, _clock)
-                raise
+            calibration = readout_calibration
+    counts_by_factor: OrderedDict[int, OrderedDict[Any, dict[str, int]]] = (
+        OrderedDict()
+    )
+    for factor, batch in batches.items():
+        submitted, execution = _execute_batch(
+            resolved_adapter,
+            identity,
+            batch,
+            execution_shots,
+            timeout=timeout,
+            run_options=run_options,
+            retry=spec.retry,
+            sleep=_sleep,
+        )
+        _validate_persisted_strings(
+            submitted.job_id,
+            description="submitted job ID",
+        )
+        jobs.append(submitted)
+        counts_by_factor[factor] = (
+            _aggregate_twirled_counts(
+                settings,
+                execution,
+                twirled,
+                total_shots=spec.shots,
+            )
+            if twirled is not None
+            else _counts_by_setting(settings, execution)
+        )
 
-        stage = "postprocessing"
+    BootstrapInputs(
+        counts_by_factor=counts_by_factor,
+        terms=metadata["terms"],
+        qutrit_bit_indices_by_setting=metadata["qutrit_bit_indices_by_setting"],
+        decoding_kwargs=decoding_kwargs_from_metadata(metadata),
+        readout_calibration=calibration,
+        physical_qubit_mappings=physical_qubit_mappings,
+    )
+    store, run, _ = _write_postprocessing_checkpoint(
+        spec,
+        schema_fragments,
+        jobs,
+        counts_by_factor,
+        calibration,
+        metadata,
+        factors,
+        physical_qubit_mappings,
+        _clock,
+        repo_root=repo_root,
+        evaluator=_evaluator,
+        readout_strategy=_readout_strategy,
+        zne_strategy=_zne_strategy,
+    )
+    try:
+        document = store.read_plain_json(run, "experiment.json")
+        checkpoint = _load_direct_postprocessing_checkpoint(document, run, spec)
         return _postprocess(
-            spec,
-            factors,
-            calibration,
+            checkpoint.spec,
+            checkpoint.factors,
+            checkpoint.calibration,
             store=store,
             run=run,
             document=document,
@@ -1208,32 +2501,9 @@ def run_experiment(
             readout_strategy=_readout_strategy,
             zne_strategy=_zne_strategy,
             evaluator=_evaluator,
+            checkpoint=checkpoint,
         )
-    except (KeyboardInterrupt, SystemExit) as error:
-        try:
-            setattr(error, "__qoq_artifact_dir__", run)
-        except Exception:
-            pass
-        raise
-    except Exception as error:
-        if isinstance(error, JobResultError):
-            known_job_result_failure = known_job_result_failure or any(
-                isinstance(job, Mapping)
-                and job.get("job_id") is not None
-                and job.get("status") != "completed"
-                for job in document["jobs"].values()
-            )
-            if known_job_result_failure and document["status"] == ExperimentStatus.SUBMITTED.value:
-                _transition(store, run, document, ExperimentStatus.RUNNING, _clock)
-        if document["status"] != ExperimentStatus.SUBMISSION_UNKNOWN.value and not known_job_result_failure:
-            _persist_terminal_failure(
-                error,
-                stage,
-                store=store,
-                run=run,
-                document=document,
-                clock=_clock,
-            )
+    except BaseException as error:
         try:
             setattr(error, "__qoq_artifact_dir__", run)
         except Exception:
@@ -1402,9 +2672,16 @@ def _resume_spec(document: Mapping[str, Any], supplied: ExperimentSpec | None) -
         raise ExperimentPersistenceError("persisted experiment spec is invalid")
     normalized_safe = _normalize_experiment_spec_dict(safe)
     if supplied is not None:
+        supplied_safe = supplied.to_safe_dict() if isinstance(supplied, ExperimentSpec) else None
+        if (
+            isinstance(supplied_safe, dict)
+            and supplied_safe.get("workload_optimization") is None
+            and "workload_optimization" not in normalized_safe
+        ):
+            supplied_safe.pop("workload_optimization")
         if (
             not isinstance(supplied, ExperimentSpec)
-            or supplied.to_safe_dict() != normalized_safe
+            or supplied_safe != normalized_safe
         ):
             raise ExperimentValidationError("injected spec does not match persisted experiment spec")
         return supplied
@@ -1518,6 +2795,398 @@ def _resume_calibration(
     return calibration
 
 
+def _validate_plain_resume_value(value: Any) -> None:
+    if value is None or type(value) in {bool, int, str}:
+        pass
+    elif type(value) is float:
+        if not math.isfinite(value):
+            raise ExperimentPersistenceError(
+                "completed experiment JSON is invalid"
+            ) from None
+    elif isinstance(value, list):
+        for item in value:
+            _validate_plain_resume_value(item)
+    elif isinstance(value, dict):
+        if "__qoq_type__" in value:
+            raise ExperimentPersistenceError(
+                "completed experiment JSON is invalid"
+            ) from None
+        for key, item in value.items():
+            if not isinstance(key, str) or not key:
+                raise ExperimentPersistenceError(
+                    "completed experiment JSON is invalid"
+                ) from None
+            _validate_plain_resume_value(item)
+    else:
+        raise ExperimentPersistenceError(
+            "completed experiment JSON is invalid"
+        ) from None
+
+
+def _deserialise_checkpoint_counts(
+    value: Any,
+) -> OrderedDict[int, OrderedDict[tuple[Any, ...], dict[str, int]]]:
+    if not isinstance(value, dict) or not value:
+        raise ExperimentPersistenceError(
+            "postprocessing checkpoint counts are invalid"
+        ) from None
+    result: OrderedDict[int, OrderedDict[tuple[Any, ...], dict[str, int]]] = (
+        OrderedDict()
+    )
+    for factor_text, entries in value.items():
+        if (
+            not isinstance(factor_text, str)
+            or not factor_text.isdigit()
+            or factor_text != str(int(factor_text))
+            or not isinstance(entries, list)
+            or not entries
+        ):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint counts are invalid"
+            ) from None
+        factor = int(factor_text)
+        by_setting: OrderedDict[tuple[Any, ...], dict[str, int]] = OrderedDict()
+        for entry in entries:
+            if (
+                not isinstance(entry, dict)
+                or set(entry) != {"setting", "counts"}
+                or not isinstance(entry["setting"], list)
+                or not isinstance(entry["counts"], dict)
+            ):
+                raise ExperimentPersistenceError(
+                    "postprocessing checkpoint count entry is invalid"
+                ) from None
+            setting = tuple(entry["setting"])
+            try:
+                if setting in by_setting:
+                    raise ExperimentPersistenceError(
+                        "postprocessing checkpoint contains a duplicate setting"
+                    ) from None
+            except TypeError:
+                raise ExperimentPersistenceError(
+                    "postprocessing checkpoint setting is not hashable"
+                ) from None
+            counts = entry["counts"]
+            if any(
+                not isinstance(outcome, str)
+                or not outcome
+                or type(count) is not int
+                or count < 0
+                for outcome, count in counts.items()
+            ):
+                raise ExperimentPersistenceError(
+                    "postprocessing checkpoint count entry is invalid"
+                ) from None
+            by_setting[setting] = dict(counts)
+        result[factor] = by_setting
+    return result
+
+
+def _load_direct_postprocessing_checkpoint(
+    document: Mapping[str, Any],
+    run: Path,
+    supplied_spec: ExperimentSpec | None,
+) -> _DirectPostprocessingCheckpoint:
+    required_fields = {
+        "schema_version",
+        "experiment_id",
+        "status",
+        "checkpointed_at",
+        "spec",
+        "source",
+        "backend",
+        "transpilation",
+        "twirling",
+        "job_ids",
+        "jobs",
+        "counts_by_factor",
+        "calibration",
+        "postprocessing_checkpoint",
+    }
+    if "workload_optimization" in document:
+        required_fields.add("workload_optimization")
+    try:
+        if (
+            set(document) != required_fields
+            or document.get("schema_version") != 3
+            or document.get("status") != ExperimentStatus.POSTPROCESSING.value
+            or document.get("experiment_id") != run.name
+            or not isinstance(document.get("checkpointed_at"), str)
+        ):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint is invalid"
+            ) from None
+        _validate_plain_resume_value(dict(document))
+        validate_persisted_strings(
+            document,
+            description="postprocessing checkpoint",
+            error_type=ExperimentPersistenceError,
+        )
+    except ExperimentPersistenceError:
+        raise
+    except (TypeError, ValueError, OverflowError, RecursionError):
+        raise ExperimentPersistenceError(
+            "postprocessing checkpoint is invalid"
+        ) from None
+
+    resumed_spec = _resume_spec(document, supplied_spec)
+    checkpoint = document.get("postprocessing_checkpoint")
+    if not isinstance(checkpoint, dict) or set(checkpoint) != {
+        "version",
+        "evaluator_mode",
+        "readout_strategy_mode",
+        "zne_strategy_mode",
+        "factors",
+        "setting_by_circuit_index",
+        "terms",
+        "qutrit_bit_indices_by_setting",
+        "decoding_kwargs",
+        "physical_qubit_mappings",
+        "qutrit_qubits",
+        "candidate",
+    }:
+        raise ExperimentPersistenceError(
+            "postprocessing checkpoint is invalid"
+        ) from None
+    try:
+        if (
+            checkpoint["version"] != _DIRECT_POSTPROCESSING_CHECKPOINT_VERSION
+            or checkpoint["evaluator_mode"] not in {"default", "injected"}
+            or checkpoint["readout_strategy_mode"]
+            not in {"default", "injected", "unused"}
+            or checkpoint["zne_strategy_mode"]
+            not in {"default", "injected", "unused"}
+            or (checkpoint["readout_strategy_mode"] == "unused")
+            != (not resumed_spec.mitigation.readout)
+            or (checkpoint["zne_strategy_mode"] == "unused")
+            != (not resumed_spec.mitigation.zne)
+            or not isinstance(checkpoint["factors"], list)
+        ):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint is invalid"
+            ) from None
+        factors = validate_zne_factors(tuple(checkpoint["factors"]))
+        expected_factors = (
+            validate_zne_factors(resumed_spec.mitigation.zne_factors)
+            if resumed_spec.mitigation.zne
+            else (1,)
+        )
+        if factors != expected_factors:
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint factors are inconsistent with the spec"
+            ) from None
+        counts = _deserialise_checkpoint_counts(document["counts_by_factor"])
+        if set(counts) != set(factors):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint factors do not match saved counts"
+            ) from None
+        counts = OrderedDict((factor, counts[factor]) for factor in factors)
+        if any(
+            sum(setting_counts.values()) != resumed_spec.shots
+            for by_setting in counts.values()
+            for setting_counts in by_setting.values()
+        ):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint shot totals are inconsistent with the spec"
+            ) from None
+
+        settings = _decode_checkpoint_value(
+            checkpoint["setting_by_circuit_index"]
+        )
+        if (
+            not isinstance(settings, tuple)
+            or not settings
+            or any(not isinstance(setting, tuple) for setting in settings)
+            or any(tuple(by_setting) != settings for by_setting in counts.values())
+        ):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint settings do not match saved counts"
+            ) from None
+        terms = _decode_checkpoint_value(checkpoint["terms"])
+        qutrit_indices = _decode_checkpoint_value(
+            checkpoint["qutrit_bit_indices_by_setting"]
+        )
+        decoding_kwargs = _decode_checkpoint_value(
+            checkpoint["decoding_kwargs"]
+        )
+        physical_qubit_mappings = _decode_checkpoint_value(
+            checkpoint["physical_qubit_mappings"]
+        )
+        _decode_checkpoint_value(checkpoint["qutrit_qubits"])
+        _decode_checkpoint_value(checkpoint["candidate"])
+        if (
+            not isinstance(terms, tuple)
+            or not isinstance(qutrit_indices, Mapping)
+            or not isinstance(decoding_kwargs, Mapping)
+            or (
+                physical_qubit_mappings is not None
+                and not isinstance(physical_qubit_mappings, tuple)
+            )
+        ):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint metadata is invalid"
+            ) from None
+
+        calibration_payload = document["calibration"]
+        if calibration_payload is not None and (
+            not isinstance(calibration_payload, dict)
+            or set(calibration_payload)
+            != {
+                "backend_identity",
+                "calibration_id",
+                "qubit_mapping",
+                "timestamp",
+                "shots",
+                "raw_counts",
+                "assignment_matrices",
+            }
+        ):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint calibration is invalid"
+            ) from None
+        calibration = (
+            None
+            if calibration_payload is None
+            else _calibration_from_safe_dict(calibration_payload)
+        )
+        if (calibration is None) != (not resumed_spec.mitigation.readout):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint calibration is inconsistent with the spec"
+            ) from None
+        inputs = BootstrapInputs(
+            counts_by_factor=counts,
+            terms=terms,
+            qutrit_bit_indices_by_setting=qutrit_indices,
+            decoding_kwargs=decoding_kwargs,
+            readout_calibration=calibration,
+            physical_qubit_mappings=physical_qubit_mappings,
+        )
+
+        backend = document["backend"]
+        if not isinstance(backend, dict):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint backend is invalid"
+            ) from None
+        identity = BackendIdentity(**backend)
+        _validate_adapter_target(resumed_spec, identity)
+        if calibration is not None and (
+            calibration.backend_identity != _identity_key(identity)
+            or calibration.calibration_id != _calibration_id(identity)
+        ):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint calibration does not match the saved backend"
+            ) from None
+
+        job_ids_payload = document["job_ids"]
+        jobs = document["jobs"]
+        if not isinstance(job_ids_payload, list) or not isinstance(jobs, list):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint jobs are invalid"
+            ) from None
+        calibration_job_count = len(jobs) - len(factors)
+        if calibration_job_count not in {0, 1} or (
+            calibration_job_count == 1 and calibration is None
+        ):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint jobs are inconsistent with saved factors"
+            ) from None
+        execution_circuit_count, execution_shots = _expected_execution_job_shape(
+            resumed_spec, len(settings)
+        )
+        job_ids = tuple(_safe_identifier(item, "job_id") for item in job_ids_payload)
+        persisted_job_ids: list[str] = []
+        for index, job in enumerate(jobs):
+            if not isinstance(job, dict) or set(job) != {
+                "job_id",
+                "target_identity",
+                "circuit_count",
+                "shots",
+                "metadata",
+                "role",
+                "factor",
+            }:
+                raise ExperimentPersistenceError(
+                    "postprocessing checkpoint job record is invalid"
+                ) from None
+            persisted_job_ids.append(_safe_identifier(job["job_id"], "job_id"))
+            if BackendIdentity(**job["target_identity"]) != identity:
+                raise ExperimentPersistenceError(
+                    "postprocessing checkpoint job target is invalid"
+                ) from None
+            is_calibration = calibration_job_count == 1 and index == 0
+            expected_factor = (
+                None if is_calibration else factors[index - calibration_job_count]
+            )
+            expected_circuit_count = (
+                len(calibration.raw_counts)
+                if is_calibration and calibration is not None
+                else execution_circuit_count
+            )
+            expected_shots = resumed_spec.shots if is_calibration else execution_shots
+            if (
+                job["role"]
+                != ("calibration" if is_calibration else "execution")
+                or type(job["factor"])
+                is not (type(None) if is_calibration else int)
+                or job["factor"] != expected_factor
+                or type(job["circuit_count"]) is not int
+                or job["circuit_count"] != expected_circuit_count
+                or type(job["shots"]) is not int
+                or job["shots"] != expected_shots
+                or not isinstance(job["metadata"], dict)
+            ):
+                raise ExperimentPersistenceError(
+                    "postprocessing checkpoint job record is invalid"
+                ) from None
+        if tuple(persisted_job_ids) != job_ids:
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint job IDs do not match job records"
+            ) from None
+
+        schema_fragment_names = (
+            "spec",
+            "source",
+            "backend",
+            "transpilation",
+            "twirling",
+        )
+        schema_fragments = {
+            name: document[name] for name in schema_fragment_names
+        }
+        if "workload_optimization" in document:
+            schema_fragments["workload_optimization"] = document[
+                "workload_optimization"
+            ]
+        if (resumed_spec.workload_optimization is None) != (
+            "workload_optimization" not in schema_fragments
+        ):
+            raise ExperimentPersistenceError(
+                "postprocessing checkpoint workload metadata is inconsistent with the spec"
+            ) from None
+    except ExperimentPersistenceError:
+        raise
+    except (
+        BackendCompatibilityError,
+        ExperimentValidationError,
+        TypeError,
+        ValueError,
+        OverflowError,
+        RecursionError,
+    ):
+        raise ExperimentPersistenceError(
+            "postprocessing checkpoint is invalid"
+        ) from None
+    return _DirectPostprocessingCheckpoint(
+        spec=resumed_spec,
+        identity=identity,
+        job_ids=job_ids,
+        factors=factors,
+        calibration=calibration,
+        inputs=inputs,
+        schema_fragments=schema_fragments,
+    )
+
+
 def resume_experiment(
     experiment_dir: Path | str,
     *,
@@ -1531,100 +3200,50 @@ def resume_experiment(
     _zne_strategy: Any | None = None,
     _evaluator: Callable[[Any], complex] | None = None,
 ) -> ExperimentResult:
-    """Continue an existing run without resubmitting any known backend job."""
+    """Load a completed result or finish a complete direct postprocessing checkpoint."""
 
-    _validate_execution_options(timeout, run_options)
-    store, run, document = _open_run(experiment_dir)
-    factors = _verify_resume_artifacts(store, run, document)
-    status = ExperimentStatus(document["status"])
-    if status is ExperimentStatus.COMPLETED:
-        return _result_from_document(run, document)
-    if status is ExperimentStatus.SUBMISSION_UNKNOWN:
-        raise JobSubmissionError("cannot safely resume an experiment with unknown submission outcome")
-    resumed_spec = _resume_spec(document, spec)
-    if resumed_spec.mitigation.readout:
-        _, migrated = _calibration_job_reference(document, migrate_legacy=True)
-        if migrated:
-            _write_state(store, run, document)
-    resolved_adapter = create_backend_adapter(resumed_spec.backend) if adapter is None else adapter
-    identity, capabilities, _ = _validate_adapter(resolved_adapter)
-    _validate_adapter_target(resumed_spec, identity)
-    persisted_backend = document.get("backend")
-    if not isinstance(persisted_backend, Mapping) or persisted_backend.get("identity") != identity.to_safe_dict():
-        error = BackendCompatibilityError("resume backend identity does not match persisted target")
-        _persist_terminal_failure(
-            error,
-            "resume",
-            store=store,
-            run=run,
-            document=document,
-            clock=_clock,
-        )
-        raise error
-    try:
-        _require_durable_remote_jobs(capabilities)
-    except BackendCompatibilityError as error:
-        _persist_terminal_failure(
-            error,
-            "resume",
-            store=store,
-            run=run,
-            document=document,
-            clock=_clock,
-        )
-        raise
-    if resumed_spec.mitigation.readout:
-        _require_readout_dependency(_readout_strategy)
-
-    try:
-        calibration = _resume_calibration(
-            resolved_adapter,
-            identity,
-            capabilities,
-            resumed_spec,
-            timeout,
-            run_options,
-            store=store,
-            run=run,
-            document=document,
-            sleep=_sleep,
-            clock=_clock,
-        )
-        metadata = store.read_json(run, document["postprocessing"]["artifact"])
-        settings = tuple(metadata["setting_by_circuit_index"])
-        for factor in factors:
-            if str(factor) in document["counts"]:
-                continue
-            circuits = _factor_checkpoint(store, run, document, factor)
-            job = document["jobs"][str(factor)]
-            submitted = None
-            if job.get("job_id"):
-                submitted = resolved_adapter.restore_job(
-                    job["job_id"], circuit_count=len(circuits), shots=resumed_spec.shots
-                )
-                submitted = _validate_submitted(
-                    submitted, identity, len(circuits), resumed_spec.shots
-                )
-            _execute_measurement_factor(
-                factor,
-                settings,
-                resolved_adapter,
-                identity,
-                capabilities,
-                resumed_spec,
-                timeout,
-                run_options,
-                store=store,
-                run=run,
-                document=document,
-                sleep=_sleep,
-                clock=_clock,
-                submitted=submitted,
+    store, run = ExperimentStore.open_existing_run(experiment_dir)
+    document = store.read_plain_json(run, "experiment.json")
+    if not isinstance(document, dict):
+        raise ExperimentPersistenceError(
+            "experiment.json must contain a mapping"
+        ) from None
+    schema_version = document.get("schema_version")
+    if type(schema_version) is not int or schema_version not in {1, 2, 3}:
+        raise ExperimentPersistenceError(
+            "unsupported experiment schema version"
+        ) from None
+    status = document.get("status")
+    known_statuses = {member.value for member in ExperimentStatus}
+    if type(status) is not str or status not in known_statuses:
+        raise ExperimentPersistenceError(
+            "completed experiment JSON is invalid"
+        ) from None
+    if status == ExperimentStatus.POSTPROCESSING.value:
+        if schema_version != 3 or "postprocessing_checkpoint" not in document:
+            raise ExperimentValidationError(
+                "resuming unfinished experiments is not supported by the direct pipeline"
             )
+        _validate_execution_options(timeout, run_options)
+        checkpoint = _load_direct_postprocessing_checkpoint(document, run, spec)
+        checkpoint_context = document["postprocessing_checkpoint"]
+        if (
+            any(
+                seam is not None
+                for seam in (_readout_strategy, _zne_strategy, _evaluator)
+            )
+            or checkpoint_context["evaluator_mode"] == "injected"
+            or checkpoint_context["readout_strategy_mode"] == "injected"
+            or checkpoint_context["zne_strategy_mode"] == "injected"
+        ):
+            raise ExperimentValidationError(
+                "injected postprocessing seams cannot be resumed safely"
+            ) from None
+        _ = adapter, _sleep
         return _postprocess(
-            resumed_spec,
-            factors,
-            calibration,
+            checkpoint.spec,
+            checkpoint.factors,
+            checkpoint.calibration,
             store=store,
             run=run,
             document=document,
@@ -1632,32 +3251,87 @@ def resume_experiment(
             readout_strategy=_readout_strategy,
             zne_strategy=_zne_strategy,
             evaluator=_evaluator,
+            checkpoint=checkpoint,
         )
-    except (KeyboardInterrupt, SystemExit):
-        raise
-    except JobResultError:
-        if document["status"] == ExperimentStatus.SUBMITTED.value:
-            _transition(store, run, document, ExperimentStatus.RUNNING, _clock)
-        raise
-    except Exception as error:
-        if document["status"] == ExperimentStatus.SUBMISSION_UNKNOWN.value:
-            raise
-        _persist_terminal_failure(
-            error,
-            "resume",
-            store=store,
-            run=run,
-            document=document,
-            clock=_clock,
+    if status != ExperimentStatus.COMPLETED.value:
+        raise ExperimentValidationError(
+            "resuming unfinished experiments is not supported by the direct pipeline"
         )
-        raise
+    backend = document.get("backend", {})
+    if isinstance(backend, Mapping) and isinstance(
+        backend.get("identity"), Mapping
+    ):
+        backend = backend["identity"]
+    values = document.get("result")
+    experiment_id = document.get("experiment_id")
+    job_ids = document.get("job_ids", [])
+    if not isinstance(values, dict) or not isinstance(backend, dict):
+        raise ExperimentPersistenceError("completed experiment JSON is invalid")
+    try:
+        _validate_plain_resume_value(backend)
+        _validate_plain_resume_value(values)
+        validate_persisted_strings(
+            backend,
+            description="completed backend",
+            error_type=ExperimentPersistenceError,
+        )
+        validate_persisted_strings(
+            values,
+            description="completed result",
+            error_type=ExperimentPersistenceError,
+        )
+        BackendIdentity(**backend)
+        if not isinstance(job_ids, list):
+            raise ExperimentPersistenceError(
+                "completed experiment JSON is invalid"
+            )
+        safe_job_ids = tuple(
+            _safe_identifier(job_id, "job_id") for job_id in job_ids
+        )
+        validate_persisted_strings(
+            safe_job_ids,
+            description="completed job IDs",
+            error_type=ExperimentPersistenceError,
+        )
+        if (
+            not isinstance(experiment_id, str)
+            or experiment_id != run.name
+            or not backend
+        ):
+            raise ExperimentPersistenceError(
+                "completed experiment JSON is invalid"
+            )
+        validate_persisted_strings(
+            experiment_id,
+            description="experiment ID",
+            error_type=ExperimentPersistenceError,
+        )
+    except (
+        ExperimentPersistenceError,
+        ExperimentValidationError,
+        TypeError,
+        ValueError,
+        OverflowError,
+        RecursionError,
+    ):
+        raise ExperimentPersistenceError(
+            "completed experiment JSON is invalid"
+        ) from None
+    return ExperimentResult(
+        experiment_id=experiment_id,
+        status=ExperimentStatus.COMPLETED,
+        artifact_dir=run,
+        values=values,
+        backend=backend,
+        job_ids=safe_job_ids,
+    )
 
 
 def run_experiments(
     specs: Iterable[ExperimentSpec],
     **kwargs: Any,
 ) -> tuple[ExperimentResult, ...]:
-    """Run independent specs in order and retain failures as result entries."""
+    """Run validated specs sequentially and fail on the first error."""
 
     if isinstance(specs, (str, bytes, Mapping)):
         raise ExperimentValidationError("specs must be an iterable of ExperimentSpec values")
@@ -1665,22 +3339,10 @@ def run_experiments(
         iterator = iter(specs)
     except TypeError as error:
         raise ExperimentValidationError("specs must be iterable") from error
-    results: list[ExperimentResult] = []
-    for spec in iterator:
-        if not isinstance(spec, ExperimentSpec):
-            raise ExperimentValidationError("every batch item must be ExperimentSpec")
-        try:
-            results.append(run_experiment(spec, **kwargs))
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except Exception as error:
-            run = getattr(error, "__qoq_artifact_dir__", None)
-            if run is None:
-                raise
-            store = ExperimentStore(Path(run).parents[1])
-            document = store.read_experiment(run)
-            results.append(_result_from_document(Path(run), document, force_failed=True))
-    return tuple(results)
+    values = tuple(iterator)
+    if any(not isinstance(spec, ExperimentSpec) for spec in values):
+        raise ExperimentValidationError("every batch item must be ExperimentSpec")
+    return tuple(run_experiment(spec, **kwargs) for spec in values)
 
 
 __all__ = ["resume_experiment", "run_experiment", "run_experiments"]

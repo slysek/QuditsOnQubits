@@ -1,3 +1,4 @@
+import math
 import os
 
 from iqm.iqm_client import IQMClient
@@ -8,6 +9,8 @@ from iqm.qiskit_iqm import IQMProvider
 from iqm.station_control.interface.models import StaticQuantumArchitecture
 import pandas as pd
 import random
+from qiskit.quantum_info import average_gate_fidelity
+from qiskit_aer.noise.errors import thermal_relaxation_error
 from statistics import mean
 
 class BackendDescription(str):
@@ -53,10 +56,12 @@ def get_backend(quantum_computer="emerald", token=None, fake=False):
         backend = IQMBackend(client, name=quantum_computer, use_metrics=True)
         print(f"Backend connected successfully, using {quantum_computer}")
         return backend, client
-    except Exception:
-        backend = IQMFakeAphrodite()
-        print(f"Backend connection failed, using fake backend, using {backend.name}")
-        return backend
+    except Exception as error:
+        raise RuntimeError(
+            f"Failed to connect to IQM backend {quantum_computer!r}. "
+            "Use fake=True explicitly for a simulated backend."
+        ) from error
+
 
 def _default_gate_implementation(backend, gate_name, locus):
     gate = backend.architecture.gates[gate_name]
@@ -75,6 +80,25 @@ def _measure_fidelity(metrics, impl_name, qubit):
 def _backend_name(backend):
     name = getattr(backend, "name", None)
     return name() if callable(name) else name
+
+
+def _backend_calibration_set_id(backend):
+    for attribute in ("calibration_set_id", "_calibration_set_id"):
+        value = getattr(backend, attribute, None)
+        if value is not None:
+            return str(value)
+    return None
+
+
+def _error_profile_name(backend, requested_name=None):
+    if requested_name:
+        return requested_name
+
+    backend_name = _backend_name(backend) or "iqm-backend"
+    calibration_set_id = _backend_calibration_set_id(backend)
+    if calibration_set_id is None:
+        return backend_name
+    return f"{backend_name}@{calibration_set_id}"
 
 
 def _unwrap_backend(backend):
@@ -144,8 +168,58 @@ def _ns_or_none(value_seconds):
     return None if value_seconds is None else value_seconds * 1e9
 
 
-def _error_from_fidelity(fidelity):
-    return None if fidelity is None else round(1 - fidelity, 12)
+def _depolarizing_parameter(target_fidelity, thermal_channel, num_qubits):
+    target_fidelity = float(target_fidelity)
+    if not math.isfinite(target_fidelity) or not 0.0 <= target_fidelity <= 1.0:
+        raise ValueError("Gate fidelity must be a finite value between 0 and 1.")
+    if not isinstance(num_qubits, int) or num_qubits < 1:
+        raise ValueError("num_qubits must be a positive integer.")
+
+    dimension = 2**num_qubits
+    thermal_fidelity = float(average_gate_fidelity(thermal_channel))
+    if target_fidelity > thermal_fidelity + 1e-12:
+        raise ValueError(
+            "Reported gate fidelity exceeds the thermal-only channel fidelity; "
+            "the IQM fake-backend noise model cannot represent this calibration."
+        )
+
+    denominator = thermal_fidelity - (1 / dimension)
+    if denominator <= 0.0:
+        raise ValueError("Thermal channel fidelity is too low for depolarizing calibration.")
+    parameter = max(0.0, (thermal_fidelity - target_fidelity) / denominator)
+    maximum_parameter = dimension**2 / (dimension**2 - 1)
+    if parameter > maximum_parameter + 1e-12:
+        raise ValueError(
+            "Reported gate fidelity is too low for the depolarizing channel model."
+        )
+    return min(parameter, maximum_parameter)
+
+
+def _depolarizing_parameter_for_locus(
+    target_fidelity,
+    *,
+    t1s,
+    t2s,
+    locus,
+    duration,
+):
+    missing = [component for component in locus if component not in t1s or component not in t2s]
+    if missing:
+        raise ValueError(f"Missing T1/T2 metrics for gate locus: {missing}")
+
+    thermal_channels = [
+        thermal_relaxation_error(t1s[component], t2s[component], duration)
+        for component in locus
+    ]
+    thermal_channel = thermal_channels[0]
+    for channel in thermal_channels[1:]:
+        thermal_channel = thermal_channel.tensor(channel)
+
+    return _depolarizing_parameter(
+        target_fidelity,
+        thermal_channel,
+        num_qubits=len(locus),
+    )
 
 
 def _filter_error_profile(profile, qubits, name=None):
@@ -212,7 +286,7 @@ def _print_error_profile_report(profile):
                 {
                     "gate": gate,
                     "qubit": qubit,
-                    "depol error": error,
+                    "depol parameter": error,
                     "duration [ns]": duration,
                 }
             )
@@ -228,7 +302,7 @@ def _print_error_profile_report(profile):
                 {
                     "gate": gate,
                     "connection": " - ".join(locus),
-                    "depol error": error,
+                    "depol parameter": error,
                     "duration [ns]": duration,
                 }
             )
@@ -250,7 +324,9 @@ def get_backend_error_profile(backend, qubits=None, name=None, print_report=True
             readout errors, gate durations, and readout asymmetry.
 
     Returns:
-        IQMErrorProfile compatible with IQM fake backends.
+        IQMErrorProfile compatible with IQM fake backends. Gate fidelities are
+        converted to depolarizing parameters so that the composed thermal and
+        depolarizing channels reproduce the reported average gate fidelity.
     """
     backend = _unwrap_backend(backend)
     selected_qubits = _filtered_qubits(backend, qubits)
@@ -260,7 +336,7 @@ def get_backend_error_profile(backend, qubits=None, name=None, print_report=True
             profile = _filter_error_profile(
                 backend.error_profile,
                 selected_qubits,
-                name=name or _backend_name(backend),
+                name=_error_profile_name(backend, name),
             )
             if print_report:
                 _print_error_profile_report(profile)
@@ -283,24 +359,36 @@ def get_backend_error_profile(backend, qubits=None, name=None, print_report=True
         if gate_name not in backend.architecture.gates:
             continue
 
-        gate_errors = {}
+        gate_fidelities = {}
         durations = []
         for locus in _gate_loci(backend, gate_name):
             if len(locus) != 1 or locus[0] not in selected:
                 continue
 
             implementation = _default_gate_implementation(backend, gate_name, locus)
-            error = _error_from_fidelity(metrics.get_gate_fidelity(gate_name, implementation, locus))
+            fidelity = metrics.get_gate_fidelity(gate_name, implementation, locus)
             duration = _ns_or_none(metrics.get_gate_duration(gate_name, implementation, locus))
-            if error is not None:
-                gate_errors[locus[0]] = error
+            if fidelity is not None:
+                gate_fidelities[locus[0]] = fidelity
             if duration is not None:
                 durations.append(duration)
 
-        if gate_errors:
-            single_qubit_errors[gate_name] = gate_errors
         if durations:
-            single_qubit_durations[gate_name] = round(mean(durations), 12)
+            gate_duration = round(mean(durations), 12)
+            single_qubit_durations[gate_name] = gate_duration
+            if gate_fidelities:
+                single_qubit_errors[gate_name] = {
+                    qubit: _depolarizing_parameter_for_locus(
+                        fidelity,
+                        t1s=t1s,
+                        t2s=t2s,
+                        locus=(qubit,),
+                        duration=gate_duration,
+                    )
+                    for qubit, fidelity in gate_fidelities.items()
+                }
+        elif gate_fidelities:
+            raise ValueError(f"Missing duration metrics for IQM gate {gate_name!r}.")
 
     two_qubit_errors = {}
     two_qubit_durations = {}
@@ -308,24 +396,36 @@ def get_backend_error_profile(backend, qubits=None, name=None, print_report=True
         if gate_name not in backend.architecture.gates:
             continue
 
-        gate_errors = {}
+        gate_fidelities = {}
         durations = []
         for locus in _gate_loci(backend, gate_name):
             if len(locus) != 2 or not set(locus).issubset(selected):
                 continue
 
             implementation = _default_gate_implementation(backend, gate_name, locus)
-            error = _error_from_fidelity(metrics.get_gate_fidelity(gate_name, implementation, locus))
+            fidelity = metrics.get_gate_fidelity(gate_name, implementation, locus)
             duration = _ns_or_none(metrics.get_gate_duration(gate_name, implementation, locus))
-            if error is not None:
-                gate_errors[tuple(locus)] = error
+            if fidelity is not None:
+                gate_fidelities[tuple(locus)] = fidelity
             if duration is not None:
                 durations.append(duration)
 
-        if gate_errors:
-            two_qubit_errors[gate_name] = gate_errors
         if durations:
-            two_qubit_durations[gate_name] = round(mean(durations), 12)
+            gate_duration = round(mean(durations), 12)
+            two_qubit_durations[gate_name] = gate_duration
+            if gate_fidelities:
+                two_qubit_errors[gate_name] = {
+                    locus: _depolarizing_parameter_for_locus(
+                        fidelity,
+                        t1s=t1s,
+                        t2s=t2s,
+                        locus=locus,
+                        duration=gate_duration,
+                    )
+                    for locus, fidelity in gate_fidelities.items()
+                }
+        elif gate_fidelities:
+            raise ValueError(f"Missing duration metrics for IQM gate {gate_name!r}.")
 
     readout_errors = {}
     for qubit in selected_qubits:
@@ -345,7 +445,7 @@ def get_backend_error_profile(backend, qubits=None, name=None, print_report=True
         single_qubit_gate_durations=single_qubit_durations,
         two_qubit_gate_durations=two_qubit_durations,
         readout_errors=readout_errors,
-        name=name or _backend_name(backend),
+        name=_error_profile_name(backend, name),
     )
 
     if print_report:
@@ -405,12 +505,13 @@ def generate_random_error_profile(
     two_qubit_gate_duration_ns=80.0,
     print_report=True,
 ):
-    """Generate a random IQMErrorProfile for an IQM fake backend.
+    """Generate a random IQMErrorProfile for synthetic IQM simulations only.
 
     If ``architecture`` is provided, the profile matches that static
     architecture. Otherwise, if ``backend`` is provided, the function uses its
     qubit names and CZ connectivity. You can override the qubit subset with
-    ``qubits``.
+    ``qubits``. Do not use this profile to model or explain a hardware run;
+    use ``get_backend_error_profile`` with a metrics-enabled backend instead.
     """
     backend = None if backend is None else _unwrap_backend(backend)
     if backend is None and architecture is None and qubits is None:

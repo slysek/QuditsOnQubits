@@ -12,15 +12,16 @@ Requires-Dist: igraph
 Requires-Dist: tqdm
 Requires-Dist: ipython
 Requires-Dist: jupyterlab
-Requires-Dist: qiskit<2.2,>=1.4
+Requires-Dist: qiskit<2.2,>=2
 Requires-Dist: qiskit-aer<0.18,>=0.17
 Requires-Dist: qiskit-ibm-runtime<0.44.1,>=0.34
 Requires-Dist: qiskit-experiments<0.14,>=0.13
 Requires-Dist: python-dotenv
-Requires-Dist: iqm-client[qiskit]<35,>=34
+Requires-Dist: iqm-client[qiskit]<36,>=35
 Requires-Dist: iqm-qubit-selector<2,>=1
 Provides-Extra: dev
 Requires-Dist: pytest<9,>=8; extra == "dev"
 Requires-Dist: pytest-cov<7,>=5; extra == "dev"
 Provides-Extra: mitigation
-Requires-Dist: mthree; extra == "mitigation"
+Requires-Dist: mthree<4,>=3; extra == "mitigation"
+Requires-Dist: iqm-error-reduction-tools<0.3,>=0.2; extra == "mitigation"
