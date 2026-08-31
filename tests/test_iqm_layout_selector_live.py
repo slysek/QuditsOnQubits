@@ -113,7 +113,7 @@ def test_iqm_selector_and_full_workload_compile_never_submit(
     assert selector_metadata["layout_semantics"] == "routing_subgraph"
     assert len(selector_metadata["generated_layouts"]) >= 1
     assert all(
-        layout == sorted(set(layout))
+        tuple(layout) == tuple(sorted(set(layout)))
         for layout in selector_metadata["merged_layouts"]
     )
     assert len(selection.batch.circuits) == len(settings) == 12
