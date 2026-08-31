@@ -350,7 +350,16 @@ def test_canonical_notebook_setup_runs_two_qutrit_bell_on_aer(tmp_path):
     result = namespace["run_experiment"](spec, repo_root=tmp_path)
 
     assert result.status.value == "completed"
-    assert set(result.values) == {"raw", "config", "diagnostics"}
+    assert set(result.values) == {
+        "raw",
+        "raw_conditional",
+        "raw_unconditional",
+        "raw_invalid_codeword_rate",
+        "raw_invalid_codeword_shots",
+        "config",
+        "diagnostics",
+    }
+    assert result.values["raw"] == result.values["raw_conditional"]
     raw_real = result.values["raw"]["estimate"]["real"]
     # Seed 11 and 64 shots produce 6.004560301527426; 0.01 covers only this
     # deterministic finite-shot deviation from the frozen ideal value 6.0.
@@ -362,7 +371,7 @@ def test_canonical_notebook_setup_runs_two_qutrit_bell_on_aer(tmp_path):
     artifact_dir = Path(result.artifact_dir)
     assert artifact_dir.is_relative_to(tmp_path / "runs")
     assert (artifact_dir / "experiment.json").is_file()
-    assert (artifact_dir / "result.json").is_file()
+    assert {path.name for path in artifact_dir.iterdir()} == {"experiment.json"}
 
     numpy = namespace["np"]
     expected_encoding = namespace["get_encoding"]("canonical_ez").as_array()

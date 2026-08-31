@@ -17,6 +17,7 @@ import numbers
 import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
+import shutil
 import stat
 import tempfile
 from typing import Any
@@ -26,7 +27,7 @@ import numpy as np
 from qiskit import qpy
 from qiskit.circuit import QuantumCircuit
 
-from .errors import ExperimentPersistenceError
+from .errors import ExperimentDurabilityError, ExperimentPersistenceError
 
 
 _TAG = "__qoq_type__"
@@ -40,6 +41,18 @@ _WINDOWS_RESERVED = {
     *(f"LPT{number}" for number in range(1, 10)),
 }
 _NDARRAY_KINDS = frozenset("biufcU")
+_MAX_PLAIN_JSON_BYTES = 8 * 1024 * 1024
+_MAX_PLAIN_JSON_DEPTH = 64
+_MAX_PLAIN_JSON_NODES = 200_000
+_MAX_PLAIN_JSON_STRING_LENGTH = 65_536
+_MAX_PLAIN_JSON_NUMBER_LENGTH = 256
+_MAX_PLAIN_JSON_CONTAINER_ITEMS = 10_000
+_READ_CHUNK_BYTES = 64 * 1024
+_RUN_TIMESTAMP_FORMAT = "%Y%m%dT%H%M%S.%fZ"
+_RUN_RANDOM_SUFFIX_LENGTH = 12
+_GENERATED_RUN_NAME_PLACEHOLDER = (
+    "00000000T000000.000000Z-" + "0" * _RUN_RANDOM_SUFFIX_LENGTH
+)
 
 
 def _utc_now() -> datetime:
@@ -193,6 +206,12 @@ def _replace_with_directory_handle(
             ) from error
 
 
+def _publish_directory(staging: Path, destination: Path) -> None:
+    """Atomically rename one fully-written staging directory into place."""
+
+    os.replace(staging, destination)
+
+
 def _safe_relative_path(value: str | Path) -> Path:
     try:
         raw = os.fspath(value)
@@ -218,6 +237,51 @@ def _safe_relative_path(value: str | Path) -> Path:
     return Path(*parts)
 
 
+def _safe_existing_run_path(value: str | Path) -> Path:
+    try:
+        raw = os.fspath(value)
+    except TypeError as error:
+        raise ExperimentPersistenceError(
+            "artifact_dir must identify an existing run directory"
+        ) from error
+    if not isinstance(raw, str) or not raw or "\0" in raw:
+        raise ExperimentPersistenceError(
+            "artifact_dir must identify an existing run directory"
+        ) from None
+    if ".." in raw.replace("\\", "/").split("/"):
+        raise ExperimentPersistenceError(
+            "artifact_dir contains lexical parent traversal"
+        ) from None
+    try:
+        candidate = Path(raw).expanduser()
+        if not candidate.is_absolute():
+            candidate = Path.cwd() / candidate
+        candidate = candidate.absolute()
+    except (OSError, RuntimeError):
+        raise ExperimentPersistenceError(
+            "artifact_dir must identify an existing run directory"
+        ) from None
+    if len(candidate.parents) < 2:
+        raise ExperimentPersistenceError(
+            "artifact_dir must identify a run directory"
+        ) from None
+    anchor = Path(candidate.anchor)
+    try:
+        _ensure_no_symlink_or_reparse(candidate, anchor, allow_missing=False)
+        metadata = candidate.lstat()
+    except ExperimentPersistenceError:
+        raise
+    except (OSError, RuntimeError, ValueError) as error:
+        raise ExperimentPersistenceError(
+            "artifact_dir must identify an existing run directory"
+        ) from error
+    if not stat.S_ISDIR(metadata.st_mode):
+        raise ExperimentPersistenceError(
+            "artifact_dir must identify a run directory"
+        ) from None
+    return candidate
+
+
 def _raise_nonfinite(_: str) -> None:
     raise ExperimentPersistenceError("JSON numbers must be finite")
 
@@ -226,7 +290,7 @@ def _object_without_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
         if key in result:
-            raise ExperimentPersistenceError(f"JSON object contains duplicate key {key!r}")
+            raise ExperimentPersistenceError("JSON object contains duplicate key")
         result[key] = value
     return result
 
@@ -513,6 +577,197 @@ def _decode_json_bytes(data: bytes) -> Any:
         raise ExperimentPersistenceError("could not decode JSON artifact") from error
 
 
+def _decode_plain_json_bytes(data: bytes) -> Any:
+    """Decode strict JSON without reconstructing tagged Python values."""
+
+    if len(data) > _MAX_PLAIN_JSON_BYTES:
+        raise ExperimentPersistenceError(
+            "experiment JSON size limit exceeded"
+        ) from None
+    try:
+        text = data.decode("utf-8")
+        _preflight_plain_json_limits(text)
+        value = json.loads(
+            text,
+            object_pairs_hook=_object_without_duplicates,
+            parse_constant=_raise_nonfinite,
+            parse_float=_bounded_json_float,
+            parse_int=_bounded_json_int,
+        )
+        _validate_plain_json_limits(value)
+        return value
+    except ExperimentPersistenceError:
+        raise
+    except (
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        TypeError,
+        ValueError,
+        OverflowError,
+        RecursionError,
+    ) as error:
+        raise ExperimentPersistenceError("could not decode JSON artifact") from error
+
+
+def _complexity_limit() -> None:
+    raise ExperimentPersistenceError(
+        "experiment JSON complexity limit exceeded"
+    ) from None
+
+
+def _bounded_json_int(token: str) -> int:
+    if len(token) > _MAX_PLAIN_JSON_NUMBER_LENGTH:
+        _complexity_limit()
+    return int(token)
+
+
+def _bounded_json_float(token: str) -> float:
+    if len(token) > _MAX_PLAIN_JSON_NUMBER_LENGTH:
+        _complexity_limit()
+    value = float(token)
+    if not math.isfinite(value):
+        raise ExperimentPersistenceError("JSON numbers must be finite") from None
+    return value
+
+
+def _preflight_plain_json_limits(text: str) -> None:
+    stack: list[list[Any]] = []
+    in_string = False
+    escaped = False
+    scalar_active = False
+    string_length = 0
+    scalar_length = 0
+    nodes = 0
+
+    def add_node() -> None:
+        nonlocal nodes
+        nodes += 1
+        if nodes > _MAX_PLAIN_JSON_NODES:
+            _complexity_limit()
+
+    for character in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+                scalar_active = False
+                scalar_length = 0
+                continue
+            string_length += 1
+            if string_length > _MAX_PLAIN_JSON_STRING_LENGTH:
+                _complexity_limit()
+            continue
+
+        if character == '"':
+            add_node()
+            in_string = True
+            string_length = 0
+            scalar_active = False
+            scalar_length = 0
+            if stack:
+                stack[-1][2] = True
+        elif character in "[{":
+            add_node()
+            if stack:
+                stack[-1][2] = True
+            stack.append([character, 0, False])
+            if len(stack) > _MAX_PLAIN_JSON_DEPTH:
+                _complexity_limit()
+            scalar_active = False
+            scalar_length = 0
+        elif character in "]}":
+            if stack:
+                _, commas, has_content = stack.pop()
+                item_count = commas + 1 if has_content else 0
+                if item_count > _MAX_PLAIN_JSON_CONTAINER_ITEMS:
+                    _complexity_limit()
+            scalar_active = False
+            scalar_length = 0
+        elif character == ",":
+            if stack:
+                stack[-1][1] += 1
+                if stack[-1][1] + 1 > _MAX_PLAIN_JSON_CONTAINER_ITEMS:
+                    _complexity_limit()
+            scalar_active = False
+            scalar_length = 0
+        elif character == ":" or character.isspace():
+            scalar_active = False
+            scalar_length = 0
+        else:
+            if not scalar_active:
+                add_node()
+                scalar_active = True
+                scalar_length = 1
+                if stack:
+                    stack[-1][2] = True
+            else:
+                scalar_length += 1
+            if scalar_length > _MAX_PLAIN_JSON_NUMBER_LENGTH:
+                _complexity_limit()
+
+
+def _validate_plain_json_limits(
+    value: Any,
+    *,
+    depth: int = 1,
+    nodes: list[int] | None = None,
+) -> None:
+    if nodes is None:
+        nodes = [0]
+    nodes[0] += 1
+    if nodes[0] > _MAX_PLAIN_JSON_NODES or depth > _MAX_PLAIN_JSON_DEPTH:
+        _complexity_limit()
+    if value is None or type(value) is bool:
+        return
+    if type(value) is str:
+        if len(value) > _MAX_PLAIN_JSON_STRING_LENGTH:
+            _complexity_limit()
+        return
+    if type(value) is int:
+        if (
+            value.bit_length() > _MAX_PLAIN_JSON_NUMBER_LENGTH * 4
+            or len(str(value)) > _MAX_PLAIN_JSON_NUMBER_LENGTH
+        ):
+            _complexity_limit()
+        return
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ExperimentPersistenceError("JSON numbers must be finite") from None
+        if len(repr(value)) > _MAX_PLAIN_JSON_NUMBER_LENGTH:
+            _complexity_limit()
+        return
+    if type(value) is dict:
+        if len(value) > _MAX_PLAIN_JSON_CONTAINER_ITEMS:
+            _complexity_limit()
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ExperimentPersistenceError(
+                    "plain JSON object keys must be strings"
+                ) from None
+            _validate_plain_json_limits(key, depth=depth + 1, nodes=nodes)
+            _validate_plain_json_limits(item, depth=depth + 1, nodes=nodes)
+        return
+    if type(value) is list:
+        if len(value) > _MAX_PLAIN_JSON_CONTAINER_ITEMS:
+            _complexity_limit()
+        for item in value:
+            _validate_plain_json_limits(item, depth=depth + 1, nodes=nodes)
+        return
+    raise ExperimentPersistenceError(
+        "plain JSON contains an unsupported value"
+    ) from None
+
+
+def _validated_plain_json_bytes(value: Any) -> bytes:
+    _validate_plain_json_limits(value)
+    data = _canonical_json_bytes(value)
+    _decode_plain_json_bytes(data)
+    return data
+
+
 def _validate_factor(factor: Any) -> int:
     if isinstance(factor, bool) or not isinstance(factor, numbers.Integral) or factor <= 0:
         raise ExperimentPersistenceError("counts factor must be a positive integer")
@@ -559,6 +814,55 @@ def _validate_counts_mapping(counts_by_setting: Any) -> list[dict[str, Any]]:
     return settings
 
 
+def _create_directory_chain_durably(directory: Path) -> Path:
+    """Create missing directories one level at a time and sync each parent."""
+
+    missing: list[Path] = []
+    current = directory
+    while True:
+        try:
+            metadata = current.lstat()
+        except FileNotFoundError:
+            missing.append(current)
+            parent = current.parent
+            if parent == current:
+                raise ExperimentPersistenceError(
+                    "could not find an existing parent for experiment root"
+                ) from None
+            current = parent
+            continue
+        except OSError as error:
+            raise ExperimentPersistenceError(
+                "could not inspect experiment root ancestor"
+            ) from error
+        if _is_symlink_or_reparse(current) or not stat.S_ISDIR(metadata.st_mode):
+            raise ExperimentPersistenceError(
+                "experiment root ancestor is not a regular directory"
+            ) from None
+        break
+
+    for created in reversed(missing):
+        parent = created.parent.resolve(strict=True)
+        try:
+            created.mkdir(exist_ok=False)
+            metadata = created.lstat()
+        except OSError as error:
+            raise ExperimentPersistenceError(
+                "could not create experiment root directory"
+            ) from error
+        if _is_symlink_or_reparse(created) or not stat.S_ISDIR(metadata.st_mode):
+            raise ExperimentPersistenceError(
+                "created experiment root path is not a regular directory"
+            ) from None
+        try:
+            _fsync_directory(parent)
+        except ExperimentPersistenceError as error:
+            raise ExperimentPersistenceError(
+                "could not confirm experiment directory entry durability"
+            ) from error
+    return directory.resolve(strict=True)
+
+
 class ExperimentStore:
     """Persist a run beneath one resolved root without following escapes.
 
@@ -570,34 +874,37 @@ class ExperimentStore:
     def __init__(self, root: str | Path):
         try:
             candidate = Path(root).expanduser()
-            candidate.mkdir(parents=True, exist_ok=True)
-            resolved = candidate.resolve(strict=True)
+            if not candidate.is_absolute():
+                candidate = (Path.cwd() / candidate).absolute()
+            resolved = _create_directory_chain_durably(candidate)
         except (OSError, RuntimeError, TypeError) as error:
             raise ExperimentPersistenceError(f"could not initialize experiment root {root!r}") from error
         if not resolved.is_dir():
             raise ExperimentPersistenceError(f"experiment root is not a directory: {resolved}")
         self.root = resolved
 
+    @classmethod
+    def open_existing_run(
+        cls,
+        run: str | Path,
+    ) -> tuple["ExperimentStore", Path]:
+        """Open one lexical run path without following symlink/reparse components."""
+
+        candidate = _safe_existing_run_path(run)
+        store = cls(candidate.parents[1])
+        store._resolve_run(candidate)
+        return store, candidate
+
+    @staticmethod
+    def generated_run_name_placeholder() -> str:
+        """Return an ASCII placeholder with exact generated run-name byte length."""
+
+        return _GENERATED_RUN_NAME_PLACEHOLDER
+
     def create_run(self, run_id: str | None = None) -> Path:
         """Create and return a collision-safe UTC-dated run directory."""
 
-        if run_id is not None and (not isinstance(run_id, str) or not _SAFE_RUN_ID.fullmatch(run_id)):
-            raise ExperimentPersistenceError("run_id must be one safe relative path component")
-        now = _utc_now().astimezone(timezone.utc)
-        date_directory = self.root / now.strftime("%Y-%m-%d")
-        _ensure_no_symlink_or_reparse(date_directory, self.root, allow_missing=True)
-        self._ensure_contained(date_directory.resolve(strict=False), self.root, "run directory")
-        try:
-            date_directory.mkdir(exist_ok=True)
-        except (OSError, RuntimeError) as error:
-            raise ExperimentPersistenceError("could not create UTC run date directory") from error
-        _ensure_no_symlink_or_reparse(date_directory, self.root, allow_missing=False)
-        date_directory = date_directory.resolve(strict=True)
-        self._ensure_contained(date_directory, self.root, "run directory")
-
-        timestamp = now.strftime("%Y%m%dT%H%M%S.%fZ")
-        label = f"-{run_id}" if run_id is not None else ""
-        name = f"{timestamp}{label}-{uuid.uuid4().hex[:12]}"
+        date_directory, name = self._new_run_location(run_id)
         run = date_directory / name
         _ensure_no_symlink_or_reparse(run, self.root, allow_missing=True)
         self._ensure_contained(run.resolve(strict=False), self.root, "run directory")
@@ -612,6 +919,124 @@ class ExperimentStore:
         self._ensure_contained(resolved, self.root, "run directory")
         return resolved
 
+    def stage_run(self, run_id: str | None = None) -> tuple[Path, Path]:
+        """Create a hidden staging directory and return it with its final path."""
+
+        date_directory, name = self._new_run_location(run_id)
+        final = date_directory / name
+        staging = date_directory / f".staging-{name}-{uuid.uuid4().hex}"
+        _ensure_no_symlink_or_reparse(staging, self.root, allow_missing=True)
+        self._ensure_contained(staging.resolve(strict=False), self.root, "run directory")
+        try:
+            staging.mkdir(exist_ok=False)
+        except OSError as error:
+            raise ExperimentPersistenceError(
+                "could not create experiment staging directory"
+            ) from error
+        _ensure_no_symlink_or_reparse(staging, self.root, allow_missing=False)
+        resolved = staging.resolve(strict=True)
+        self._ensure_contained(resolved, self.root, "run directory")
+        return resolved, final
+
+    def publish_staged_run(self, staging: str | Path, final: str | Path) -> Path:
+        """Atomically expose a complete staged run; never fail after publication."""
+
+        staging_directory = self._resolve_run(staging)
+        destination = Path(final)
+        if not destination.is_absolute():
+            destination = self.root / destination
+        destination = destination.absolute()
+        if (
+            not staging_directory.name.startswith(".staging-")
+            or destination.parent != staging_directory.parent
+            or not _SAFE_RUN_ID.fullmatch(destination.name)
+            or destination.name.startswith(".staging-")
+        ):
+            raise ExperimentPersistenceError("staged run publication paths are invalid")
+        self._ensure_contained(destination, self.root, "experiment root")
+        _ensure_no_symlink_or_reparse(destination, self.root, allow_missing=True)
+        if destination.exists():
+            raise ExperimentPersistenceError(
+                f"experiment run already exists and will not be overwritten: {destination}"
+            )
+        parent_identity = _directory_identity(destination.parent, self.root)
+        staging_identity = _directory_identity(staging_directory, self.root)
+        _fsync_directory(staging_directory)
+        _verify_directory_identity(destination.parent, self.root, parent_identity)
+        try:
+            _publish_directory(staging_directory, destination)
+        except Exception as error:
+            try:
+                published_identity = _directory_identity(destination, self.root)
+            except ExperimentPersistenceError:
+                published_identity = None
+            if (
+                published_identity is None
+                or published_identity[1:] != staging_identity[1:]
+            ):
+                raise ExperimentPersistenceError(
+                    "could not atomically publish experiment run"
+                ) from error
+
+        try:
+            _fsync_directory(destination.parent)
+        except ExperimentPersistenceError as error:
+            raise ExperimentDurabilityError(destination) from error
+        return destination
+
+    def discard_staged_run(self, staging: str | Path) -> None:
+        """Remove one unpublished staging directory without following reparses."""
+
+        candidate = Path(staging)
+        if not candidate.is_absolute():
+            candidate = self.root / candidate
+        candidate = candidate.absolute()
+        self._ensure_contained(candidate, self.root, "experiment root")
+        if not candidate.name.startswith(".staging-"):
+            raise ExperimentPersistenceError("refusing to discard a non-staging run")
+        try:
+            if not candidate.exists():
+                return
+            _ensure_no_symlink_or_reparse(candidate, self.root, allow_missing=False)
+            resolved = candidate.resolve(strict=True)
+            self._ensure_contained(resolved, self.root, "experiment root")
+            shutil.rmtree(resolved)
+        except ExperimentPersistenceError:
+            raise
+        except OSError as error:
+            raise ExperimentPersistenceError(
+                "could not remove experiment staging directory"
+            ) from error
+
+    def _new_run_location(self, run_id: str | None) -> tuple[Path, str]:
+        if run_id is not None and (not isinstance(run_id, str) or not _SAFE_RUN_ID.fullmatch(run_id)):
+            raise ExperimentPersistenceError("run_id must be one safe relative path component")
+        now = _utc_now().astimezone(timezone.utc)
+        date_directory = self.root / now.strftime("%Y-%m-%d")
+        _ensure_no_symlink_or_reparse(date_directory, self.root, allow_missing=True)
+        self._ensure_contained(date_directory.resolve(strict=False), self.root, "run directory")
+        try:
+            date_directory.mkdir(exist_ok=True)
+        except (OSError, RuntimeError) as error:
+            raise ExperimentPersistenceError("could not create UTC run date directory") from error
+        _ensure_no_symlink_or_reparse(date_directory, self.root, allow_missing=False)
+        date_directory = date_directory.resolve(strict=True)
+        self._ensure_contained(date_directory, self.root, "run directory")
+        try:
+            _fsync_directory(self.root)
+        except ExperimentPersistenceError as error:
+            raise ExperimentPersistenceError(
+                "could not fsync experiment root after creating UTC run date directory"
+            ) from error
+
+        timestamp = now.strftime(_RUN_TIMESTAMP_FORMAT)
+        label = f"-{run_id}" if run_id is not None else ""
+        name = (
+            f"{timestamp}{label}-"
+            f"{uuid.uuid4().hex[:_RUN_RANDOM_SUFFIX_LENGTH]}"
+        )
+        return date_directory, name
+
     def write_json(self, run: str | Path, filename: str | Path, value: Any) -> Path:
         """Atomically write one canonical strict-JSON artifact."""
 
@@ -619,11 +1044,38 @@ class ExperimentStore:
         self._atomic_write(path, _canonical_json_bytes(value))
         return path
 
+    @staticmethod
+    def validate_plain_json(value: Any) -> None:
+        """Require a plain JSON value accepted by the strict reader budgets."""
+
+        _validated_plain_json_bytes(value)
+
+    def write_plain_json(
+        self,
+        run: str | Path,
+        filename: str | Path,
+        value: Any,
+    ) -> Path:
+        """Atomically write plain JSON accepted by the strict reader."""
+
+        data = _validated_plain_json_bytes(value)
+        path = self._artifact_path(run, filename, create_parent=True)
+        self._atomic_write(path, data)
+        return path
+
     def read_json(self, run: str | Path, filename: str | Path) -> Any:
         """Read and validate one canonical JSON-compatible artifact."""
 
         path = self._artifact_path(run, filename, create_parent=False)
         return _decode_json_bytes(self._read_bytes(path))
+
+    def read_plain_json(self, run: str | Path, filename: str | Path) -> Any:
+        """Read strict JSON without decoding tagged legacy values."""
+
+        path = self._artifact_path(run, filename, create_parent=False)
+        return _decode_plain_json_bytes(
+            self._read_bytes(path, max_bytes=_MAX_PLAIN_JSON_BYTES)
+        )
 
     def write_experiment(
         self,
@@ -786,11 +1238,69 @@ class ExperimentStore:
             raise ExperimentPersistenceError(f"artifact path escapes {description}: {path}")
 
     @staticmethod
-    def _read_bytes(path: Path) -> bytes:
+    def _read_bytes(path: Path, *, max_bytes: int | None = None) -> bytes:
+        descriptor: int | None = None
         try:
-            return path.read_bytes()
+            before = path.lstat()
+            if _is_symlink_or_reparse(path) or not stat.S_ISREG(before.st_mode):
+                raise ExperimentPersistenceError(
+                    f"experiment artifact is not a regular file: {path}"
+                ) from None
+            if max_bytes is not None and before.st_size > max_bytes:
+                raise ExperimentPersistenceError(
+                    "experiment JSON size limit exceeded"
+                ) from None
+            flags = os.O_RDONLY
+            for flag_name in ("O_BINARY", "O_CLOEXEC", "O_NOFOLLOW"):
+                flags |= getattr(os, flag_name, 0)
+            descriptor = os.open(path, flags)
+            opened = os.fstat(descriptor)
+            if not stat.S_ISREG(opened.st_mode):
+                raise ExperimentPersistenceError(
+                    f"experiment artifact is not a regular file: {path}"
+                ) from None
+            if (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino):
+                raise ExperimentPersistenceError(
+                    f"experiment artifact changed before read: {path}"
+                ) from None
+            if max_bytes is not None and opened.st_size > max_bytes:
+                raise ExperimentPersistenceError(
+                    "experiment JSON size limit exceeded"
+                ) from None
+            chunks: list[bytes] = []
+            total = 0
+            while True:
+                remaining = (
+                    _READ_CHUNK_BYTES
+                    if max_bytes is None
+                    else min(_READ_CHUNK_BYTES, max_bytes + 1 - total)
+                )
+                if remaining <= 0:
+                    raise ExperimentPersistenceError(
+                        "experiment JSON size limit exceeded"
+                    ) from None
+                chunk = os.read(descriptor, remaining)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                total += len(chunk)
+                if max_bytes is not None and total > max_bytes:
+                    raise ExperimentPersistenceError(
+                        "experiment JSON size limit exceeded"
+                    ) from None
+            return b"".join(chunks)
+        except ExperimentPersistenceError:
+            raise
         except OSError as error:
-            raise ExperimentPersistenceError(f"could not read experiment artifact: {path}") from error
+            raise ExperimentPersistenceError(
+                f"could not read experiment artifact: {path}"
+            ) from error
+        finally:
+            if descriptor is not None:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
 
     def _atomic_write(self, path: Path, data: bytes) -> None:
         temporary: Path | None = None

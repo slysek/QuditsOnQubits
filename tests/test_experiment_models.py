@@ -32,7 +32,9 @@ from qudits_on_qubits.experiments.models import (
     PathBasis,
     PiastQHardware,
     RetryConfig,
+    ScalarEstimate,
     TranspilationConfig,
+    WorkloadOptimizationConfig,
 )
 
 
@@ -149,6 +151,54 @@ def test_mitigation_config_validates_zne(config_factory):
         config_factory()
 
 
+def test_mitigation_config_twirling_defaults_and_safe_dict_round_trip():
+    default = MitigationConfig()
+    configured = MitigationConfig(
+        circuit_twirling=True,
+        twirling_instances=8,
+        twirling_seed=12345,
+    )
+
+    assert default.circuit_twirling is False
+    assert default.twirling_instances == 20
+    assert default.twirling_seed is None
+    assert MitigationConfig.from_safe_dict(configured.to_safe_dict()) == configured
+
+
+def test_mitigation_config_accepts_historical_payload_without_twirling_fields():
+    historical = {
+        "readout": True,
+        "zne": True,
+        "zne_factors": [1, 3],
+        "zne_model": "linear",
+        "readout_max_age_hours": 12.0,
+        "force_recalibration": False,
+    }
+
+    restored = MitigationConfig.from_safe_dict(historical)
+
+    assert restored.circuit_twirling is False
+    assert restored.twirling_instances == 20
+    assert restored.twirling_seed is None
+
+
+@pytest.mark.parametrize(
+    "factory",
+    [
+        lambda: MitigationConfig(circuit_twirling=1),
+        lambda: MitigationConfig(twirling_instances=True),
+        lambda: MitigationConfig(twirling_instances=0),
+        lambda: MitigationConfig(twirling_instances=1.5),
+        lambda: MitigationConfig(twirling_seed=True),
+        lambda: MitigationConfig(twirling_seed=-1),
+        lambda: MitigationConfig(twirling_seed=1.5),
+    ],
+)
+def test_mitigation_config_rejects_invalid_twirling_values(factory):
+    with pytest.raises(ExperimentValidationError, match="twirl"):
+        factory()
+
+
 def test_safe_serialization_excludes_backend_objects_and_credentials():
     backend = CustomBackend(
         instance=object(),
@@ -258,6 +308,180 @@ def test_builtin_spec_safe_round_trip():
 
     rebuilt = ExperimentSpec.from_safe_dict(original.to_safe_dict())
     assert rebuilt == original
+
+
+def test_transpilation_config_round_trips_initial_layout():
+    config = TranspilationConfig(
+        optimization_level=3,
+        seed_transpiler=9,
+        initial_layout=(16, 17, 18, 19),
+    )
+
+    assert TranspilationConfig.from_safe_dict(config.to_safe_dict()) == config
+    assert config.to_safe_dict()["initial_layout"] == [16, 17, 18, 19]
+
+
+@pytest.mark.parametrize(
+    "layout",
+    [
+        (),
+        (0, 0),
+        (-1, 2),
+        (True, 2),
+        [0, "1"],
+        {0, 1},
+        {0: "zero", 1: "one"},
+        (index for index in range(2)),
+    ],
+)
+def test_transpilation_config_rejects_invalid_initial_layout(layout):
+    with pytest.raises(ExperimentValidationError, match="initial_layout"):
+        TranspilationConfig(initial_layout=layout)
+
+
+def test_workload_optimization_config_round_trips_with_safe_shape():
+    config = WorkloadOptimizationConfig(
+        initial_layouts=((0, 1, 2, 3, 4, 7), (4, 7, 2, 3, 0, 1)),
+        seed_transpilers=(3, 7),
+    )
+
+    payload = config.to_safe_dict()
+
+    assert payload == {
+        "initial_layouts": [[0, 1, 2, 3, 4, 7], [4, 7, 2, 3, 0, 1]],
+        "seed_transpilers": [3, 7],
+        "require_exact_physical_qubit_set": True,
+        "prefer_calibration_metrics": True,
+    }
+    assert WorkloadOptimizationConfig.from_safe_dict(payload) == config
+
+
+def test_workload_optimization_config_normalizes_sequences_to_tuples():
+    config = WorkloadOptimizationConfig(
+        initial_layouts=[[0, 1], [2, 3]],
+        seed_transpilers=[3, 7],
+    )
+
+    assert config.initial_layouts == ((0, 1), (2, 3))
+    assert config.seed_transpilers == (3, 7)
+
+
+@pytest.mark.parametrize(
+    "initial_layouts",
+    [
+        (),
+        ((0, 1), (2, 3, 4)),
+        ((0, 0),),
+        ((-1, 0),),
+        ((0, 1), (0, 1)),
+        ((True, 1),),
+        "01",
+        b"01",
+        ({0, 1},),
+        ({0: "zero", 1: "one"},),
+        ((index for index in range(2)),),
+    ],
+)
+def test_workload_optimization_config_rejects_invalid_layouts(initial_layouts):
+    with pytest.raises(ExperimentValidationError, match="initial_layouts"):
+        WorkloadOptimizationConfig(initial_layouts=initial_layouts)
+
+
+@pytest.mark.parametrize(
+    "seed_transpilers",
+    [
+        (),
+        (3, 3),
+        (-1,),
+        (True,),
+        (1.5,),
+        ("3",),
+        "37",
+        b"37",
+        {3, 7},
+        (seed for seed in (3, 7)),
+    ],
+)
+def test_workload_optimization_config_rejects_invalid_seeds(seed_transpilers):
+    with pytest.raises(ExperimentValidationError, match="seed_transpilers"):
+        WorkloadOptimizationConfig(
+            initial_layouts=((0, 1),),
+            seed_transpilers=seed_transpilers,
+        )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    [
+        ("require_exact_physical_qubit_set", 1),
+        ("prefer_calibration_metrics", "true"),
+    ],
+)
+def test_workload_optimization_config_requires_boolean_flags(field_name, value):
+    kwargs = {
+        "initial_layouts": ((0, 1),),
+        field_name: value,
+    }
+
+    with pytest.raises(ExperimentValidationError, match=field_name):
+        WorkloadOptimizationConfig(**kwargs)
+
+
+def test_experiment_spec_round_trips_workload_optimization():
+    workload_optimization = WorkloadOptimizationConfig(
+        initial_layouts=((0, 1, 2), (3, 4, 5)),
+        seed_transpilers=(3, 7),
+    )
+    original = ExperimentSpec(
+        state="ghz3",
+        basis=PathBasis(Path("basis")),
+        backend=AerIdeal(),
+        workload_optimization=workload_optimization,
+    )
+
+    payload = original.to_safe_dict()
+
+    assert payload["workload_optimization"] == workload_optimization.to_safe_dict()
+    assert ExperimentSpec.from_safe_dict(payload) == original
+
+
+def test_experiment_spec_restores_none_from_legacy_payload_without_workload_optimization():
+    original = ExperimentSpec(
+        state="ghz3",
+        basis=PathBasis(Path("basis")),
+        backend=AerIdeal(),
+    )
+    payload = original.to_safe_dict()
+
+    assert original.workload_optimization is None
+    assert payload["workload_optimization"] is None
+    payload.pop("workload_optimization")
+    assert ExperimentSpec.from_safe_dict(payload) == original
+
+
+def test_experiment_spec_rejects_invalid_workload_optimization_type():
+    with pytest.raises(ExperimentValidationError, match="workload_optimization"):
+        ExperimentSpec(
+            state="ghz3",
+            basis=PathBasis(Path("basis")),
+            backend=AerIdeal(),
+            workload_optimization={},
+        )
+
+
+def test_experiment_spec_preserves_legacy_structural_match_arguments():
+    assert ExperimentSpec.__match_args__ == (
+        "state",
+        "basis",
+        "backend",
+        "shots",
+        "mitigation",
+        "uncertainty",
+        "transpilation",
+        "retry",
+        "output_root",
+        "tags",
+    )
 
 
 def test_experiment_spec_uses_canonical_uncertainty_key_and_attribute():
@@ -472,6 +696,111 @@ def test_bell_estimate_serializes_component_wise_uncertainty():
             "imag": {"low": -2.4, "high": -1.6},
         },
     }
+
+
+def test_scalar_estimate_serializes_scalar_uncertainty():
+    estimate = ScalarEstimate(
+        estimate=0.25,
+        standard_error=0.05,
+        confidence_interval=ConfidenceInterval(0.15, 0.35),
+    )
+
+    assert estimate.to_safe_dict() == {
+        "estimate": 0.25,
+        "standard_error": 0.05,
+        "confidence_interval": {"low": 0.15, "high": 0.35},
+    }
+
+
+def test_scalar_estimate_normalizes_real_values_to_float():
+    estimate = ScalarEstimate(
+        estimate=1,
+        standard_error=0,
+        confidence_interval=ConfidenceInterval(0.0, 1.0),
+    )
+
+    assert type(estimate.estimate) is float
+    assert type(estimate.standard_error) is float
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_scalar_estimate_rejects_non_finite_estimate(value):
+    with pytest.raises(ExperimentValidationError, match="estimate"):
+        ScalarEstimate(
+            estimate=value,
+            standard_error=0.05,
+            confidence_interval=ConfidenceInterval(0.15, 0.35),
+        )
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_scalar_estimate_rejects_non_finite_standard_error(value):
+    with pytest.raises(ExperimentValidationError, match="standard_error"):
+        ScalarEstimate(
+            estimate=0.25,
+            standard_error=value,
+            confidence_interval=ConfidenceInterval(0.15, 0.35),
+        )
+
+
+def test_scalar_estimate_rejects_negative_standard_error():
+    with pytest.raises(ExperimentValidationError, match="standard_error"):
+        ScalarEstimate(
+            estimate=0.25,
+            standard_error=-0.05,
+            confidence_interval=ConfidenceInterval(0.15, 0.35),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    [
+        ("estimate", True),
+        ("estimate", "0.25"),
+        ("estimate", 0.25 + 0j),
+        ("standard_error", False),
+        ("standard_error", "0.05"),
+        ("standard_error", 0.05 + 0j),
+    ],
+)
+def test_scalar_estimate_rejects_boolean_and_non_real_values(field_name, value):
+    kwargs = {
+        "estimate": 0.25,
+        "standard_error": 0.05,
+        "confidence_interval": ConfidenceInterval(0.15, 0.35),
+        field_name: value,
+    }
+
+    with pytest.raises(ExperimentValidationError, match=field_name):
+        ScalarEstimate(**kwargs)
+
+
+@pytest.mark.parametrize("field_name", ["estimate", "standard_error"])
+def test_scalar_estimate_rejects_real_values_too_large_to_normalize(field_name):
+    kwargs = {
+        "estimate": 0.25,
+        "standard_error": 0.05,
+        "confidence_interval": ConfidenceInterval(0.15, 0.35),
+        field_name: 10**1000,
+    }
+
+    with pytest.raises(ExperimentValidationError, match=field_name):
+        ScalarEstimate(**kwargs)
+
+
+def test_scalar_estimate_requires_confidence_interval():
+    with pytest.raises(ExperimentValidationError, match="confidence_interval"):
+        ScalarEstimate(
+            estimate=0.25,
+            standard_error=0.05,
+            confidence_interval=(0.15, 0.35),
+        )
+
+
+def test_experiments_package_reexports_scalar_estimate():
+    from qudits_on_qubits.experiments import ScalarEstimate as ExportedScalarEstimate
+
+    assert ExportedScalarEstimate is ScalarEstimate
 
 
 def test_complex_confidence_interval_requires_component_intervals():

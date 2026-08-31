@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import hashlib
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping
@@ -29,13 +28,11 @@ class BasisArtifacts:
     state_circuit: Any
     encoding: np.ndarray
     source_paths: Mapping[str, Path]
-    source_hashes: Mapping[str, str]
     provenance: Mapping[str, Any]
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "directory", Path(self.directory).resolve())
         object.__setattr__(self, "source_paths", MappingProxyType(dict(self.source_paths)))
-        object.__setattr__(self, "source_hashes", MappingProxyType(dict(self.source_hashes)))
         object.__setattr__(self, "provenance", _freeze_mapping(self.provenance))
         encoding = np.asarray(self.encoding, dtype=complex).copy()
         encoding.setflags(write=False)
@@ -102,8 +99,8 @@ def load_basis_artifacts(
     _require_file(state_path)
     _require_file(encoding_path)
 
-    state_bytes = _read_artifact_bytes(state_path, "state circuit")
-    encoding_bytes = _read_artifact_bytes(encoding_path, "encoding")
+    _read_artifact_bytes(state_path, "state circuit")
+    _read_artifact_bytes(encoding_path, "encoding")
     state_circuit = _load_single_circuit(state_path)
     _validate_state_circuit(state_circuit, state)
     encoding = _load_encoding(encoding_path)
@@ -114,10 +111,6 @@ def load_basis_artifacts(
         state_circuit=state_circuit,
         encoding=encoding,
         source_paths={"state": state_path, "encoding": encoding_path},
-        source_hashes={
-            "state": hashlib.sha256(state_bytes).hexdigest(),
-            "encoding": hashlib.sha256(encoding_bytes).hexdigest(),
-        },
         provenance={"state": state, "basis": _safe_basis_provenance(basis)},
     )
 

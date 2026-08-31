@@ -28,7 +28,6 @@ def test_prepares_measurements_in_logical_party_order(state, qubits, pairs, tmp_
         state_circuit=QuantumCircuit(qubits),
         encoding=canonical_Ez(),
         source_paths={},
-        source_hashes={},
         provenance={"candidate": state},
     )
 
@@ -52,7 +51,6 @@ def test_prepared_measurements_are_immutable(tmp_path):
         state_circuit=QuantumCircuit(4),
         encoding=np.eye(4, 3),
         source_paths={},
-        source_hashes={},
         provenance={},
     )
 
@@ -76,7 +74,6 @@ def test_preparation_rejects_invalid_builder_outputs(tmp_path, circuits, metadat
         state_circuit=QuantumCircuit(4),
         encoding=canonical_Ez(),
         source_paths={},
-        source_hashes={},
         provenance={},
     )
 

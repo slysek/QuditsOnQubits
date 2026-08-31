@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import os
 import unittest
 from unittest.mock import patch
@@ -22,6 +24,21 @@ class DirectBasisIqmCliTests(unittest.TestCase):
         self.assertIsNone(args.routing_method)
         self.assertEqual(args.iqm_strategy, [])
         self.assertFalse(args.iqm_legacy_pass_manager)
+        self.assertEqual(args.ranking_workload, "state_preparation")
+
+    def test_ranking_workload_accepts_bell_measurements(self):
+        args = build_parser().parse_args(
+            ["--state", "ghz3", "--ranking-workload", "bell_measurements"]
+        )
+
+        self.assertEqual(args.ranking_workload, "bell_measurements")
+
+    def test_ranking_workload_rejects_unknown_value(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                build_parser().parse_args(
+                    ["--state", "ghz3", "--ranking-workload", "unknown"]
+                )
 
     def test_iqm_use_metrics_parses_true(self):
         args = build_parser().parse_args(
@@ -142,6 +159,7 @@ class DirectBasisIqmCliTests(unittest.TestCase):
                 "transpile_to_iqm_exact",
             ),
         )
+        self.assertEqual(benchmark_kwargs["ranking_workload"], "state_preparation")
 
     def test_main_uses_explicit_output_csv_override_for_iqm(self):
         backend = object()
@@ -178,6 +196,8 @@ class DirectBasisIqmCliTests(unittest.TestCase):
                     "garnet",
                     "--output-csv",
                     "explicit.csv",
+                    "--ranking-workload",
+                    "bell_measurements",
                     "--no-export-quantum-circuits",
                     "--no-fidelity",
                 ]
@@ -187,6 +207,7 @@ class DirectBasisIqmCliTests(unittest.TestCase):
         timestamped_results_path.assert_not_called()
         benchmark_kwargs = benchmark_direct_basis_candidates.call_args.kwargs
         self.assertEqual(benchmark_kwargs["output_csv"], "explicit.csv")
+        self.assertEqual(benchmark_kwargs["ranking_workload"], "bell_measurements")
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ from qiskit.circuit.library import UnitaryGate
 from qiskit.converters import circuit_to_dag, dag_to_circuit
 from qiskit.quantum_info import DensityMatrix, Statevector, state_fidelity
 
+from qudits_on_qubits.bell_measurements import build_sampler_circuits_for_candidate
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
 from qudits_on_qubits.benchmarks.direct_basis.circuits import (
     build_direct_basis_edge_gate,
@@ -39,9 +40,11 @@ from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_strategies import (
 )
 from qudits_on_qubits.core.benchmark_encoding_bases import BASIS_GATES, COUPLING_MAP, TWO_Q_GATES
 from qudits_on_qubits.core.project_paths import repo_path
+from qudits_on_qubits.experiments.workload_metrics import summarize_compiled_workload
 
 
 METHOD_NAME = "direct_basis_encoding"
+RANKING_WORKLOADS = frozenset({"state_preparation", "bell_measurements"})
 
 
 def default_results_dir() -> str:
@@ -102,6 +105,64 @@ def _count_native_ops(ops, operation_names) -> dict[str, int]:
         for name in native_names
         if int(ops.get(name, 0)) > 0
     }
+
+
+def _validate_ranking_workload(ranking_workload: str) -> str:
+    if ranking_workload not in RANKING_WORKLOADS:
+        supported = ", ".join(sorted(RANKING_WORKLOADS))
+        raise ValueError(
+            f"ranking_workload must be one of: {supported}. Got {ranking_workload!r}."
+        )
+    return ranking_workload
+
+
+def _compiled_measurement_physical_mappings(circuits) -> tuple[tuple[int, ...], ...]:
+    """Return measured physical qubits in classical-bit order."""
+    mappings: list[tuple[int, ...]] = []
+    for circuit in circuits:
+        measured: dict[int, int] = {}
+        physical_by_qubit = None
+        layout = getattr(circuit, "layout", None)
+        initial_layout = getattr(layout, "initial_layout", None)
+        get_registers = getattr(initial_layout, "get_registers", None)
+        if callable(get_registers) and get_registers() == set(circuit.qregs):
+            get_virtual_bits = getattr(initial_layout, "get_virtual_bits", None)
+            if not callable(get_virtual_bits):
+                raise ValueError("compiled measurement physical layout is invalid")
+            physical_by_qubit = get_virtual_bits()
+        for instruction in circuit.data:
+            if (
+                instruction.operation.name != "measure"
+                or len(instruction.qubits) != 1
+                or len(instruction.clbits) != 1
+            ):
+                continue
+            classical = circuit.find_bit(instruction.clbits[0]).index
+            qubit = instruction.qubits[0]
+            if physical_by_qubit is None:
+                physical = circuit.find_bit(qubit).index
+            else:
+                physical = physical_by_qubit.get(qubit)
+                if (
+                    type(physical) is not int
+                    or physical < 0
+                    or physical >= circuit.num_qubits
+                ):
+                    raise ValueError("compiled measurement physical layout is invalid")
+            measured[classical] = physical
+        if not measured or tuple(sorted(measured)) != tuple(range(len(measured))):
+            raise ValueError(
+                "compiled measurements require contiguous classical-bit mapping"
+            )
+        mapping = tuple(measured[index] for index in range(len(measured)))
+        if len(set(mapping)) != len(mapping):
+            raise ValueError(
+                "compiled measurement maps multiple bits to one physical qubit"
+            )
+        mappings.append(mapping)
+    if not mappings:
+        raise ValueError("compiled measurement circuits contain no measurements")
+    return tuple(mappings)
 
 
 def _operation_names_from_metadata(metadata) -> list[str]:
@@ -453,8 +514,10 @@ def benchmark_direct_basis(
     layout_method: str | None = None,
     routing_method: str | None = None,
     iqm_strategy_names: Iterable[str] | None = None,
+    ranking_workload: str = "state_preparation",
 ) -> dict:
     """Benchmark graph-state preparation using direct W-defined encoding."""
+    ranking_workload = _validate_ranking_workload(ranking_workload)
     class_name = source_class_name or basis_candidate_type
     candidate_name = source_candidate_name or basis_candidate_name
     row = _base_row(
@@ -476,6 +539,7 @@ def benchmark_direct_basis(
     row["optimization_level"] = int(optimization_level)
     row["layout_method"] = layout_method
     row["routing_method"] = routing_method
+    row["ranking_workload"] = ranking_workload
 
     started = time.time()
     try:
@@ -488,6 +552,18 @@ def benchmark_direct_basis(
             basis_matrix,
             n_qutrits=n_qutrits,
         )
+        measured_circuits = None
+        measured_settings = None
+        if ranking_workload == "bell_measurements":
+            measured_circuits, measured_metadata = build_sampler_circuits_for_candidate(
+                state_name,
+                qc,
+                encoding_embedding(basis_matrix),
+            )
+            measured_circuits = tuple(measured_circuits)
+            measured_settings = tuple(
+                measured_metadata["setting_by_circuit_index"]
+            )
         if quantum_circuits_dir is not None:
             paths = export_direct_basis_candidate_circuits(
                 quantum_circuits_dir=quantum_circuits_dir,
@@ -529,26 +605,71 @@ def benchmark_direct_basis(
             if transpiler_backend is not None and iqm_strategy_names
             else (None,)
         )
-        for iqm_strategy_name in strategy_names:
+        for strategy_index, iqm_strategy_name in enumerate(strategy_names):
             try:
-                qc_t = _transpile_one_trial(
-                    qc,
-                    trial=trial,
-                    transpiler_backend=transpiler_backend,
-                    basis_gates=basis_gates,
-                    coupling_map=coupling_map,
-                    optimization_level=int(optimization_level),
-                    layout_method=layout_method,
-                    routing_method=routing_method,
-                    approximation_degree=approximation_degree,
-                    iqm_strategy_name=iqm_strategy_name,
-                )
+                def transpile_trial(circuit):
+                    return _transpile_one_trial(
+                        circuit,
+                        trial=trial,
+                        transpiler_backend=transpiler_backend,
+                        basis_gates=basis_gates,
+                        coupling_map=coupling_map,
+                        optimization_level=int(optimization_level),
+                        layout_method=layout_method,
+                        routing_method=routing_method,
+                        approximation_degree=approximation_degree,
+                        iqm_strategy_name=iqm_strategy_name,
+                    )
+
+                qc_t = transpile_trial(qc)
+                workload_metrics = None
+                if measured_circuits is not None:
+                    compiled_measured = tuple(
+                        transpile_trial(circuit) for circuit in measured_circuits
+                    )
+                    physical_mappings = _compiled_measurement_physical_mappings(
+                        compiled_measured
+                    )
+                    requested_physical_qubits = tuple(
+                        sorted(
+                            {
+                                physical
+                                for mapping in physical_mappings
+                                for physical in mapping
+                            }
+                        )
+                    )
+                    workload_metrics = summarize_compiled_workload(
+                        compiled_measured,
+                        settings=measured_settings,
+                        physical_mappings=physical_mappings,
+                        requested_physical_qubits=requested_physical_qubits,
+                    )
                 ops = qc_t.count_ops()
                 depth = int(qc_t.depth())
                 size = int(qc_t.size())
                 twoq = _count_two_qubit_gates_from_ops(ops)
                 oneq = _count_one_qubit_gates(qc_t)
                 native_ops = _count_native_ops(ops, native_operation_names)
+
+                if workload_metrics is None:
+                    rank_key = (
+                        (depth, twoq, oneq, size)
+                        if transpiler_backend is not None
+                        else (depth, twoq, size)
+                    )
+                else:
+                    aggregate = workload_metrics.aggregate
+                    rank_key = (
+                        aggregate["maximum_two_qubit_gate_count"],
+                        aggregate["total_two_qubit_gate_count"],
+                        aggregate["maximum_depth"],
+                        aggregate["total_depth"],
+                        aggregate["maximum_size"],
+                        aggregate["total_size"],
+                        trial,
+                        strategy_index,
+                    )
 
                 depths.append(depth)
                 sizes.append(size)
@@ -557,11 +678,7 @@ def benchmark_direct_basis(
                 row["successful_trials"] += 1
                 successful.append(
                     {
-                        "rank_key": (
-                            (depth, twoq, oneq, size)
-                            if transpiler_backend is not None
-                            else (depth, twoq, size)
-                        ),
+                        "rank_key": rank_key,
                         "depth": depth,
                         "size": size,
                         "twoq": twoq,
@@ -572,9 +689,10 @@ def benchmark_direct_basis(
                         "qc": qc_t,
                         "iqm_strategy_name": iqm_strategy_name or "",
                         "seed_transpiler": trial,
+                        "workload_metrics": workload_metrics,
                     }
                 )
-            except (KeyboardInterrupt, SystemExit):
+            except (KeyboardInterrupt, SystemExit, MemoryError):
                 raise
             except BaseException as exc:
                 # Catch BaseException (not just Exception) because Qiskit's Rust
@@ -620,6 +738,19 @@ def benchmark_direct_basis(
     row["best_count_ops"] = best["ops"]
     row["iqm_transpiler_strategy"] = best.get("iqm_strategy_name", "")
     row["iqm_transpiler_seed"] = best.get("seed_transpiler")
+    if best["workload_metrics"] is not None:
+        aggregate = best["workload_metrics"].aggregate
+        row["workload_circuit_count"] = aggregate["circuit_count"]
+        row["workload_max_depth"] = aggregate["maximum_depth"]
+        row["workload_total_depth"] = aggregate["total_depth"]
+        row["workload_max_two_qubit_gate_count"] = aggregate[
+            "maximum_two_qubit_gate_count"
+        ]
+        row["workload_total_two_qubit_gate_count"] = aggregate[
+            "total_two_qubit_gate_count"
+        ]
+        row["workload_max_size"] = aggregate["maximum_size"]
+        row["workload_total_size"] = aggregate["total_size"]
 
     row["two_qubit_gate_count"] = best["twoq"]
     row["one_qubit_gate_count"] = best["oneq"]
@@ -651,7 +782,9 @@ def failed_candidate_row(
     n_transpile_runs: int,
     approximation_degree: float | None = None,
     selection_label: str = "exact",
+    ranking_workload: str = "state_preparation",
 ) -> dict:
+    ranking_workload = _validate_ranking_workload(ranking_workload)
     row = _base_row(
         state_name=state_name,
         n_qutrits=n_qutrits,
@@ -667,6 +800,7 @@ def failed_candidate_row(
     row["status"] = "unsupported_direct_basis_candidate"
     row["error_message"] = candidate.error_message
     row["compile_time_seconds"] = 0.0
+    row["ranking_workload"] = ranking_workload
     return row
 
 
@@ -725,6 +859,7 @@ def _benchmark_direct_basis_candidate_group(
     layout_method: str | None = None,
     routing_method: str | None = None,
     iqm_strategy_names: Iterable[str] | None = None,
+    ranking_workload: str = "state_preparation",
 ) -> list[tuple[int, dict]]:
     rows: list[tuple[int, dict]] = []
     for spec_index, (
@@ -745,6 +880,7 @@ def _benchmark_direct_basis_candidate_group(
                 n_transpile_runs=n_transpile_runs,
                 approximation_degree=approximation_degree,
                 selection_label=run_label,
+                ranking_workload=ranking_workload,
             )
             _attach_transpiler_run_metadata(
                 row,
@@ -779,6 +915,8 @@ def _benchmark_direct_basis_candidate_group(
                 optimization_level=optimization_level,
                 layout_method=layout_method,
                 routing_method=routing_method,
+                iqm_strategy_names=iqm_strategy_names,
+                ranking_workload=ranking_workload,
             )
 
         _print_candidate_row_result(row)
@@ -806,8 +944,10 @@ def benchmark_direct_basis_candidates(
     layout_method: str | None = None,
     routing_method: str | None = None,
     iqm_strategy_names: Iterable[str] | None = None,
+    ranking_workload: str = "state_preparation",
     jobs: int = 1,
 ) -> tuple[pd.DataFrame, str | None]:
+    ranking_workload = _validate_ranking_workload(ranking_workload)
     candidates = list(candidates)
     run_specs = _direct_basis_run_specs(approximation_degrees)
     jobs = max(int(jobs or 1), 1)
@@ -824,30 +964,36 @@ def benchmark_direct_basis_candidates(
         for row_index, row in group_rows:
             row_slots[row_index] = row
 
+    group_kwargs = {
+        "state_name": state_name,
+        "total_candidates": len(candidates),
+        "run_specs": run_specs,
+        "n_qutrits": n_qutrits,
+        "coupling_map": coupling_map,
+        "basis_gates": basis_gates,
+        "n_transpile_runs": n_transpile_runs,
+        "compute_fidelity": compute_fidelity,
+        "max_fidelity_qubits": max_fidelity_qubits,
+        "quantum_circuits_dir": quantum_circuits_dir,
+        "transpiler_backend": transpiler_backend,
+        "transpiler_metadata": transpiler_metadata,
+        "optimization_level": optimization_level,
+        "layout_method": layout_method,
+        "routing_method": routing_method,
+        "iqm_strategy_names": iqm_strategy_names,
+        "ranking_workload": ranking_workload,
+    }
+
+    def run_group(index: int, candidate: DirectBasisCandidate) -> list[tuple[int, dict]]:
+        return _benchmark_direct_basis_candidate_group(
+            candidate_index=index,
+            candidate=candidate,
+            **group_kwargs,
+        )
+
     if jobs <= 1 or len(candidates) <= 1:
         for index, candidate in enumerate(candidates, start=1):
-            store_group(
-                _benchmark_direct_basis_candidate_group(
-                    state_name=state_name,
-                    candidate_index=index,
-                    total_candidates=len(candidates),
-                    candidate=candidate,
-                    run_specs=run_specs,
-                    n_qutrits=n_qutrits,
-                    coupling_map=coupling_map,
-                    basis_gates=basis_gates,
-                    n_transpile_runs=n_transpile_runs,
-                    compute_fidelity=compute_fidelity,
-                    max_fidelity_qubits=max_fidelity_qubits,
-                    quantum_circuits_dir=quantum_circuits_dir,
-                    transpiler_backend=transpiler_backend,
-                    transpiler_metadata=transpiler_metadata,
-                    optimization_level=optimization_level,
-                    layout_method=layout_method,
-                    routing_method=routing_method,
-                    iqm_strategy_names=iqm_strategy_names,
-                )
-            )
+            store_group(run_group(index, candidate))
     else:
         print(
             f"[direct_basis_encoding] parallel candidate jobs={jobs}",
@@ -856,27 +1002,7 @@ def benchmark_direct_basis_candidates(
         max_workers = min(jobs, len(candidates))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [
-                executor.submit(
-                    _benchmark_direct_basis_candidate_group,
-                    state_name=state_name,
-                    candidate_index=index,
-                    total_candidates=len(candidates),
-                    candidate=candidate,
-                    run_specs=run_specs,
-                    n_qutrits=n_qutrits,
-                    coupling_map=coupling_map,
-                    basis_gates=basis_gates,
-                    n_transpile_runs=n_transpile_runs,
-                    compute_fidelity=compute_fidelity,
-                    max_fidelity_qubits=max_fidelity_qubits,
-                    quantum_circuits_dir=quantum_circuits_dir,
-                    transpiler_backend=transpiler_backend,
-                    transpiler_metadata=transpiler_metadata,
-                    optimization_level=optimization_level,
-                    layout_method=layout_method,
-                    routing_method=routing_method,
-                    iqm_strategy_names=iqm_strategy_names,
-                )
+                executor.submit(run_group, index, candidate)
                 for index, candidate in enumerate(candidates, start=1)
             ]
             for future in as_completed(futures):

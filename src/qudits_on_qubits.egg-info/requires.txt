@@ -7,12 +7,12 @@ igraph
 tqdm
 ipython
 jupyterlab
-qiskit<2.2,>=1.4
+qiskit<2.2,>=2
 qiskit-aer<0.18,>=0.17
 qiskit-ibm-runtime<0.44.1,>=0.34
 qiskit-experiments<0.14,>=0.13
 python-dotenv
-iqm-client[qiskit]<35,>=34
+iqm-client[qiskit]<36,>=35
 iqm-qubit-selector<2,>=1
 
 [dev]
@@ -20,4 +20,5 @@ pytest<9,>=8
 pytest-cov<7,>=5
 
 [mitigation]
-mthree
+mthree<4,>=3
+iqm-error-reduction-tools<0.3,>=0.2

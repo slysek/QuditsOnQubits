@@ -31,19 +31,23 @@ def _circuit_with_reset():
     return circuit
 
 
-def test_path_basis_loads_raw_circuit_and_hashes_original_bytes(tmp_path):
+def test_path_basis_loads_sources_without_hashing_them(tmp_path, monkeypatch):
     raw = tmp_path / "basis"
     _write_artifacts(raw)
-    with (raw / "graph_state_direct_basis_transpiled.qpy").open("wb") as handle:
-        qpy.dump(QuantumCircuit(99), handle)
 
+    def forbidden_hash(*_args, **_kwargs):
+        raise AssertionError("SHA calculation called")
+
+    monkeypatch.setattr(hashlib, "sha256", forbidden_hash)
     artifacts = load_basis_artifacts(PathBasis(raw), "two_qutrit")
 
     assert artifacts.state_circuit.num_qubits == 4
     assert artifacts.directory == raw.resolve()
-    assert artifacts.source_paths["state"] == raw / "graph_state_direct_basis.qpy"
-    assert artifacts.source_hashes["state"] == hashlib.sha256((raw / "graph_state_direct_basis.qpy").read_bytes()).hexdigest()
-    assert artifacts.source_hashes["encoding"] == hashlib.sha256((raw / "E.npy").read_bytes()).hexdigest()
+    assert artifacts.source_paths == {
+        "state": raw / "graph_state_direct_basis.qpy",
+        "encoding": raw / "E.npy",
+    }
+    assert not hasattr(artifacts, "source_hashes")
 
 
 def test_basis_artifacts_deeply_freeze_provenance(tmp_path):

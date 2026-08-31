@@ -1,576 +1,607 @@
 from __future__ import annotations
 
-from dataclasses import replace
-from datetime import datetime, timezone
-import hashlib
 import json
-from pathlib import Path
-import sys
-from types import SimpleNamespace
+import os
+from unittest.mock import Mock
 
 import pytest
-from qiskit import QuantumCircuit
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SRC = REPO_ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
-sys.modules.pop("qudits_on_qubits", None)
-
-from qudits_on_qubits.experiments.backends import (
-    Availability,
-    BackendCapabilities,
-    BackendIdentity,
-    CompiledBatch,
-    ExecutionResult,
-    SubmittedJob,
-)
-from qudits_on_qubits.experiments.models import (
-    AerIdeal,
-    BootstrapConfig,
-    CustomBackend,
-    ExperimentSpec,
-    ExperimentStatus,
-    PathBasis,
-    PiastQHardware,
-    RetryConfig,
-    MitigationConfig,
-)
-from qudits_on_qubits.experiments.store import ExperimentStore
-from qudits_on_qubits.experiments.errors import (
-    BackendCompatibilityError,
+from qudits_on_qubits.experiments import (
     ExperimentPersistenceError,
+    ExperimentResult,
+    ExperimentStatus,
     ExperimentValidationError,
-    JobSubmissionError,
+    resume_experiment,
 )
-from qudits_on_qubits.experiments.execution import ExecutionMode
+from qudits_on_qubits.experiments.models import BootstrapConfig
+from qudits_on_qubits.experiments.store import ExperimentStore
+from qudits_on_qubits.experiments.uncertainty import (
+    BootstrapInputs,
+    bootstrap_bell_results,
+)
+import qudits_on_qubits.experiments.store as store_module
 
 
-class InterruptThenRestoreAdapter:
-    def __init__(self, *, interrupt=False):
-        self.identity = BackendIdentity("custom", "resume-target")
-        self.interrupt = interrupt
-        self.submit_calls = 0
-        self.restore_calls = 0
-        self.restored = None
-
-    def resolve(self):
-        return self.identity
-
-    def capabilities(self):
-        return BackendCapabilities(False, True)
-
-    def metadata(self):
-        return {"identity": self.identity.to_safe_dict()}
-
-    def availability(self):
-        return Availability(True)
-
-    def preflight(self, circuits, shots):
-        return None
-
-    def compile(self, circuits, config):
-        return CompiledBatch(tuple(circuits), self.identity)
-
-    def submit(self, circuits, shots, options=None):
-        self.submit_calls += 1
-        return SubmittedJob("durable-job", object(), self.identity, len(circuits), shots)
-
-    def result(self, submitted, timeout=None):
-        if self.interrupt:
-            raise KeyboardInterrupt
-        return ExecutionResult(
-            tuple({"0": submitted.shots} for _ in range(submitted.circuit_count)),
-            submitted.job_id,
-            self.identity,
-        )
-
-    def restore_job(self, job_id, *, circuit_count=None, shots=None):
-        self.restore_calls += 1
-        self.restored = (job_id, circuit_count, shots)
-        return SubmittedJob(job_id, object(), self.identity, circuit_count, shots)
+def _write_experiment(tmp_path, document):
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run()
+    document = {"experiment_id": run.name, **document}
+    store.write_experiment(run, document)
+    return run
 
 
-def _spec(tmp_path):
-    return ExperimentSpec(
-        state="two_qutrit",
-        basis=PathBasis(tmp_path / "unused"),
-        backend=CustomBackend(
-            object(),
-            identity="resume-target",
-            supports_resume=True,
-            execution_mode=ExecutionMode.HARDWARE,
-        ),
-        shots=7,
-        bootstrap=BootstrapConfig(samples=2),
-        retry=RetryConfig(max_attempts=2, initial_delay=0.01, max_delay=0.02),
-        output_root=tmp_path / "runs",
+def _write_plain_experiment(tmp_path, document):
+    store = ExperimentStore(tmp_path / "runs")
+    run = store.create_run()
+    document = {"experiment_id": run.name, **document}
+    (run / "experiment.json").write_text(
+        json.dumps(document, allow_nan=False), encoding="utf-8"
     )
+    return run
 
 
-def test_resume_spec_matches_legacy_bootstrap_alias(tmp_path):
-    from qudits_on_qubits.experiments.runner import _resume_spec
-
-    specification = _spec(tmp_path)
-    legacy = specification.to_safe_dict()
-    legacy["bootstrap"] = legacy.pop("uncertainty")
-
-    assert _resume_spec({"spec": legacy}, specification) is specification
-
-
-def test_resume_spec_ignores_legacy_process_local_env_path(tmp_path):
-    from qudits_on_qubits.experiments.runner import _resume_spec
-
-    specification = ExperimentSpec(
-        state="two_qutrit",
-        basis=PathBasis(tmp_path / "unused"),
-        backend=PiastQHardware(env_path=tmp_path / "current.env"),
-        output_root=tmp_path / "runs",
-    )
-    legacy = specification.to_safe_dict()
-    legacy["backend"]["env_path"] = "legacy/private.env"
-
-    assert _resume_spec({"spec": legacy}, specification) is specification
-
-
-def _patch_preparation(monkeypatch):
-    source = QuantumCircuit(1)
-    logical = QuantumCircuit(1, 1)
-    logical.measure(0, 0)
-    setting = ("A0",)
-    metadata = {
-        "setting_by_circuit_index": [setting],
-        "terms": [],
-        "qutrit_bit_indices_by_setting": {setting: [(0, 0)]},
-        "physical_to_logical_outcome_map": {"0": 0, "1": 1},
-        "d": 3,
+def test_resume_new_completed_result_loads_identically(tmp_path):
+    backend = {"kind": "custom", "name": "target", "version": "1"}
+    values = {
+        "raw": {"estimate": {"real": 1.0, "imag": 0.0}},
+        "diagnostics": {"samples": 100},
     }
-    artifacts = SimpleNamespace(
-        state_circuit=source,
-        encoding=[[1.0]],
-        source_hashes={"state": "a", "encoding": "b"},
-        provenance={"kind": "test"},
+    run = _write_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": "completed",
+            "backend": backend,
+            "job_ids": ["job-1", "job-2"],
+            "result": values,
+        },
     )
-    prepared = SimpleNamespace(circuits=(logical,), metadata=metadata)
+    expected = ExperimentResult(
+        experiment_id=run.name,
+        status=ExperimentStatus.COMPLETED,
+        artifact_dir=run,
+        values=values,
+        backend=backend,
+        job_ids=("job-1", "job-2"),
+    )
+
+    assert resume_experiment(run) == expected
+
+
+def test_resume_completed_schema_v3_preserves_explicit_bell_semantics(
+    tmp_path, monkeypatch
+):
     import qudits_on_qubits.experiments.runner as runner
 
-    monkeypatch.setattr(runner, "load_basis_artifacts", lambda *_args, **_kwargs: artifacts)
-    monkeypatch.setattr(runner, "prepare_measurements", lambda _artifacts: prepared)
+    setting = ("A0",)
+    structured_payload = bootstrap_bell_results(
+        BootstrapInputs(
+            counts_by_factor={1: {setting: {"00": 8, "11": 2}}},
+            terms=({"coeff": 1.0, "settings": setting, "powers": (0,)},),
+            qutrit_bit_indices_by_setting={setting: ((0, 1),)},
+            decoding_kwargs={
+                "bit_order": "left-to-right",
+                "outcome_map": {0: 0, 1: 1, 2: 2, 3: None},
+                "d": 3,
+            },
+        ),
+        BootstrapConfig(samples=2),
+    ).to_safe_dict()
+    run = _write_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "job_ids": ["job-1"],
+            "result": structured_payload,
+        },
+    )
+    artifact = run / "experiment.json"
+    original_artifact = artifact.read_bytes()
+    recompute = Mock(side_effect=AssertionError("completed result was recomputed"))
+    monkeypatch.setattr(runner, "bootstrap_bell_results", recompute)
+
+    resumed = resume_experiment(run)
+
+    assert resumed.values.keys() == structured_payload.keys()
+    assert dict(resumed.values) == structured_payload
+    assert resumed.values["raw"] == resumed.values["raw_conditional"]
+    assert resumed.values["raw_unconditional"] == structured_payload[
+        "raw_unconditional"
+    ]
+    assert resumed.values["raw_invalid_codeword_rate"] == structured_payload[
+        "raw_invalid_codeword_rate"
+    ]
+    assert resumed.values["raw_invalid_codeword_shots"] == structured_payload[
+        "raw_invalid_codeword_shots"
+    ] == {"total_shots": 10, "accepted_shots": 8, "invalid_shots": 2}
+    recompute.assert_not_called()
+    assert artifact.read_bytes() == original_artifact
+    assert sorted(path.name for path in run.iterdir()) == ["experiment.json"]
 
 
-def test_interrupt_after_job_id_leaves_submitted_and_resume_restores_without_submit(
+def test_resume_legacy_completed_result_loads_embedded_result_without_artifacts(
+    tmp_path,
+):
+    backend = {"kind": "iqm", "name": "legacy-target", "version": "old"}
+    values = {"raw": {"estimate": {"real": 2.5, "imag": -0.25}}}
+    run = _write_experiment(
+        tmp_path,
+        {
+            "schema_version": 1,
+            "status": "completed",
+            "backend": {"identity": backend},
+            "source": {
+                "encoding_artifact": "missing-encoding.json",
+                "encoding_sha256": "not-checked",
+            },
+            "circuits": {
+                "source": {
+                    "artifact": "missing-source.qpy",
+                    "sha256": "not-checked",
+                }
+            },
+            "job_ids": ["legacy-job"],
+            "result": values,
+        },
+    )
+
+    loaded = resume_experiment(run)
+
+    assert loaded.experiment_id == run.name
+    assert loaded.status is ExperimentStatus.COMPLETED
+    assert loaded.artifact_dir == run
+    assert dict(loaded.values) == values
+    assert dict(loaded.backend) == backend
+    assert loaded.job_ids == ("legacy-job",)
+
+
+def test_resume_unfinished_result_rejects_without_adapter_calls(tmp_path):
+    run = _write_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": "running",
+        },
+    )
+    adapter = Mock()
+
+    with pytest.raises(ExperimentValidationError, match="unfinished.*not supported"):
+        resume_experiment(run, adapter=adapter)
+
+    assert adapter.mock_calls == []
+
+
+def test_resume_completed_result_accepts_relative_run_path(tmp_path, monkeypatch):
+    backend = {"kind": "custom", "name": "target"}
+    run = _write_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": "completed",
+            "backend": backend,
+            "result": {"raw": {}},
+        },
+    )
+    monkeypatch.chdir(tmp_path)
+
+    loaded = resume_experiment(run.relative_to(tmp_path))
+
+    assert loaded.artifact_dir == run
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        {
+            "schema_version": 3,
+            "status": "completed",
+            "result": {"raw": {}},
+        },
+        {
+            "schema_version": 3,
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "job_ids": "job-1",
+            "result": {"raw": {}},
+        },
+    ],
+)
+def test_resume_rejects_malformed_completed_result(tmp_path, document):
+    run = _write_experiment(tmp_path, document)
+
+    with pytest.raises(
+        ExperimentPersistenceError, match="completed experiment JSON is invalid"
+    ):
+        resume_experiment(run)
+
+
+def test_resume_rejects_experiment_id_mismatching_run_directory(tmp_path):
+    run = _write_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "experiment_id": "different-run",
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+        },
+    )
+
+    with pytest.raises(
+        ExperimentPersistenceError, match="completed experiment JSON is invalid"
+    ):
+        resume_experiment(run)
+
+
+@pytest.mark.parametrize("schema_version", [1, 2, 3])
+def test_resume_accepts_explicit_supported_completed_schema_versions(
+    tmp_path, schema_version
+):
+    run = _write_experiment(
+        tmp_path,
+        {
+            "schema_version": schema_version,
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+        },
+    )
+
+    assert resume_experiment(run).status is ExperimentStatus.COMPLETED
+
+
+@pytest.mark.parametrize(
+    "schema_fields",
+    [
+        {},
+        {"schema_version": True},
+        {"schema_version": False},
+        {"schema_version": 4},
+        {"schema_version": "3"},
+    ],
+)
+def test_resume_rejects_missing_or_unsupported_schema_version(
+    tmp_path, schema_fields
+):
+    run = _write_experiment(
+        tmp_path,
+        {
+            **schema_fields,
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+        },
+    )
+
+    with pytest.raises(
+        ExperimentPersistenceError, match="unsupported experiment schema version"
+    ):
+        resume_experiment(run)
+
+
+def test_resume_ignores_tagged_legacy_fields_without_decoding_them(
     tmp_path, monkeypatch
 ):
-    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
-
-    _patch_preparation(monkeypatch)
-    spec = _spec(tmp_path)
-    first = InterruptThenRestoreAdapter(interrupt=True)
-    with pytest.raises(KeyboardInterrupt) as caught:
-        run_experiment(
-            spec,
-            adapter=first,
-            _clock=lambda: datetime(2026, 8, 17, tzinfo=timezone.utc),
-            _sleep=lambda _delay: None,
-            _evaluator=lambda _counts: 1 + 0j,
-        )
-    run = caught.value.__qoq_artifact_dir__
-    interrupted = json.loads((run / "experiment.json").read_text(encoding="utf-8"))
-
-    assert interrupted["status"] == "submitted"
-    assert interrupted["jobs"]["1"]["job_id"] == "durable-job"
-
-    resumed_adapter = InterruptThenRestoreAdapter()
-    result = resume_experiment(
-        run,
-        adapter=resumed_adapter,
-        spec=spec,
-        _clock=lambda: datetime(2026, 8, 17, 1, tzinfo=timezone.utc),
-        _sleep=lambda _delay: None,
-        _evaluator=lambda _counts: 1 + 0j,
+    run = _write_plain_experiment(
+        tmp_path,
+        {
+            "schema_version": 1,
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+            "ignored": [
+                {
+                    "__qoq_type__": "enum",
+                    "module": "qudits_on_qubits.experiments.models",
+                    "name": "COMPLETED",
+                    "qualname": "ExperimentStatus",
+                },
+                {
+                    "__qoq_type__": "numpy_array",
+                    "data": [1],
+                    "dtype": "<i8",
+                    "shape": [1],
+                },
+            ],
+        },
     )
+    import_module = Mock(wraps=store_module.importlib.import_module)
+    asarray = Mock(wraps=store_module.np.asarray)
+    monkeypatch.setattr(store_module.importlib, "import_module", import_module)
+    monkeypatch.setattr(store_module.np, "asarray", asarray)
 
-    assert result.status is ExperimentStatus.COMPLETED
-    assert resumed_adapter.restore_calls == 1
-    assert resumed_adapter.submit_calls == 0
-    assert resumed_adapter.restored == ("durable-job", 1, 7)
-    assert result.job_ids == ("durable-job",)
+    loaded = resume_experiment(run)
 
-
-def test_completed_resume_is_idempotent_without_adapter_calls(tmp_path, monkeypatch):
-    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
-
-    _patch_preparation(monkeypatch)
-    spec = _spec(tmp_path)
-    adapter = InterruptThenRestoreAdapter()
-    completed = run_experiment(
-        spec,
-        adapter=adapter,
-        _sleep=lambda _delay: None,
-        _evaluator=lambda _counts: 1 + 0j,
-    )
-
-    result = resume_experiment(completed.artifact_dir, adapter=object())
-
-    assert result.status is ExperimentStatus.COMPLETED
-    assert result.to_safe_dict() == completed.to_safe_dict()
+    assert loaded.status is ExperimentStatus.COMPLETED
+    import_module.assert_not_called()
+    asarray.assert_not_called()
 
 
-def test_completed_schema_v1_resume_normalizes_without_rewriting(
-    tmp_path, monkeypatch
-):
-    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
-
-    _patch_preparation(monkeypatch)
-    spec = replace(_spec(tmp_path), backend=AerIdeal())
-    adapter = InterruptThenRestoreAdapter()
-    adapter.identity = BackendIdentity("aer_ideal", "aer_simulator")
-    completed = run_experiment(
-        spec,
-        adapter=adapter,
-        _sleep=lambda _delay: None,
-        _evaluator=lambda _counts: 1 + 0j,
-    )
-    experiment_path = completed.artifact_dir / "experiment.json"
-    document = json.loads(experiment_path.read_text(encoding="utf-8"))
-    document["schema_version"] = 1
-    document["spec"]["backend"].pop("execution_mode")
-    ExperimentStore(tmp_path / "runs").write_experiment(
-        completed.artifact_dir,
-        document,
-    )
-    before = experiment_path.read_bytes()
-
-    result = resume_experiment(completed.artifact_dir, adapter=object())
-
-    assert experiment_path.read_bytes() == before
-    assert result.status is ExperimentStatus.COMPLETED
-
-
-def test_resume_identity_mismatch_is_terminal_and_never_restores_or_submits(
-    tmp_path, monkeypatch
-):
-    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
-
-    _patch_preparation(monkeypatch)
-    spec = _spec(tmp_path)
-    first = InterruptThenRestoreAdapter(interrupt=True)
-    with pytest.raises(KeyboardInterrupt) as caught:
-        run_experiment(
-            spec,
-            adapter=first,
-            _sleep=lambda _delay: None,
-            _evaluator=lambda _counts: 1 + 0j,
-        )
-    run = caught.value.__qoq_artifact_dir__
-    mismatch = InterruptThenRestoreAdapter()
-    mismatch.identity = BackendIdentity("custom", "different-target")
-
-    with pytest.raises(BackendCompatibilityError, match="identity"):
-        resume_experiment(run, adapter=mismatch, spec=spec)
-
-    document = json.loads((run / "experiment.json").read_text(encoding="utf-8"))
-    assert document["status"] == "failed"
-    assert document["failure"]["stage"] == "resume"
-    assert mismatch.restore_calls == 0
-    assert mismatch.submit_calls == 0
-
-
-def test_completed_resume_rejects_corrupt_source_encoding_before_adapter_calls(
-    tmp_path, monkeypatch
-):
-    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
-
-    _patch_preparation(monkeypatch)
-    completed = run_experiment(
-        _spec(tmp_path),
-        adapter=InterruptThenRestoreAdapter(),
-        _sleep=lambda _delay: None,
-        _evaluator=lambda _counts: 1 + 0j,
-    )
-    (completed.artifact_dir / "source-encoding.json").write_text(
-        '{"corrupt":true}\n', encoding="utf-8"
-    )
-
-    with pytest.raises(ExperimentPersistenceError, match="encoding.*hash"):
-        resume_experiment(completed.artifact_dir, adapter=object())
-
-
-def test_resume_wraps_missing_run_path_as_typed_persistence_error(tmp_path):
-    from qudits_on_qubits.experiments.runner import resume_experiment
-
-    with pytest.raises(ExperimentPersistenceError, match="run directory"):
-        resume_experiment(tmp_path / "missing" / "run")
-
-
-def test_resume_mixed_saved_known_and_missing_zne_factors_uses_each_safe_path_once(
-    tmp_path, monkeypatch
-):
-    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
-
-    _patch_preparation(monkeypatch)
-    base = _spec(tmp_path)
-    spec = replace(base, mitigation=MitigationConfig(zne=True, zne_factors=(5, 1, 3)))
-
-    class InterruptSecondFactor(InterruptThenRestoreAdapter):
-        def result(self, submitted, timeout=None):
-            if submitted.job_id == "durable-job-2":
-                raise KeyboardInterrupt
-            return ExecutionResult(
-                tuple({"0": submitted.shots} for _ in range(submitted.circuit_count)),
-                submitted.job_id,
-                self.identity,
-            )
-
-        def submit(self, circuits, shots, options=None):
-            self.submit_calls += 1
-            return SubmittedJob(
-                f"durable-job-{self.submit_calls}",
-                object(),
-                self.identity,
-                len(circuits),
-                shots,
-            )
-
-    class PureZNE:
-        def extrapolate(self, factors, values):
-            return values[0]
-
-    first = InterruptSecondFactor()
-    with pytest.raises(KeyboardInterrupt) as caught:
-        run_experiment(
-            spec,
-            adapter=first,
-            _sleep=lambda _delay: None,
-            _zne_strategy=PureZNE(),
-            _evaluator=lambda _counts: 1 + 0j,
-        )
-    run = caught.value.__qoq_artifact_dir__
-    interrupted = json.loads((run / "experiment.json").read_text(encoding="utf-8"))
-    assert set(interrupted["counts"]) == {"1"}
-    assert interrupted["jobs"]["3"]["job_id"] == "durable-job-2"
-    assert interrupted["jobs"]["5"]["job_id"] is None
-
-    resumed = InterruptSecondFactor()
-    resumed.result = lambda submitted, timeout=None: ExecutionResult(
-        tuple({"0": submitted.shots} for _ in range(submitted.circuit_count)),
-        submitted.job_id,
-        resumed.identity,
-    )
-    result = resume_experiment(
-        run,
-        adapter=resumed,
-        spec=spec,
-        _sleep=lambda _delay: None,
-        _zne_strategy=PureZNE(),
-        _evaluator=lambda _counts: 1 + 0j,
-    )
-    final = json.loads((run / "experiment.json").read_text(encoding="utf-8"))
-
-    assert result.status is ExperimentStatus.COMPLETED
-    assert resumed.restore_calls == 1
-    assert resumed.submit_calls == 1
-    assert set(final["counts"]) == {"1", "3", "5"}
-
-
-def test_resume_missing_factor_ambiguous_submit_remains_submission_unknown(
-    tmp_path, monkeypatch
-):
-    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
-
-    _patch_preparation(monkeypatch)
-    spec = _spec(tmp_path)
-
-    class InterruptPreflight(InterruptThenRestoreAdapter):
-        def preflight(self, circuits, shots):
-            raise KeyboardInterrupt
-
-    with pytest.raises(KeyboardInterrupt) as caught:
-        run_experiment(
-            spec,
-            adapter=InterruptPreflight(),
-            _sleep=lambda _delay: None,
-            _evaluator=lambda _counts: 1 + 0j,
-        )
-    run = caught.value.__qoq_artifact_dir__
-
-    class AmbiguousResume(InterruptThenRestoreAdapter):
-        def __init__(self, run):
-            super().__init__()
-            self.run = run
-            self.checkpoint_seen = False
-
-        def submit(self, circuits, shots, options=None):
-            self.submit_calls += 1
-            document = json.loads((self.run / "experiment.json").read_text(encoding="utf-8"))
-            self.checkpoint_seen = (
-                document["status"] == "submission_unknown"
-                and document["jobs"]["1"]["status"] == "submission_unknown"
-                and document["jobs"]["1"]["job_id"] is None
-            )
-            raise RuntimeError("resume-provider-sensitive-detail")
-
-    resumed = AmbiguousResume(run)
-    with pytest.raises(JobSubmissionError):
-        resume_experiment(
-            run,
-            adapter=resumed,
-            spec=spec,
-            _sleep=lambda _delay: None,
-            _evaluator=lambda _counts: 1 + 0j,
-        )
-    document = json.loads((run / "experiment.json").read_text(encoding="utf-8"))
-
-    assert resumed.submit_calls == 1
-    assert resumed.checkpoint_seen
-    assert document["status"] == "submission_unknown"
-    assert "resume-provider" not in repr(document)
-
-
-def test_resume_known_calibration_restores_once_without_duplicate_submit(
-    tmp_path, monkeypatch
-):
-    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
-
-    _patch_preparation(monkeypatch)
-    base = _spec(tmp_path)
-    spec = replace(base, mitigation=MitigationConfig(readout=True))
-
-    class CalibrationInterrupt(InterruptThenRestoreAdapter):
-        def result(self, submitted, timeout=None):
-            if submitted.circuit_count == 2:
-                raise KeyboardInterrupt
-            return super().result(submitted, timeout)
-
-    class CalibrationResume(InterruptThenRestoreAdapter):
-        def result(self, submitted, timeout=None):
-            if submitted.circuit_count == 2:
-                return ExecutionResult(
-                    ({"0": submitted.shots}, {"1": submitted.shots}),
-                    submitted.job_id,
-                    self.identity,
-                )
-            return super().result(submitted, timeout)
-
-    class PureReadout:
-        def build_context(self, calibration):
-            return None
-
-        def resample_calibration(self, calibration, rng):
-            return None
-
-        def apply(self, counts_by_setting, context):
-            return {
-                setting: {outcome: count / sum(counts.values()) for outcome, count in counts.items()}
-                for setting, counts in counts_by_setting.items()
+@pytest.mark.parametrize(
+    "invalid_fields",
+    [
+        {
+            "backend": {
+                "kind": "custom",
+                "name": "target",
+                "metadata": {"access_token": "secret-value"},
             }
-
-    with pytest.raises(KeyboardInterrupt) as caught:
-        run_experiment(
-            spec,
-            adapter=CalibrationInterrupt(),
-            _sleep=lambda _delay: None,
-            _readout_strategy=PureReadout(),
-            _evaluator=lambda _counts: 1 + 0j,
-        )
-    run = caught.value.__qoq_artifact_dir__
-    store = ExperimentStore(spec.output_root)
-    interrupted = store.read_experiment(run)
-    assert interrupted["jobs"]["calibration"]["job_id"] == "durable-job"
-    assert "job_id" not in interrupted["calibration"]
-
-    counts_path = store.write_counts(run, 1, {("A0",): {"0": spec.shots}})
-    interrupted["counts"]["1"] = {
-        "artifact": counts_path.name,
-        "sha256": hashlib.sha256(counts_path.read_bytes()).hexdigest(),
-        "settings": [("A0",)],
+        },
+        {"result": {"raw": {"access_token": "secret-value"}}},
+        {"job_ids": ["../../unsafe"]},
+        {"job_ids": ["token:secret-value"]},
+    ],
+)
+def test_resume_rejects_unsafe_selected_fields(tmp_path, invalid_fields):
+    document = {
+        "schema_version": 3,
+        "status": "completed",
+        "backend": {"kind": "custom", "name": "target"},
+        "result": {"raw": {}},
+        **invalid_fields,
     }
-    interrupted["calibration"].pop("mapping_by_circuit_index")
-    interrupted["jobs"]["1"]["status"] = "completed"
-    store.write_experiment(run, interrupted)
-    resumed = CalibrationResume()
-    result = resume_experiment(
-        run,
-        adapter=resumed,
-        spec=spec,
-        _sleep=lambda _delay: None,
-        _readout_strategy=PureReadout(),
-        _evaluator=lambda _counts: 1 + 0j,
+    run = _write_experiment(tmp_path, document)
+
+    with pytest.raises(
+        ExperimentPersistenceError, match="completed experiment JSON is invalid"
+    ):
+        resume_experiment(run)
+
+
+def test_resume_rejects_lexical_parent_traversal(tmp_path):
+    run = _write_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+        },
     )
-    document = json.loads((run / "experiment.json").read_text(encoding="utf-8"))
+    traversing = run.parent / ".." / run.parent.name / run.name
 
-    assert result.status is ExperimentStatus.COMPLETED
-    assert resumed.restore_calls == 1
-    assert resumed.submit_calls == 0
-    assert document["calibration"]["status"] == "completed"
-    assert document["counts"]["1"]["artifact"] == "counts-factor-1.json"
+    with pytest.raises(ExperimentPersistenceError, match="traversal"):
+        resume_experiment(traversing)
 
 
-def test_resume_rejects_disagreeing_legacy_calibration_job_id_without_backend_job_calls(
-    tmp_path, monkeypatch
+def test_resume_rejects_symlinked_run_path(tmp_path):
+    run = _write_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+        },
+    )
+    link = run.parent / "linked-run"
+    try:
+        link.symlink_to(run, target_is_directory=True)
+    except (NotImplementedError, OSError) as error:
+        pytest.skip(f"directory symlinks unavailable: {error}")
+
+    with pytest.raises(ExperimentPersistenceError, match="symlink or reparse"):
+        resume_experiment(link)
+
+
+def test_resume_rejects_non_regular_experiment_json(tmp_path):
+    run = _write_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+        },
+    )
+    artifact = run / "experiment.json"
+    artifact.unlink()
+    artifact.mkdir()
+
+    with pytest.raises(ExperimentPersistenceError, match="regular file"):
+        resume_experiment(run)
+
+
+def test_resume_rejects_fifo_experiment_json_without_opening_it(tmp_path):
+    if not hasattr(os, "mkfifo"):
+        pytest.skip("FIFO creation unavailable")
+    run = _write_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+        },
+    )
+    artifact = run / "experiment.json"
+    artifact.unlink()
+    try:
+        os.mkfifo(artifact)
+    except (NotImplementedError, OSError) as error:
+        pytest.skip(f"FIFO creation unavailable: {error}")
+
+    with pytest.raises(ExperimentPersistenceError, match="regular file"):
+        resume_experiment(run)
+
+
+def test_resume_rejects_oversized_experiment_json(tmp_path, monkeypatch):
+    run = _write_plain_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+            "ignored": "padding",
+        },
+    )
+    size = (run / "experiment.json").stat().st_size
+    monkeypatch.setattr(store_module, "_MAX_PLAIN_JSON_BYTES", size - 1, raising=False)
+
+    with pytest.raises(ExperimentPersistenceError, match="JSON size limit"):
+        resume_experiment(run)
+
+
+@pytest.mark.parametrize(
+    ("limit_name", "limit", "ignored"),
+    [
+        ("_MAX_PLAIN_JSON_DEPTH", 3, [[[[0]]]]),
+        ("_MAX_PLAIN_JSON_NODES", 4, [0, 1, 2, 3]),
+        ("_MAX_PLAIN_JSON_STRING_LENGTH", 3, "four"),
+        ("_MAX_PLAIN_JSON_CONTAINER_ITEMS", 3, [0, 1, 2, 3]),
+    ],
+)
+def test_resume_enforces_json_complexity_limits(
+    tmp_path, monkeypatch, limit_name, limit, ignored
 ):
-    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
+    run = _write_plain_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+            "ignored": ignored,
+        },
+    )
+    monkeypatch.setattr(store_module, limit_name, limit, raising=False)
 
-    _patch_preparation(monkeypatch)
-    base = _spec(tmp_path)
-    spec = replace(base, mitigation=MitigationConfig(readout=True))
-
-    class CalibrationInterrupt(InterruptThenRestoreAdapter):
-        def result(self, submitted, timeout=None):
-            if submitted.circuit_count == 2:
-                raise KeyboardInterrupt
-            return super().result(submitted, timeout)
-
-    class PureReadout:
-        def build_context(self, calibration):
-            return None
-
-        def resample_calibration(self, calibration, rng):
-            return None
-
-        def apply(self, counts_by_setting, context):
-            return counts_by_setting
-
-    with pytest.raises(KeyboardInterrupt) as caught:
-        run_experiment(
-            spec,
-            adapter=CalibrationInterrupt(),
-            _sleep=lambda _delay: None,
-            _readout_strategy=PureReadout(),
-            _evaluator=lambda _counts: 1 + 0j,
-        )
-    run = caught.value.__qoq_artifact_dir__
-    store = ExperimentStore(spec.output_root)
-    interrupted = store.read_experiment(run)
-    interrupted["calibration"]["job_id"] = "disagreeing-legacy-job"
-    store.write_experiment(run, interrupted)
-    resumed = InterruptThenRestoreAdapter()
-
-    with pytest.raises(ExperimentPersistenceError, match="calibration job ID"):
-        resume_experiment(
-            run,
-            adapter=resumed,
-            spec=spec,
-            _sleep=lambda _delay: None,
-            _readout_strategy=PureReadout(),
-            _evaluator=lambda _counts: 1 + 0j,
-        )
-
-    assert resumed.restore_calls == 0
-    assert resumed.submit_calls == 0
+    with pytest.raises(ExperimentPersistenceError, match="JSON complexity limit"):
+        resume_experiment(run)
 
 
-@pytest.mark.parametrize("timeout", [0, -1, True, float("inf")])
-def test_completed_resume_still_validates_timeout(tmp_path, monkeypatch, timeout):
-    from qudits_on_qubits.experiments.runner import resume_experiment, run_experiment
-
-    _patch_preparation(monkeypatch)
-    completed = run_experiment(
-        _spec(tmp_path),
-        adapter=InterruptThenRestoreAdapter(),
-        _sleep=lambda _delay: None,
-        _evaluator=lambda _counts: 1 + 0j,
+@pytest.mark.parametrize("invalid_status", [None, True, 1, "unknown-status"])
+def test_resume_rejects_invalid_status_as_persistence_error(tmp_path, invalid_status):
+    run = _write_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": invalid_status,
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+        },
     )
 
-    with pytest.raises(ExperimentValidationError, match="timeout"):
-        resume_experiment(completed.artifact_dir, timeout=timeout)
+    with pytest.raises(
+        ExperimentPersistenceError, match="completed experiment JSON is invalid"
+    ):
+        resume_experiment(run)
+
+
+@pytest.mark.parametrize(
+    "unfinished_status", ["created", "submitted", "postprocessing", "failed"]
+)
+def test_resume_rejects_known_unfinished_status_as_validation_error(
+    tmp_path, unfinished_status
+):
+    run = _write_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": unfinished_status,
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+        },
+    )
+
+    with pytest.raises(ExperimentValidationError, match="unfinished.*not supported"):
+        resume_experiment(run)
+
+
+def test_resume_limits_number_token_length_in_ignored_field(tmp_path, monkeypatch):
+    run = _write_plain_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+            "ignored": 1234,
+        },
+    )
+    monkeypatch.setattr(
+        store_module, "_MAX_PLAIN_JSON_NUMBER_LENGTH", 3, raising=False
+    )
+
+    with pytest.raises(ExperimentPersistenceError, match="JSON complexity limit"):
+        resume_experiment(run)
+
+
+def test_resume_rejects_overflowing_float_in_ignored_field(tmp_path):
+    run = _write_plain_experiment(
+        tmp_path,
+        {
+            "schema_version": 3,
+            "status": "completed",
+            "backend": {"kind": "custom", "name": "target"},
+            "result": {"raw": {}},
+            "ignored": "OVERFLOW",
+        },
+    )
+    artifact = run / "experiment.json"
+    artifact.write_text(
+        artifact.read_text(encoding="utf-8").replace('"OVERFLOW"', "1e10000"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ExperimentPersistenceError, match="JSON numbers must be finite"):
+        resume_experiment(run)
+
+
+def test_resume_rejects_nul_path_as_persistence_error():
+    with pytest.raises(
+        ExperimentPersistenceError,
+        match="artifact_dir must identify an existing run directory",
+    ):
+        resume_experiment("\0")
+
+
+def test_resume_rejects_unsafe_matching_experiment_id_as_persistence_error(
+    tmp_path,
+):
+    run = tmp_path / "runs" / "2026-08-27" / "token=secret-value"
+    run.mkdir(parents=True)
+    (run / "experiment.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 3,
+                "experiment_id": run.name,
+                "status": "completed",
+                "backend": {"kind": "custom", "name": "target"},
+                "result": {"raw": {}},
+            },
+            allow_nan=False,
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ExperimentPersistenceError, match="completed experiment JSON is invalid"
+    ):
+        resume_experiment(run)
+
+
+def test_resume_duplicate_key_error_does_not_echo_unsafe_key(tmp_path):
+    unsafe_key = "token" + "=secret-value"
+    run = tmp_path / "runs" / "2026-08-27" / "safe-run"
+    run.mkdir(parents=True)
+    (run / "experiment.json").write_text(
+        "{"
+        '"schema_version":3,'
+        '"experiment_id":"safe-run",'
+        '"status":"completed",'
+        '"backend":{"kind":"custom","name":"target"},'
+        '"result":{"raw":{}},'
+        f'"ignored":{{"{unsafe_key}":1,"{unsafe_key}":2}}'
+        "}",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ExperimentPersistenceError) as caught:
+        resume_experiment(run)
+
+    assert "duplicate key" in str(caught.value)
+    assert unsafe_key not in str(caught.value)

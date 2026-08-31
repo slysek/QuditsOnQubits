@@ -11,6 +11,7 @@ from .backends import (
 from .errors import (
     BackendCompatibilityError,
     BackendUnavailableError,
+    ExperimentDurabilityError,
     ExperimentError,
     ExperimentPersistenceError,
     ExperimentValidationError,
@@ -42,7 +43,9 @@ from .models import (
     PathBasis,
     PiastQHardware,
     RetryConfig,
+    ScalarEstimate,
     TranspilationConfig,
+    WorkloadOptimizationConfig,
 )
 from .mitigation import (
     LinearZNEFit,
@@ -68,6 +71,12 @@ from .uncertainty import (
     ZNEBootstrapStrategy,
     bootstrap_bell_results,
 )
+from .workload_metrics import (
+    WorkloadMetrics,
+    choose_workload_ranking_basis,
+    summarize_compiled_workload,
+    workload_rank_key,
+)
 
 __all__ = [
     "AerIdeal",
@@ -90,6 +99,7 @@ __all__ = [
     "ComplexConfidenceInterval",
     "ConfidenceInterval",
     "CustomBackend",
+    "ExperimentDurabilityError",
     "ExperimentError",
     "ExecutionMode",
     "ExperimentPersistenceError",
@@ -112,7 +122,10 @@ __all__ = [
     "ReadoutMitigationStrategy",
     "RetryConfig",
     "RunManifest",
+    "ScalarEstimate",
     "TranspilationConfig",
+    "WorkloadOptimizationConfig",
+    "WorkloadMetrics",
     "ZNEBootstrapStrategy",
     "ZNEStrategy",
     "apply_readout_mitigation",
@@ -121,11 +134,14 @@ __all__ = [
     "build_m3_mitigation",
     "build_readout_calibration_circuits",
     "calibration_cache_is_valid",
+    "choose_workload_ranking_basis",
     "create_backend_adapter",
     "fold_cz_batch",
     "linear_zne_extrapolate",
     "resume_experiment",
     "run_experiment",
     "run_experiments",
+    "summarize_compiled_workload",
     "validate_zne_factors",
+    "workload_rank_key",
 ]

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 import math
 from enum import Enum
+from numbers import Real
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, ClassVar, Mapping
@@ -299,12 +301,16 @@ class MitigationConfig:
     zne_model: str = "linear"
     readout_max_age_hours: float = 24.0
     force_recalibration: bool = False
+    circuit_twirling: bool = False
+    twirling_instances: int = 20
+    twirling_seed: int | None = None
 
     def __post_init__(self) -> None:
         factors = tuple(self.zne_factors)
         _require_bool(self.readout, "readout")
         _require_bool(self.zne, "zne")
         _require_bool(self.force_recalibration, "force_recalibration")
+        _require_bool(self.circuit_twirling, "circuit_twirling")
         object.__setattr__(self, "zne_factors", factors)
         if self.zne and (not factors or 1 not in factors or len(set(factors)) != len(factors) or any(isinstance(item, bool) or not isinstance(item, int) or item <= 0 or item % 2 == 0 for item in factors)):
             raise ExperimentValidationError("zne_factors must be unique positive odd factors including 1")
@@ -312,9 +318,29 @@ class MitigationConfig:
             raise ExperimentValidationError("zne_model must be linear")
         if not isinstance(self.readout_max_age_hours, (int, float)) or isinstance(self.readout_max_age_hours, bool) or not math.isfinite(self.readout_max_age_hours) or self.readout_max_age_hours <= 0:
             raise ExperimentValidationError("readout_max_age_hours must be positive")
+        if type(self.twirling_instances) is not int or self.twirling_instances <= 0:
+            raise ExperimentValidationError(
+                "twirling_instances must be a positive integer"
+            )
+        if self.twirling_seed is not None and (
+            type(self.twirling_seed) is not int or self.twirling_seed < 0
+        ):
+            raise ExperimentValidationError(
+                "twirling_seed must be a non-negative integer or None"
+            )
 
     def to_safe_dict(self) -> dict[str, Any]:
-        return {"readout": self.readout, "zne": self.zne, "zne_factors": list(self.zne_factors), "zne_model": self.zne_model, "readout_max_age_hours": self.readout_max_age_hours, "force_recalibration": self.force_recalibration}
+        return {
+            "readout": self.readout,
+            "zne": self.zne,
+            "zne_factors": list(self.zne_factors),
+            "zne_model": self.zne_model,
+            "readout_max_age_hours": self.readout_max_age_hours,
+            "force_recalibration": self.force_recalibration,
+            "circuit_twirling": self.circuit_twirling,
+            "twirling_instances": self.twirling_instances,
+            "twirling_seed": self.twirling_seed,
+        }
 
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any]) -> "MitigationConfig":
@@ -346,19 +372,136 @@ class BootstrapConfig:
 
 
 @dataclass(frozen=True)
+class WorkloadOptimizationConfig:
+    initial_layouts: tuple[tuple[int, ...], ...]
+    seed_transpilers: tuple[int, ...] = (0,)
+    require_exact_physical_qubit_set: bool = True
+    prefer_calibration_metrics: bool = True
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.initial_layouts, Sequence) or isinstance(
+            self.initial_layouts, (str, bytes)
+        ):
+            raise ExperimentValidationError(
+                "initial_layouts must be a non-empty sequence of equal-width layouts"
+            )
+
+        layouts: list[tuple[int, ...]] = []
+        for candidate in self.initial_layouts:
+            if not isinstance(candidate, Sequence) or isinstance(
+                candidate, (str, bytes)
+            ):
+                raise ExperimentValidationError(
+                    "initial_layouts must contain sequences of distinct non-negative integers"
+                )
+            layout = tuple(candidate)
+            if (
+                not layout
+                or any(type(index) is not int or index < 0 for index in layout)
+                or len(set(layout)) != len(layout)
+            ):
+                raise ExperimentValidationError(
+                    "initial_layouts must contain non-empty layouts of distinct non-negative integers"
+                )
+            layouts.append(layout)
+
+        normalized_layouts = tuple(layouts)
+        if (
+            not normalized_layouts
+            or any(
+                len(layout) != len(normalized_layouts[0])
+                for layout in normalized_layouts[1:]
+            )
+            or len(set(normalized_layouts)) != len(normalized_layouts)
+        ):
+            raise ExperimentValidationError(
+                "initial_layouts must be non-empty, equal-width, and unique"
+            )
+
+        if not isinstance(self.seed_transpilers, Sequence) or isinstance(
+            self.seed_transpilers, (str, bytes)
+        ):
+            raise ExperimentValidationError(
+                "seed_transpilers must be a non-empty sequence of distinct non-negative integers"
+            )
+        seeds = tuple(self.seed_transpilers)
+        if (
+            not seeds
+            or any(type(seed) is not int or seed < 0 for seed in seeds)
+            or len(set(seeds)) != len(seeds)
+        ):
+            raise ExperimentValidationError(
+                "seed_transpilers must be a non-empty sequence of distinct non-negative integers"
+            )
+
+        _require_bool(
+            self.require_exact_physical_qubit_set,
+            "require_exact_physical_qubit_set",
+        )
+        _require_bool(self.prefer_calibration_metrics, "prefer_calibration_metrics")
+        object.__setattr__(self, "initial_layouts", normalized_layouts)
+        object.__setattr__(self, "seed_transpilers", seeds)
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {
+            "initial_layouts": [list(layout) for layout in self.initial_layouts],
+            "seed_transpilers": list(self.seed_transpilers),
+            "require_exact_physical_qubit_set": self.require_exact_physical_qubit_set,
+            "prefer_calibration_metrics": self.prefer_calibration_metrics,
+        }
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any]) -> "WorkloadOptimizationConfig":
+        return cls(
+            initial_layouts=data["initial_layouts"],
+            seed_transpilers=data.get("seed_transpilers", (0,)),
+            require_exact_physical_qubit_set=data.get(
+                "require_exact_physical_qubit_set", True
+            ),
+            prefer_calibration_metrics=data.get("prefer_calibration_metrics", True),
+        )
+
+
+@dataclass(frozen=True)
 class TranspilationConfig:
     optimization_level: int = 3
     seed_transpiler: int | None = None
     layout_method: str | None = None
     routing_method: str | None = None
     scheduling_method: str | None = None
+    initial_layout: tuple[int, ...] | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.optimization_level, bool) or not isinstance(self.optimization_level, int) or self.optimization_level not in range(4):
             raise ExperimentValidationError("optimization_level must be an integer from 0 to 3")
+        if self.initial_layout is None:
+            return
+        if not isinstance(self.initial_layout, Sequence) or isinstance(
+            self.initial_layout, (str, bytes)
+        ):
+            raise ExperimentValidationError(
+                "initial_layout must be a non-empty sequence of distinct non-negative integers"
+            )
+        layout = tuple(self.initial_layout)
+        if (
+            not layout
+            or any(type(index) is not int or index < 0 for index in layout)
+            or len(set(layout)) != len(layout)
+        ):
+            raise ExperimentValidationError(
+                "initial_layout must be a non-empty sequence of distinct non-negative integers"
+            )
+        object.__setattr__(self, "initial_layout", layout)
 
     def to_safe_dict(self) -> dict[str, Any]:
-        return {"optimization_level": self.optimization_level, "seed_transpiler": self.seed_transpiler, "layout_method": self.layout_method, "routing_method": self.routing_method, "scheduling_method": self.scheduling_method}
+        return {
+            "optimization_level": self.optimization_level,
+            "seed_transpiler": self.seed_transpiler,
+            "layout_method": self.layout_method,
+            "routing_method": self.routing_method,
+            "scheduling_method": self.scheduling_method,
+            "initial_layout": list(self.initial_layout) if self.initial_layout else None,
+        }
 
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any]) -> "TranspilationConfig":
@@ -425,6 +568,10 @@ class ExperimentSpec:
     mitigation: MitigationConfig = field(default_factory=MitigationConfig)
     uncertainty: BootstrapConfig = field(default_factory=BootstrapConfig)
     transpilation: TranspilationConfig = field(default_factory=TranspilationConfig)
+    workload_optimization: WorkloadOptimizationConfig | None = field(
+        default=None,
+        kw_only=True,
+    )
     retry: RetryConfig = field(default_factory=RetryConfig)
     output_root: Path = Path("artifacts/experiment_runs")
     tags: Mapping[str, str] = field(default_factory=dict)
@@ -442,6 +589,7 @@ class ExperimentSpec:
         output_root: Path | str = Path("artifacts/experiment_runs"),
         tags: Mapping[str, str] | object = _UNSET,
         *,
+        workload_optimization: WorkloadOptimizationConfig | None = None,
         bootstrap: BootstrapConfig | object = _UNSET,
     ) -> None:
         if bootstrap is not _UNSET and not isinstance(bootstrap, BootstrapConfig):
@@ -477,6 +625,7 @@ class ExperimentSpec:
             "transpilation",
             TranspilationConfig() if transpilation is _UNSET else transpilation,
         )
+        object.__setattr__(self, "workload_optimization", workload_optimization)
         object.__setattr__(self, "retry", RetryConfig() if retry is _UNSET else retry)
         object.__setattr__(self, "output_root", output_root)
         object.__setattr__(self, "tags", {} if tags is _UNSET else tags)
@@ -501,6 +650,12 @@ class ExperimentSpec:
             raise ExperimentValidationError("backend must be a supported backend specification")
         if not isinstance(self.uncertainty, BootstrapConfig):
             raise ExperimentValidationError("uncertainty must be BootstrapConfig")
+        if self.workload_optimization is not None and not isinstance(
+            self.workload_optimization, WorkloadOptimizationConfig
+        ):
+            raise ExperimentValidationError(
+                "workload_optimization must be WorkloadOptimizationConfig or None"
+            )
         object.__setattr__(self, "output_root", _safe_optional_path(self.output_root, "output_root"))
         if self.output_root is None:
             raise ExperimentValidationError("output_root is required")
@@ -510,7 +665,13 @@ class ExperimentSpec:
         return {
             "state": self.state, "basis": self.basis.to_safe_dict(), "backend": self.backend.to_safe_dict(),
             "shots": self.shots, "mitigation": self.mitigation.to_safe_dict(), "uncertainty": self.uncertainty.to_safe_dict(),
-            "transpilation": self.transpilation.to_safe_dict(), "retry": self.retry.to_safe_dict(),
+            "transpilation": self.transpilation.to_safe_dict(),
+            "workload_optimization": (
+                self.workload_optimization.to_safe_dict()
+                if self.workload_optimization is not None
+                else None
+            ),
+            "retry": self.retry.to_safe_dict(),
             "output_root": str(self.output_root), "tags": dict(self.tags),
         }
 
@@ -521,7 +682,13 @@ class ExperimentSpec:
             state=data["state"], basis=_basis_from_safe_dict(data["basis"]), backend=_backend_from_safe_dict(data["backend"]),
             shots=data.get("shots", 20480), mitigation=MitigationConfig.from_safe_dict(data.get("mitigation", {})),
             uncertainty=BootstrapConfig.from_safe_dict(data.get("uncertainty", {})),
-            transpilation=TranspilationConfig.from_safe_dict(data.get("transpilation", {})), retry=RetryConfig.from_safe_dict(data.get("retry", {})),
+            transpilation=TranspilationConfig.from_safe_dict(data.get("transpilation", {})),
+            workload_optimization=(
+                WorkloadOptimizationConfig.from_safe_dict(data["workload_optimization"])
+                if data.get("workload_optimization") is not None
+                else None
+            ),
+            retry=RetryConfig.from_safe_dict(data.get("retry", {})),
             output_root=Path(data.get("output_root", "artifacts/experiment_runs")), tags=data.get("tags", {}),
         )
 
@@ -623,6 +790,50 @@ class BellEstimate:
         return {
             "estimate": self.estimate.to_safe_dict(),
             "standard_error": self.standard_error.to_safe_dict(),
+            "confidence_interval": self.confidence_interval.to_safe_dict(),
+        }
+
+
+@dataclass(frozen=True)
+class ScalarEstimate:
+    estimate: float
+    standard_error: float
+    confidence_interval: ConfidenceInterval
+
+    def __post_init__(self) -> None:
+        normalized_values: dict[str, float] = {}
+        for field_name in ("estimate", "standard_error"):
+            value = getattr(self, field_name)
+            if isinstance(value, bool) or not isinstance(value, Real):
+                raise ExperimentValidationError(
+                    f"{field_name} must be a finite real value"
+                )
+            try:
+                normalized_value = float(value)
+            except (OverflowError, TypeError, ValueError):
+                raise ExperimentValidationError(
+                    f"{field_name} must be a finite real value"
+                ) from None
+            if not math.isfinite(normalized_value):
+                raise ExperimentValidationError(
+                    f"{field_name} must be a finite real value"
+                )
+            normalized_values[field_name] = normalized_value
+        if normalized_values["standard_error"] < 0:
+            raise ExperimentValidationError("standard_error must be non-negative")
+        if not isinstance(self.confidence_interval, ConfidenceInterval):
+            raise ExperimentValidationError(
+                "confidence_interval must be ConfidenceInterval"
+            )
+        object.__setattr__(self, "estimate", normalized_values["estimate"])
+        object.__setattr__(
+            self, "standard_error", normalized_values["standard_error"]
+        )
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {
+            "estimate": self.estimate,
+            "standard_error": self.standard_error,
             "confidence_interval": self.confidence_interval.to_safe_dict(),
         }
 

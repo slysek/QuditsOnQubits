@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
-import hashlib
 import json
 import math
 import os
@@ -17,10 +15,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
-
-
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _write_two_qutrit_basis(directory: Path) -> None:
@@ -51,7 +45,9 @@ def _assert_finite_estimate(estimate: dict[str, object]) -> None:
         assert interval["low"] <= interval["high"]
 
 
-def test_real_ideal_aer_run_is_durable_reproducible_and_resumable(tmp_path: Path) -> None:
+def test_real_ideal_aer_run_writes_single_reproducible_completed_result(
+    tmp_path: Path,
+) -> None:
     from qudits_on_qubits.experiments import (
         AerIdeal,
         BootstrapConfig,
@@ -82,77 +78,53 @@ def test_real_ideal_aer_run_is_durable_reproducible_and_resumable(tmp_path: Path
     assert first.status is ExperimentStatus.COMPLETED
     assert first.backend["kind"] == "aer_ideal"
     assert first.backend["provider"] == "qiskit-aer"
-    assert first.backend["metadata"] == {"method": "statevector", "noise_model": None}
-    assert document["backend"]["capabilities"]["local"] is True
-    assert document["backend"]["capabilities"]["supports_resume"] is False
-    assert [entry["status"] for entry in document["status_history"]] == [
-        "created",
-        "validated",
-        "compiled",
-        "submitted",
-        "running",
-        "postprocessing",
-        "completed",
-    ]
-
-    timestamps = document["timestamps"]
-    assert document["spec"] == spec.to_safe_dict()
+    assert first.backend["metadata"] == {
+        "method": "statevector",
+        "noise_model": None,
+    }
+    assert document["schema_version"] == 3
     assert document["status"] == "completed"
+    expected_spec = spec.to_safe_dict()
+    expected_spec.pop("workload_optimization")
+    assert document["spec"] == expected_spec
+    assert "workload_optimization" not in document["spec"]
+    assert document["backend"] == first.backend
     assert document["result"] == first.values
-    assert timestamps["created"] == document["status_history"][0]["timestamp"]
-    assert timestamps["updated"] == timestamps["completed"]
-    for name in ("created", "validated", "compiled", "submitted", "running", "postprocessing", "completed"):
-        assert datetime.fromisoformat(timestamps[name].replace("Z", "+00:00")).tzinfo is not None
-
-    expected_artifacts = {
-        "experiment.json",
-        "source-state.qpy",
-        "source-encoding.json",
-        "logical-measurements.qpy",
-        "postprocessing.json",
-        "compiled-factor-1.qpy",
-        "counts-factor-1.json",
-        "result.json",
-    }
-    assert expected_artifacts == {path.name for path in first.artifact_dir.iterdir()}
     assert document["calibration"] is None
-    assert not any(
-        marker in path.name.lower()
-        for path in first.artifact_dir.iterdir()
-        for marker in ("remote", "dashboard", "web")
-    )
-
-    circuits = document["circuits"]
-    assert _sha256(first.artifact_dir / circuits["source"]["artifact"]) == circuits["source"]["sha256"]
-    assert _sha256(first.artifact_dir / circuits["logical"]["artifact"]) == circuits["logical"]["sha256"]
-    factor = circuits["factors"]["1"]
-    assert factor["artifact"] == "compiled-factor-1.qpy"
-    assert factor["circuit_count"] > 0
-    assert _sha256(first.artifact_dir / factor["artifact"]) == factor["sha256"]
-    assert document["source"]["hashes"] == {
-        "state": _sha256(basis / "graph_state_direct_basis.qpy"),
-        "encoding": _sha256(basis / "E.npy"),
+    assert {path.name for path in first.artifact_dir.iterdir()} == {
+        "experiment.json"
     }
-    assert _sha256(first.artifact_dir / "source-encoding.json") == document["source"]["encoding_sha256"]
-    assert _sha256(first.artifact_dir / "postprocessing.json") == document["postprocessing"]["sha256"]
-    assert _sha256(first.artifact_dir / "result.json") == document["result_artifact"]["sha256"]
+    assert "sha256" not in json.dumps(document).lower()
 
-    counts_path = first.artifact_dir / document["counts"]["1"]["artifact"]
-    assert _sha256(counts_path) == document["counts"]["1"]["sha256"]
-    saved_counts = json.loads(counts_path.read_text(encoding="utf-8"))
-    assert len(saved_counts["settings"]) == factor["circuit_count"]
-    assert all(sum(entry["counts"].values()) == 64 for entry in saved_counts["settings"])
-
-    assert set(document["result"]) == {"raw", "config", "diagnostics"}
+    assert list(document["counts_by_factor"]) == ["1"]
+    saved_counts = document["counts_by_factor"]["1"]
+    assert saved_counts
+    assert all(isinstance(entry["setting"], list) for entry in saved_counts)
+    assert all(sum(entry["counts"].values()) == 64 for entry in saved_counts)
+    assert set(document["result"]) == {
+        "raw",
+        "raw_conditional",
+        "raw_unconditional",
+        "raw_invalid_codeword_rate",
+        "raw_invalid_codeword_shots",
+        "config",
+        "diagnostics",
+    }
     _assert_finite_estimate(document["result"]["raw"])
 
     resumed = resume_experiment(first.artifact_dir, adapter=object())
     assert resumed.to_safe_dict() == first.to_safe_dict()
 
     second = run_experiment(spec)
+    second_document = json.loads(
+        (second.artifact_dir / "experiment.json").read_text(encoding="utf-8")
+    )
     assert second.experiment_id != first.experiment_id
     assert second.artifact_dir != first.artifact_dir
-    assert json.loads((second.artifact_dir / "counts-factor-1.json").read_text(encoding="utf-8")) == saved_counts
+    assert {path.name for path in second.artifact_dir.iterdir()} == {
+        "experiment.json"
+    }
+    assert second_document["counts_by_factor"]["1"] == saved_counts
     assert second.values == first.values
 
 
@@ -180,6 +152,7 @@ def test_experiments_public_surface_is_explicit() -> None:
         "ComplexConfidenceInterval",
         "ConfidenceInterval",
         "CustomBackend",
+        "ExperimentDurabilityError",
         "ExperimentError",
         "ExecutionMode",
         "ExperimentPersistenceError",
@@ -202,7 +175,10 @@ def test_experiments_public_surface_is_explicit() -> None:
         "ReadoutMitigationStrategy",
         "RetryConfig",
         "RunManifest",
+        "ScalarEstimate",
         "TranspilationConfig",
+        "WorkloadMetrics",
+        "WorkloadOptimizationConfig",
         "ZNEBootstrapStrategy",
         "ZNEStrategy",
         "apply_readout_mitigation",
@@ -211,13 +187,16 @@ def test_experiments_public_surface_is_explicit() -> None:
         "build_m3_mitigation",
         "build_readout_calibration_circuits",
         "calibration_cache_is_valid",
+        "choose_workload_ranking_basis",
         "create_backend_adapter",
         "fold_cz_batch",
         "linear_zne_extrapolate",
         "resume_experiment",
         "run_experiment",
         "run_experiments",
+        "summarize_compiled_workload",
         "validate_zne_factors",
+        "workload_rank_key",
     }
 
     assert set(experiments.__all__) == expected
@@ -303,8 +282,13 @@ def test_readme_documents_library_runner_contracts() -> None:
         "raw",
         "readout_mitigated",
         "zne_readout_mitigated",
+        "transpile_to_iqm",
+        "backend.run",
+        "schema-v3",
+        "compiled qpy",
+        "sha-256 manifests",
+        "unfinished runs",
         "no silent fallback",
-        "retrieve_job",
         "environment variables",
         "drift",
         "model bias",
@@ -312,6 +296,8 @@ def test_readme_documents_library_runner_contracts() -> None:
     assert all(statement in readme for statement in required)
     assert "uncertainty=BootstrapConfig(" in readme_source
     assert "ExecutionMode" in readme_source
-    assert "RunManifest.load(result.artifact_dir)" in readme_source
+    assert "RunManifest" in readme_source
+    assert "legacy schema-v1/schema-v2" in readme_source
+    assert "resume_experiment(results[0].artifact_dir)" in readme_source
     assert "execution_mode=ExecutionMode.HARDWARE" in readme_source
     assert "bootstrap=BootstrapConfig(" not in readme_source

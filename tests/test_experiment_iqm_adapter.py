@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import traceback
 
 import pytest
+from qiskit import QuantumCircuit
 
 from qudits_on_qubits.experiments.errors import (
     BackendCompatibilityError,
@@ -57,126 +58,190 @@ def _assert_sanitized(caught, secret):
     assert secret not in rendered
 
 
+def test_iqm_compile_uses_official_transpiler_with_explicit_options():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    backend = _Backend()
+    source = QuantumCircuit(4)
+    compiled = QuantumCircuit(20)
+    calls = []
+
+    def transpiler(circuit, actual_backend, **options):
+        calls.append((circuit, actual_backend, options))
+        return compiled
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"), backend=backend, transpiler=transpiler
+    )
+    config = TranspilationConfig(
+        optimization_level=3,
+        seed_transpiler=9,
+        initial_layout=(16, 17, 18, 19),
+    )
+
+    result = adapter.compile((source,), config)
+
+    assert result.circuits[0] is compiled
+    assert calls == [
+        (
+            source,
+            backend,
+            {
+                "optimization_level": 3,
+                "seed_transpiler": 9,
+                "initial_layout": [16, 17, 18, 19],
+            },
+        )
+    ]
+    assert result.metadata["transpilation"] == {
+        "optimization_level": 3,
+        "seed_transpiler": 9,
+        "initial_layout": (16, 17, 18, 19),
+    }
+
+
 def test_iqm_reuses_one_backend_for_resolve_compile_and_submit():
     from qudits_on_qubits.experiments.backends import IQMAdapter
 
     backend = _Backend()
     loader_calls = []
-    pass_calls = []
-    source = (SimpleNamespace(num_qubits=2), SimpleNamespace(num_qubits=3))
-    compiled_objects = (object(), object())
-
-    class PassManager:
-        def run(self, circuits):
-            pass_calls.append(("run", tuple(circuits)))
-            return compiled_objects
+    source = QuantumCircuit(2)
+    compiled_object = QuantumCircuit(20)
 
     def loader(device, use_metrics=False, env_path=None):
         loader_calls.append((device, use_metrics, env_path))
         return backend
 
-    def pass_manager_factory(actual_backend, **options):
-        pass_calls.append((actual_backend, options))
-        return PassManager()
-
     adapter = IQMAdapter(
         IQMHardware("garnet", use_metrics=True),
         backend_loader=loader,
-        pass_manager_factory=pass_manager_factory,
+        transpiler=lambda *_args, **_kwargs: compiled_object,
     )
     identity = adapter.resolve()
-    config = TranspilationConfig(2, 11, "dense", "sabre", "alap")
-    compiled = adapter.compile(source, config)
+    compiled = adapter.compile(
+        (source,),
+        TranspilationConfig(
+            optimization_level=2,
+            seed_transpiler=11,
+            layout_method="dense",
+            routing_method="sabre",
+            scheduling_method="alap",
+        ),
+    )
     submitted = adapter.submit(compiled.circuits, 19, {"memory": True})
 
     assert loader_calls == [("garnet", True, None)]
     assert identity.kind == "iqm"
     assert identity.name == "garnet"
     assert identity.metadata["target"] == "iqm:garnet"
-    assert compiled.circuits == compiled_objects
-    assert pass_calls[0] == (
-        backend,
-        {
+    assert compiled.circuits[0] is compiled_object
+    sent, options = backend.run_calls[0]
+    assert sent is compiled.circuits
+    assert sent[0] is compiled_object
+    assert options == {"shots": 19, "memory": True}
+    assert submitted.target_identity is identity
+
+
+def test_iqm_compile_transpiles_each_circuit_and_preserves_output_identity():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    sources = (QuantumCircuit(1), QuantumCircuit(2))
+    compiled = (QuantumCircuit(20), QuantumCircuit(20))
+    outputs = iter(compiled)
+    calls = []
+
+    def transpiler(circuit, backend, **options):
+        calls.append((circuit, backend, options))
+        return next(outputs)
+
+    backend = _Backend()
+    result = IQMAdapter(
+        IQMHardware("garnet"), backend=backend, transpiler=transpiler
+    ).compile(sources, TranspilationConfig())
+
+    assert [call[0] for call in calls] == list(sources)
+    assert all(call[1] is backend for call in calls)
+    assert result.circuits[0] is compiled[0]
+    assert result.circuits[1] is compiled[1]
+    assert calls[0][2] == {"optimization_level": 3}
+    assert calls[1][2] == {"optimization_level": 3}
+
+
+def test_iqm_compile_physical_pins_identity_layout():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    source = QuantumCircuit(4, 1)
+    source.measure(3, 0)
+    calls = []
+
+    def transpiler(circuit, backend, **options):
+        calls.append((circuit, backend, options))
+        return circuit
+
+    backend = _Backend()
+    result = IQMAdapter(
+        IQMHardware("garnet"), backend=backend, transpiler=transpiler
+    ).compile_physical((source,), TranspilationConfig())
+
+    assert result.circuits[0] is source
+    assert calls == [
+        (
+            source,
+            backend,
+            {"optimization_level": 3, "initial_layout": [0, 1, 2, 3]},
+        )
+    ]
+
+
+def test_iqm_compile_omits_unset_options():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    calls = []
+
+    def transpiler(circuit, backend, **options):
+        calls.append((circuit, backend, options))
+        return circuit
+
+    backend = _Backend()
+    compiled = IQMAdapter(
+        IQMHardware("garnet"), backend=backend, transpiler=transpiler
+    ).compile((QuantumCircuit(1),), TranspilationConfig())
+
+    assert calls[0][1] is backend
+    assert calls[0][2] == {"optimization_level": 3}
+    assert compiled.metadata["transpilation"] == {"optimization_level": 3}
+
+
+def test_iqm_compile_accepts_all_explicit_options():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    seen = {}
+
+    def transpiler(backend_circuit, backend, **options):
+        seen.update(circuit=backend_circuit, backend=backend, options=options)
+        return backend_circuit
+
+    backend = _Backend()
+    source = QuantumCircuit(2)
+    IQMAdapter(
+        IQMHardware("garnet"), backend=backend, transpiler=transpiler
+    ).compile(
+        (source,),
+        TranspilationConfig(2, 11, "dense", "sabre", "alap", (3, 4)),
+    )
+
+    assert seen == {
+        "circuit": source,
+        "backend": backend,
+        "options": {
             "optimization_level": 2,
             "seed_transpiler": 11,
             "layout_method": "dense",
             "routing_method": "sabre",
             "scheduling_method": "alap",
+            "initial_layout": [3, 4],
         },
-    )
-    assert pass_calls[1] == ("run", source)
-    sent, options = backend.run_calls[0]
-    assert sent is compiled.circuits
-    assert sent[0] is compiled_objects[0]
-    assert options == {"shots": 19, "memory": True}
-    assert submitted.target_identity is identity
-
-
-def test_iqm_compile_physical_pins_identity_layout_and_disables_routing():
-    from qudits_on_qubits.experiments.backends import IQMAdapter
-
-    seen = {}
-
-    class PassManager:
-        def run(self, circuits):
-            return circuits
-
-    def pass_manager_factory(backend, **options):
-        seen.update(backend=backend, options=options)
-        return PassManager()
-
-    source = (SimpleNamespace(num_qubits=17), SimpleNamespace(num_qubits=17))
-    backend = _Backend()
-    adapter = IQMAdapter(
-        IQMHardware("garnet"),
-        backend=backend,
-        pass_manager_factory=pass_manager_factory,
-    )
-
-    compiled = adapter.compile_physical(
-        source,
-        TranspilationConfig(
-            optimization_level=2,
-            seed_transpiler=7,
-            layout_method="dense",
-            routing_method="sabre",
-            scheduling_method=None,
-        ),
-    )
-
-    assert compiled.circuits == source
-    assert seen["options"]["initial_layout"] == list(range(17))
-    assert seen["options"]["layout_method"] is None
-    assert seen["options"]["routing_method"] == "none"
-    assert seen["options"]["scheduling_method"] == "move_routing_exact_global_phase"
-
-
-def test_iqm_default_compile_preserves_exact_rz_scheduling():
-    from qudits_on_qubits.experiments.backends import IQMAdapter
-
-    seen = {}
-
-    class PassManager:
-        def run(self, circuits):
-            return circuits
-
-    def pass_manager_factory(backend, **options):
-        seen.update(backend=backend, options=options)
-        return PassManager()
-
-    backend = _Backend()
-    adapter = IQMAdapter(
-        IQMHardware("garnet"),
-        backend=backend,
-        pass_manager_factory=pass_manager_factory,
-    )
-    compiled = adapter.compile((object(),), TranspilationConfig())
-
-    assert seen["backend"] is backend
-    assert seen["options"]["scheduling_method"] == "move_routing_exact_global_phase"
-    assert compiled.metadata["transpilation"]["scheduling_method"] == (
-        "move_routing_exact_global_phase"
-    )
+    }
 
 
 def test_iqm_injected_backend_never_calls_loader():
@@ -265,14 +330,13 @@ def test_iqm_restore_and_compile_failures_are_sanitized():
     backend = _Backend()
     backend.retrieve_job = lambda _job_id: (_ for _ in ()).throw(RuntimeError(sensitive_text))
 
-    class FailingPassManager:
-        def run(self, _circuits):
-            raise RuntimeError(sensitive_text)
+    def failing_transpiler(*_args, **_kwargs):
+        raise RuntimeError(sensitive_text)
 
     adapter = IQMAdapter(
         IQMHardware("garnet"),
         backend=backend,
-        pass_manager_factory=lambda *_args, **_kwargs: FailingPassManager(),
+        transpiler=failing_transpiler,
     )
     with pytest.raises(JobResultError) as caught:
         adapter.restore_job("iqm-7")

@@ -31,3 +31,14 @@ class JobResultError(ExperimentError):
 
 class ExperimentPersistenceError(ExperimentError):
     """Raised when experiment artifacts cannot be safely persisted."""
+
+
+class ExperimentDurabilityError(ExperimentPersistenceError):
+    """Raised when a published run exists but directory durability is uncertain."""
+
+    def __init__(self, artifact_dir):
+        super().__init__(
+            "experiment run was published but directory durability could not be confirmed"
+        )
+        self.artifact_dir = artifact_dir
+        self.published = True
