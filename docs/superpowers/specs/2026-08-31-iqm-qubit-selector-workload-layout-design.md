@@ -48,10 +48,12 @@ Default selector parameters are:
 - `ReadoutMode.NONE`, because the experiment performs readout mitigation;
 - no removed qubits.
 
-The selector returns ordered Qiskit layouts and costs. The adapter validates
-their width, integer indices, uniqueness within each layout, uniqueness across
-layouts, finite non-negative costs, and backend bounds. Invalid provider
-output is a compatibility error.
+The selector returns ordered Qiskit-indexed layouts as `list[list[int]]` plus
+costs, matching the documented `CostEvaluator.get_top_layouts` return type; it
+does not return `qiskit.transpiler.Layout` objects. The adapter validates their
+width, integer indices, uniqueness within each layout, uniqueness across
+layouts, finite non-negative costs, and backend bounds. Invalid provider output
+is a compatibility error.
 
 The configured explicit baseline layouts are appended after generated layouts
 and deduplicated without changing first occurrence. Selector costs remain
