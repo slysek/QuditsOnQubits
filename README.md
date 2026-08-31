@@ -137,6 +137,30 @@ loaded = resume_experiment(results[0].artifact_dir)
 
 `resume_experiment` loads completed schema-v3 direct results and completed legacy schema-v1/schema-v2 experiments without an adapter or backend call. A fresh schema-v3 run also publishes a `postprocessing` checkpoint after all requested counts, job metadata, workload selection, and optional calibration are durable. If bootstrap or final persistence is interrupted, `resume_experiment(checkpoint_dir, spec=matching_spec, ...)` recomputes postprocessing from those saved counts; it never retrieves or resubmits backend work. Custom/noisy specs require the matching `spec`. Runs using injected evaluators or mitigation strategies are intentionally not resumable. Other unfinished runs, including failures before complete counts, are rejected.
 
+### IQM automatic layout selection
+
+Configure IQM's calibration-aware selector through the public experiment API:
+
+```python
+from qudits_on_qubits import (
+    IQMQubitSelectorConfig,
+    WorkloadOptimizationConfig,
+)
+
+workload_optimization = WorkloadOptimizationConfig(
+    initial_layouts=((0, 1, 2, 7, 3, 4),),
+    seed_transpilers=(3, 7, 13),
+    iqm_qubit_selector=IQMQubitSelectorConfig(
+        top_k=10,
+        num_trials=2000,
+        cost_function="cz",
+        readout_mode="none",
+    ),
+)
+```
+
+The IQM selector is a pipeline-level candidate source. It reads the full device calibration and contributes its Top-10 layouts; the explicit `(0, 1, 2, 7, 3, 4)` baseline remains in the comparison. The pipeline merges those layouts, evaluates every layout×seed candidate against the complete Bell measurement workload, and ranks the complete candidates before submission. All selector evaluation, candidate validation, and compilation happens before submission. Candidate-specific validation or compilation failures are recorded and skipped; fatal selector errors or a candidate set with no accepted compilation stop the run before any hardware job is submitted. Aer and PiastQ specifications reject IQM automatic layout selection instead of silently ignoring it.
+
 ### Direct pipeline and final artifact
 
 Fresh runs use this pipeline:
