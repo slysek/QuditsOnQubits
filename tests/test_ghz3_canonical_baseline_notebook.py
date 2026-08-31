@@ -164,6 +164,7 @@ def test_notebook_has_aer_and_opt_in_iqm_runs_and_clean_cells():
         "BootstrapConfig",
         "ExperimentSpec",
         "IQMHardware",
+        "IQMQubitSelectorConfig",
         "MitigationConfig",
         "PathBasis",
         "WorkloadOptimizationConfig",
@@ -210,20 +211,29 @@ def test_iqm_spec_receives_securely_resolved_env_path(tmp_path):
 def test_configuration_and_empty_summary_are_semantically_complete(tmp_path):
     namespace = setup_namespace(REPO_ROOT)
     assert namespace["SHOTS"] == 100
-    assert namespace["IQM_LAYOUT_CANDIDATES"] == ((0, 1, 2, 7, 3, 4),)
-    assert tuple(
-        zip(
-            namespace["IQM_LAYOUT_CANDIDATES"][0][::2],
-            namespace["IQM_LAYOUT_CANDIDATES"][0][1::2],
-            strict=True,
-        )
-    ) == ((0, 1), (2, 7), (3, 4))
+    assert "IQM_LAYOUT_CANDIDATES" not in namespace
+    assert namespace["IQM_ROUTING_SUBGRAPH_CANDIDATES"] == (
+        (0, 1, 2, 3, 4, 7),
+    )
+    assert all(
+        candidate == tuple(sorted(set(candidate)))
+        for candidate in namespace["IQM_ROUTING_SUBGRAPH_CANDIDATES"]
+    )
     assert namespace["IQM_SEED_CANDIDATES"] == (3, 7, 13)
+    assert namespace["IQM_LAYOUT_SELECTOR"] == namespace[
+        "IQMQubitSelectorConfig"
+    ](
+        top_k=10,
+        num_trials=2000,
+        cost_function="cz",
+        readout_mode="none",
+    )
     assert namespace["workload_optimization"] == namespace[
         "WorkloadOptimizationConfig"
     ](
-        initial_layouts=((0, 1, 2, 7, 3, 4),),
+        initial_layouts=((0, 1, 2, 3, 4, 7),),
         seed_transpilers=(3, 7, 13),
+        iqm_qubit_selector=namespace["IQM_LAYOUT_SELECTOR"],
     )
     assert namespace["UNCERTAINTY"].samples == 2_000
     assert namespace["UNCERTAINTY"].seed == 7
@@ -442,7 +452,7 @@ def test_notebook_source_names_explicit_semantics_and_unconditional_bound_eviden
 
     for required in (
         "WorkloadOptimizationConfig",
-        "IQM_LAYOUT_CANDIDATES",
+        "IQM_ROUTING_SUBGRAPH_CANDIDATES",
         "IQM_SEED_CANDIDATES",
         "raw_conditional",
         "raw_unconditional",
@@ -634,27 +644,60 @@ def test_ghz3_notebook_full_mitigation_pipeline_offline(tmp_path):
             self.identity = BackendIdentity(
                 "iqm",
                 "garnet",
-                metadata={"calibration_set_id": "offline-cal"},
+                metadata={
+                    "calibration_set_id": "offline-cal",
+                    "backend_num_qubits": 20,
+                },
             )
+            self.selector_calls = 0
             self.compile_calls = 0
+            self.compile_restricted_calls = 0
             self.compile_physical_calls = 0
             self.submissions = []
 
         def resolve(self):
             return self.identity
 
+        def suggest_layouts(self, circuit, config):
+            self.selector_calls += 1
+            assert circuit.num_qubits == 6
+            return {
+                "provider": "iqm-qubit-selector",
+                "version": "1.1.0",
+                "configuration": config.to_safe_dict(),
+                "layouts": ((0, 1, 2, 3, 4, 7),),
+                "costs": (0.02,),
+            }
+
         def compile(self, circuits, config):
             self.compile_calls += 1
-            layout = config.initial_layout
+            raise AssertionError(
+                "selector routing subgraphs must use compile_restricted"
+            )
+
+        def compile_restricted(self, circuits, config, physical_qubits):
+            self.compile_restricted_calls += 1
+            assert config.initial_layout is None
+            routing_subgraph = tuple(physical_qubits)
+            assert routing_subgraph == tuple(sorted(set(routing_subgraph)))
             compiled = []
             for source_circuit in circuits:
+                assert len(routing_subgraph) >= source_circuit.num_qubits
                 circuit = QuantumCircuit(
-                    max(layout) + 1,
+                    20,
                     source_circuit.num_clbits,
                     name=source_circuit.name,
                 )
                 circuit.metadata = dict(source_circuit.metadata or {})
-                circuit.measure(layout, range(source_circuit.num_clbits))
+                for physical_qubit in routing_subgraph:
+                    circuit.id(physical_qubit)
+                measured_physical_qubits = routing_subgraph[
+                    : source_circuit.num_clbits
+                ]
+                circuit.measure(
+                    measured_physical_qubits,
+                    range(source_circuit.num_clbits),
+                )
                 compiled.append(circuit)
             return CompiledBatch(tuple(compiled), self.identity)
 
@@ -750,7 +793,9 @@ def test_ghz3_notebook_full_mitigation_pipeline_offline(tmp_path):
     )
 
     assert result.status.value == "completed"
-    assert adapter.compile_calls == 3
+    assert adapter.selector_calls == 1
+    assert adapter.compile_calls == 0
+    assert adapter.compile_restricted_calls == 3
     assert adapter.compile_physical_calls == 1
     assert len(transform_calls) == 1
     assert len(transform_calls[0][0]) == 12
@@ -776,6 +821,40 @@ def test_ghz3_notebook_full_mitigation_pipeline_offline(tmp_path):
         "diagnostics",
     } <= set(result.values)
     assert result.values["raw"] == result.values["raw_conditional"]
+
+    document = json.loads(
+        (Path(result.artifact_dir) / "experiment.json").read_text(encoding="utf-8")
+    )
+    workload_optimization = document["workload_optimization"]
+    assert workload_optimization["layout_semantics"] == "routing_subgraph"
+    assert workload_optimization["selected_layout"] == [0, 1, 2, 3, 4, 7]
+    assert workload_optimization["active_physical_qubit_union"] == [
+        0,
+        1,
+        2,
+        3,
+        4,
+        7,
+    ]
+    assert workload_optimization["selector"] == {
+        "provider": "iqm-qubit-selector",
+        "version": "1.1.0",
+        "calibration_set_id": "offline-cal",
+        "configuration": {
+            "top_k": 10,
+            "num_trials": 2000,
+            "cost_function": "cz",
+            "readout_mode": "none",
+            "remove_qubits": [],
+        },
+        "representative_circuit_index": 0,
+        "representative_circuit_name": "ghz3_direct_basis",
+        "layout_semantics": "routing_subgraph",
+        "generated_layouts": [[0, 1, 2, 3, 4, 7]],
+        "generated_costs": [0.02],
+        "explicit_layouts": [[0, 1, 2, 3, 4, 7]],
+        "merged_layouts": [[0, 1, 2, 3, 4, 7]],
+    }
 
     assert_full_twirling_artifact(result)
 
@@ -812,5 +891,22 @@ def test_ghz3_canonical_full_pipeline_on_iqm_garnet():
         "diagnostics",
     } <= set(result.values)
     assert result.values["diagnostics"]["factors"] == [1, 3, 5]
+
+    document = json.loads(
+        (Path(result.artifact_dir) / "experiment.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    workload_optimization = document["workload_optimization"]
+    selected_subgraph = workload_optimization["selected_layout"]
+    assert workload_optimization["layout_semantics"] == "routing_subgraph"
+    assert selected_subgraph == sorted(set(selected_subgraph))
+    assert workload_optimization["active_physical_qubit_union"] == (
+        selected_subgraph
+    )
+    selector = workload_optimization["selector"]
+    assert selector["provider"] == "iqm-qubit-selector"
+    assert selector["layout_semantics"] == "routing_subgraph"
+    assert selected_subgraph in selector["merged_layouts"]
 
     assert_full_twirling_artifact(result)

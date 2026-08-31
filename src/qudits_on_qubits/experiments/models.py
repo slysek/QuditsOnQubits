@@ -372,18 +372,84 @@ class BootstrapConfig:
 
 
 @dataclass(frozen=True)
+class IQMQubitSelectorConfig:
+    top_k: int = 10
+    num_trials: int = 2000
+    cost_function: str = "cz"
+    readout_mode: str = "none"
+    remove_qubits: tuple[int, ...] = ()
+
+    def __post_init__(self) -> None:
+        if type(self.top_k) is not int or self.top_k <= 0:
+            raise ExperimentValidationError("top_k must be a positive integer")
+        if type(self.num_trials) is not int or self.num_trials <= 0:
+            raise ExperimentValidationError("num_trials must be a positive integer")
+        if not isinstance(self.cost_function, str) or self.cost_function not in {
+            "cz",
+            "clifford",
+        }:
+            raise ExperimentValidationError(
+                "cost_function must be cz or clifford"
+            )
+        if not isinstance(self.readout_mode, str) or self.readout_mode not in {
+            "none",
+            "fidelity",
+            "qndness",
+        }:
+            raise ExperimentValidationError(
+                "readout_mode must be none, fidelity, or qndness"
+            )
+        if not isinstance(self.remove_qubits, Sequence) or isinstance(
+            self.remove_qubits, (str, bytes)
+        ):
+            raise ExperimentValidationError(
+                "remove_qubits must be a sequence of distinct non-negative integers"
+            )
+        remove_qubits = tuple(self.remove_qubits)
+        if (
+            any(type(qubit) is not int or qubit < 0 for qubit in remove_qubits)
+            or len(set(remove_qubits)) != len(remove_qubits)
+        ):
+            raise ExperimentValidationError(
+                "remove_qubits must be distinct non-negative integers"
+            )
+        object.__setattr__(self, "remove_qubits", remove_qubits)
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {
+            "top_k": self.top_k,
+            "num_trials": self.num_trials,
+            "cost_function": self.cost_function,
+            "readout_mode": self.readout_mode,
+            "remove_qubits": list(self.remove_qubits),
+        }
+
+    @classmethod
+    def from_safe_dict(cls, data: Mapping[str, Any]) -> "IQMQubitSelectorConfig":
+        return cls(**dict(data))
+
+
+@dataclass(frozen=True)
 class WorkloadOptimizationConfig:
     initial_layouts: tuple[tuple[int, ...], ...]
     seed_transpilers: tuple[int, ...] = (0,)
     require_exact_physical_qubit_set: bool = True
     prefer_calibration_metrics: bool = True
+    iqm_qubit_selector: IQMQubitSelectorConfig | None = None
 
     def __post_init__(self) -> None:
+        if (
+            self.iqm_qubit_selector is not None
+            and not isinstance(self.iqm_qubit_selector, IQMQubitSelectorConfig)
+        ):
+            raise ExperimentValidationError(
+                "iqm_qubit_selector must be IQMQubitSelectorConfig or None"
+            )
         if not isinstance(self.initial_layouts, Sequence) or isinstance(
             self.initial_layouts, (str, bytes)
         ):
             raise ExperimentValidationError(
-                "initial_layouts must be a non-empty sequence of equal-width layouts"
+                "initial_layouts must be a sequence of equal-width layouts"
             )
 
         layouts: list[tuple[int, ...]] = []
@@ -405,10 +471,24 @@ class WorkloadOptimizationConfig:
                 )
             layouts.append(layout)
 
-        normalized_layouts = tuple(layouts)
-        if (
-            not normalized_layouts
-            or any(
+        if self.iqm_qubit_selector is None:
+            normalized_layouts = tuple(layouts)
+        else:
+            canonical_layouts: list[tuple[int, ...]] = []
+            seen_layouts: set[tuple[int, ...]] = set()
+            for layout in layouts:
+                canonical = tuple(sorted(layout))
+                if canonical in seen_layouts:
+                    continue
+                seen_layouts.add(canonical)
+                canonical_layouts.append(canonical)
+            normalized_layouts = tuple(canonical_layouts)
+        if not normalized_layouts and self.iqm_qubit_selector is None:
+            raise ExperimentValidationError(
+                "initial_layouts require at least one layout source"
+            )
+        if self.iqm_qubit_selector is None and normalized_layouts and (
+            any(
                 len(layout) != len(normalized_layouts[0])
                 for layout in normalized_layouts[1:]
             )
@@ -443,15 +523,26 @@ class WorkloadOptimizationConfig:
         object.__setattr__(self, "seed_transpilers", seeds)
 
     def to_safe_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "initial_layouts": [list(layout) for layout in self.initial_layouts],
             "seed_transpilers": list(self.seed_transpilers),
             "require_exact_physical_qubit_set": self.require_exact_physical_qubit_set,
             "prefer_calibration_metrics": self.prefer_calibration_metrics,
         }
+        if self.iqm_qubit_selector is not None:
+            payload["iqm_qubit_selector"] = self.iqm_qubit_selector.to_safe_dict()
+        return payload
 
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any]) -> "WorkloadOptimizationConfig":
+        selector = None
+        selector_payload = data.get("iqm_qubit_selector")
+        if selector_payload is not None:
+            if not isinstance(selector_payload, Mapping):
+                raise ExperimentValidationError(
+                    "iqm_qubit_selector must be a mapping"
+                )
+            selector = IQMQubitSelectorConfig.from_safe_dict(selector_payload)
         return cls(
             initial_layouts=data["initial_layouts"],
             seed_transpilers=data.get("seed_transpilers", (0,)),
@@ -459,6 +550,7 @@ class WorkloadOptimizationConfig:
                 "require_exact_physical_qubit_set", True
             ),
             prefer_calibration_metrics=data.get("prefer_calibration_metrics", True),
+            iqm_qubit_selector=selector,
         )
 
 

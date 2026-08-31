@@ -10,7 +10,7 @@ class DependencyContractTests(unittest.TestCase):
         self.assertIn('requires-python = ">=3.11,<3.14"', content)
 
     def test_iqm_qubit_selector_is_declared(self):
-        dependency = "iqm-qubit-selector>=1,<2"
+        dependency = "iqm-qubit-selector>=1.1,<2"
         for relative_path in ("pyproject.toml", "requirements.txt"):
             with self.subTest(path=relative_path):
                 content = (REPO_ROOT / relative_path).read_text(encoding="utf-8")

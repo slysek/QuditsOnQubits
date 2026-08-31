@@ -13,7 +13,11 @@ from qudits_on_qubits.experiments.errors import (
     JobResultError,
     OptionalDependencyError,
 )
-from qudits_on_qubits.experiments.models import IQMHardware, TranspilationConfig
+from qudits_on_qubits.experiments.models import (
+    IQMHardware,
+    IQMQubitSelectorConfig,
+    TranspilationConfig,
+)
 
 
 class _Job:
@@ -244,6 +248,180 @@ def test_iqm_compile_accepts_all_explicit_options():
     }
 
 
+def test_iqm_compile_restricted_uses_subgraph_and_inflates_provider_indices():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    backend = _Backend()
+    source = QuantumCircuit(2, 2)
+    restricted = QuantumCircuit(3, 2)
+    restricted.x(0)
+    restricted.cx(0, 2)
+    restricted.measure(0, 0)
+    restricted.measure(2, 1)
+    calls = []
+
+    def transpiler(circuit, actual_backend, **options):
+        calls.append((circuit, actual_backend, options))
+        return restricted
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"), backend=backend, transpiler=transpiler
+    )
+    config = TranspilationConfig(
+        optimization_level=2,
+        seed_transpiler=11,
+        layout_method="dense",
+        routing_method="sabre",
+        scheduling_method="alap",
+    )
+
+    result = adapter.compile_restricted((source,), config, (7, 4, 8))
+
+    assert calls == [
+        (
+            source,
+            backend,
+            {
+                "optimization_level": 2,
+                "seed_transpiler": 11,
+                "layout_method": "dense",
+                "routing_method": "sabre",
+                "scheduling_method": "alap",
+                "restrict_to_qubits": [7, 4, 8],
+            },
+        )
+    ]
+    inflated = result.circuits[0]
+    assert isinstance(inflated, QuantumCircuit)
+    assert inflated.num_qubits == backend.num_qubits
+    assert inflated.num_clbits == restricted.num_clbits
+    operations = [
+        (
+            instruction.operation.name,
+            tuple(inflated.find_bit(qubit).index for qubit in instruction.qubits),
+            tuple(inflated.find_bit(clbit).index for clbit in instruction.clbits),
+        )
+        for instruction in inflated.data
+    ]
+    assert operations == [
+        ("x", (7,), ()),
+        ("cx", (7, 8), ()),
+        ("measure", (7,), (0,)),
+        ("measure", (8,), (1,)),
+    ]
+    assert result.metadata == {
+        "transpilation": {
+            "optimization_level": 2,
+            "seed_transpiler": 11,
+            "layout_method": "dense",
+            "routing_method": "sabre",
+            "scheduling_method": "alap",
+            "restrict_to_qubits": (7, 4, 8),
+        },
+        "restricted_physical_qubits": (7, 4, 8),
+    }
+
+    adapter.submit(result.circuits, 10)
+    submitted_circuits, submitted_options = backend.run_calls[-1]
+    assert submitted_circuits is result.circuits
+    assert submitted_circuits[0].num_qubits == backend.num_qubits
+    assert submitted_options == {"shots": 10}
+
+
+@pytest.mark.parametrize(
+    ("physical_qubits", "message"),
+    [
+        ((4,), "logical"),
+        ((4, 4), "distinct"),
+        ((4, -1), "non-negative"),
+        ((4, True), "integers"),
+        ((4, 20), "capacity"),
+    ],
+)
+def test_iqm_compile_restricted_rejects_invalid_subgraph_without_transpiling(
+    physical_qubits,
+    message,
+):
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        transpiler=lambda *_args, **_kwargs: pytest.fail("transpiler called"),
+    )
+
+    with pytest.raises(BackendCompatibilityError, match=message):
+        adapter.compile_restricted(
+            (QuantumCircuit(2),),
+            TranspilationConfig(),
+            physical_qubits,
+        )
+
+
+def test_iqm_compile_restricted_rejects_initial_layout_without_transpiling():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        transpiler=lambda *_args, **_kwargs: pytest.fail("transpiler called"),
+    )
+
+    with pytest.raises(BackendCompatibilityError, match="initial_layout"):
+        adapter.compile_restricted(
+            (QuantumCircuit(2),),
+            TranspilationConfig(initial_layout=(4, 7)),
+            (4, 7),
+        )
+
+
+@pytest.mark.parametrize(
+    "compiled",
+    [object(), QuantumCircuit(2)],
+)
+def test_iqm_compile_restricted_rejects_invalid_transpiler_output(compiled):
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        transpiler=lambda *_args, **_kwargs: compiled,
+    )
+
+    with pytest.raises(BackendCompatibilityError, match="restricted"):
+        adapter.compile_restricted(
+            (QuantumCircuit(2),),
+            TranspilationConfig(),
+            (4, 7, 8),
+        )
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        KeyboardInterrupt("restricted interrupted"),
+        SystemExit("restricted stopped"),
+        MemoryError("restricted exhausted"),
+    ],
+)
+def test_iqm_compile_restricted_propagates_critical_base_exceptions(failure):
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    def fail(*_args, **_kwargs):
+        raise failure
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"), backend=_Backend(), transpiler=fail
+    )
+
+    with pytest.raises(type(failure), match="restricted"):
+        adapter.compile_restricted(
+            (QuantumCircuit(2),),
+            TranspilationConfig(),
+            (4, 7),
+        )
+
+
 def test_iqm_injected_backend_never_calls_loader():
     from qudits_on_qubits.experiments.backends import IQMAdapter
 
@@ -383,3 +561,481 @@ def test_iqm_spec_rejects_credentialed_device_url_without_echoing_it():
     with pytest.raises(ExperimentValidationError, match="device") as caught:
         IQMHardware(sensitive_text)
     _assert_sanitized(caught, sensitive_text)
+
+
+def test_iqm_suggest_layouts_uses_resolved_backend_and_safe_config():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    backend = _Backend()
+    circuit = QuantumCircuit(2)
+    calls = []
+
+    def selector(actual_backend, actual_circuit, config):
+        calls.append((actual_backend, actual_circuit, config))
+        return ([[4, 7], [8, 9]], [0.02, 0.03], "1.1.0")
+
+    config = IQMQubitSelectorConfig(
+        top_k=2,
+        num_trials=500,
+        cost_function="cz",
+        readout_mode="none",
+        remove_qubits=(5,),
+    )
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=backend,
+        layout_selector=selector,
+    )
+
+    result = adapter.suggest_layouts(circuit, config)
+
+    assert calls == [(backend, circuit, config)]
+    assert result == {
+        "provider": "iqm-qubit-selector",
+        "version": "1.1.0",
+        "configuration": config.to_safe_dict(),
+        "layouts": ((4, 7), (8, 9)),
+        "costs": (0.02, 0.03),
+    }
+
+
+def test_iqm_suggest_layouts_canonicalizes_and_deduplicates_routing_subgraphs():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        layout_selector=lambda *_args: (
+            ([8, 4, 7], [7, 8, 4], [9, 2]),
+            (0.01, 0.02, 0.03),
+            "1.1.2",
+        ),
+    )
+
+    result = adapter.suggest_layouts(
+        QuantumCircuit(2),
+        IQMQubitSelectorConfig(top_k=3),
+    )
+
+    assert result["layouts"] == ((4, 7, 8), (2, 9))
+    assert result["costs"] == (0.01, 0.03)
+
+
+def test_iqm_rejects_non_callable_layout_selector():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    with pytest.raises(BackendCompatibilityError, match="layout selector"):
+        IQMAdapter(
+            IQMHardware("garnet"),
+            backend=_Backend(),
+            layout_selector=object(),
+        )
+
+
+def test_iqm_preserves_falsey_callable_layout_selector():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    calls = []
+
+    class FalseySelector:
+        def __bool__(self):
+            return False
+
+        def __call__(self, backend, circuit, config):
+            calls.append((backend, circuit, config))
+            return (((4, 7),), (0.02,), "1.1.0")
+
+    backend = _Backend()
+    circuit = QuantumCircuit(2)
+    config = IQMQubitSelectorConfig(top_k=1)
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=backend,
+        layout_selector=FalseySelector(),
+    )
+
+    result = adapter.suggest_layouts(circuit, config)
+
+    assert calls == [(backend, circuit, config)]
+    assert result["layouts"] == ((4, 7),)
+
+
+@pytest.mark.parametrize(
+    ("cost_function", "readout_mode"),
+    [
+        ("cz", "none"),
+        ("cz", "fidelity"),
+        ("cz", "qndness"),
+        ("clifford", "none"),
+        ("clifford", "fidelity"),
+        ("clifford", "qndness"),
+    ],
+)
+def test_default_layout_selector_translates_safe_config_to_iqm_api(
+    monkeypatch,
+    cost_function,
+    readout_mode,
+):
+    import importlib.metadata
+    import sys
+    from types import ModuleType
+
+    from qudits_on_qubits.experiments.backends.iqm import (
+        _default_layout_selector,
+    )
+
+    calls = {}
+    cost_values = {"cz": object(), "clifford": object()}
+    readout_values = {
+        "none": object(),
+        "fidelity": object(),
+        "qndness": object(),
+    }
+
+    class FakeEvaluator:
+        def __init__(self, **kwargs):
+            calls["kwargs"] = kwargs
+
+        def get_top_layouts(self, *, num_layouts):
+            calls["num_layouts"] = num_layouts
+            return [[4, 7], [8, 9]], [0.02, 0.03]
+
+    module = ModuleType("iqm.qubit_selector.qubit_selector")
+    module.CostEvaluator = FakeEvaluator
+    module.CostFunction = SimpleNamespace(
+        GATE_COST_CZ=cost_values["cz"],
+        GATE_COST_CLIFFORD=cost_values["clifford"],
+    )
+    module.ReadoutMode = SimpleNamespace(
+        NONE=readout_values["none"],
+        FIDELITY=readout_values["fidelity"],
+        QNDNESS=readout_values["qndness"],
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "iqm.qubit_selector.qubit_selector",
+        module,
+    )
+    version_calls = []
+    monkeypatch.setattr(
+        importlib.metadata,
+        "version",
+        lambda package: version_calls.append(package) or "1.1.0",
+    )
+    backend = _Backend()
+    circuit = QuantumCircuit(2)
+    removed = (5,) if readout_mode != "none" else ()
+    config = IQMQubitSelectorConfig(
+        top_k=2,
+        num_trials=500,
+        cost_function=cost_function,
+        readout_mode=readout_mode,
+        remove_qubits=removed,
+    )
+
+    result = _default_layout_selector(backend, circuit, config)
+
+    assert result == ([[4, 7], [8, 9]], [0.02, 0.03], "1.1.0")
+    assert calls == {
+        "kwargs": {
+            "backend": backend,
+            "quantum_circuit": circuit,
+            "cost_function": cost_values[cost_function],
+            "readoutmode": readout_values[readout_mode],
+            "remove_qubits": list(removed) if removed else None,
+            "num_trials": 500,
+        },
+        "num_layouts": 2,
+    }
+    assert version_calls == ["iqm-qubit-selector"]
+
+
+@pytest.mark.parametrize(
+    ("circuit", "config", "message"),
+    [
+        (object(), IQMQubitSelectorConfig(), "QuantumCircuit"),
+        (QuantumCircuit(2), object(), "IQMQubitSelectorConfig"),
+    ],
+)
+def test_iqm_suggest_layouts_rejects_invalid_inputs_without_calling_selector(
+    circuit,
+    config,
+    message,
+):
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        layout_selector=lambda *_args: pytest.fail("selector called"),
+    )
+
+    with pytest.raises(BackendCompatibilityError, match=message):
+        adapter.suggest_layouts(circuit, config)
+
+
+def test_iqm_suggest_layouts_requires_backend_capacity():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    backend = _Backend()
+    backend.num_qubits = None
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=backend,
+        layout_selector=lambda *_args: pytest.fail("selector called"),
+    )
+
+    with pytest.raises(BackendCompatibilityError, match="qubit capacity"):
+        adapter.suggest_layouts(QuantumCircuit(2), IQMQubitSelectorConfig())
+
+
+@pytest.mark.parametrize("failing_attribute", ["num_qubits", "target"])
+def test_iqm_suggest_layouts_redacts_capacity_lookup_failure(failing_attribute):
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    sensitive_message = "token=selector-test-value"
+
+    class FailingCapacityBackend(_Backend):
+        @property
+        def num_qubits(self):
+            if failing_attribute == "num_qubits":
+                raise RuntimeError(sensitive_message)
+            return None
+
+        @property
+        def target(self):
+            raise RuntimeError(sensitive_message)
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=FailingCapacityBackend(),
+        layout_selector=lambda *_args: pytest.fail("selector called"),
+    )
+
+    with pytest.raises(BackendCompatibilityError) as caught:
+        adapter.suggest_layouts(QuantumCircuit(2), IQMQubitSelectorConfig())
+
+    assert str(caught.value) == (
+        "IQM qubit selector requires backend qubit capacity"
+    )
+    _assert_sanitized(caught, "selector-test-value")
+
+
+def test_iqm_suggest_layouts_propagates_memory_error_from_callable_capacity():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    class ExhaustedCapacityBackend(_Backend):
+        def num_qubits(self):
+            raise MemoryError("capacity exhausted")
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=ExhaustedCapacityBackend(),
+        layout_selector=lambda *_args: pytest.fail("selector called"),
+    )
+
+    with pytest.raises(MemoryError, match="capacity exhausted"):
+        adapter.suggest_layouts(QuantumCircuit(2), IQMQubitSelectorConfig())
+
+
+def test_iqm_suggest_layouts_propagates_memory_error_from_backend_loader():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    def exhausted_loader(*_args, **_kwargs):
+        raise MemoryError("backend resolution exhausted")
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend_loader=exhausted_loader,
+        layout_selector=lambda *_args: pytest.fail("selector called"),
+    )
+
+    with pytest.raises(MemoryError, match="backend resolution exhausted"):
+        adapter.suggest_layouts(QuantumCircuit(2), IQMQubitSelectorConfig())
+
+
+def test_iqm_suggest_layouts_rejects_removed_qubit_outside_capacity():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        layout_selector=lambda *_args: pytest.fail("selector called"),
+    )
+
+    with pytest.raises(BackendCompatibilityError, match="remove_qubits"):
+        adapter.suggest_layouts(
+            QuantumCircuit(2),
+            IQMQubitSelectorConfig(remove_qubits=(20,)),
+        )
+
+
+@pytest.mark.parametrize(
+    ("layouts", "costs", "version"),
+    [
+        ((), (), "1.1.0"),
+        (((4, 4),), (0.02,), "1.1.0"),
+        (((4,),), (0.02,), "1.1.0"),
+        (((4, 20),), (0.02,), "1.1.0"),
+        (((True, 7),), (0.02,), "1.1.0"),
+        (((4, 7),), (), "1.1.0"),
+        (((4, 7),), (-0.01,), "1.1.0"),
+        (((4, 7),), (float("nan"),), "1.1.0"),
+        (((4, 7),), (float("inf"),), "1.1.0"),
+        (((4, 7),), (True,), "1.1.0"),
+        (((4, 7), (8, 9)), (0.03, 0.02), "1.1.0"),
+        (((4, 7),), (0.02,), ""),
+        (((4, 7),), (0.02,), object()),
+        (((4, 7),), (0.02,), "token" + "=selector-test-value"),
+        ("47", (0.02,), "1.1.0"),
+        (((4, 7),), b"0", "1.1.0"),
+        (("47",), (0.02,), "1.1.0"),
+        (
+            tuple((index, index + 1) for index in range(11)),
+            tuple(index / 100 for index in range(11)),
+            "1.1.0",
+        ),
+    ],
+)
+def test_iqm_suggest_layouts_rejects_malformed_provider_output(
+    layouts,
+    costs,
+    version,
+):
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        layout_selector=lambda *_args: (layouts, costs, version),
+    )
+
+    with pytest.raises(BackendCompatibilityError) as caught:
+        adapter.suggest_layouts(QuantumCircuit(2), IQMQubitSelectorConfig())
+
+    assert str(caught.value) == "IQM qubit selector output is invalid"
+    assert caught.value.__cause__ is None
+    if isinstance(version, str) and "selector-test-value" in version:
+        _assert_sanitized(caught, "selector-test-value")
+
+
+def test_iqm_suggest_layouts_rejects_layout_using_removed_qubit():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        layout_selector=lambda *_args: (((4, 7),), (0.02,), "1.1.0"),
+    )
+
+    with pytest.raises(BackendCompatibilityError) as caught:
+        adapter.suggest_layouts(
+            QuantumCircuit(2),
+            IQMQubitSelectorConfig(remove_qubits=(7,)),
+        )
+
+    assert str(caught.value) == "IQM qubit selector output is invalid"
+    assert caught.value.__cause__ is None
+
+
+@pytest.mark.parametrize(
+    "raw_result",
+    [
+        object(),
+        (),
+        ((), ()),
+        ((), (), "1.1.0", object()),
+        "abc",
+    ],
+)
+def test_iqm_suggest_layouts_rejects_malformed_return_shape(raw_result):
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        layout_selector=lambda *_args: raw_result,
+    )
+
+    with pytest.raises(BackendCompatibilityError) as caught:
+        adapter.suggest_layouts(QuantumCircuit(2), IQMQubitSelectorConfig())
+
+    assert str(caught.value) == "IQM qubit selector output is invalid"
+    assert caught.value.__cause__ is None
+
+
+def test_iqm_suggest_layouts_redacts_provider_failure():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    sensitive_message = "Authorization: " + "Bearer selector-test-value"
+
+    def fail(*_args):
+        raise RuntimeError(sensitive_message)
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        layout_selector=fail,
+    )
+    with pytest.raises(BackendCompatibilityError) as caught:
+        adapter.suggest_layouts(QuantumCircuit(2), IQMQubitSelectorConfig())
+
+    _assert_sanitized(caught, "selector-test-value")
+    assert str(caught.value) == (
+        "IQM qubit selector failed for backend iqm:garnet (RuntimeError)"
+    )
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        ModuleNotFoundError("token=selector-test-value"),
+        ImportError("token=selector-test-value"),
+    ],
+)
+def test_iqm_suggest_layouts_maps_missing_package_to_optional_dependency(
+    failure,
+):
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    def missing(*_args):
+        raise failure
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        layout_selector=missing,
+    )
+
+    with pytest.raises(OptionalDependencyError) as caught:
+        adapter.suggest_layouts(QuantumCircuit(2), IQMQubitSelectorConfig())
+
+    assert str(caught.value) == (
+        "IQM automatic layout selection requires iqm-qubit-selector "
+        f"({type(failure).__name__})"
+    )
+    _assert_sanitized(caught, "selector-test-value")
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        KeyboardInterrupt("selector interrupted"),
+        SystemExit("selector stopped"),
+        MemoryError("selector exhausted"),
+    ],
+)
+def test_iqm_suggest_layouts_propagates_critical_base_exceptions(failure):
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    def fail(*_args):
+        raise failure
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        layout_selector=fail,
+    )
+
+    with pytest.raises(type(failure), match="selector"):
+        adapter.suggest_layouts(QuantumCircuit(2), IQMQubitSelectorConfig())

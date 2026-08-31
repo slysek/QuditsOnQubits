@@ -13,7 +13,7 @@ qiskit-ibm-runtime<0.44.1,>=0.34
 qiskit-experiments<0.14,>=0.13
 python-dotenv
 iqm-client[qiskit]<36,>=35
-iqm-qubit-selector<2,>=1
+iqm-qubit-selector<2,>=1.1
 
 [dev]
 pytest<9,>=8

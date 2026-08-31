@@ -15,6 +15,7 @@ import hashlib
 import importlib.util
 import json
 import math
+from numbers import Real
 from pathlib import Path
 import re
 import time
@@ -61,6 +62,7 @@ from .models import (
     ExperimentSpec,
     ExperimentStatus,
     IQMHardware,
+    IQMQubitSelectorConfig,
     RetryConfig,
     TranspilationConfig,
     _normalize_experiment_spec_dict,
@@ -91,6 +93,13 @@ class _CompiledWorkloadCandidate:
     seed: int
     batch: CompiledBatch
     metrics: WorkloadMetrics
+
+
+@dataclass(frozen=True)
+class _WorkloadLayoutCandidate:
+    layout: tuple[int, ...]
+    source: str
+    selector_cost: float | None
 
 
 @dataclass(frozen=True)
@@ -594,6 +603,29 @@ def _compile_with_adapter(
         detail, provider_exception_type = _provider_failure_detail(error)
         sanitized = BackendCompatibilityError(
             f"adapter {operation} failed ({detail})"
+        )
+        if provider_exception_type is not None:
+            setattr(sanitized, "provider_exception_type", provider_exception_type)
+        raise sanitized from None
+
+
+def _compile_restricted_with_adapter(
+    adapter: Any,
+    circuits: Sequence[QuantumCircuit],
+    config: TranspilationConfig,
+    physical_qubits: Sequence[int],
+) -> Any:
+    try:
+        compiler = getattr(adapter, "compile_restricted", None)
+        if not callable(compiler):
+            raise TypeError("adapter restricted compile operation is not callable")
+        return compiler(circuits, config, physical_qubits)
+    except (KeyboardInterrupt, SystemExit, MemoryError):
+        raise
+    except BaseException as error:
+        detail, provider_exception_type = _provider_failure_detail(error)
+        sanitized = BackendCompatibilityError(
+            f"adapter restricted compilation failed ({detail})"
         )
         if provider_exception_type is not None:
             setattr(sanitized, "provider_exception_type", provider_exception_type)
@@ -1119,6 +1151,325 @@ def _physical_qubit_mappings(
     return tuple(mappings)
 
 
+def _active_physical_qubit_union(
+    circuits: Sequence[QuantumCircuit],
+) -> tuple[int, ...]:
+    active: set[int] = set()
+    for circuit in circuits:
+        if not isinstance(circuit, QuantumCircuit):
+            raise BackendCompatibilityError(
+                "active physical qubits require QuantumCircuit values"
+            )
+        for instruction in circuit.data:
+            if getattr(instruction.operation, "_directive", False):
+                continue
+            for qubit in instruction.qubits:
+                physical = circuit.find_bit(qubit).index
+                if (
+                    type(physical) is not int
+                    or physical < 0
+                    or physical >= circuit.num_qubits
+                ):
+                    raise BackendCompatibilityError(
+                        "compiled active physical qubit mapping is invalid"
+                    )
+                active.add(physical)
+    return tuple(sorted(active))
+
+
+def _validate_routing_subgraph(
+    circuits: Sequence[QuantumCircuit],
+    selected_layout: Sequence[int],
+    *,
+    require_exact: bool,
+    context: str,
+) -> tuple[int, ...]:
+    active = _active_physical_qubit_union(circuits)
+    expected = set(selected_layout)
+    if not active or not set(active).issubset(expected):
+        raise BackendCompatibilityError(
+            f"{context} active physical qubits escaped selected routing subgraph"
+        )
+    if require_exact and set(active) != expected:
+        raise BackendCompatibilityError(
+            f"{context} active physical qubit union does not match "
+            "selected routing subgraph"
+        )
+    return active
+
+
+def _representative_circuit_index(circuits: Sequence[QuantumCircuit]) -> int:
+    if not circuits:
+        raise ExperimentValidationError(
+            "workload optimization requires logical measurement circuits"
+        )
+
+    def rank(index: int) -> tuple[int, int, int]:
+        circuit = circuits[index]
+        two_qubit_instructions = sum(
+            1
+            for instruction in circuit.data
+            if len(instruction.qubits) == 2
+            and not getattr(instruction.operation, "_directive", False)
+        )
+        return two_qubit_instructions, circuit.depth(), -index
+
+    return max(range(len(circuits)), key=rank)
+
+
+def _validated_iqm_selector_result(
+    value: Any,
+    config: IQMQubitSelectorConfig,
+    logical_width: int,
+) -> tuple[str, tuple[tuple[int, ...], ...], tuple[float, ...]]:
+    invalid = "IQM qubit selector output is invalid"
+    expected_keys = {
+        "provider",
+        "version",
+        "configuration",
+        "layouts",
+        "costs",
+    }
+    try:
+        if not isinstance(value, Mapping) or set(value) != expected_keys:
+            raise ValueError
+        version = value["version"]
+        raw_layouts = value["layouts"]
+        raw_costs = value["costs"]
+        if (
+            value["provider"] != "iqm-qubit-selector"
+            or not isinstance(version, str)
+            or not version.strip()
+            or _unsafe_persisted_text(version)
+            or value["configuration"] != config.to_safe_dict()
+            or not isinstance(raw_layouts, Sequence)
+            or isinstance(raw_layouts, (str, bytes))
+            or not isinstance(raw_costs, Sequence)
+            or isinstance(raw_costs, (str, bytes))
+            or not raw_layouts
+            or len(raw_layouts) != len(raw_costs)
+            or len(raw_layouts) > config.top_k
+        ):
+            raise ValueError
+
+        layouts: list[tuple[int, ...]] = []
+        for raw_layout in raw_layouts:
+            if not isinstance(raw_layout, Sequence) or isinstance(
+                raw_layout, (str, bytes)
+            ):
+                raise ValueError
+            layout = tuple(raw_layout)
+            if (
+                len(layout) < logical_width
+                or any(
+                    type(index) is not int
+                    or index < 0
+                    or index in config.remove_qubits
+                    for index in layout
+                )
+                or len(set(layout)) != len(layout)
+            ):
+                raise ValueError
+            layouts.append(tuple(sorted(layout)))
+        costs: list[float] = []
+        for raw_cost in raw_costs:
+            if isinstance(raw_cost, bool) or not isinstance(raw_cost, Real):
+                raise ValueError
+            cost = float(raw_cost)
+            if not math.isfinite(cost) or cost < 0:
+                raise ValueError
+            costs.append(cost)
+        normalized_costs = tuple(costs)
+        if any(
+            left > right
+            for left, right in zip(normalized_costs, normalized_costs[1:])
+        ):
+            raise ValueError
+        deduplicated_layouts: list[tuple[int, ...]] = []
+        deduplicated_costs: list[float] = []
+        seen_layouts: set[tuple[int, ...]] = set()
+        for layout, cost in zip(layouts, normalized_costs, strict=True):
+            if layout in seen_layouts:
+                continue
+            seen_layouts.add(layout)
+            deduplicated_layouts.append(layout)
+            deduplicated_costs.append(cost)
+        normalized_layouts = tuple(deduplicated_layouts)
+        normalized_costs = tuple(deduplicated_costs)
+    except (KeyboardInterrupt, SystemExit, MemoryError):
+        raise
+    except Exception:
+        raise BackendCompatibilityError(invalid) from None
+
+    return version, normalized_layouts, normalized_costs
+
+
+def _workload_layout_candidates(
+    adapter: Any,
+    circuits: Sequence[QuantumCircuit],
+    spec: ExperimentSpec,
+    logical_width: int,
+    expected_identity: BackendIdentity | None,
+) -> tuple[tuple[_WorkloadLayoutCandidate, ...], Mapping[str, object] | None]:
+    search = spec.workload_optimization
+    if search is None:
+        raise ExperimentValidationError(
+            "workload layout candidates require workload optimization"
+        )
+
+    explicit = tuple(
+        _WorkloadLayoutCandidate(
+            layout=layout,
+            source="explicit",
+            selector_cost=None,
+        )
+        for layout in search.initial_layouts
+    )
+    selector_config = search.iqm_qubit_selector
+    if selector_config is None:
+        return explicit, None
+    if not isinstance(spec.backend, IQMHardware):
+        raise ExperimentValidationError(
+            "iqm_qubit_selector requires an IQMHardware backend"
+        )
+
+    identity = expected_identity
+    if identity is None:
+        try:
+            identity = adapter.resolve()
+        except (
+            KeyboardInterrupt,
+            SystemExit,
+            MemoryError,
+            OptionalDependencyError,
+        ):
+            raise
+        except Exception as error:
+            category = _workload_rejection_category(error)
+            raise BackendCompatibilityError(
+                "IQM adapter resolution failed before layout selection "
+                f"({category})"
+            ) from None
+    if not isinstance(identity, BackendIdentity):
+        raise BackendCompatibilityError("adapter resolve must return BackendIdentity")
+    _validate_adapter_target(spec, identity)
+
+    calibration_set_id = identity.metadata.get("calibration_set_id")
+    if (
+        not isinstance(calibration_set_id, str)
+        or not calibration_set_id.strip()
+        or _unsafe_persisted_text(calibration_set_id)
+    ):
+        raise BackendCompatibilityError(
+            "IQM selector requires a safe calibration_set_id"
+        ) from None
+
+    try:
+        suggest_layouts = getattr(adapter, "suggest_layouts")
+    except (
+        KeyboardInterrupt,
+        SystemExit,
+        MemoryError,
+        OptionalDependencyError,
+    ):
+        raise
+    except Exception:
+        raise BackendCompatibilityError(
+            "IQM adapter does not expose suggest_layouts"
+        ) from None
+    if not callable(suggest_layouts):
+        raise BackendCompatibilityError(
+            "IQM adapter does not expose callable suggest_layouts"
+        ) from None
+
+    try:
+        representative_index = _representative_circuit_index(circuits)
+    except (KeyboardInterrupt, SystemExit, MemoryError):
+        raise
+    except Exception as error:
+        category = _workload_rejection_category(error)
+        raise BackendCompatibilityError(
+            f"IQM qubit selector representative circuit inspection failed ({category})"
+        ) from None
+    representative = circuits[representative_index]
+    try:
+        representative_name = getattr(representative, "name", None)
+    except (KeyboardInterrupt, SystemExit, MemoryError):
+        raise
+    except Exception as error:
+        category = _workload_rejection_category(error)
+        raise BackendCompatibilityError(
+            f"IQM qubit selector circuit name lookup failed ({category})"
+        ) from None
+    if (
+        not isinstance(representative_name, str)
+        or not representative_name.strip()
+        or _unsafe_persisted_text(representative_name)
+    ):
+        raise ExperimentValidationError(
+            "selector representative circuit name is unsafe"
+        ) from None
+
+    try:
+        raw_result = suggest_layouts(representative, selector_config)
+    except (KeyboardInterrupt, SystemExit, MemoryError):
+        raise
+    except OptionalDependencyError:
+        raise
+    except Exception as error:
+        category = _workload_rejection_category(error)
+        raise BackendCompatibilityError(
+            "IQM qubit selector failed for backend "
+            f"{identity.kind}:{identity.name} ({category})"
+        ) from None
+
+    version, generated_layouts, costs = _validated_iqm_selector_result(
+        raw_result,
+        selector_config,
+        logical_width,
+    )
+    generated = tuple(
+        _WorkloadLayoutCandidate(
+            layout=layout,
+            source="iqm_qubit_selector",
+            selector_cost=cost,
+        )
+        for layout, cost in zip(generated_layouts, costs, strict=True)
+    )
+    canonical_explicit = tuple(
+        _WorkloadLayoutCandidate(
+            layout=tuple(sorted(candidate.layout)),
+            source=candidate.source,
+            selector_cost=candidate.selector_cost,
+        )
+        for candidate in explicit
+    )
+    merged_list = list(generated)
+    seen_layouts = set(generated_layouts)
+    for candidate in canonical_explicit:
+        if candidate.layout in seen_layouts:
+            continue
+        seen_layouts.add(candidate.layout)
+        merged_list.append(candidate)
+    merged = tuple(merged_list)
+    selector_metadata: dict[str, object] = {
+        "provider": "iqm-qubit-selector",
+        "version": version,
+        "calibration_set_id": calibration_set_id,
+        "configuration": selector_config.to_safe_dict(),
+        "representative_circuit_index": representative_index,
+        "representative_circuit_name": representative_name,
+        "layout_semantics": "routing_subgraph",
+        "generated_layouts": generated_layouts,
+        "generated_costs": costs,
+        "explicit_layouts": tuple(
+            candidate.layout for candidate in canonical_explicit
+        ),
+        "merged_layouts": tuple(candidate.layout for candidate in merged),
+    }
+    return merged, selector_metadata
+
+
 def _adapter_workload_target(adapter: Any) -> Any | None:
     for backend_attribute in ("backend", "target_backend"):
         try:
@@ -1138,6 +1489,46 @@ def _adapter_workload_target(adapter: Any) -> Any | None:
         if target is not None:
             return target
     return None
+
+
+def _adapter_qubit_capacity(
+    adapter: Any,
+    identity: BackendIdentity | None,
+) -> int:
+    if identity is not None:
+        candidate = identity.metadata.get("backend_num_qubits")
+        if type(candidate) is int and candidate > 0:
+            return candidate
+
+    for backend_attribute in ("backend", "target_backend"):
+        try:
+            backend = getattr(adapter, backend_attribute, None)
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except Exception:
+            continue
+        if backend is None:
+            continue
+        try:
+            target = getattr(backend, "target", None)
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except Exception:
+            target = None
+        for source in (backend, target):
+            try:
+                candidate = getattr(source, "num_qubits", None)
+                if callable(candidate):
+                    candidate = candidate()
+            except (KeyboardInterrupt, SystemExit, MemoryError):
+                raise
+            except Exception:
+                continue
+            if type(candidate) is int and candidate > 0:
+                return candidate
+    raise BackendCompatibilityError(
+        "IQM selector requires backend qubit capacity"
+    ) from None
 
 
 def _workload_metrics_metadata(
@@ -1235,10 +1626,36 @@ def _compile_measurement_workload(
         )
     logical_width = next(iter(logical_widths))
     search = spec.workload_optimization
-    if any(len(layout) != logical_width for layout in search.initial_layouts):
+    selector_enabled = search.iqm_qubit_selector is not None
+    if not selector_enabled and any(
+        len(layout) != logical_width for layout in search.initial_layouts
+    ):
         raise ExperimentValidationError(
             "workload optimization layout width must match logical circuit width"
         )
+    layout_candidates, selector_metadata = _workload_layout_candidates(
+        adapter,
+        workload_circuits,
+        spec,
+        logical_width,
+        expected_identity,
+    )
+    if selector_enabled:
+        capacity = _adapter_qubit_capacity(adapter, expected_identity)
+        for candidate in layout_candidates:
+            layout = candidate.layout
+            if len(layout) < logical_width:
+                raise ExperimentValidationError(
+                    "IQM routing subgraph is smaller than the logical circuit width"
+                ) from None
+            if len(layout) > capacity or any(index >= capacity for index in layout):
+                if candidate.source == "explicit":
+                    raise ExperimentValidationError(
+                        "IQM routing subgraph physical qubits exceed backend capacity"
+                    ) from None
+                raise BackendCompatibilityError(
+                    "IQM qubit selector output is invalid"
+                ) from None
 
     target = (
         _adapter_workload_target(adapter)
@@ -1250,11 +1667,13 @@ def _compile_measurement_workload(
             int,
             _CompiledWorkloadCandidate,
             tuple[tuple[int, ...], ...],
+            tuple[int, ...],
         ]
     ] = []
     candidate_rows: list[dict[str, object]] = []
     candidate_index = 0
-    for layout in search.initial_layouts:
+    for layout_candidate in layout_candidates:
+        layout = layout_candidate.layout
         for seed in search.seed_transpilers:
             row: dict[str, object] = {
                 "status": "rejected",
@@ -1262,14 +1681,33 @@ def _compile_measurement_workload(
                 "layout": list(layout),
                 "seed_transpiler": seed,
             }
+            if selector_metadata is not None:
+                row["layout_source"] = layout_candidate.source
+                row["selector_cost"] = layout_candidate.selector_cost
             try:
                 config = replace(
                     spec.transpilation,
-                    initial_layout=layout,
+                    initial_layout=(
+                        None if selector_metadata is not None else layout
+                    ),
                     seed_transpiler=seed,
                 )
+                compiled_value = (
+                    _compile_restricted_with_adapter(
+                        adapter,
+                        workload_circuits,
+                        config,
+                        layout,
+                    )
+                    if selector_metadata is not None
+                    else _compile_with_adapter(
+                        adapter,
+                        workload_circuits,
+                        config,
+                    )
+                )
                 batch = _validate_compiled_workload_batch(
-                    _compile_with_adapter(adapter, workload_circuits, config),
+                    compiled_value,
                     expected_identity=expected_identity,
                     expected_count=len(workload_settings),
                     spec=spec,
@@ -1296,12 +1734,21 @@ def _compile_measurement_workload(
                     requested_physical_qubits=layout,
                     target=target,
                 )
-                if search.require_exact_physical_qubit_set and not metrics.aggregate[
-                    "uses_exact_physical_qubit_set"
-                ]:
-                    raise BackendCompatibilityError(
-                        "compiled workload escaped requested physical layout"
+                if selector_metadata is not None:
+                    active_physical_qubits = _validate_routing_subgraph(
+                        batch.circuits,
+                        layout,
+                        require_exact=search.require_exact_physical_qubit_set,
+                        context="compiled workload",
                     )
+                else:
+                    active_physical_qubits = ()
+                    if search.require_exact_physical_qubit_set and not metrics.aggregate[
+                        "uses_exact_physical_qubit_set"
+                    ]:
+                        raise BackendCompatibilityError(
+                            "compiled workload escaped requested physical layout"
+                        )
             except (KeyboardInterrupt, SystemExit, MemoryError):
                 raise
             except Exception as error:
@@ -1319,8 +1766,19 @@ def _compile_measurement_workload(
                     metrics,
                     compact=True,
                 )
+                if selector_metadata is not None:
+                    row["active_physical_qubit_union"] = list(
+                        active_physical_qubits
+                    )
                 candidate_rows.append(row)
-                accepted.append((candidate_index, candidate, physical_mappings))
+                accepted.append(
+                    (
+                        candidate_index,
+                        candidate,
+                        physical_mappings,
+                        active_physical_qubits,
+                    )
+                )
             candidate_index += 1
 
     if not accepted:
@@ -1329,10 +1787,10 @@ def _compile_measurement_workload(
         ) from None
 
     use_error, use_duration = choose_workload_ranking_basis(
-        tuple(candidate.metrics for _, candidate, _ in accepted),
+        tuple(candidate.metrics for _, candidate, _, _ in accepted),
         prefer_calibration=search.prefer_calibration_metrics,
     )
-    selected_index, selected, selected_mappings = min(
+    selected_index, selected, selected_mappings, selected_active_qubits = min(
         accepted,
         key=lambda item: workload_rank_key(
             item[1].metrics,
@@ -1355,6 +1813,12 @@ def _compile_measurement_workload(
             compact=False,
         ),
     }
+    if selector_metadata is not None:
+        metadata["layout_semantics"] = "routing_subgraph"
+        metadata["active_physical_qubit_union"] = list(
+            selected_active_qubits
+        )
+        metadata["selector"] = selector_metadata
     return _CompiledWorkloadSelection(
         batch=selected.batch,
         physical_mappings=selected_mappings,
@@ -1379,6 +1843,21 @@ def _validate_selected_physical_set(
         raise BackendCompatibilityError(
             f"{context} measured physical qubit set does not match "
             "selected physical layout"
+        )
+
+
+def _validate_measurement_mappings(
+    physical_mappings: Sequence[Sequence[int]],
+    expected_mappings: Sequence[Sequence[int]],
+    *,
+    context: str,
+) -> None:
+    normalized = tuple(tuple(mapping) for mapping in physical_mappings)
+    expected = tuple(tuple(mapping) for mapping in expected_mappings)
+    if normalized != expected:
+        raise BackendCompatibilityError(
+            f"{context} physical measurement mapping does not match "
+            "selected workload"
         )
 
 
@@ -2270,7 +2749,12 @@ def run_experiment(
     resolved_adapter = create_backend_adapter(spec.backend) if adapter is None else adapter
     try:
         identity = resolved_adapter.resolve()
-    except (KeyboardInterrupt, SystemExit):
+    except (
+        KeyboardInterrupt,
+        SystemExit,
+        MemoryError,
+        OptionalDependencyError,
+    ):
         raise
     except Exception:
         raise BackendCompatibilityError("adapter resolution failed") from None
@@ -2290,6 +2774,8 @@ def run_experiment(
     compiled = workload_selection.batch
     selected_layout: tuple[int, ...] = ()
     require_exact_selected_layout = False
+    routing_subgraph_mode = False
+    expected_execution_physical_mappings: tuple[tuple[int, ...], ...] = ()
     if spec.workload_optimization is not None:
         selected_layout = tuple(
             workload_selection.metadata["selected_layout"]
@@ -2297,12 +2783,26 @@ def run_experiment(
         require_exact_selected_layout = (
             spec.workload_optimization.require_exact_physical_qubit_set
         )
-        _validate_selected_physical_set(
-            workload_selection.physical_mappings,
-            selected_layout,
-            require_exact=require_exact_selected_layout,
-            context="selected workload",
+        routing_subgraph_mode = (
+            spec.workload_optimization.iqm_qubit_selector is not None
         )
+        if routing_subgraph_mode:
+            expected_execution_physical_mappings = (
+                workload_selection.physical_mappings
+            )
+            _validate_routing_subgraph(
+                compiled.circuits,
+                selected_layout,
+                require_exact=require_exact_selected_layout,
+                context="selected workload",
+            )
+        else:
+            _validate_selected_physical_set(
+                workload_selection.physical_mappings,
+                selected_layout,
+                require_exact=require_exact_selected_layout,
+                context="selected workload",
+            )
 
     twirled = None
     twirled_physical_qubit_mappings = None
@@ -2333,12 +2833,29 @@ def run_experiment(
         twirled_physical_qubit_mappings = (
             _collapse_twirled_physical_qubit_mappings(twirled)
         )
-        _validate_selected_physical_set(
-            twirled_physical_qubit_mappings,
-            selected_layout,
-            require_exact=require_exact_selected_layout,
-            context="twirled workload",
-        )
+        if routing_subgraph_mode:
+            _validate_measurement_mappings(
+                twirled_physical_qubit_mappings,
+                workload_selection.physical_mappings,
+                context="twirled workload",
+            )
+            _validate_routing_subgraph(
+                twirled.circuits,
+                selected_layout,
+                require_exact=require_exact_selected_layout,
+                context="twirled workload",
+            )
+            expected_execution_physical_mappings = tuple(
+                workload_selection.physical_mappings[original_index]
+                for original_index in twirled.original_indices
+            )
+        else:
+            _validate_selected_physical_set(
+                twirled_physical_qubit_mappings,
+                selected_layout,
+                require_exact=require_exact_selected_layout,
+                context="twirled workload",
+            )
         execution_compiled = CompiledBatch(
             twirled.circuits,
             identity,
@@ -2369,14 +2886,27 @@ def run_experiment(
         else (1,)
     )
     batches = _factor_batches(execution_compiled, factors)
-    if require_exact_selected_layout:
+    if routing_subgraph_mode or require_exact_selected_layout:
         for factor, batch in batches.items():
-            _validate_selected_physical_set(
-                _physical_qubit_mappings(batch),
-                selected_layout,
-                require_exact=True,
-                context=f"ZNE factor {factor} workload",
-            )
+            if routing_subgraph_mode:
+                _validate_measurement_mappings(
+                    _physical_qubit_mappings(batch),
+                    expected_execution_physical_mappings,
+                    context=f"ZNE factor {factor} workload",
+                )
+                _validate_routing_subgraph(
+                    batch,
+                    selected_layout,
+                    require_exact=require_exact_selected_layout,
+                    context=f"ZNE factor {factor} workload",
+                )
+            else:
+                _validate_selected_physical_set(
+                    _physical_qubit_mappings(batch),
+                    selected_layout,
+                    require_exact=True,
+                    context=f"ZNE factor {factor} workload",
+                )
     jobs: list[SubmittedJob] = []
     physical_qubit_mappings = None
     calibration = None

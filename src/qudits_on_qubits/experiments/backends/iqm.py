@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from enum import Enum
 import math
+from numbers import Real
 from typing import Any, Mapping, Sequence
+
+from qiskit import QuantumCircuit
 
 from ...benchmarks.direct_basis.iqm_backend import (
     backend_metadata,
@@ -16,7 +19,7 @@ from ..errors import (
     JobResultError,
     OptionalDependencyError,
 )
-from ..models import IQMHardware, TranspilationConfig
+from ..models import IQMHardware, IQMQubitSelectorConfig, TranspilationConfig
 from .base import (
     Availability,
     BackendCapabilities,
@@ -37,6 +40,40 @@ _SECRET_KEYS = ("token", "password", "secret", "api_key", "dashboard_api_key")
 
 def _default_backend_loader(device: str, use_metrics: bool, env_path: Any) -> Any:
     return load_iqm_backend(device, use_metrics=use_metrics, env_path=env_path)
+
+
+def _default_layout_selector(
+    backend: Any,
+    circuit: Any,
+    config: IQMQubitSelectorConfig,
+) -> tuple[Any, Any, str]:
+    from importlib.metadata import version
+
+    from iqm.qubit_selector.qubit_selector import (
+        CostEvaluator,
+        CostFunction,
+        ReadoutMode,
+    )
+
+    cost_functions = {
+        "cz": CostFunction.GATE_COST_CZ,
+        "clifford": CostFunction.GATE_COST_CLIFFORD,
+    }
+    readout_modes = {
+        "none": ReadoutMode.NONE,
+        "fidelity": ReadoutMode.FIDELITY,
+        "qndness": ReadoutMode.QNDNESS,
+    }
+    evaluator = CostEvaluator(
+        backend=backend,
+        quantum_circuit=circuit,
+        cost_function=cost_functions[config.cost_function],
+        readoutmode=readout_modes[config.readout_mode],
+        remove_qubits=(list(config.remove_qubits) if config.remove_qubits else None),
+        num_trials=config.num_trials,
+    )
+    layouts, costs = evaluator.get_top_layouts(num_layouts=config.top_k)
+    return layouts, costs, version("iqm-qubit-selector")
 
 
 def _default_transpiler(circuit: Any, backend: Any, **options: Any) -> Any:
@@ -75,6 +112,7 @@ class IQMAdapter(BaseBackendAdapter):
         backend_loader: Any = None,
         transpiler: Any = None,
         loader: Any = None,
+        layout_selector: Any = None,
     ) -> None:
         if not isinstance(spec, IQMHardware):
             raise BackendCompatibilityError("IQMAdapter requires an IQMHardware specification")
@@ -87,10 +125,17 @@ class IQMAdapter(BaseBackendAdapter):
             raise BackendCompatibilityError("IQM backend loader must be callable")
         if transpiler is not None and not callable(transpiler):
             raise BackendCompatibilityError("IQM transpiler must be callable")
+        if layout_selector is not None and not callable(layout_selector):
+            raise BackendCompatibilityError("IQM layout selector must be callable")
         self._spec = spec
         self._backend = backend
         self._backend_loader = selected_loader or _default_backend_loader
         self._transpiler = transpiler or _default_transpiler
+        self._layout_selector = (
+            layout_selector
+            if layout_selector is not None
+            else _default_layout_selector
+        )
         self._identity: BackendIdentity | None = None
 
     @property
@@ -106,6 +151,8 @@ class IQMAdapter(BaseBackendAdapter):
                 use_metrics=self._spec.use_metrics,
                 env_path=self._spec.env_path,
             )
+        except MemoryError:
+            raise
         except (ImportError, ModuleNotFoundError) as error:
             raise OptionalDependencyError(
                 "IQMHardware requires the IQM Qiskit adapter; install project IQM dependencies "
@@ -220,6 +267,101 @@ class IQMAdapter(BaseBackendAdapter):
             {"transpilation": options},
         )
 
+    def compile_restricted(
+        self,
+        circuits: Sequence[Any],
+        config: TranspilationConfig,
+        physical_qubits: Sequence[int],
+    ) -> CompiledBatch:
+        """Compile on an allowed IQM routing subgraph, then restore provider indices."""
+
+        batch = _validated_circuit_tuple(circuits)
+        if not isinstance(config, TranspilationConfig):
+            raise BackendCompatibilityError(
+                "compile_restricted requires TranspilationConfig"
+            )
+        if config.initial_layout is not None:
+            raise BackendCompatibilityError(
+                "compile_restricted does not accept initial_layout"
+            )
+        if not isinstance(physical_qubits, Sequence) or isinstance(
+            physical_qubits, (str, bytes)
+        ):
+            raise BackendCompatibilityError(
+                "restricted physical qubits must be a sequence of integers"
+            )
+        restricted_qubits = tuple(physical_qubits)
+        if any(type(index) is not int for index in restricted_qubits):
+            raise BackendCompatibilityError(
+                "restricted physical qubits must contain integers"
+            )
+        if any(index < 0 for index in restricted_qubits):
+            raise BackendCompatibilityError(
+                "restricted physical qubits must be non-negative"
+            )
+        if len(set(restricted_qubits)) != len(restricted_qubits):
+            raise BackendCompatibilityError(
+                "restricted physical qubits must be distinct"
+            )
+
+        backend = self._backend_instance()
+        try:
+            capacity = _num_qubits(backend)
+            logical_widths = tuple(_num_qubits(circuit) for circuit in batch)
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except Exception:
+            raise BackendCompatibilityError(
+                "restricted IQM compilation requires qubit widths"
+            ) from None
+        if capacity is None or any(width is None for width in logical_widths):
+            raise BackendCompatibilityError(
+                "restricted IQM compilation requires qubit widths"
+            )
+        if len(restricted_qubits) < max(logical_widths):
+            raise BackendCompatibilityError(
+                "restricted physical subgraph is smaller than the logical circuit width"
+            )
+        if len(restricted_qubits) > capacity or any(
+            index >= capacity for index in restricted_qubits
+        ):
+            raise BackendCompatibilityError(
+                "restricted physical qubits exceed backend capacity"
+            )
+
+        options = _effective_options(config)
+        options["restrict_to_qubits"] = list(restricted_qubits)
+        compiled = self._transpile_batch(
+            batch,
+            options,
+            operation="compile restricted circuits",
+        )
+        try:
+            inflated = tuple(
+                _inflate_restricted_circuit(
+                    circuit,
+                    restricted_qubits=restricted_qubits,
+                    backend_width=capacity,
+                )
+                for circuit in compiled
+            )
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except Exception as error:
+            identity = self.resolve()
+            raise BackendCompatibilityError(
+                "could not compile restricted circuits for backend "
+                f"{identity.kind}:{identity.name} ({_exception_name(error)})"
+            ) from None
+        return CompiledBatch(
+            inflated,
+            self.resolve(),
+            {
+                "transpilation": options,
+                "restricted_physical_qubits": restricted_qubits,
+            },
+        )
+
     def compile_physical(
         self, circuits: Sequence[Any], config: TranspilationConfig
     ) -> CompiledBatch:
@@ -249,6 +391,131 @@ class IQMAdapter(BaseBackendAdapter):
             self.resolve(),
             {"transpilation": options, "physical_layout": True},
         )
+
+    def suggest_layouts(
+        self,
+        circuit: QuantumCircuit,
+        config: IQMQubitSelectorConfig,
+    ) -> Mapping[str, Any]:
+        if not isinstance(circuit, QuantumCircuit):
+            raise BackendCompatibilityError(
+                "IQM qubit selector requires a QuantumCircuit"
+            )
+        if not isinstance(config, IQMQubitSelectorConfig):
+            raise BackendCompatibilityError(
+                "IQM qubit selector requires IQMQubitSelectorConfig"
+            )
+        backend = self._backend_instance()
+        try:
+            capacity = _num_qubits(backend)
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except Exception:
+            raise BackendCompatibilityError(
+                "IQM qubit selector requires backend qubit capacity"
+            ) from None
+        if capacity is None:
+            raise BackendCompatibilityError(
+                "IQM qubit selector requires backend qubit capacity"
+            )
+        if any(index >= capacity for index in config.remove_qubits):
+            raise BackendCompatibilityError(
+                "IQM qubit selector remove_qubits exceed backend capacity"
+            )
+        try:
+            raw_result = self._layout_selector(backend, circuit, config)
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except (ImportError, ModuleNotFoundError) as error:
+            raise OptionalDependencyError(
+                "IQM automatic layout selection requires iqm-qubit-selector "
+                f"({_exception_name(error)})"
+            ) from None
+        except Exception as error:
+            raise BackendCompatibilityError(
+                "IQM qubit selector failed for backend "
+                f"iqm:{self._spec.device} ({_exception_name(error)})"
+            ) from None
+
+        try:
+            if not isinstance(raw_result, (tuple, list)) or len(raw_result) != 3:
+                raise ValueError
+            raw_layouts, raw_costs, version = raw_result
+            if (
+                not isinstance(raw_layouts, Sequence)
+                or isinstance(raw_layouts, (str, bytes))
+                or not isinstance(raw_costs, Sequence)
+                or isinstance(raw_costs, (str, bytes))
+                or not raw_layouts
+                or len(raw_layouts) != len(raw_costs)
+                or len(raw_layouts) > config.top_k
+                or not isinstance(version, str)
+                or not version
+                or not _safe_metadata_text(version)
+            ):
+                raise ValueError
+            if any(
+                not isinstance(layout, Sequence)
+                or isinstance(layout, (str, bytes))
+                for layout in raw_layouts
+            ):
+                raise ValueError
+            raw_layout_tuples = tuple(tuple(layout) for layout in raw_layouts)
+            if (
+                any(
+                    not layout
+                    or len(layout) < circuit.num_qubits
+                    or len(layout) > capacity
+                    or any(
+                        type(index) is not int
+                        or index < 0
+                        or index >= capacity
+                        or index in config.remove_qubits
+                        for index in layout
+                    )
+                    or len(set(layout)) != len(layout)
+                    for layout in raw_layout_tuples
+                )
+            ):
+                raise ValueError
+            costs = tuple(float(cost) for cost in raw_costs)
+            if (
+                any(
+                    isinstance(cost, bool)
+                    or not isinstance(cost, Real)
+                    or not math.isfinite(float(cost))
+                    or float(cost) < 0
+                    for cost in raw_costs
+                )
+                or any(left > right for left, right in zip(costs, costs[1:]))
+            ):
+                raise ValueError
+            layouts_list: list[tuple[int, ...]] = []
+            costs_list: list[float] = []
+            seen_layouts: set[tuple[int, ...]] = set()
+            for raw_layout, cost in zip(raw_layout_tuples, costs):
+                layout = tuple(sorted(raw_layout))
+                if layout in seen_layouts:
+                    continue
+                seen_layouts.add(layout)
+                layouts_list.append(layout)
+                costs_list.append(cost)
+            layouts = tuple(layouts_list)
+            costs = tuple(costs_list)
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except Exception:
+            raise BackendCompatibilityError(
+                "IQM qubit selector output is invalid"
+            ) from None
+
+        return {
+            "provider": "iqm-qubit-selector",
+            "version": version,
+            "configuration": config.to_safe_dict(),
+            "layouts": layouts,
+            "costs": costs,
+        }
 
     def submit(
         self,
@@ -298,6 +565,25 @@ class IQMAdapter(BaseBackendAdapter):
         )
 
 
+def _inflate_restricted_circuit(
+    circuit: Any,
+    *,
+    restricted_qubits: tuple[int, ...],
+    backend_width: int,
+) -> QuantumCircuit:
+    if (
+        not isinstance(circuit, QuantumCircuit)
+        or circuit.num_qubits != len(restricted_qubits)
+    ):
+        raise ValueError("invalid restricted IQM transpiler output")
+    auxiliary = QuantumCircuit(backend_width, circuit.num_clbits)
+    return auxiliary.compose(
+        circuit,
+        qubits=list(restricted_qubits),
+        clbits=list(range(circuit.num_clbits)),
+    )
+
+
 def _backend_availability(backend: Any, provider: str) -> Availability:
     status_method = getattr(backend, "status", None)
     if not callable(status_method):
@@ -332,6 +618,8 @@ def _num_qubits(value: Any) -> int | None:
     if callable(candidate):
         try:
             candidate = candidate()
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
         except Exception:
             candidate = None
     if candidate is None:
