@@ -625,6 +625,146 @@ def test_interrupted_postprocessing_resumes_exact_direct_result_from_saved_count
     ]
 
 
+def test_selector_metadata_survives_checkpoint_resume_without_reselection(
+    tmp_path, prepared_run, monkeypatch
+):
+    import qudits_on_qubits.experiments.runner as runner
+
+    setting = ("A0",)
+    logical = QuantumCircuit(2, 2, name="logical-selector-resume")
+    logical.measure((0, 1), (0, 1))
+    metadata = {
+        "setting_by_circuit_index": (setting,),
+        "terms": (
+            {
+                "coeff": 1.0 + 0.0j,
+                "settings": setting,
+                "powers": (0,),
+                "source": "selector-resume",
+            },
+        ),
+        "qutrit_bit_indices_by_setting": {setting: ((0, 1),)},
+        "physical_to_logical_outcome_map": {
+            0: 0,
+            1: 1,
+            2: 2,
+            3: None,
+        },
+        "d": 3,
+        "qutrit_qubits": ((0, 1),),
+        "candidate": "two_qutrit",
+    }
+    monkeypatch.setattr(
+        runner,
+        "prepare_measurements",
+        lambda _artifacts: SimpleNamespace(circuits=(logical,), metadata=metadata),
+    )
+
+    def compiler(config, identity):
+        compiled = _physical_measurement_circuit(
+            config.initial_layout,
+            name="selector-resume-compiled",
+        )
+        return CompiledBatch(
+            (compiled,),
+            identity,
+            {"transpilation": config.to_safe_dict()},
+        )
+
+    class SelectorResumeAdapter(_SelectorCandidateAdapter):
+        def result(self, submitted, timeout=None):
+            self.calls.append(("result", submitted, timeout))
+            return ExecutionResult(
+                ({"00": 8, "11": 2},),
+                submitted.job_id,
+                self.identity,
+                status="done",
+            )
+
+    selector = IQMQubitSelectorConfig(top_k=1)
+    adapter = SelectorResumeAdapter(
+        compiler,
+        {
+            "provider": "iqm-qubit-selector",
+            "version": "1.1.0",
+            "configuration": selector.to_safe_dict(),
+            "layouts": ((0, 1),),
+            "costs": (0.02,),
+        },
+    )
+    spec = make_spec(
+        tmp_path,
+        backend=IQMHardware("garnet"),
+        workload_optimization=WorkloadOptimizationConfig(
+            initial_layouts=((0, 1),),
+            seed_transpilers=(3,),
+            iqm_qubit_selector=selector,
+        ),
+    )
+    real_bootstrap = runner.bootstrap_bell_results
+
+    def interrupt_after_checkpoint(*_args, **_kwargs):
+        artifacts = list(spec.output_root.glob("**/experiment.json"))
+        assert len(artifacts) == 1
+        checkpoint = json.loads(artifacts[0].read_text(encoding="utf-8"))
+        assert checkpoint["status"] == "postprocessing"
+        assert (
+            checkpoint["workload_optimization"]["selector"]["provider"]
+            == "iqm-qubit-selector"
+        )
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(runner, "bootstrap_bell_results", interrupt_after_checkpoint)
+    with pytest.raises(KeyboardInterrupt) as interrupted:
+        runner.run_experiment(spec, adapter=adapter)
+
+    artifact_dir = interrupted.value.__qoq_artifact_dir__
+    checkpoint = json.loads(
+        (artifact_dir / "experiment.json").read_text(encoding="utf-8")
+    )
+    selector_metadata = checkpoint["workload_optimization"]["selector"]
+    assert selector_metadata == {
+        "provider": "iqm-qubit-selector",
+        "version": "1.1.0",
+        "calibration_set_id": "cal-17",
+        "configuration": selector.to_safe_dict(),
+        "representative_circuit_index": 0,
+        "representative_circuit_name": "logical-selector-resume",
+        "generated_layouts": [[0, 1]],
+        "generated_costs": [0.02],
+        "explicit_layouts": [[0, 1]],
+        "merged_layouts": [[0, 1]],
+    }
+    assert adapter.selector_calls == [(logical, selector)]
+    assert len(adapter.compile_calls) == 1
+    adapter_calls = tuple(adapter.calls)
+    compile_calls = tuple(adapter.compile_calls)
+
+    monkeypatch.setattr(runner, "bootstrap_bell_results", real_bootstrap)
+    create_adapter = Mock(side_effect=AssertionError("backend lifecycle restarted"))
+    select_layouts = Mock(side_effect=AssertionError("selector called during resume"))
+    compile_workload = Mock(side_effect=AssertionError("compile called during resume"))
+    monkeypatch.setattr(runner, "create_backend_adapter", create_adapter)
+    monkeypatch.setattr(runner, "_workload_layout_candidates", select_layouts)
+    monkeypatch.setattr(runner, "_compile_measurement_workload", compile_workload)
+    resumed = runner.resume_experiment(artifact_dir, spec=spec)
+
+    assert resumed.status is ExperimentStatus.COMPLETED
+    assert resumed.artifact_dir == artifact_dir
+    create_adapter.assert_not_called()
+    select_layouts.assert_not_called()
+    compile_workload.assert_not_called()
+    assert adapter.selector_calls == [(logical, selector)]
+    assert tuple(adapter.compile_calls) == compile_calls
+    assert tuple(adapter.calls) == adapter_calls
+    final_document = json.loads(
+        (artifact_dir / "experiment.json").read_text(encoding="utf-8")
+    )
+    assert final_document["status"] == "completed"
+    assert final_document["workload_optimization"]["selector"] == selector_metadata
+    assert len(list(spec.output_root.glob("**/experiment.json"))) == 1
+
+
 def test_injected_strategy_checkpoint_preserves_calibration_but_is_not_resumable(
     tmp_path, prepared_run, monkeypatch
 ):
