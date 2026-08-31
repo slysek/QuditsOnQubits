@@ -12,6 +12,17 @@ from packaging.version import Version
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _distribution_owns_module_origin(distribution, module_origin):
+    distribution_files = distribution.files
+    if distribution_files is None:
+        raise AssertionError("distribution does not list owned files")
+    owned_paths = {
+        Path(distribution.locate_file(relative_path)).resolve()
+        for relative_path in distribution_files
+    }
+    return module_origin.resolve() in owned_paths
+
+
 class IQMDependencyCompatibilityTests(unittest.TestCase):
     def test_base_dependencies_match_iqm_os_4_6_qiskit_window(self):
         pyproject = tomllib.loads(
@@ -95,16 +106,51 @@ class IQMDependencyCompatibilityTests(unittest.TestCase):
                 distribution = importlib.metadata.distribution(distribution_name)
                 self.assertIn(Version(distribution.version), supported_versions)
 
-                distribution_root = Path(distribution.locate_file("")).resolve()
                 module_spec = importlib.util.find_spec(module_name)
                 self.assertIsNotNone(module_spec)
                 self.assertIsNotNone(module_spec.origin)
                 module_origin = Path(module_spec.origin).resolve()
                 self.assertTrue(
-                    module_origin.is_relative_to(distribution_root),
-                    f"{module_name} resolved outside {distribution_name}: "
-                    f"{module_origin} is not inside {distribution_root}",
+                    _distribution_owns_module_origin(distribution, module_origin),
+                    f"{module_name} resolved to a file not owned by "
+                    f"{distribution_name}: {module_origin}",
                 )
+
+    def test_module_provenance_rejects_other_distribution_in_shared_root(self):
+        shared_root = Path("C:/shared-site-packages").resolve()
+
+        class SelectorDistribution:
+            files = (Path("iqm/qubit_selector/qubit_selector.py"),)
+
+            @staticmethod
+            def locate_file(relative_path):
+                return shared_root / relative_path
+
+        client_module_origin = (
+            shared_root / "iqm" / "qiskit_iqm" / "__init__.py"
+        )
+
+        self.assertFalse(
+            _distribution_owns_module_origin(
+                SelectorDistribution(), client_module_origin
+            )
+        )
+
+    def test_module_provenance_requires_distribution_file_manifest(self):
+        shared_root = Path("C:/shared-site-packages").resolve()
+
+        class DistributionWithoutFiles:
+            files = None
+
+            @staticmethod
+            def locate_file(relative_path):
+                return shared_root / relative_path
+
+        with self.assertRaisesRegex(AssertionError, "does not list owned files"):
+            _distribution_owns_module_origin(
+                DistributionWithoutFiles(),
+                shared_root / "iqm" / "qubit_selector" / "qubit_selector.py",
+            )
 
     def test_mitigation_extra_uses_rem_compatible_versions(self):
         pyproject = tomllib.loads(
