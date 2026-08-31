@@ -248,6 +248,180 @@ def test_iqm_compile_accepts_all_explicit_options():
     }
 
 
+def test_iqm_compile_restricted_uses_subgraph_and_inflates_provider_indices():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    backend = _Backend()
+    source = QuantumCircuit(2, 2)
+    restricted = QuantumCircuit(3, 2)
+    restricted.x(0)
+    restricted.cx(0, 2)
+    restricted.measure(0, 0)
+    restricted.measure(2, 1)
+    calls = []
+
+    def transpiler(circuit, actual_backend, **options):
+        calls.append((circuit, actual_backend, options))
+        return restricted
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"), backend=backend, transpiler=transpiler
+    )
+    config = TranspilationConfig(
+        optimization_level=2,
+        seed_transpiler=11,
+        layout_method="dense",
+        routing_method="sabre",
+        scheduling_method="alap",
+    )
+
+    result = adapter.compile_restricted((source,), config, (7, 4, 8))
+
+    assert calls == [
+        (
+            source,
+            backend,
+            {
+                "optimization_level": 2,
+                "seed_transpiler": 11,
+                "layout_method": "dense",
+                "routing_method": "sabre",
+                "scheduling_method": "alap",
+                "restrict_to_qubits": [7, 4, 8],
+            },
+        )
+    ]
+    inflated = result.circuits[0]
+    assert isinstance(inflated, QuantumCircuit)
+    assert inflated.num_qubits == backend.num_qubits
+    assert inflated.num_clbits == restricted.num_clbits
+    operations = [
+        (
+            instruction.operation.name,
+            tuple(inflated.find_bit(qubit).index for qubit in instruction.qubits),
+            tuple(inflated.find_bit(clbit).index for clbit in instruction.clbits),
+        )
+        for instruction in inflated.data
+    ]
+    assert operations == [
+        ("x", (7,), ()),
+        ("cx", (7, 8), ()),
+        ("measure", (7,), (0,)),
+        ("measure", (8,), (1,)),
+    ]
+    assert result.metadata == {
+        "transpilation": {
+            "optimization_level": 2,
+            "seed_transpiler": 11,
+            "layout_method": "dense",
+            "routing_method": "sabre",
+            "scheduling_method": "alap",
+            "restrict_to_qubits": (7, 4, 8),
+        },
+        "restricted_physical_qubits": (7, 4, 8),
+    }
+
+    adapter.submit(result.circuits, 10)
+    submitted_circuits, submitted_options = backend.run_calls[-1]
+    assert submitted_circuits is result.circuits
+    assert submitted_circuits[0].num_qubits == backend.num_qubits
+    assert submitted_options == {"shots": 10}
+
+
+@pytest.mark.parametrize(
+    ("physical_qubits", "message"),
+    [
+        ((4,), "logical"),
+        ((4, 4), "distinct"),
+        ((4, -1), "non-negative"),
+        ((4, True), "integers"),
+        ((4, 20), "capacity"),
+    ],
+)
+def test_iqm_compile_restricted_rejects_invalid_subgraph_without_transpiling(
+    physical_qubits,
+    message,
+):
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        transpiler=lambda *_args, **_kwargs: pytest.fail("transpiler called"),
+    )
+
+    with pytest.raises(BackendCompatibilityError, match=message):
+        adapter.compile_restricted(
+            (QuantumCircuit(2),),
+            TranspilationConfig(),
+            physical_qubits,
+        )
+
+
+def test_iqm_compile_restricted_rejects_initial_layout_without_transpiling():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        transpiler=lambda *_args, **_kwargs: pytest.fail("transpiler called"),
+    )
+
+    with pytest.raises(BackendCompatibilityError, match="initial_layout"):
+        adapter.compile_restricted(
+            (QuantumCircuit(2),),
+            TranspilationConfig(initial_layout=(4, 7)),
+            (4, 7),
+        )
+
+
+@pytest.mark.parametrize(
+    "compiled",
+    [object(), QuantumCircuit(2)],
+)
+def test_iqm_compile_restricted_rejects_invalid_transpiler_output(compiled):
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        transpiler=lambda *_args, **_kwargs: compiled,
+    )
+
+    with pytest.raises(BackendCompatibilityError, match="restricted"):
+        adapter.compile_restricted(
+            (QuantumCircuit(2),),
+            TranspilationConfig(),
+            (4, 7, 8),
+        )
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        KeyboardInterrupt("restricted interrupted"),
+        SystemExit("restricted stopped"),
+        MemoryError("restricted exhausted"),
+    ],
+)
+def test_iqm_compile_restricted_propagates_critical_base_exceptions(failure):
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    def fail(*_args, **_kwargs):
+        raise failure
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"), backend=_Backend(), transpiler=fail
+    )
+
+    with pytest.raises(type(failure), match="restricted"):
+        adapter.compile_restricted(
+            (QuantumCircuit(2),),
+            TranspilationConfig(),
+            (4, 7),
+        )
+
+
 def test_iqm_injected_backend_never_calls_loader():
     from qudits_on_qubits.experiments.backends import IQMAdapter
 
@@ -423,6 +597,28 @@ def test_iqm_suggest_layouts_uses_resolved_backend_and_safe_config():
         "layouts": ((4, 7), (8, 9)),
         "costs": (0.02, 0.03),
     }
+
+
+def test_iqm_suggest_layouts_canonicalizes_and_deduplicates_routing_subgraphs():
+    from qudits_on_qubits.experiments.backends import IQMAdapter
+
+    adapter = IQMAdapter(
+        IQMHardware("garnet"),
+        backend=_Backend(),
+        layout_selector=lambda *_args: (
+            ([8, 4, 7], [7, 8, 4], [9, 2]),
+            (0.01, 0.02, 0.03),
+            "1.1.2",
+        ),
+    )
+
+    result = adapter.suggest_layouts(
+        QuantumCircuit(2),
+        IQMQubitSelectorConfig(top_k=3),
+    )
+
+    assert result["layouts"] == ((4, 7, 8), (2, 9))
+    assert result["costs"] == (0.01, 0.03)
 
 
 def test_iqm_rejects_non_callable_layout_selector():
@@ -678,7 +874,6 @@ def test_iqm_suggest_layouts_rejects_removed_qubit_outside_capacity():
     ("layouts", "costs", "version"),
     [
         ((), (), "1.1.0"),
-        (((4, 7), (4, 7)), (0.02, 0.03), "1.1.0"),
         (((4, 4),), (0.02,), "1.1.0"),
         (((4,),), (0.02,), "1.1.0"),
         (((4, 20),), (0.02,), "1.1.0"),
