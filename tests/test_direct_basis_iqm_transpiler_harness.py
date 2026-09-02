@@ -4,6 +4,7 @@ import json
 import sys
 import tempfile
 import unittest
+from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -32,6 +33,9 @@ from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_harness import (
 )
 from qudits_on_qubits.benchmarks.direct_basis.phase_equivalence import (
     PHASE_DUPLICATE_COLUMNS,
+)
+from qudits_on_qubits.benchmarks.direct_basis.pareto_selection import (
+    analyze_iqm_trials,
 )
 
 
@@ -82,6 +86,18 @@ def _analysis_loader(states):
         return states[Path(path).name], ""
 
     return load
+
+
+OUTPUT_FILENAMES = {
+    "all_trials_csv": "all_trials.csv",
+    "best_by_candidate_csv": "best_by_candidate.csv",
+    "candidate_global_phase_duplicates_csv": "candidate_global_phase_duplicates.csv",
+    "strategy_statistics_csv": "strategy_statistics.csv",
+    "pareto_ranked_csv": "pareto_ranked.csv",
+    "state_equivalence_groups_csv": "state_equivalence_groups.csv",
+    "recommended_circuits_csv": "recommended_circuits.csv",
+    "summary_json": "summary.json",
+}
 
 
 class NonExceptionHarnessFailure(BaseException):
@@ -752,45 +768,92 @@ class IqmTranspilerHarnessTests(unittest.TestCase):
                 }),
             )
 
+            self.assertEqual(set(paths), set(OUTPUT_FILENAMES))
             self.assertEqual(
-                set(paths),
-                {
-                    "all_trials_csv", "best_by_candidate_csv",
-                    "candidate_global_phase_duplicates_csv", "strategy_statistics_csv",
-                    "pareto_ranked_csv", "state_equivalence_groups_csv",
-                    "recommended_circuits_csv", "summary_json",
-                },
+                {key: Path(path).name for key, path in paths.items()},
+                OUTPUT_FILENAMES,
             )
             for path in paths.values():
                 self.assertTrue(Path(path).is_file())
             phase_audit = pd.read_csv(paths["candidate_global_phase_duplicates_csv"])
             self.assertEqual(phase_audit.columns.tolist(), list(PHASE_DUPLICATE_COLUMNS))
             self.assertEqual(phase_audit["duplicate_candidate_name"].tolist(), ["b"])
-            self.assertEqual(pd.read_csv(paths["strategy_statistics_csv"]).shape[0], 2)
-            self.assertEqual(pd.read_csv(paths["recommended_circuits_csv"]).shape[0], 1)
+            pd.testing.assert_frame_equal(
+                pd.read_csv(paths["all_trials_csv"]),
+                pd.read_csv(StringIO(all_trials.to_csv(index=False))),
+                check_dtype=False,
+            )
+            pd.testing.assert_frame_equal(
+                pd.read_csv(paths["best_by_candidate_csv"]),
+                pd.read_csv(StringIO(pd.DataFrame([_analysis_trial()]).to_csv(index=False))),
+                check_dtype=False,
+            )
+            strategy_statistics = pd.read_csv(paths["strategy_statistics_csv"])
+            pareto_ranked = pd.read_csv(paths["pareto_ranked_csv"])
+            state_equivalence_groups = pd.read_csv(paths["state_equivalence_groups_csv"])
+            recommended_circuits = pd.read_csv(paths["recommended_circuits_csv"])
+            self.assertEqual(len(strategy_statistics), 2)
+            self.assertEqual((pareto_ranked["pareto_rank"] == 1).sum(), 2)
+            self.assertEqual(state_equivalence_groups["state_equivalence_group_id"].nunique(), 1)
+            self.assertEqual(len(recommended_circuits), 1)
             written_summary = json.loads(Path(paths["summary_json"]).read_text(encoding="utf-8"))
             self.assertEqual(written_summary["preserved"], "yes")
-            self.assertEqual(written_summary["recommended_circuit_count"], 1)
+            self.assertEqual(
+                {key: written_summary[key] for key in (
+                    "analyzed_strategy_combination_count", "pareto_front_count",
+                    "state_equivalence_group_count", "recommended_circuit_count",
+                )},
+                {
+                    "analyzed_strategy_combination_count": 2,
+                    "pareto_front_count": 2,
+                    "state_equivalence_group_count": 1,
+                    "recommended_circuit_count": 1,
+                },
+            )
             self.assertEqual(summary, {"candidate_count": 2, "preserved": "yes"})
+            self.assertEqual(all_trials.attrs["candidate_global_phase_duplicates"], duplicates)
 
     def test_write_iqm_transpiler_harness_outputs_empty_preserves_all_headers(self):
+        summary = {"existing": "kept"}
         with tempfile.TemporaryDirectory() as tmp:
             paths = write_iqm_transpiler_harness_outputs(
                 tmp,
                 all_trials=pd.DataFrame(),
                 best_by_candidate=pd.DataFrame(),
-                summary={},
+                summary=summary,
             )
 
+            self.assertEqual(set(paths), set(OUTPUT_FILENAMES))
+            self.assertEqual(
+                {key: Path(path).name for key, path in paths.items()},
+                OUTPUT_FILENAMES,
+            )
+            for path in paths.values():
+                self.assertTrue(Path(path).is_file())
             self.assertEqual(
                 Path(paths["candidate_global_phase_duplicates_csv"]).read_text(encoding="utf-8").strip(),
                 ",".join(PHASE_DUPLICATE_COLUMNS),
             )
-            self.assertIn("pareto_rank", Path(paths["pareto_ranked_csv"]).read_text(encoding="utf-8"))
-            self.assertIn(
-                "state_equivalence_group_id",
-                Path(paths["state_equivalence_groups_csv"]).read_text(encoding="utf-8"),
+            phase_audit = pd.read_csv(paths["candidate_global_phase_duplicates_csv"])
+            self.assertTrue(phase_audit.empty)
+            self.assertEqual(phase_audit.columns.tolist(), list(PHASE_DUPLICATE_COLUMNS))
+            empty_analysis = analyze_iqm_trials(pd.DataFrame())
+            for key, expected in {
+                "strategy_statistics_csv": empty_analysis.strategy_statistics,
+                "pareto_ranked_csv": empty_analysis.pareto_ranked,
+                "state_equivalence_groups_csv": empty_analysis.state_equivalence_groups,
+                "recommended_circuits_csv": empty_analysis.recommended_circuits,
+            }.items():
+                written = pd.read_csv(paths[key])
+                self.assertTrue(written.empty)
+                self.assertEqual(written.columns.tolist(), expected.columns.tolist())
+            written_summary = json.loads(Path(paths["summary_json"]).read_text(encoding="utf-8"))
+            self.assertEqual(written_summary["existing"], "kept")
+            self.assertEqual(
+                {key: written_summary[key] for key in empty_analysis.summary_counts},
+                empty_analysis.summary_counts,
             )
+            self.assertEqual(summary, {"existing": "kept"})
 
     def test_write_iqm_transpiler_harness_outputs_keeps_missing_and_broken_qpy_diagnostics(self):
         with tempfile.TemporaryDirectory() as tmp:

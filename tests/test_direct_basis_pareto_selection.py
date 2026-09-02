@@ -601,6 +601,23 @@ class IqmTrialAnalysisTests(unittest.TestCase):
         )
         with self.assertRaises(FrozenInstanceError):
             result.summary_counts = {}
+        self.assertEqual(
+            result.pareto_ranked.sort_values("recommendation_order")["candidate_name"].tolist(),
+            ["low_2q", "low_depth"],
+        )
+
+        custom = analyze_iqm_trials(
+            trials,
+            objective_weights={
+                "mean_two_qubit_gate_count": 0.1,
+                "mean_depth": 0.9,
+                "std_depth": 0.0,
+            },
+            state_loader=self._loader({"a.qpy": Statevector([1, 0]), "b.qpy": Statevector([-1j, 0])}),
+        ).pareto_ranked.set_index("candidate_name")
+        self.assertAlmostEqual(custom.loc["low_2q", "ideal_score"], 0.9)
+        self.assertAlmostEqual(custom.loc["low_depth", "ideal_score"], 0.1)
+        self.assertEqual(custom.sort_values("recommendation_order").index.tolist(), ["low_depth", "low_2q"])
 
     def test_no_success_diagnostic_missing_qpy_and_custom_options_flow_through(self) -> None:
         trials = pd.DataFrame(
@@ -633,6 +650,18 @@ class IqmTrialAnalysisTests(unittest.TestCase):
         self.assertEqual(result.state_equivalence_groups.loc[
             result.state_equivalence_groups["candidate_name"] == "ok", "state_equivalence_status"
         ].item(), "missing_qpy")
+        detailed = result.state_equivalence_groups.loc[
+            result.state_equivalence_groups["candidate_name"] == "ok"
+        ]
+        compact = result.recommended_circuits
+        self.assertTrue(pd.notna(detailed["state_equivalence_group_id"].item()))
+        self.assertEqual(len(compact), 1)
+        self.assertEqual(
+            detailed.loc[:, list(IDENTITY_COLUMNS)].iloc[0].tolist(),
+            compact.loc[:, list(IDENTITY_COLUMNS)].iloc[0].tolist(),
+        )
+        self.assertEqual(result.summary_counts["state_equivalence_group_count"], 1)
+        self.assertEqual(result.summary_counts["recommended_circuit_count"], 1)
         self.assertEqual(calls[0][2], 7)
 
     def test_state_loader_cache_is_preserved_for_duplicate_qpy_paths(self) -> None:
