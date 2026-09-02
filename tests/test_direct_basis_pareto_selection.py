@@ -96,7 +96,14 @@ class AggregateStrategyStatisticsTests(unittest.TestCase):
         self.assertEqual(result.loc["a", "failed_trial_count"], 1)
         self.assertAlmostEqual(result.loc["a", "success_rate"], 2 / 3)
         self.assertEqual(result.loc["a", "mean_depth"], 12.0)
+        self.assertEqual(result.loc["a", "min_depth"], 10.0)
+        self.assertEqual(result.loc["a", "max_depth"], 14.0)
         self.assertEqual(result.loc["a", "std_depth"], 2.0)
+        self.assertEqual(result.loc["a", "mean_two_qubit_gate_count"], 4.0)
+        self.assertEqual(result.loc["a", "min_two_qubit_gate_count"], 3.0)
+        self.assertEqual(result.loc["a", "max_two_qubit_gate_count"], 5.0)
+        self.assertEqual(result.loc["a", "std_two_qubit_gate_count"], 1.0)
+        self.assertFalse(result.loc["a", "insufficient_stability_samples"])
         self.assertEqual(result.loc["a", "best_seed_transpiler"], 2)
         self.assertEqual(result.loc["a", "n_qutrits"], 3)
         self.assertEqual(result.loc["b", "n_qutrits"], 4)
@@ -131,6 +138,25 @@ class AggregateStrategyStatisticsTests(unittest.TestCase):
         self.assertEqual(result.loc["size", "best_seed_transpiler"], 2)
         self.assertEqual(result.loc["seed", "best_seed_transpiler"], 1)
 
+    def test_n_qutrits_comes_from_selected_successful_trial(self) -> None:
+        result = aggregate_strategy_statistics(
+            pd.DataFrame(
+                [
+                    _trial(seed_transpiler=1, success=False, status="failed", n_qutrits=99),
+                    _trial(
+                        seed_transpiler=2,
+                        depth=10,
+                        two_qubit_gate_count=1,
+                        n_qutrits=3,
+                        graph_state_transpiled_qpy="best.qpy",
+                    ),
+                ]
+            )
+        ).iloc[0]
+        self.assertEqual(result["n_qutrits"], 3)
+        self.assertEqual(result["best_seed_transpiler"], 2)
+        self.assertEqual(result["best_graph_state_transpiled_qpy"], "best.qpy")
+
     def test_single_success_is_flagged_for_insufficient_stability(self) -> None:
         result = aggregate_strategy_statistics(pd.DataFrame([_trial()])).iloc[0]
         self.assertEqual(result["std_depth"], 0.0)
@@ -155,10 +181,25 @@ class AggregateStrategyStatisticsTests(unittest.TestCase):
             aggregate_strategy_statistics(pd.DataFrame([_trial(), _trial(depth=11)]))
 
     def test_invalid_successful_metrics_name_identity_and_column(self) -> None:
-        for column, value in (("depth", -1), ("depth", np.nan), ("depth", np.inf), ("two_qubit_gate_count", "bad")):
-            with self.subTest(column=column, value=value):
-                with self.assertRaisesRegex(ValueError, rf"ghz3.*p001.*default.*{column}"):
-                    aggregate_strategy_statistics(pd.DataFrame([_trial(**{column: value})]))
+        invalid_values = (-1, np.nan, np.inf, -np.inf, "bad")
+        for column in ("depth", "two_qubit_gate_count", "one_qubit_gate_count", "size"):
+            for value in invalid_values:
+                with self.subTest(column=column, value=value):
+                    with self.assertRaisesRegex(ValueError, rf"ghz3.*p001.*default.*{column}"):
+                        aggregate_strategy_statistics(pd.DataFrame([_trial(**{column: value})]))
+
+    def test_invalid_success_encoding_names_success_and_identity(self) -> None:
+        with self.assertRaisesRegex(ValueError, r"success.*ghz3.*p001.*default"):
+            aggregate_strategy_statistics(pd.DataFrame([_trial(success="maybe")]))
+
+    def test_true_success_with_non_ok_status_is_a_failed_diagnostic(self) -> None:
+        result = aggregate_strategy_statistics(
+            pd.DataFrame([_trial(success=True, status="failed")])
+        ).iloc[0]
+        self.assertEqual(result["successful_trial_count"], 0)
+        self.assertEqual(result["failed_trial_count"], 1)
+        self.assertFalse(result["pareto_eligible"])
+        self.assertEqual(result["analysis_status"], "no_successful_trials")
 
     def test_optional_boundaries_partition_each_group(self) -> None:
         rows = [

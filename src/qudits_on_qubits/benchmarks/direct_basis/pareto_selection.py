@@ -157,10 +157,15 @@ def aggregate_strategy_statistics(all_trials: pd.DataFrame) -> pd.DataFrame:
             f"duplicate concrete trial identity for columns {duplicate_columns}: {identity}"
         )
 
-    try:
-        trials["_success_value"] = trials["success"].map(_success_value)
-    except ValueError as error:
-        raise ValueError(f"invalid success column: {error}") from error
+    normalized_success: list[bool] = []
+    for position, value in enumerate(trials["success"].tolist()):
+        try:
+            normalized_success.append(_success_value(value))
+        except ValueError as error:
+            raise ValueError(
+                f"invalid success value for {_identity_description(trials.iloc[position])}: {error}"
+            ) from error
+    trials["_success_value"] = normalized_success
     successful = trials["_success_value"] & (
         trials["status"].astype("string").str.strip().str.casefold() == "ok"
     )
@@ -185,8 +190,7 @@ def aggregate_strategy_statistics(all_trials: pd.DataFrame) -> pd.DataFrame:
             success_rate=success_count / total,
         )
         if include_n_qutrits:
-            metadata = group["n_qutrits"].dropna()
-            row["n_qutrits"] = metadata.iloc[0] if not metadata.empty else np.nan
+            row["n_qutrits"] = np.nan
 
         if not success_count:
             row.update(
@@ -231,6 +235,8 @@ def aggregate_strategy_statistics(all_trials: pd.DataFrame) -> pd.DataFrame:
                 pareto_eligible=True,
                 analysis_status="eligible",
             )
+            if include_n_qutrits:
+                row["n_qutrits"] = best["n_qutrits"]
         rows.append(row)
 
     return pd.DataFrame(rows, columns=_output_columns(boundary_columns, include_n_qutrits))
