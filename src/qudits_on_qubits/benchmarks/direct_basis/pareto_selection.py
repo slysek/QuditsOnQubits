@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from collections.abc import Mapping
 from dataclasses import dataclass
 from numbers import Real
+from pathlib import Path
 from typing import Callable
 
 import numpy as np
@@ -85,6 +86,25 @@ class ParetoAnalysisResult:
     state_equivalence_groups: pd.DataFrame
     recommended_circuits: pd.DataFrame
     summary_counts: dict[str, int]
+
+
+def write_pareto_analysis_outputs(
+    output_dir: str | Path, analysis: ParetoAnalysisResult
+) -> dict[str, str]:
+    """Write the four CSV artifacts produced by Pareto post-processing."""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    outputs = {
+        "strategy_statistics_csv": output_path / "strategy_statistics.csv",
+        "pareto_ranked_csv": output_path / "pareto_ranked.csv",
+        "state_equivalence_groups_csv": output_path / "state_equivalence_groups.csv",
+        "recommended_circuits_csv": output_path / "recommended_circuits.csv",
+    }
+    analysis.strategy_statistics.to_csv(outputs["strategy_statistics_csv"], index=False)
+    analysis.pareto_ranked.to_csv(outputs["pareto_ranked_csv"], index=False)
+    analysis.state_equivalence_groups.to_csv(outputs["state_equivalence_groups_csv"], index=False)
+    analysis.recommended_circuits.to_csv(outputs["recommended_circuits_csv"], index=False)
+    return {key: str(path) for key, path in outputs.items()}
 
 
 def _success_value(value: object) -> bool:

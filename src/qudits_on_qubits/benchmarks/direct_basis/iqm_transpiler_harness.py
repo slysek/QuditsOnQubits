@@ -33,6 +33,7 @@ from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_strategies import (
 )
 from qudits_on_qubits.benchmarks.direct_basis.pareto_selection import (
     analyze_iqm_trials,
+    write_pareto_analysis_outputs,
 )
 from qudits_on_qubits.benchmarks.direct_basis.phase_equivalence import (
     PHASE_DUPLICATE_COLUMNS,
@@ -458,10 +459,6 @@ def write_iqm_transpiler_harness_outputs(
     all_trials_csv = output_path / "all_trials.csv"
     best_by_candidate_csv = output_path / "best_by_candidate.csv"
     candidate_global_phase_duplicates_csv = output_path / "candidate_global_phase_duplicates.csv"
-    strategy_statistics_csv = output_path / "strategy_statistics.csv"
-    pareto_ranked_csv = output_path / "pareto_ranked.csv"
-    state_equivalence_groups_csv = output_path / "state_equivalence_groups.csv"
-    recommended_circuits_csv = output_path / "recommended_circuits.csv"
     summary_json = output_path / "summary.json"
 
     all_trials.to_csv(all_trials_csv, index=False)
@@ -470,10 +467,7 @@ def write_iqm_transpiler_harness_outputs(
         [dict(row) for row in all_trials.attrs.get("candidate_global_phase_duplicates", ())],
         columns=PHASE_DUPLICATE_COLUMNS,
     ).to_csv(candidate_global_phase_duplicates_csv, index=False)
-    analysis.strategy_statistics.to_csv(strategy_statistics_csv, index=False)
-    analysis.pareto_ranked.to_csv(pareto_ranked_csv, index=False)
-    analysis.state_equivalence_groups.to_csv(state_equivalence_groups_csv, index=False)
-    analysis.recommended_circuits.to_csv(recommended_circuits_csv, index=False)
+    analysis_paths = write_pareto_analysis_outputs(output_path, analysis)
     merged_summary = {**summary, **analysis.summary_counts}
     summary_json.write_text(
         json.dumps(_json_safe_value(merged_summary), indent=2, sort_keys=True),
@@ -484,10 +478,7 @@ def write_iqm_transpiler_harness_outputs(
         "all_trials_csv": str(all_trials_csv),
         "best_by_candidate_csv": str(best_by_candidate_csv),
         "candidate_global_phase_duplicates_csv": str(candidate_global_phase_duplicates_csv),
-        "strategy_statistics_csv": str(strategy_statistics_csv),
-        "pareto_ranked_csv": str(pareto_ranked_csv),
-        "state_equivalence_groups_csv": str(state_equivalence_groups_csv),
-        "recommended_circuits_csv": str(recommended_circuits_csv),
+        **analysis_paths,
         "summary_json": str(summary_json),
     }
 
