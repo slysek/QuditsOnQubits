@@ -482,9 +482,18 @@ def logical_output_density_matrix(
         candidate_data = candidate.data
         if fidelity_qc is circuit:
             layout = getattr(circuit, "layout", None)
-            if layout is not None and getattr(layout, "final_layout", None) is not None:
+            if layout is not None:
                 final_index_layout = layout.final_index_layout(filter_ancillas=True)
-                if len(final_index_layout) == logical_qubit_count == circuit.num_qubits:
+                valid_permutation = (
+                    len(final_index_layout) == logical_qubit_count == circuit.num_qubits
+                    and all(
+                        isinstance(index, (int, np.integer))
+                        and not isinstance(index, (bool, np.bool_))
+                        for index in final_index_layout
+                    )
+                    and set(final_index_layout) == set(range(logical_qubit_count))
+                )
+                if valid_permutation:
                     candidate_data = _restore_input_qubit_order(candidate_data, final_index_layout)
         else:
             candidate_data = _restore_stripped_input_order(
