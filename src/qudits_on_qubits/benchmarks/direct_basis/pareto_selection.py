@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from collections.abc import Mapping
+from dataclasses import dataclass
 from numbers import Real
+from typing import Callable
 
 import numpy as np
 import pandas as pd
+
+from .state_equivalence import group_state_equivalent_candidates, load_logical_state_from_qpy
 
 
 IDENTITY_COLUMNS = ("state_name", "class_name", "candidate_name", "strategy_name")
@@ -70,6 +74,17 @@ _OUTPUT_COLUMNS = (
     "pareto_eligible",
     "analysis_status",
 )
+
+
+@dataclass(frozen=True)
+class ParetoAnalysisResult:
+    """Post-transpilation Pareto analysis artifacts for one IQM trial table."""
+
+    strategy_statistics: pd.DataFrame
+    pareto_ranked: pd.DataFrame
+    state_equivalence_groups: pd.DataFrame
+    recommended_circuits: pd.DataFrame
+    summary_counts: dict[str, int]
 
 
 def _success_value(value: object) -> bool:
@@ -465,3 +480,45 @@ def aggregate_strategy_statistics(all_trials: pd.DataFrame) -> pd.DataFrame:
 
     result = pd.DataFrame(rows, columns=_output_columns(boundary_columns, include_n_qutrits))
     return result.sort_values(group_columns, kind="mergesort", na_position="last").reset_index(drop=True)
+
+
+def analyze_iqm_trials(
+    all_trials: pd.DataFrame,
+    *,
+    objective_weights: Mapping[str, object] | None = None,
+    max_state_qubits: int = 12,
+    state_loader: Callable[..., object] = load_logical_state_from_qpy,
+) -> ParetoAnalysisResult:
+    """Run the post-transpilation IQM strategy-selection analysis pipeline."""
+    strategy_statistics = aggregate_strategy_statistics(all_trials)
+    pareto_ranked = rank_pareto_candidates(
+        strategy_statistics,
+        objective_weights=objective_weights,
+    )
+    state_equivalence_groups, recommended_circuits = group_state_equivalent_candidates(
+        pareto_ranked,
+        max_qubits=max_state_qubits,
+        state_loader=state_loader,
+    )
+    eligible = _eligible_mask(state_equivalence_groups)
+    state_equivalence_group_count = int(
+        state_equivalence_groups.loc[eligible, "state_equivalence_group_id"].dropna().nunique()
+    )
+    pareto_front_count = int(
+        (
+            _eligible_mask(pareto_ranked)
+            & (pareto_ranked["pareto_rank"] == 1).fillna(False)
+        ).sum()
+    )
+    return ParetoAnalysisResult(
+        strategy_statistics=strategy_statistics,
+        pareto_ranked=pareto_ranked,
+        state_equivalence_groups=state_equivalence_groups,
+        recommended_circuits=recommended_circuits,
+        summary_counts={
+            "analyzed_strategy_combination_count": int(len(strategy_statistics)),
+            "pareto_front_count": pareto_front_count,
+            "state_equivalence_group_count": state_equivalence_group_count,
+            "recommended_circuit_count": int(len(recommended_circuits)),
+        },
+    )

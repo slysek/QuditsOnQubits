@@ -4,10 +4,12 @@ import sys
 import time
 import unittest
 import warnings
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from qiskit.quantum_info import Statevector
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -22,8 +24,10 @@ from qudits_on_qubits.benchmarks.direct_basis.pareto_selection import (
     IDENTITY_COLUMNS,
     OBJECTIVE_COLUMNS,
     OPTIONAL_BOUNDARY_COLUMNS,
+    ParetoAnalysisResult,
     TRIAL_ID_COLUMNS,
     _dominates,
+    analyze_iqm_trials,
     aggregate_strategy_statistics,
     assign_pareto_ranks,
     rank_pareto_candidates,
@@ -551,6 +555,144 @@ class ParetoCandidateRankingTests(unittest.TestCase):
             self.assertEqual(str(output["pareto_rank"].dtype), "Int64")
             self.assertEqual(str(output["recommendation_order"].dtype), "Int64")
             self.assertEqual(str(output["ideal_score"].dtype), "Float64")
+
+
+class IqmTrialAnalysisTests(unittest.TestCase):
+    @staticmethod
+    def _loader(states, calls=None):
+        def load(path, logical_qubit_count, *, max_qubits):
+            if calls is not None:
+                calls.append((path, logical_qubit_count, max_qubits))
+            return states[Path(path).name], ""
+
+        return load
+
+    def test_end_to_end_groups_equivalent_pareto_tradeoffs_and_reports_counts(self) -> None:
+        trials = pd.DataFrame(
+            [
+                _trial(candidate_name="low_2q", strategy_name="a", seed_transpiler=seed,
+                       depth=10, two_qubit_gate_count=2, graph_state_transpiled_qpy="a.qpy")
+                for seed in (1, 2)
+            ]
+            + [
+                _trial(candidate_name="low_depth", strategy_name="b", seed_transpiler=seed,
+                       depth=5, two_qubit_gate_count=4, graph_state_transpiled_qpy="b.qpy")
+                for seed in (1, 2)
+            ]
+        )
+        result = analyze_iqm_trials(
+            trials,
+            state_loader=self._loader({"a.qpy": Statevector([1, 0]), "b.qpy": Statevector([-1j, 0])}),
+        )
+
+        self.assertIsInstance(result, ParetoAnalysisResult)
+        self.assertEqual(len(result.strategy_statistics), 2)
+        self.assertEqual(result.pareto_ranked["pareto_rank"].min(), 1)
+        self.assertEqual(len(result.state_equivalence_groups), 2)
+        self.assertEqual(len(result.recommended_circuits), 1)
+        self.assertEqual(
+            result.summary_counts,
+            {
+                "analyzed_strategy_combination_count": 2,
+                "pareto_front_count": 2,
+                "state_equivalence_group_count": 1,
+                "recommended_circuit_count": 1,
+            },
+        )
+        with self.assertRaises(FrozenInstanceError):
+            result.summary_counts = {}
+
+    def test_no_success_diagnostic_missing_qpy_and_custom_options_flow_through(self) -> None:
+        trials = pd.DataFrame(
+            [
+                _trial(candidate_name="failed", strategy_name="failed", success=False, status="failed"),
+                _trial(candidate_name="ok", strategy_name="ok", seed_transpiler=1,
+                       graph_state_transpiled_qpy="missing.qpy"),
+            ]
+        )
+        calls = []
+        def missing_loader(path, logical_qubit_count, *, max_qubits):
+            calls.append((path, logical_qubit_count, max_qubits))
+            return None, "Missing QPY file: injected for test"
+
+        result = analyze_iqm_trials(
+            trials,
+            objective_weights={
+                "mean_two_qubit_gate_count": 1,
+                "mean_depth": 0,
+                "std_depth": 0,
+            },
+            max_state_qubits=7,
+            state_loader=missing_loader,
+        )
+
+        self.assertEqual(len(result.strategy_statistics), 2)
+        self.assertFalse(result.strategy_statistics.loc[
+            result.strategy_statistics["candidate_name"] == "failed", "pareto_eligible"
+        ].item())
+        self.assertEqual(result.state_equivalence_groups.loc[
+            result.state_equivalence_groups["candidate_name"] == "ok", "state_equivalence_status"
+        ].item(), "missing_qpy")
+        self.assertEqual(calls[0][2], 7)
+
+    def test_state_loader_cache_is_preserved_for_duplicate_qpy_paths(self) -> None:
+        trials = pd.DataFrame(
+            [
+                _trial(candidate_name=name, strategy_name=name, seed_transpiler=seed,
+                       graph_state_transpiled_qpy="same.qpy", depth=10 + index)
+                for index, name in enumerate(("a", "b"))
+                for seed in (1, 2)
+            ]
+        )
+        calls = []
+        analyze_iqm_trials(
+            trials,
+            state_loader=self._loader({"same.qpy": Statevector([1, 0])}, calls),
+        )
+
+        self.assertEqual(len(calls), 1)
+
+    def test_empty_input_has_complete_empty_analysis_schema_and_zero_counts(self) -> None:
+        result = analyze_iqm_trials(pd.DataFrame())
+
+        self.assertTrue(result.strategy_statistics.empty)
+        self.assertTrue(result.pareto_ranked.empty)
+        self.assertTrue(result.state_equivalence_groups.empty)
+        self.assertTrue(result.recommended_circuits.empty)
+        self.assertIn("pareto_rank", result.pareto_ranked.columns)
+        self.assertIn("state_equivalence_group_id", result.state_equivalence_groups.columns)
+        self.assertIn("is_state_equivalence_recommendation", result.recommended_circuits.columns)
+        self.assertEqual(
+            result.summary_counts,
+            {
+                "analyzed_strategy_combination_count": 0,
+                "pareto_front_count": 0,
+                "state_equivalence_group_count": 0,
+                "recommended_circuit_count": 0,
+            },
+        )
+
+    def test_invalid_trials_and_multiple_boundaries_are_delegated_without_cross_boundary_grouping(self) -> None:
+        with self.assertRaisesRegex(ValueError, "missing required columns"):
+            analyze_iqm_trials(pd.DataFrame([{"state_name": "ghz3"}]))
+
+        trials = pd.DataFrame(
+            [
+                _trial(candidate_name="a", strategy_name="a", seed_transpiler=seed,
+                       graph_state_transpiled_qpy="same.qpy", iqm_backend_name=backend,
+                       backend_calibration_set_id=calibration, selection_label=label)
+                for backend, calibration, label in (
+                    ("one", "calibration_one", "exact"),
+                    ("two", "calibration_two", "fid099"),
+                )
+                for seed in (1, 2)
+            ]
+        )
+        result = analyze_iqm_trials(
+            trials,
+            state_loader=self._loader({"same.qpy": Statevector([1, 0])}),
+        )
+        self.assertEqual(result.summary_counts["state_equivalence_group_count"], 2)
 
 
 if __name__ == "__main__":

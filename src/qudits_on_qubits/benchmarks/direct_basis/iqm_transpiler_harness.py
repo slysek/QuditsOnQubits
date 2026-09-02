@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from importlib import metadata as importlib_metadata
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 import pandas as pd
 from qiskit import qpy
@@ -31,8 +31,15 @@ from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_strategies import (
     iqm_transpiler_strategy_names,
     run_iqm_transpiler_strategy,
 )
+from qudits_on_qubits.benchmarks.direct_basis.pareto_selection import (
+    analyze_iqm_trials,
+)
 from qudits_on_qubits.benchmarks.direct_basis.phase_equivalence import (
+    PHASE_DUPLICATE_COLUMNS,
     deduplicate_candidates_up_to_global_phase,
+)
+from qudits_on_qubits.benchmarks.direct_basis.state_equivalence import (
+    load_logical_state_from_qpy,
 )
 from qudits_on_qubits.core.benchmark_encoding_bases import TWO_Q_GATES
 
@@ -435,26 +442,73 @@ def write_iqm_transpiler_harness_outputs(
     all_trials: pd.DataFrame,
     best_by_candidate: pd.DataFrame,
     summary: dict[str, Any],
+    objective_weights: Mapping[str, object] | None = None,
+    max_state_qubits: int = 12,
+    state_loader: Any = load_logical_state_from_qpy,
 ) -> dict[str, str]:
+    analysis = analyze_iqm_trials(
+        all_trials,
+        objective_weights=objective_weights,
+        max_state_qubits=max_state_qubits,
+        state_loader=state_loader,
+    )
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
     all_trials_csv = output_path / "all_trials.csv"
     best_by_candidate_csv = output_path / "best_by_candidate.csv"
+    candidate_global_phase_duplicates_csv = output_path / "candidate_global_phase_duplicates.csv"
+    strategy_statistics_csv = output_path / "strategy_statistics.csv"
+    pareto_ranked_csv = output_path / "pareto_ranked.csv"
+    state_equivalence_groups_csv = output_path / "state_equivalence_groups.csv"
+    recommended_circuits_csv = output_path / "recommended_circuits.csv"
     summary_json = output_path / "summary.json"
 
     all_trials.to_csv(all_trials_csv, index=False)
     best_by_candidate.to_csv(best_by_candidate_csv, index=False)
+    pd.DataFrame(
+        [dict(row) for row in all_trials.attrs.get("candidate_global_phase_duplicates", ())],
+        columns=PHASE_DUPLICATE_COLUMNS,
+    ).to_csv(candidate_global_phase_duplicates_csv, index=False)
+    analysis.strategy_statistics.to_csv(strategy_statistics_csv, index=False)
+    analysis.pareto_ranked.to_csv(pareto_ranked_csv, index=False)
+    analysis.state_equivalence_groups.to_csv(state_equivalence_groups_csv, index=False)
+    analysis.recommended_circuits.to_csv(recommended_circuits_csv, index=False)
+    merged_summary = {**summary, **analysis.summary_counts}
     summary_json.write_text(
-        json.dumps(summary, indent=2, sort_keys=True),
+        json.dumps(_json_safe_value(merged_summary), indent=2, sort_keys=True),
         encoding="utf-8",
     )
 
     return {
         "all_trials_csv": str(all_trials_csv),
         "best_by_candidate_csv": str(best_by_candidate_csv),
+        "candidate_global_phase_duplicates_csv": str(candidate_global_phase_duplicates_csv),
+        "strategy_statistics_csv": str(strategy_statistics_csv),
+        "pareto_ranked_csv": str(pareto_ranked_csv),
+        "state_equivalence_groups_csv": str(state_equivalence_groups_csv),
+        "recommended_circuits_csv": str(recommended_circuits_csv),
         "summary_json": str(summary_json),
     }
+
+
+def _json_safe_value(value: Any) -> Any:
+    """Convert scalar values supplied by dataframe-backed callers for JSON."""
+    if value is pd.NA:
+        return None
+    if isinstance(value, dict):
+        return {key: _json_safe_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe_value(item) for item in value]
+    item = getattr(value, "item", None)
+    if callable(item):
+        try:
+            scalar = item()
+        except (TypeError, ValueError):
+            return value
+        if scalar is not value:
+            return _json_safe_value(scalar)
+    return value
 
 
 def _base_row(
