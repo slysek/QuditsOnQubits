@@ -147,23 +147,40 @@ def test_boundaries_never_compare_and_na_values_share_a_boundary():
 
     assert ids["a1"] == ids["a2"]
     assert ids["n1"] == ids["n2"]
+    assert ids[["a1", "b1", "n1"]].nunique() == 3
+    assert detailed["state_equivalence_group_id"].nunique() == 3
     assert len(compact) == 3
+    assert compact["state_equivalence_group_id"].nunique() == 3
     assert compact["iqm_backend_name"].isna().sum() == 1
 
 
-def test_all_optional_boundaries_and_state_name_are_respected():
+def test_all_optional_boundaries_have_globally_unique_group_ids():
     state = _density([1, 0])
     rows = [
         _row("base", "base.qpy", state_name="s1", iqm_backend_name="a", backend_calibration_set_id="c1", selection_label="exact"),
         _row("state", "state.qpy", state_name="s2", iqm_backend_name="a", backend_calibration_set_id="c1", selection_label="exact"),
+        _row("backend", "backend.qpy", state_name="s1", iqm_backend_name="b", backend_calibration_set_id="c1", selection_label="exact"),
         _row("cal", "cal.qpy", state_name="s1", iqm_backend_name="a", backend_calibration_set_id="c2", selection_label="exact"),
         _row("selection", "selection.qpy", state_name="s1", iqm_backend_name="a", backend_calibration_set_id="c1", selection_label="approx"),
     ]
     states = {Path(row["best_graph_state_transpiled_qpy"]).name: state for row in rows}
-    _, compact = group_state_equivalent_candidates(
+    detailed, compact = group_state_equivalent_candidates(
         pd.DataFrame(rows), state_loader=_mapping_loader(states)
     )
-    assert len(compact) == 4
+    assert len(compact) == 5
+    assert detailed["state_equivalence_group_id"].nunique() == 5
+    assert compact["state_equivalence_group_id"].nunique() == 5
+    assert set(detailed["state_equivalence_group_id"]) == {
+        f"state_equivalence_{number:04d}" for number in range(1, 6)
+    }
+    shuffled, _ = group_state_equivalent_candidates(
+        pd.DataFrame(rows).sample(frac=1, random_state=31),
+        state_loader=_mapping_loader(states),
+    )
+    pd.testing.assert_series_equal(
+        detailed.set_index("candidate_name")["state_equivalence_group_id"],
+        shuffled.set_index("candidate_name")["state_equivalence_group_id"],
+    )
 
 
 def test_output_and_group_ids_are_deterministic_for_shuffled_input():
@@ -309,6 +326,22 @@ def test_default_qpy_loader_reconstructs_a_local_circuit(tmp_path):
     assert state_fidelity(Statevector.from_instruction(circuit), state) > 1 - 1e-10
 
 
+def test_default_qpy_loader_keeps_12_qubit_pure_output_compact(tmp_path):
+    circuit = QuantumCircuit(12)
+    circuit.x(0)
+    path = tmp_path / "twelve.qpy"
+    with path.open("wb") as handle:
+        qpy.dump(circuit, handle)
+
+    state, diagnostic = load_logical_state_from_qpy(
+        str(path), 12, max_qubits=12
+    )
+
+    assert diagnostic == ""
+    assert isinstance(state, Statevector)
+    assert state.data.shape == (4096,)
+
+
 def test_default_qpy_loader_infers_pretranspile_input_width(tmp_path):
     source = QuantumCircuit(1)
     source.x(0)
@@ -354,6 +387,48 @@ def test_default_qpy_loader_rejects_zero_and_multiple_circuits(tmp_path):
     assert "exactly one" in zero_diagnostic
     assert multiple_state is None
     assert "exactly one" in multiple_diagnostic
+
+
+def test_qpy_failures_measurements_and_resets_are_diagnostic_singletons(tmp_path):
+    measurement = QuantumCircuit(1, 1)
+    measurement.h(0)
+    measurement.measure(0, 0)
+    reset = QuantumCircuit(1)
+    reset.h(0)
+    reset.reset(0)
+    paths = {
+        "measurement": tmp_path / "measurement.qpy",
+        "reset": tmp_path / "reset.qpy",
+        "broken": tmp_path / "broken.qpy",
+    }
+    with paths["measurement"].open("wb") as handle:
+        qpy.dump(measurement, handle)
+    with paths["reset"].open("wb") as handle:
+        qpy.dump(reset, handle)
+    paths["broken"].write_bytes(b"not a qpy payload")
+
+    detailed, compact = group_state_equivalent_candidates(
+        pd.DataFrame(
+            [
+                _row(name, str(path), n_qutrits=0.5)
+                for name, path in paths.items()
+            ]
+        )
+    )
+    indexed = detailed.set_index("candidate_name")
+
+    assert set(detailed["state_equivalence_status"]) == {
+        "state_reconstruction_failed"
+    }
+    assert "measurement" in indexed.loc[
+        "measurement", "state_equivalence_diagnostic"
+    ].casefold()
+    assert "reset" in indexed.loc["reset", "state_equivalence_diagnostic"].casefold()
+    assert "qpy load failed" in indexed.loc[
+        "broken", "state_equivalence_diagnostic"
+    ].casefold()
+    assert detailed["state_equivalence_group_id"].nunique() == 3
+    assert set(compact["candidate_name"]) == set(paths)
 
 
 @pytest.mark.parametrize("path", [None, "", "   "])

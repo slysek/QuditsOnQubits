@@ -10,9 +10,9 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 from qiskit import qpy
-from qiskit.quantum_info import DensityMatrix, state_fidelity
+from qiskit.quantum_info import DensityMatrix, Statevector, state_fidelity
 
-from .benchmark import logical_output_density_matrix
+from .benchmark import logical_output_state
 
 
 STATE_EQUIVALENCE_ATOL = 1e-9
@@ -78,7 +78,7 @@ def load_logical_state_from_qpy(
     logical_qubit_count: int | None,
     *,
     max_qubits: int,
-) -> tuple[DensityMatrix | None, str]:
+) -> tuple[Statevector | DensityMatrix | None, str]:
     """Load one local QPY circuit and reconstruct its logical output state."""
     if _blank_path(path):
         return None, "Missing QPY path for logical state reconstruction."
@@ -106,7 +106,7 @@ def load_logical_state_from_qpy(
                 logical_width = len(final_index_layout(filter_ancillas=True))
             except Exception:
                 pass
-    return logical_output_density_matrix(
+    return logical_output_state(
         circuit,
         logical_qubit_count=logical_width,
         max_qubits=max_qubits,
@@ -199,7 +199,9 @@ def group_state_equivalent_candidates(
     pareto_ranked: pd.DataFrame,
     *,
     max_qubits: int = 12,
-    state_loader: Callable[..., tuple[DensityMatrix | None, str]] = load_logical_state_from_qpy,
+    state_loader: Callable[
+        ..., tuple[Statevector | DensityMatrix | None, str]
+    ] = load_logical_state_from_qpy,
     atol: float = STATE_EQUIVALENCE_ATOL,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Return detailed rows and one recommendation per logical-state component."""
@@ -240,11 +242,13 @@ def group_state_equivalent_candidates(
             partitions.setdefault(key, []).append(position)
 
     load_cache: dict[
-        tuple[str, int | None, int], tuple[DensityMatrix | None, str, str]
+        tuple[str, int | None, int],
+        tuple[Statevector | DensityMatrix | None, str, str],
     ] = {}
+    next_group_number = 1
     for positions in partitions.values():
         parent = {position: position for position in positions}
-        states: dict[int, DensityMatrix] = {}
+        states: dict[int, Statevector | DensityMatrix] = {}
 
         def find(position: int) -> int:
             while parent[position] != position:
@@ -332,8 +336,9 @@ def group_state_equivalent_candidates(
                 )
             ),
         )
-        for group_number, members in enumerate(ordered_components, start=1):
-            group_id = f"state_equivalence_{group_number:04d}"
+        for members in ordered_components:
+            group_id = f"state_equivalence_{next_group_number:04d}"
+            next_group_number += 1
             recommended = min(members, key=lambda position: _recommendation_key(detailed.loc[position]))
             recommended_row = detailed.loc[recommended]
             for position in members:

@@ -12,9 +12,10 @@ from typing import Iterable, Optional
 import numpy as np
 import pandas as pd
 from qiskit import qpy, transpile
+from qiskit.circuit import ControlFlowOp
 from qiskit.circuit.library import UnitaryGate
 from qiskit.converters import circuit_to_dag, dag_to_circuit
-from qiskit.quantum_info import DensityMatrix, Statevector, state_fidelity
+from qiskit.quantum_info import DensityMatrix, Operator, Statevector, state_fidelity
 
 from qudits_on_qubits.bell_measurements import build_sampler_circuits_for_candidate
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
@@ -441,20 +442,47 @@ def _restore_input_qubit_order(state: np.ndarray, input_to_output: list[int]) ->
     return restored
 
 
-def logical_output_density_matrix(
+def _unsafe_statevector_operation(circuit) -> str | None:
+    for instruction in circuit.data:
+        operation = instruction.operation
+        name = str(operation.name)
+        if name == "measure":
+            return "circuit contains measurement operations"
+        if name == "reset":
+            return (
+                "circuit contains reset operations, which are non-unitary and "
+                "unsafe for deterministic statevector reconstruction"
+            )
+        if isinstance(operation, ControlFlowOp):
+            return f"circuit contains control-flow operation {name!r}"
+        if getattr(operation, "_condition", None) is not None:
+            return f"circuit contains classically controlled operation {name!r}"
+        if instruction.clbits or getattr(operation, "num_clbits", 0):
+            return f"circuit contains classical-data operation {name!r}"
+        try:
+            operation_is_unitary = Operator(operation).is_unitary()
+        except Exception:
+            operation_is_unitary = False
+        if not operation_is_unitary:
+            return f"circuit contains non-unitary or unsupported operation {name!r}"
+    return None
+
+
+def logical_output_state(
     circuit,
     *,
     logical_qubit_count: int,
     max_qubits: int,
-) -> tuple[DensityMatrix | None, str]:
+) -> tuple[Statevector | DensityMatrix | None, str]:
     """Reconstruct a compiled circuit's logical output state without execution."""
     notes: list[str] = []
     if type(logical_qubit_count) is not int or logical_qubit_count < 0:
         return None, "Logical state reconstruction requires a non-negative logical_qubit_count."
     if type(max_qubits) is not int or max_qubits < 0:
         return None, "Logical state reconstruction requires a non-negative max_qubits."
-    if any(instruction.operation.name == "measure" for instruction in circuit.data):
-        return None, "Fidelity skipped because circuit contains measurement operations."
+    unsafe_operation = _unsafe_statevector_operation(circuit)
+    if unsafe_operation is not None:
+        return None, f"Fidelity skipped because {unsafe_operation}."
 
     fidelity_qc = circuit
     active_indices = list(range(circuit.num_qubits))
@@ -524,15 +552,31 @@ def logical_output_density_matrix(
                 active_indices,
                 logical_qubit_count,
             )
-        candidate_state = Statevector(candidate_data, dims=logical_dims)
-        return DensityMatrix(candidate_state), " ".join(notes)
+        return Statevector(candidate_data, dims=logical_dims), " ".join(notes)
     except Exception as exc:
         notes.append(f"Fidelity skipped: {exc}")
         return None, " ".join(notes)
 
 
+def logical_output_density_matrix(
+    circuit,
+    *,
+    logical_qubit_count: int,
+    max_qubits: int,
+) -> tuple[DensityMatrix | None, str]:
+    """Compatibility wrapper returning the logical state as a density matrix."""
+    state, notes = logical_output_state(
+        circuit,
+        logical_qubit_count=logical_qubit_count,
+        max_qubits=max_qubits,
+    )
+    if state is None or isinstance(state, DensityMatrix):
+        return state, notes
+    return DensityMatrix(state), notes
+
+
 def _safe_fidelity(reference_qc, candidate_qc, *, max_qubits: int) -> tuple[float | None, str]:
-    candidate_state, notes = logical_output_density_matrix(
+    candidate_state, notes = logical_output_state(
         candidate_qc,
         logical_qubit_count=reference_qc.num_qubits,
         max_qubits=max_qubits,

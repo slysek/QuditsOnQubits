@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import unittest
+import warnings
 from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
@@ -26,6 +27,7 @@ from qudits_on_qubits.benchmarks.direct_basis.benchmark import (
     benchmark_direct_basis_candidates,
     default_iqm_quantum_circuits_dir,
     logical_output_density_matrix,
+    logical_output_state,
 )
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
 from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import backend_metadata
@@ -104,7 +106,21 @@ class DirectBasisIqmBenchmarkTests(unittest.TestCase):
         mocked_state_fidelity.assert_called_once()
         state1, state2 = mocked_state_fidelity.call_args.args
         self.assertIsInstance(state1, Statevector)
-        self.assertIsInstance(state2, DensityMatrix)
+        self.assertIsInstance(state2, Statevector)
+
+    def test_logical_output_state_keeps_12_qubit_pure_output_compact(self):
+        candidate = QuantumCircuit(12)
+        candidate.x(0)
+
+        logical, notes = logical_output_state(
+            candidate,
+            logical_qubit_count=12,
+            max_qubits=12,
+        )
+
+        self.assertEqual(notes, "")
+        self.assertIsInstance(logical, Statevector)
+        self.assertEqual(logical.data.shape, (4096,))
 
     def test_logical_output_density_matrix_restores_layout_order(self):
         reference = QuantumCircuit(2)
@@ -120,6 +136,7 @@ class DirectBasisIqmBenchmarkTests(unittest.TestCase):
         )
 
         self.assertIsNotNone(logical, notes)
+        self.assertIsInstance(logical, DensityMatrix)
         self.assertGreater(state_fidelity(Statevector.from_instruction(reference), logical), 1 - 1e-10)
 
     def test_initial_only_transpiler_layout_restores_logical_order(self):
@@ -194,13 +211,14 @@ class DirectBasisIqmBenchmarkTests(unittest.TestCase):
         candidate.x(2)
         self._with_final_layout(candidate, [2])
 
-        logical, notes = logical_output_density_matrix(
+        logical, notes = logical_output_state(
             candidate,
             logical_qubit_count=1,
             max_qubits=1,
         )
 
         self.assertIsNotNone(logical, notes)
+        self.assertIsInstance(logical, Statevector)
         self.assertIn("Idle qubits stripped", notes)
         self.assertGreater(state_fidelity(Statevector.from_instruction(reference), logical), 1 - 1e-10)
 
@@ -212,13 +230,14 @@ class DirectBasisIqmBenchmarkTests(unittest.TestCase):
         candidate.x(1)
         self._with_final_layout(candidate, [0])
 
-        logical, notes = logical_output_density_matrix(
+        logical, notes = logical_output_state(
             candidate,
             logical_qubit_count=1,
             max_qubits=2,
         )
 
         self.assertIsNotNone(logical, notes)
+        self.assertIsInstance(logical, DensityMatrix)
         self.assertIn("Extra active qubits traced", notes)
         self.assertGreater(state_fidelity(Statevector.from_instruction(reference), logical), 1 - 1e-10)
 
@@ -235,6 +254,75 @@ class DirectBasisIqmBenchmarkTests(unittest.TestCase):
 
         self.assertIsNone(logical)
         self.assertIn("measurement", notes.casefold())
+
+    def test_logical_output_state_rejects_entangled_reset_deterministically(self):
+        candidate = QuantumCircuit(2)
+        candidate.h(0)
+        candidate.cx(0, 1)
+        candidate.reset(0)
+
+        results = [
+            logical_output_state(
+                candidate,
+                logical_qubit_count=2,
+                max_qubits=2,
+            )
+            for _ in range(20)
+        ]
+
+        self.assertTrue(all(state is None for state, _ in results))
+        self.assertEqual(len({diagnostic for _, diagnostic in results}), 1)
+        self.assertIn("reset", results[0][1].casefold())
+
+    def test_logical_output_state_rejects_other_non_unitary_operations(self):
+        candidate = QuantumCircuit(1)
+        candidate.initialize([1, 0], 0)
+
+        logical, notes = logical_output_state(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=1,
+        )
+
+        self.assertIsNone(logical)
+        self.assertIn("non-unitary", notes.casefold())
+        self.assertIn("initialize", notes.casefold())
+
+    def test_logical_output_state_rejects_classically_conditioned_operations(self):
+        candidate = QuantumCircuit(1, 1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            candidate.x(0).c_if(candidate.cregs[0], 1)
+
+        logical, notes = logical_output_state(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=1,
+        )
+
+        self.assertIsNone(logical)
+        self.assertIn("classically controlled", notes.casefold())
+
+    def test_logical_output_state_rejects_control_flow_operations(self):
+        true_body = QuantumCircuit(1)
+        true_body.x(0)
+        candidate = QuantumCircuit(1, 1)
+        candidate.if_test(
+            (candidate.clbits[0], True),
+            true_body,
+            [candidate.qubits[0]],
+            [],
+        )
+
+        logical, notes = logical_output_state(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=1,
+        )
+
+        self.assertIsNone(logical)
+        self.assertIn("control-flow", notes.casefold())
+        self.assertIn("if_else", notes.casefold())
 
     def test_logical_output_density_matrix_reports_unsafe_widths(self):
         too_wide = QuantumCircuit(2)
