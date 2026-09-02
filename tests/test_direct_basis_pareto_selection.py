@@ -17,11 +17,15 @@ if str(SRC) not in sys.path:
 
 from qudits_on_qubits.benchmarks.direct_basis.pareto_selection import (
     BEST_TRIAL_ORDER,
+    DEFAULT_OBJECTIVE_WEIGHTS,
     IDENTITY_COLUMNS,
     OBJECTIVE_COLUMNS,
     OPTIONAL_BOUNDARY_COLUMNS,
     TRIAL_ID_COLUMNS,
+    _dominates,
     aggregate_strategy_statistics,
+    assign_pareto_ranks,
+    rank_pareto_candidates,
 )
 
 
@@ -277,6 +281,172 @@ class AggregateStrategyStatisticsTests(unittest.TestCase):
         original = aggregate_strategy_statistics(pd.DataFrame(rows))
         shuffled = aggregate_strategy_statistics(pd.DataFrame(rows).sample(frac=1, random_state=7))
         pd.testing.assert_frame_equal(original, shuffled)
+
+
+def _statistics_row(
+    candidate_name: str,
+    metrics: tuple[object, object, object],
+    *,
+    state_name: str = "ghz3",
+    class_name: str = "product",
+    strategy_name: str = "default",
+    pareto_eligible: object = True,
+    **boundary: object,
+) -> dict[str, object]:
+    return {
+        "state_name": state_name,
+        "class_name": class_name,
+        "candidate_name": candidate_name,
+        "strategy_name": strategy_name,
+        "mean_two_qubit_gate_count": metrics[0],
+        "mean_depth": metrics[1],
+        "std_depth": metrics[2],
+        "pareto_eligible": pareto_eligible,
+        **boundary,
+    }
+
+
+class ParetoCandidateRankingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.rows = [
+            _statistics_row("balanced", (3, 10, 2)),
+            _statistics_row("low_2q", (2, 14, 3)),
+            _statistics_row("stable", (4, 12, 1)),
+            _statistics_row("dominated", (5, 16, 4)),
+            _statistics_row("deeply_dominated", (6, 18, 5)),
+            _statistics_row("balanced_copy", (3, 10, 2)),
+        ]
+
+    def test_default_weights_and_multiple_pareto_layers(self) -> None:
+        self.assertEqual(
+            DEFAULT_OBJECTIVE_WEIGHTS,
+            {"mean_two_qubit_gate_count": 0.50, "mean_depth": 0.30, "std_depth": 0.20},
+        )
+        result = assign_pareto_ranks(pd.DataFrame(self.rows)).set_index("candidate_name")
+        for candidate in ("balanced", "low_2q", "stable", "balanced_copy"):
+            self.assertEqual(result.loc[candidate, "pareto_rank"], 1)
+        self.assertEqual(result.loc["dominated", "pareto_rank"], 2)
+        self.assertEqual(result.loc["deeply_dominated", "pareto_rank"], 3)
+        self.assertEqual(
+            result.loc["balanced", "pareto_metric_group_id"],
+            result.loc["balanced_copy", "pareto_metric_group_id"],
+        )
+        self.assertNotEqual(result.loc["balanced", "pareto_metric_group_id"], result.loc["stable", "pareto_metric_group_id"])
+
+    def test_dominance_is_strict_and_minimizes_all_objectives(self) -> None:
+        self.assertTrue(_dominates((1, 2, 3), (1, 3, 4)))
+        self.assertFalse(_dominates((1, 3, 4), (1, 2, 3)))
+        self.assertFalse(_dominates((1, 4, 2), (2, 3, 3)))
+        self.assertFalse(_dominates((1, 2, 3), (1, 2, 3)))
+
+    def test_scores_are_global_per_partition_and_use_exact_formula(self) -> None:
+        result = rank_pareto_candidates(pd.DataFrame(self.rows)).set_index("candidate_name")
+        balanced = result.loc["balanced"]
+        self.assertAlmostEqual(balanced["normalized_mean_two_qubit_gate_count"], 1 / 4)
+        self.assertAlmostEqual(balanced["normalized_mean_depth"], 0.0)
+        self.assertAlmostEqual(balanced["normalized_std_depth"], 1 / 4)
+        self.assertAlmostEqual(balanced["ideal_score"], 0.50 / 4 + 0.20 / 4)
+        self.assertLess(result.loc["balanced", "recommendation_order"], result.loc["dominated", "recommendation_order"])
+
+    def test_constant_objectives_are_zero_and_equivalent_custom_weights_normalize(self) -> None:
+        rows = [
+            _statistics_row("a", (1, 10, 2)),
+            _statistics_row("b", (3, 10, 2)),
+        ]
+        default = rank_pareto_candidates(pd.DataFrame(rows))
+        custom = rank_pareto_candidates(
+            pd.DataFrame(rows),
+            objective_weights={"mean_two_qubit_gate_count": 5, "mean_depth": 3, "std_depth": 2},
+        )
+        self.assertTrue((default[["normalized_mean_depth", "normalized_std_depth"]] == 0.0).all().all())
+        pd.testing.assert_series_equal(default["ideal_score"], custom["ideal_score"])
+
+    def test_invalid_objective_weights_are_rejected(self) -> None:
+        invalid = [
+            {},
+            {"mean_two_qubit_gate_count": 1, "mean_depth": 1},
+            {**DEFAULT_OBJECTIVE_WEIGHTS, "extra": 1},
+            {"mean_two_qubit_gate_count": -1, "mean_depth": 1, "std_depth": 1},
+            {"mean_two_qubit_gate_count": np.nan, "mean_depth": 1, "std_depth": 1},
+            {"mean_two_qubit_gate_count": np.inf, "mean_depth": 1, "std_depth": 1},
+            {"mean_two_qubit_gate_count": 1 + 0j, "mean_depth": 1, "std_depth": 1},
+            {"mean_two_qubit_gate_count": 0, "mean_depth": 0, "std_depth": 0},
+        ]
+        for weights in invalid:
+            with self.subTest(weights=weights):
+                with self.assertRaises(ValueError):
+                    rank_pareto_candidates(pd.DataFrame(self.rows), objective_weights=weights)
+
+    def test_boundaries_states_and_missing_boundary_values_are_independent(self) -> None:
+        rows = [
+            _statistics_row("first", (1, 9, 1), iqm_backend_name="a", backend_calibration_set_id="c1", selection_label="exact"),
+            _statistics_row("second", (2, 10, 2), iqm_backend_name="a", backend_calibration_set_id="c1", selection_label="exact"),
+            _statistics_row("first", (2, 10, 2), iqm_backend_name="b", backend_calibration_set_id="c1", selection_label="exact"),
+            _statistics_row("second", (1, 9, 1), iqm_backend_name="b", backend_calibration_set_id="c1", selection_label="exact"),
+            _statistics_row("first", (2, 10, 2), state_name="other", iqm_backend_name="a", backend_calibration_set_id="c1", selection_label="exact"),
+            _statistics_row("second", (1, 9, 1), state_name="other", iqm_backend_name="a", backend_calibration_set_id="c1", selection_label="exact"),
+            _statistics_row("na_first", (1, 9, 1), iqm_backend_name=np.nan, backend_calibration_set_id="c1", selection_label="exact"),
+            _statistics_row("na_second", (2, 10, 2), iqm_backend_name=np.nan, backend_calibration_set_id="c1", selection_label="exact"),
+        ]
+        result = rank_pareto_candidates(pd.DataFrame(rows))
+
+        def rank(state_name: str, backend: object, candidate_name: str) -> int:
+            matching = result[
+                (result["state_name"] == state_name)
+                & (result["candidate_name"] == candidate_name)
+                & (
+                    result["iqm_backend_name"].isna()
+                    if pd.isna(backend)
+                    else result["iqm_backend_name"] == backend
+                )
+            ]
+            return int(matching["pareto_rank"].item())
+
+        self.assertEqual(rank("ghz3", "a", "first"), 1)
+        self.assertEqual(rank("ghz3", "a", "second"), 2)
+        self.assertEqual(rank("other", "a", "second"), 1)
+        self.assertEqual(rank("other", "a", "first"), 2)
+        self.assertEqual(rank("ghz3", np.nan, "na_first"), 1)
+        self.assertEqual(rank("ghz3", np.nan, "na_second"), 2)
+
+    def test_order_is_deterministic_after_identity_ties_and_shuffled_input(self) -> None:
+        rows = [
+            _statistics_row("z", (3, 10, 2), class_name="z", strategy_name="z"),
+            _statistics_row("a", (3, 10, 2), class_name="a", strategy_name="a"),
+        ]
+        original = rank_pareto_candidates(pd.DataFrame(rows))
+        shuffled = rank_pareto_candidates(pd.DataFrame(rows).sample(frac=1, random_state=4))
+        pd.testing.assert_frame_equal(original, shuffled)
+        self.assertEqual(original["candidate_name"].tolist(), ["a", "z"])
+
+    def test_ineligible_diagnostics_follow_eligible_with_null_ranking_fields(self) -> None:
+        rows = [
+            _statistics_row("eligible", (1, 1, 1)),
+            _statistics_row("z_diagnostic", ("not-a-number", None, np.nan), pareto_eligible=False),
+            _statistics_row("a_diagnostic", ("not-a-number", None, np.nan), pareto_eligible=False),
+        ]
+        result = rank_pareto_candidates(pd.DataFrame(rows))
+        self.assertEqual(result["candidate_name"].tolist(), ["eligible", "a_diagnostic", "z_diagnostic"])
+        diagnostics = result.iloc[1:]
+        self.assertTrue(diagnostics[["pareto_rank", "pareto_metric_group_id", "ideal_score", "normalized_mean_two_qubit_gate_count", "normalized_mean_depth", "normalized_std_depth"]].isna().all().all())
+        self.assertEqual(result["recommendation_order"].tolist(), [1, 2, 3])
+
+    def test_invalid_eligible_objectives_are_rejected_and_empty_input_has_stable_schema(self) -> None:
+        for value in (-1, np.nan, np.inf, "bad", 1 + 0j):
+            with self.subTest(value=value):
+                rows = [_statistics_row("bad", (value, 1, 1))]
+                with self.assertRaises(ValueError):
+                    assign_pareto_ranks(pd.DataFrame(rows))
+        ranked = rank_pareto_candidates(pd.DataFrame())
+        self.assertTrue(ranked.empty)
+        self.assertEqual(
+            ranked.columns.tolist(),
+            [
+                "pareto_rank", "pareto_metric_group_id",
+                "normalized_mean_two_qubit_gate_count", "normalized_mean_depth", "normalized_std_depth",
+                "ideal_score", "recommendation_order",
+            ],
+        )
 
 
 if __name__ == "__main__":

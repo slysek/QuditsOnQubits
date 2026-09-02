@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from collections.abc import Mapping
+from numbers import Real
 
 import numpy as np
 import pandas as pd
@@ -20,6 +22,11 @@ OBJECTIVE_COLUMNS = (
     "mean_depth",
     "std_depth",
 )
+DEFAULT_OBJECTIVE_WEIGHTS = {
+    "mean_two_qubit_gate_count": 0.50,
+    "mean_depth": 0.30,
+    "std_depth": 0.20,
+}
 BEST_TRIAL_ORDER = (
     "two_qubit_gate_count",
     "depth",
@@ -36,6 +43,9 @@ _REQUIRED_INPUT_COLUMNS = (
     "graph_state_transpiled_qpy",
 )
 _METRIC_COLUMNS = BEST_TRIAL_ORDER[:-1]
+_PARETO_COLUMNS = ("pareto_rank", "pareto_metric_group_id")
+_NORMALIZED_OBJECTIVE_COLUMNS = tuple(f"normalized_{column}" for column in OBJECTIVE_COLUMNS)
+_RANKING_COLUMNS = (*_PARETO_COLUMNS, *_NORMALIZED_OBJECTIVE_COLUMNS, "ideal_score", "recommendation_order")
 _OUTPUT_COLUMNS = (
     *IDENTITY_COLUMNS,
     "total_trial_count",
@@ -100,6 +110,190 @@ def _identity_description(row: pd.Series) -> str:
     return ", ".join(
         f"{column}={row[column]!r}" for column in ("state_name", "candidate_name", "strategy_name")
     )
+
+
+def _is_real_number(value: object) -> bool:
+    return isinstance(value, Real) and not isinstance(value, (bool, np.bool_))
+
+
+def _stable_value_key(value: object) -> tuple[int, str]:
+    """Provide an order for display metadata, including nullable boundaries."""
+    if value is None or (not isinstance(value, (list, tuple, dict, set)) and pd.isna(value)):
+        return (1, "")
+    return (0, f"{type(value).__name__}:{value}")
+
+
+def _deterministic_sort(frame: pd.DataFrame, columns: Iterable[str]) -> pd.DataFrame:
+    columns = tuple(dict.fromkeys(columns))
+    if frame.empty or not columns:
+        return frame.copy()
+    sortable = frame.copy()
+    key_columns: list[str] = []
+    for position, column in enumerate(columns):
+        key_column = f"__pareto_sort_{position}"
+        sortable[key_column] = sortable[column].map(_stable_value_key)
+        key_columns.append(key_column)
+    return sortable.sort_values(key_columns, kind="mergesort").drop(columns=key_columns)
+
+
+def _present_partition_columns(columns: Iterable[str]) -> tuple[str, ...]:
+    return ("state_name", *_present_boundary_columns(columns))
+
+
+def _eligible_mask(statistics: pd.DataFrame) -> pd.Series:
+    return statistics["pareto_eligible"].map(
+        lambda value: isinstance(value, (bool, np.bool_)) and bool(value)
+    )
+
+
+def _validate_statistics_schema(statistics: pd.DataFrame) -> None:
+    required = (*IDENTITY_COLUMNS, "pareto_eligible", *OBJECTIVE_COLUMNS)
+    missing = [column for column in required if column not in statistics.columns]
+    if missing:
+        raise ValueError(f"statistics is missing required columns: {', '.join(missing)}")
+
+
+def _validate_eligible_objectives(statistics: pd.DataFrame, eligible: pd.Series) -> None:
+    for column in OBJECTIVE_COLUMNS:
+        for position, value in statistics.loc[eligible, column].items():
+            if not _is_real_number(value) or not np.isfinite(float(value)) or float(value) < 0:
+                row = statistics.loc[position]
+                raise ValueError(
+                    f"invalid eligible objective {_identity_description(row)}, {column}={value!r}; "
+                    "expected a finite nonnegative real number"
+                )
+
+
+def _dominates(left: Iterable[float], right: Iterable[float]) -> bool:
+    """Return whether ``left`` is strictly Pareto-better than ``right``."""
+    left_values = tuple(left)
+    right_values = tuple(right)
+    return all(left_value <= right_value for left_value, right_value in zip(left_values, right_values, strict=True)) and any(
+        left_value < right_value for left_value, right_value in zip(left_values, right_values, strict=True)
+    )
+
+
+def assign_pareto_ranks(statistics: pd.DataFrame) -> pd.DataFrame:
+    """Assign nondominated-front ranks to eligible per-state benchmark statistics.
+
+    Optional backend, calibration, and selection columns, when present, form
+    additional independent ranking boundaries.  Diagnostic rows are retained
+    but never participate in metric validation or front construction.
+    """
+    if statistics.empty:
+        return statistics.copy().reindex(columns=[*statistics.columns, *_PARETO_COLUMNS])
+
+    _validate_statistics_schema(statistics)
+    result = statistics.copy().reset_index(drop=True)
+    boundary_columns = _present_boundary_columns(result.columns)
+    partition_columns = _present_partition_columns(result.columns)
+    eligible = _eligible_mask(result)
+    _validate_eligible_objectives(result, eligible)
+    result.loc[eligible, list(OBJECTIVE_COLUMNS)] = result.loc[eligible, list(OBJECTIVE_COLUMNS)].astype(float)
+    result["pareto_rank"] = pd.NA
+    result["pareto_metric_group_id"] = pd.NA
+
+    ordered = _deterministic_sort(result, [*boundary_columns, "state_name", *IDENTITY_COLUMNS])
+    for _, partition in ordered.groupby(list(partition_columns), dropna=False, sort=False):
+        positions = partition.index[eligible.loc[partition.index]].tolist()
+        if not positions:
+            continue
+        metrics = {
+            position: tuple(float(result.at[position, column]) for column in OBJECTIVE_COLUMNS)
+            for position in positions
+        }
+        metric_group_ids = {
+            metric: f"pareto_metrics_{number:04d}"
+            for number, metric in enumerate(sorted(set(metrics.values())), start=1)
+        }
+        for position, metric in metrics.items():
+            result.at[position, "pareto_metric_group_id"] = metric_group_ids[metric]
+
+        remaining = positions[:]
+        rank = 1
+        while remaining:
+            front = [
+                position
+                for position in remaining
+                if not any(
+                    _dominates(metrics[other], metrics[position])
+                    for other in remaining
+                    if other != position
+                )
+            ]
+            result.loc[front, "pareto_rank"] = rank
+            remaining = [position for position in remaining if position not in front]
+            rank += 1
+
+    return _deterministic_sort(
+        result, [*boundary_columns, "state_name", "pareto_rank", *IDENTITY_COLUMNS]
+    ).reset_index(drop=True)
+
+
+def _normalized_objective_weights(objective_weights: Mapping[str, object] | None) -> dict[str, float]:
+    weights = DEFAULT_OBJECTIVE_WEIGHTS if objective_weights is None else objective_weights
+    if not isinstance(weights, Mapping) or set(weights) != set(OBJECTIVE_COLUMNS):
+        raise ValueError(f"objective_weights must contain exactly: {', '.join(OBJECTIVE_COLUMNS)}")
+    normalized: dict[str, float] = {}
+    for column in OBJECTIVE_COLUMNS:
+        value = weights[column]
+        if not _is_real_number(value) or not np.isfinite(float(value)) or float(value) < 0:
+            raise ValueError("objective_weights must be finite nonnegative real numbers")
+        normalized[column] = float(value)
+    total = sum(normalized.values())
+    if total <= 0:
+        raise ValueError("objective_weights must have a positive total")
+    return {column: value / total for column, value in normalized.items()}
+
+
+def rank_pareto_candidates(
+    statistics: pd.DataFrame, *, objective_weights: Mapping[str, object] | None = None
+) -> pd.DataFrame:
+    """Score candidates within Pareto layers without changing Pareto dominance."""
+    weights = _normalized_objective_weights(objective_weights)
+    result = assign_pareto_ranks(statistics)
+    for column in _NORMALIZED_OBJECTIVE_COLUMNS:
+        result[column] = pd.NA
+    result["ideal_score"] = pd.NA
+    result["recommendation_order"] = pd.NA
+    if result.empty:
+        return result
+
+    boundary_columns = _present_boundary_columns(result.columns)
+    partition_columns = _present_partition_columns(result.columns)
+    ordered = _deterministic_sort(result, [*boundary_columns, "state_name", *IDENTITY_COLUMNS])
+    ranked_partitions: list[pd.DataFrame] = []
+    for _, partition in ordered.groupby(list(partition_columns), dropna=False, sort=False):
+        partition = partition.copy()
+        eligible = _eligible_mask(partition)
+        eligible_rows = partition.loc[eligible].copy()
+        if not eligible_rows.empty:
+            for objective, normalized_column in zip(
+                OBJECTIVE_COLUMNS, _NORMALIZED_OBJECTIVE_COLUMNS, strict=True
+            ):
+                minimum = eligible_rows[objective].min()
+                maximum = eligible_rows[objective].max()
+                if maximum == minimum:
+                    eligible_rows[normalized_column] = 0.0
+                else:
+                    eligible_rows[normalized_column] = (
+                        eligible_rows[objective] - minimum
+                    ) / (maximum - minimum)
+            eligible_rows["ideal_score"] = sum(
+                eligible_rows[f"normalized_{objective}"] * weights[objective]
+                for objective in OBJECTIVE_COLUMNS
+            )
+            eligible_rows = _deterministic_sort(
+                eligible_rows,
+                ["pareto_rank", "ideal_score", *OBJECTIVE_COLUMNS, *IDENTITY_COLUMNS[1:]],
+            )
+        diagnostics = _deterministic_sort(partition.loc[~eligible], IDENTITY_COLUMNS[1:])
+        scoring_columns = [*_NORMALIZED_OBJECTIVE_COLUMNS, "ideal_score"]
+        partition.loc[eligible_rows.index, scoring_columns] = eligible_rows[scoring_columns]
+        ranked = partition.loc[[*eligible_rows.index, *diagnostics.index]].copy()
+        ranked["recommendation_order"] = range(1, len(ranked) + 1)
+        ranked_partitions.append(ranked)
+    return pd.concat(ranked_partitions, ignore_index=True)
 
 
 def _validate_successful_metrics(trials: pd.DataFrame, successful: pd.Series) -> None:
