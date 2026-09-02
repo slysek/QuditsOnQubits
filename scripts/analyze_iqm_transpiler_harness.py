@@ -14,15 +14,6 @@ SRC = REPO_ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from qudits_on_qubits.benchmarks.direct_basis.pareto_selection import (
-    analyze_iqm_trials,
-    write_pareto_analysis_outputs,
-)
-from qudits_on_qubits.benchmarks.direct_basis.phase_equivalence import (
-    PHASE_DUPLICATE_COLUMNS,
-)
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -51,9 +42,16 @@ def _load_existing_summary(path: Path) -> dict[str, object]:
     return summary
 
 
-def _write_phase_audit_if_absent(path: Path) -> None:
-    if not path.exists():
-        pd.DataFrame(columns=PHASE_DUPLICATE_COLUMNS).to_csv(path, index=False)
+def _analysis_dependencies():
+    from qudits_on_qubits.benchmarks.direct_basis.pareto_selection import (
+        analyze_iqm_trials,
+        write_pareto_analysis_outputs,
+    )
+    from qudits_on_qubits.benchmarks.direct_basis.phase_equivalence import (
+        PHASE_DUPLICATE_COLUMNS,
+    )
+
+    return analyze_iqm_trials, write_pareto_analysis_outputs, PHASE_DUPLICATE_COLUMNS
 
 
 def main(argv=None) -> int:
@@ -65,6 +63,7 @@ def main(argv=None) -> int:
     if args.max_state_qubits < 1:
         parser.error("max-state-qubits must be at least 1")
 
+    analyze_iqm_trials, write_pareto_analysis_outputs, phase_duplicate_columns = _analysis_dependencies()
     output_dir = Path(args.output_dir).resolve() if args.output_dir else all_trials_path.parent
     all_trials = pd.read_csv(all_trials_path)
     objective_weights = {
@@ -79,7 +78,8 @@ def main(argv=None) -> int:
     )
     analysis_paths = write_pareto_analysis_outputs(output_dir, analysis)
     phase_csv = output_dir / "candidate_global_phase_duplicates.csv"
-    _write_phase_audit_if_absent(phase_csv)
+    if not phase_csv.exists():
+        pd.DataFrame(columns=phase_duplicate_columns).to_csv(phase_csv, index=False)
     summary_json = output_dir / "summary.json"
     existing_summary = _load_existing_summary(summary_json)
     summary_json.write_text(

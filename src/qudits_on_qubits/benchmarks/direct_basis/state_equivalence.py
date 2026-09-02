@@ -12,7 +12,7 @@ import pandas as pd
 from qiskit import qpy
 from qiskit.quantum_info import DensityMatrix, Statevector, state_fidelity
 
-from .benchmark import logical_output_state
+from .state_reconstruction import logical_output_state
 
 
 STATE_EQUIVALENCE_ATOL = 1e-9

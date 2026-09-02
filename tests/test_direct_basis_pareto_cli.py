@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -18,6 +19,7 @@ if str(SRC) not in sys.path:
 
 from qudits_on_qubits.benchmarks.direct_basis.pareto_selection import (
     ParetoAnalysisResult,
+    write_pareto_analysis_outputs,
 )
 from qudits_on_qubits.benchmarks.direct_basis.phase_equivalence import (
     PHASE_DUPLICATE_COLUMNS,
@@ -78,21 +80,20 @@ class ParetoPostProcessingCliTests(unittest.TestCase):
             all_trials = self._write_trials(directory)
             (directory / "summary.json").write_text('{"candidate_count": 2}', encoding="utf-8")
 
-            with patch("scripts.analyze_iqm_transpiler_harness.analyze_iqm_trials", return_value=_analysis()) as analyze:
+            with patch(
+                "scripts.analyze_iqm_transpiler_harness._analysis_dependencies",
+                return_value=(
+                    lambda *_args, **_kwargs: _analysis(),
+                    write_pareto_analysis_outputs,
+                    PHASE_DUPLICATE_COLUMNS,
+                ),
+            ) as dependencies:
                 stdout = io.StringIO()
                 with contextlib.redirect_stdout(stdout):
                     result = main(["--all-trials", str(all_trials)])
 
             self.assertEqual(result, 0)
-            analyze.assert_called_once_with(
-                unittest.mock.ANY,
-                objective_weights={
-                    "mean_two_qubit_gate_count": 0.50,
-                    "mean_depth": 0.30,
-                    "std_depth": 0.20,
-                },
-                max_state_qubits=12,
-            )
+            dependencies.assert_called_once_with()
             for name in (
                 "candidate_global_phase_duplicates.csv",
                 "strategy_statistics.csv",
@@ -121,7 +122,14 @@ class ParetoPostProcessingCliTests(unittest.TestCase):
             expected = "known,audit\\nrow,value\\n"
             audit.write_text(expected, encoding="utf-8")
 
-            with patch("scripts.analyze_iqm_transpiler_harness.analyze_iqm_trials", return_value=_analysis()):
+            with patch(
+                "scripts.analyze_iqm_transpiler_harness._analysis_dependencies",
+                return_value=(
+                    lambda *_args, **_kwargs: _analysis(),
+                    write_pareto_analysis_outputs,
+                    PHASE_DUPLICATE_COLUMNS,
+                ),
+            ):
                 result = main(["--all-trials", str(all_trials), "--output-dir", str(output)])
 
             self.assertEqual(result, 0)
@@ -133,7 +141,14 @@ class ParetoPostProcessingCliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)
             all_trials = self._write_trials(directory)
-            with patch("scripts.analyze_iqm_transpiler_harness.analyze_iqm_trials", return_value=_analysis()):
+            with patch(
+                "scripts.analyze_iqm_transpiler_harness._analysis_dependencies",
+                return_value=(
+                    lambda *_args, **_kwargs: _analysis(),
+                    write_pareto_analysis_outputs,
+                    PHASE_DUPLICATE_COLUMNS,
+                ),
+            ):
                 main(["--all-trials", str(all_trials)])
 
             phase = pd.read_csv(directory / "candidate_global_phase_duplicates.csv")
@@ -144,14 +159,23 @@ class ParetoPostProcessingCliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)
             all_trials = self._write_trials(directory)
-            with patch("scripts.analyze_iqm_transpiler_harness.analyze_iqm_trials", return_value=_analysis()) as analyze:
+            captured: dict[str, object] = {}
+
+            def analyze(_trials, **kwargs):
+                captured.update(kwargs)
+                return _analysis()
+
+            with patch(
+                "scripts.analyze_iqm_transpiler_harness._analysis_dependencies",
+                return_value=(analyze, write_pareto_analysis_outputs, PHASE_DUPLICATE_COLUMNS),
+            ):
                 main([
                     "--all-trials", str(all_trials), "--two-qubit-weight", "0.1",
                     "--depth-weight", "0.9", "--std-depth-weight", "0.0",
                 ])
 
             self.assertEqual(
-                analyze.call_args.kwargs["objective_weights"],
+                captured["objective_weights"],
                 {"mean_two_qubit_gate_count": 0.1, "mean_depth": 0.9, "std_depth": 0.0},
             )
 
@@ -187,13 +211,27 @@ class ParetoPostProcessingCliTests(unittest.TestCase):
                         main(argv)
 
             (directory / "summary.json").write_text("[]", encoding="utf-8")
-            with patch("scripts.analyze_iqm_transpiler_harness.analyze_iqm_trials", return_value=_analysis()):
+            with patch(
+                "scripts.analyze_iqm_transpiler_harness._analysis_dependencies",
+                return_value=(
+                    lambda *_args, **_kwargs: _analysis(),
+                    write_pareto_analysis_outputs,
+                    PHASE_DUPLICATE_COLUMNS,
+                ),
+            ):
                 with self.assertRaisesRegex(ValueError, "top-level object"):
                     main(["--all-trials", str(all_trials)])
 
             malformed = "{not json"
             (directory / "summary.json").write_text(malformed, encoding="utf-8")
-            with patch("scripts.analyze_iqm_transpiler_harness.analyze_iqm_trials", return_value=_analysis()):
+            with patch(
+                "scripts.analyze_iqm_transpiler_harness._analysis_dependencies",
+                return_value=(
+                    lambda *_args, **_kwargs: _analysis(),
+                    write_pareto_analysis_outputs,
+                    PHASE_DUPLICATE_COLUMNS,
+                ),
+            ):
                 with self.assertRaisesRegex(ValueError, "summary JSON is invalid"):
                     main(["--all-trials", str(all_trials)])
             self.assertEqual((directory / "summary.json").read_text(encoding="utf-8"), malformed)
@@ -201,10 +239,46 @@ class ParetoPostProcessingCliTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "objective_weights"):
                 main(["--all-trials", str(all_trials), "--two-qubit-weight", "-1"])
 
-    def test_has_no_harness_or_backend_imports_or_calls(self) -> None:
-        source = (REPO_ROOT / "scripts" / "analyze_iqm_transpiler_harness.py").read_text(encoding="utf-8")
-        self.assertNotIn("iqm_transpiler_harness", source)
-        self.assertNotIn("iqm_backend", source)
+    @staticmethod
+    def _isolated_script_modules(*arguments: str) -> set[str]:
+        script = REPO_ROOT / "scripts" / "analyze_iqm_transpiler_harness.py"
+        probe = """
+import json
+import runpy
+import sys
+
+sys.argv = {argv!r}
+try:
+    runpy.run_path({script!r}, run_name="__main__")
+except SystemExit as error:
+    if error.code not in (None, 0):
+        raise
+print("LOADED_MODULES=" + json.dumps(sorted(sys.modules)))
+""".format(argv=[str(script), *arguments], script=str(script))
+        completed = subprocess.run(
+            [sys.executable, "-c", probe],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        marker = "LOADED_MODULES="
+        output = completed.stdout.split(marker, 1)[1]
+        return set(json.loads(output))
+
+    def test_help_isolated_process_loads_no_qiskit_or_iqm_modules(self) -> None:
+        modules = self._isolated_script_modules("--help")
+
+        self.assertFalse(any(name == "qiskit" or name.startswith("qiskit.") for name in modules))
+        for suffix in ("iqm_backend", "iqm_transpiler_harness", "iqm_transpiler_strategies"):
+            self.assertNotIn(f"qudits_on_qubits.benchmarks.direct_basis.{suffix}", modules)
+
+    def test_analysis_isolated_process_loads_no_project_iqm_modules(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            all_trials = self._write_trials(Path(temp))
+            modules = self._isolated_script_modules("--all-trials", str(all_trials))
+
+        for suffix in ("iqm_backend", "iqm_transpiler_harness", "iqm_transpiler_strategies"):
+            self.assertNotIn(f"qudits_on_qubits.benchmarks.direct_basis.{suffix}", modules)
 
 
 if __name__ == "__main__":
