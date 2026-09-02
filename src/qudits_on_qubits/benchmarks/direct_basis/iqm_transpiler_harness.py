@@ -420,8 +420,12 @@ def run_iqm_transpiler_harness(
     )
     all_trials = pd.DataFrame(rows)
     best_by_candidate = pd.DataFrame(best_rows)
-    all_trials.attrs["candidate_global_phase_duplicates"] = candidate_global_phase_duplicates
-    best_by_candidate.attrs["candidate_global_phase_duplicates"] = candidate_global_phase_duplicates
+    all_trials.attrs["candidate_global_phase_duplicates"] = [
+        dict(row) for row in candidate_global_phase_duplicates
+    ]
+    best_by_candidate.attrs["candidate_global_phase_duplicates"] = [
+        dict(row) for row in candidate_global_phase_duplicates
+    ]
     return all_trials, best_by_candidate, summary
 
 
