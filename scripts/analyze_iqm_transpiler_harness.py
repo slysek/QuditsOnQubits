@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import os
 import sys
 from pathlib import Path
 
@@ -13,6 +15,17 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
+
+
+_FIXED_OUTPUT_FILENAMES = (
+    "strategy_statistics.csv",
+    "pareto_ranked.csv",
+    "state_equivalence_groups.csv",
+    "recommended_circuits.csv",
+    "candidate_global_phase_duplicates.csv",
+    "summary.json",
+)
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -54,6 +67,49 @@ def _analysis_dependencies():
     return analyze_iqm_trials, write_pareto_analysis_outputs, PHASE_DUPLICATE_COLUMNS
 
 
+def _resolved_output_targets(output_dir: Path) -> dict[str, Path]:
+    resolved_dir = output_dir.resolve()
+    return {
+        filename: (resolved_dir / filename).resolve()
+        for filename in _FIXED_OUTPUT_FILENAMES
+    }
+
+
+def _path_key(path: Path) -> str:
+    return os.path.normcase(str(path.resolve()))
+
+
+def _reject_input_output_collisions(
+    parser: argparse.ArgumentParser,
+    all_trials_path: Path,
+    output_targets: dict[str, Path],
+) -> None:
+    input_key = _path_key(all_trials_path)
+    collisions = [
+        filename
+        for filename, target in output_targets.items()
+        if _path_key(target) == input_key
+    ]
+    if collisions:
+        parser.error(
+            "all-trials CSV aliases a fixed output target: "
+            + ", ".join(collisions)
+        )
+
+
+def _validate_cli_objective_weights(
+    parser: argparse.ArgumentParser,
+    objective_weights: dict[str, float],
+) -> None:
+    if any(
+        not math.isfinite(value) or value < 0
+        for value in objective_weights.values()
+    ):
+        parser.error("objective weights must be finite nonnegative real numbers")
+    if sum(objective_weights.values()) <= 0:
+        parser.error("objective weights must have a positive total")
+
+
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -63,25 +119,35 @@ def main(argv=None) -> int:
     if args.max_state_qubits < 1:
         parser.error("max-state-qubits must be at least 1")
 
-    analyze_iqm_trials, write_pareto_analysis_outputs, phase_duplicate_columns = _analysis_dependencies()
     output_dir = Path(args.output_dir).resolve() if args.output_dir else all_trials_path.parent
-    all_trials = pd.read_csv(all_trials_path)
+    output_targets = _resolved_output_targets(output_dir)
+    _reject_input_output_collisions(parser, all_trials_path, output_targets)
     objective_weights = {
         "mean_two_qubit_gate_count": args.two_qubit_weight,
         "mean_depth": args.depth_weight,
         "std_depth": args.std_depth_weight,
     }
-    analysis = analyze_iqm_trials(
-        all_trials,
-        objective_weights=objective_weights,
-        max_state_qubits=args.max_state_qubits,
-    )
+    _validate_cli_objective_weights(parser, objective_weights)
+    summary_json = output_targets["summary.json"]
+    existing_summary = _load_existing_summary(summary_json)
+
+    analyze_iqm_trials, write_pareto_analysis_outputs, phase_duplicate_columns = _analysis_dependencies()
+    try:
+        all_trials = pd.read_csv(all_trials_path)
+    except (OSError, UnicodeError, ValueError) as error:
+        parser.error(f"could not read all-trials CSV: {error}")
+    try:
+        analysis = analyze_iqm_trials(
+            all_trials,
+            objective_weights=objective_weights,
+            max_state_qubits=args.max_state_qubits,
+        )
+    except ValueError as error:
+        parser.error(str(error))
     analysis_paths = write_pareto_analysis_outputs(output_dir, analysis)
-    phase_csv = output_dir / "candidate_global_phase_duplicates.csv"
+    phase_csv = output_targets["candidate_global_phase_duplicates.csv"]
     if not phase_csv.exists():
         pd.DataFrame(columns=phase_duplicate_columns).to_csv(phase_csv, index=False)
-    summary_json = output_dir / "summary.json"
-    existing_summary = _load_existing_summary(summary_json)
     summary_json.write_text(
         json.dumps({**existing_summary, **analysis.summary_counts}, indent=2, sort_keys=True),
         encoding="utf-8",

@@ -29,6 +29,11 @@ def __getattr__(name: str):
     globals()[name] = value
     return value
 
+
+def __dir__():
+    return sorted(set(globals()) | set(_EXPORTS))
+
+
 __all__ = [
     "DirectBasisCandidate",
     "benchmark_direct_basis",

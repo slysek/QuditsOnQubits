@@ -8,7 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pandas as pd
 
@@ -236,8 +236,145 @@ class ParetoPostProcessingCliTests(unittest.TestCase):
                     main(["--all-trials", str(all_trials)])
             self.assertEqual((directory / "summary.json").read_text(encoding="utf-8"), malformed)
 
-            with self.assertRaisesRegex(ValueError, "objective_weights"):
-                main(["--all-trials", str(all_trials), "--two-qubit-weight", "-1"])
+            (directory / "summary.json").unlink()
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                with self.assertRaises(SystemExit) as raised:
+                    main(["--all-trials", str(all_trials), "--two-qubit-weight", "-1"])
+            self.assertEqual(raised.exception.code, 2)
+            self.assertIn("objective", stderr.getvalue())
+
+    def test_invalid_summary_preserves_sentinel_outputs_and_skips_analysis(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            input_directory = directory / "input"
+            input_directory.mkdir()
+            all_trials = self._write_trials(input_directory)
+            output = directory / "output"
+            output.mkdir()
+            summary = output / "summary.json"
+            summary.write_text("[]", encoding="utf-8")
+            sentinel_paths = {
+                name: output / name
+                for name in (
+                    "strategy_statistics.csv",
+                    "pareto_ranked.csv",
+                    "state_equivalence_groups.csv",
+                    "recommended_circuits.csv",
+                    "candidate_global_phase_duplicates.csv",
+                )
+            }
+            sentinel_bytes = {}
+            for index, path in enumerate(sentinel_paths.values()):
+                value = f"sentinel-{index}\n".encode()
+                path.write_bytes(value)
+                sentinel_bytes[path] = value
+            analysis = Mock()
+
+            with patch(
+                "scripts.analyze_iqm_transpiler_harness._analysis_dependencies",
+                return_value=(analysis, write_pareto_analysis_outputs, PHASE_DUPLICATE_COLUMNS),
+            ):
+                with self.assertRaisesRegex(ValueError, "top-level object"):
+                    main(["--all-trials", str(all_trials), "--output-dir", str(output)])
+
+            analysis.assert_not_called()
+            for path, value in sentinel_bytes.items():
+                self.assertEqual(path.read_bytes(), value)
+
+    def test_invalid_summary_json_preserves_sentinel_outputs_and_skips_analysis(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            input_directory = directory / "input"
+            input_directory.mkdir()
+            all_trials = self._write_trials(input_directory)
+            output = directory / "output"
+            output.mkdir()
+            summary = output / "summary.json"
+            summary.write_text("{not json", encoding="utf-8")
+            phase = output / "candidate_global_phase_duplicates.csv"
+            phase_bytes = b"existing\nphase\n"
+            phase.write_bytes(phase_bytes)
+            analysis = Mock()
+
+            with patch(
+                "scripts.analyze_iqm_transpiler_harness._analysis_dependencies",
+                return_value=(analysis, write_pareto_analysis_outputs, PHASE_DUPLICATE_COLUMNS),
+            ):
+                with self.assertRaisesRegex(ValueError, "summary JSON is invalid"):
+                    main(["--all-trials", str(all_trials), "--output-dir", str(output)])
+
+            analysis.assert_not_called()
+            self.assertEqual(phase.read_bytes(), phase_bytes)
+
+    def test_input_collisions_are_rejected_without_modifying_source(self) -> None:
+        target_names = (
+            "strategy_statistics.csv",
+            "pareto_ranked.csv",
+            "state_equivalence_groups.csv",
+            "recommended_circuits.csv",
+            "candidate_global_phase_duplicates.csv",
+            "summary.json",
+        )
+        for target_name in target_names:
+            with self.subTest(target_name=target_name), tempfile.TemporaryDirectory() as temp:
+                directory = Path(temp)
+                output = directory / "output"
+                output.mkdir()
+                source = output / target_name
+                original = f"source-{target_name}\n".encode()
+                source.write_bytes(original)
+                analysis = Mock()
+                with patch(
+                    "scripts.analyze_iqm_transpiler_harness._analysis_dependencies",
+                    return_value=(analysis, write_pareto_analysis_outputs, PHASE_DUPLICATE_COLUMNS),
+                ):
+                    with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                        with self.assertRaises(SystemExit) as raised:
+                            main(["--all-trials", str(source), "--output-dir", str(output)])
+                self.assertEqual(raised.exception.code, 2)
+                self.assertIn(target_name, stderr.getvalue())
+                self.assertEqual(source.read_bytes(), original)
+                analysis.assert_not_called()
+
+    def test_cli_converts_weight_and_csv_schema_errors_to_argparse_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            all_trials = self._write_trials(directory)
+            for option, value, message in (
+                ("--two-qubit-weight", "-1", "finite nonnegative"),
+                ("--depth-weight", "nan", "finite nonnegative"),
+                ("--std-depth-weight", "inf", "finite nonnegative"),
+            ):
+                with self.subTest(option=option), contextlib.redirect_stderr(io.StringIO()) as stderr:
+                    with self.assertRaises(SystemExit) as raised:
+                        main(["--all-trials", str(all_trials), option, value])
+                self.assertEqual(raised.exception.code, 2)
+                self.assertIn(message, stderr.getvalue())
+
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                with self.assertRaises(SystemExit) as raised:
+                    main([
+                        "--all-trials", str(all_trials),
+                        "--two-qubit-weight", "0", "--depth-weight", "0", "--std-depth-weight", "0",
+                    ])
+            self.assertEqual(raised.exception.code, 2)
+            self.assertIn("positive total", stderr.getvalue())
+
+            missing = directory / "missing-columns.csv"
+            missing.write_text("state_name\nonly-state\n", encoding="utf-8")
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                with self.assertRaises(SystemExit) as raised:
+                    main(["--all-trials", str(missing)])
+            self.assertEqual(raised.exception.code, 2)
+            self.assertIn("missing required columns", stderr.getvalue())
+
+            malformed = directory / "malformed.csv"
+            malformed.write_text('"unterminated\n', encoding="utf-8")
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                with self.assertRaises(SystemExit) as raised:
+                    main(["--all-trials", str(malformed)])
+            self.assertEqual(raised.exception.code, 2)
+            self.assertIn("CSV", stderr.getvalue())
 
     @staticmethod
     def _isolated_script_modules(*arguments: str) -> set[str]:
@@ -279,6 +416,22 @@ print("LOADED_MODULES=" + json.dumps(sorted(sys.modules)))
 
         for suffix in ("iqm_backend", "iqm_transpiler_harness", "iqm_transpiler_strategies"):
             self.assertNotIn(f"qudits_on_qubits.benchmarks.direct_basis.{suffix}", modules)
+
+    def test_lazy_direct_basis_reflection_lists_exports_before_access(self) -> None:
+        import importlib
+
+        direct_basis = importlib.import_module("qudits_on_qubits.benchmarks.direct_basis")
+        for name in direct_basis._EXPORTS:
+            direct_basis.__dict__.pop(name, None)
+
+        before_dir = set(sys.modules)
+        listed = set(dir(direct_basis))
+        after_dir = set(sys.modules)
+        self.assertTrue(set(direct_basis.__all__).issubset(listed))
+        self.assertTrue(
+            set(direct_basis._EXPORTS).issubset(listed)
+        )
+        self.assertEqual(after_dir, before_dir)
 
 
 if __name__ == "__main__":
