@@ -299,6 +299,49 @@ def test_missing_required_columns_are_named():
         group_state_equivalent_candidates(pd.DataFrame([{"state_name": "ghz3"}]))
 
 
+def test_duplicate_analysis_identity_is_rejected_before_state_loading():
+    rows = [
+        _row("same", "first.qpy", iqm_backend_name="backend", ideal_score=0.1),
+        _row("same", "second.qpy", iqm_backend_name="backend", ideal_score=0.2),
+    ]
+    calls = []
+
+    def loader(path, logical_qubit_count, *, max_qubits):
+        calls.append(path)
+        states = {"first.qpy": [1, 0], "second.qpy": [0, 1]}
+        return _density(states[Path(path).name]), ""
+
+    with pytest.raises(ValueError) as original_error:
+        group_state_equivalent_candidates(pd.DataFrame(rows), state_loader=loader)
+    with pytest.raises(ValueError) as reversed_error:
+        group_state_equivalent_candidates(
+            pd.DataFrame(list(reversed(rows))), state_loader=loader
+        )
+
+    assert str(original_error.value) == str(reversed_error.value)
+    assert "Duplicate state-equivalence analysis identity" in str(original_error.value)
+    assert "candidate_name='same'" in str(original_error.value)
+    assert "iqm_backend_name='backend'" in str(original_error.value)
+    assert calls == []
+
+
+def test_duplicate_analysis_identity_treats_missing_optional_boundary_as_equal():
+    rows = [
+        _row("same", "first.qpy", iqm_backend_name=np.nan),
+        _row("same", "second.qpy", iqm_backend_name=np.nan),
+    ]
+    calls = []
+
+    def loader(path, logical_qubit_count, *, max_qubits):
+        calls.append(path)
+        return _density([1, 0]), ""
+
+    with pytest.raises(ValueError, match="iqm_backend_name=<NA>"):
+        group_state_equivalent_candidates(pd.DataFrame(rows), state_loader=loader)
+
+    assert calls == []
+
+
 def test_comparison_errors_do_not_merge_states_and_are_reported():
     states = {"one.qpy": _density([1, 0]), "two.qpy": _density([1, 0, 0, 0])}
     detailed, compact = group_state_equivalent_candidates(

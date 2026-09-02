@@ -195,6 +195,50 @@ def _validate_schema(frame: pd.DataFrame) -> None:
         raise ValueError(f"pareto_ranked is missing required columns: {', '.join(missing)}")
 
 
+def _identity_display_value(value: object) -> str:
+    if value is pd.NA or _is_missing(value):
+        return "<NA>"
+    return repr(value)
+
+
+def _validate_unique_analysis_identities(frame: pd.DataFrame) -> None:
+    identity_columns = (
+        "state_name",
+        *(column for column in _OPTIONAL_BOUNDARY_COLUMNS if column in frame.columns),
+        "class_name",
+        "candidate_name",
+        "strategy_name",
+    )
+    duplicate_mask = frame.loc[:, identity_columns].duplicated(keep=False)
+    if not duplicate_mask.any():
+        return
+
+    duplicate_rows = frame.loc[duplicate_mask, identity_columns]
+    identities: dict[tuple[object, ...], tuple[tuple[object, ...], int]] = {}
+    for values in duplicate_rows.itertuples(index=False, name=None):
+        key = tuple(_boundary_value(value) for value in values)
+        if key in identities:
+            identity, count = identities[key]
+            identities[key] = (identity, count + 1)
+        else:
+            identities[key] = (values, 1)
+    ordered = sorted(
+        identities.values(),
+        key=lambda item: tuple(_stable_value_key(value) for value in item[0]),
+    )
+    descriptions = []
+    for values, count in ordered:
+        fields = ", ".join(
+            f"{column}={_identity_display_value(value)}"
+            for column, value in zip(identity_columns, values)
+        )
+        descriptions.append(f"({fields}; rows={count})")
+    raise ValueError(
+        "Duplicate state-equivalence analysis identity detected: "
+        + "; ".join(descriptions)
+    )
+
+
 def group_state_equivalent_candidates(
     pareto_ranked: pd.DataFrame,
     *,
@@ -218,6 +262,7 @@ def group_state_equivalent_candidates(
             empty[column] = pd.Series(dtype="bool" if column == _ADDED_COLUMNS[-1] else "object")
         return empty, empty.copy()
     _validate_schema(pareto_ranked)
+    _validate_unique_analysis_identities(pareto_ranked)
 
     boundary_columns = (
         "state_name",
