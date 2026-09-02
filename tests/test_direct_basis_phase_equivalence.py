@@ -112,11 +112,23 @@ def test_tolerance_edge_equivalence_survives_adjacent_canonical_buckets():
     assert result.removed_count == 1
 
 
+def test_exact_zero_tolerance_uses_verified_shape_fallback():
+    phase = 0.6 + 0.8j
+    a = np.array([1.0, 2.9925e-6], complex)
+    b = phase * a
+    assert global_phase_between(a, b, atol=0, rtol=0) == phase
+    result = deduplicate_candidates_up_to_global_phase([
+        candidate("x", "a", a), candidate("x", "b", b)
+    ], atol=0, rtol=0)
+    assert len(result.representatives) == 1
+    assert result.removed_count == 1
+
+
 def test_custom_atol_controls_canonical_near_zero_behavior():
-    a = np.array([1.0, 1e-5], complex)
-    b = -a
-    assert deduplicate_candidates_up_to_global_phase([candidate("x", "a", a), candidate("x", "b", b)], atol=1e-6).removed_count == 1
-    assert deduplicate_candidates_up_to_global_phase([candidate("x", "a", a), candidate("x", "b", b)], atol=1e-12).removed_count == 1
+    a = np.array([1.0, 1.0], complex)
+    b = np.array([1.0 + 5e-8, 1.0], complex)
+    assert deduplicate_candidates_up_to_global_phase([candidate("x", "a", a), candidate("x", "b", b)], atol=1e-9, rtol=0).removed_count == 0
+    assert deduplicate_candidates_up_to_global_phase([candidate("x", "a", a), candidate("x", "b", b)], atol=1e-7, rtol=0).removed_count == 1
 
 
 def test_unsupported_candidates_remain_independent():

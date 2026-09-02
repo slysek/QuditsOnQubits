@@ -80,6 +80,7 @@ def deduplicate_candidates_up_to_global_phase(
     groups: list[list[DirectBasisCandidate]] = []
     bucket_groups: dict[tuple, list[int]] = {}
     scalar_groups: dict[tuple, list[int]] = {}
+    shape_groups: dict[tuple, list[int]] = {}
     phase_group_numbers: dict[int, int] = {}
     next_phase_group = 1
     supported = [c for c in ordered if c.is_supported and c.matrix is not None]
@@ -124,6 +125,16 @@ def deduplicate_candidates_up_to_global_phase(
                         break
                 if found is not None:
                     break
+        if found is None and rmax == 0 and atol == 0 and rtol == 0:
+            shape = np.asarray(item.matrix).shape
+            for index in shape_groups.get(shape, []):
+                if index in checked:
+                    continue
+                checked.add(index)
+                phase = global_phase_between(groups[index][0].matrix, item.matrix, atol=atol, rtol=rtol)
+                if phase is not None:
+                    found = (index, phase)
+                    break
         if found is None:
             index = len(groups)
             groups.append([item])
@@ -134,6 +145,7 @@ def deduplicate_candidates_up_to_global_phase(
             if rmax > 0:
                 scalar_groups.setdefault((np.asarray(item.matrix).shape,
                                           int(np.floor(float(np.sum(weights[:arr.size] * np.abs(arr))) / rmax))), []).append(index)
+            shape_groups.setdefault(np.asarray(item.matrix).shape, []).append(index)
         else:
             index, phase = found
             duplicates.append((groups[index][0], item, phase, index))
