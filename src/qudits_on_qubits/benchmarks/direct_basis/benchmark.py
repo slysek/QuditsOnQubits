@@ -218,7 +218,7 @@ def _input_to_active_output_order(
     reference_qubits: int,
 ) -> list[int] | None:
     layout = getattr(candidate_qc, "layout", None)
-    if layout is None or getattr(layout, "final_layout", None) is None:
+    if layout is None:
         return None
     try:
         final_index_layout = layout.final_index_layout(filter_ancillas=True)
@@ -226,15 +226,37 @@ def _input_to_active_output_order(
         return None
     if len(final_index_layout) != reference_qubits:
         return None
+    if (
+        any(
+            not isinstance(index, (int, np.integer))
+            or isinstance(index, (bool, np.bool_))
+            or index < 0
+            or index >= candidate_qc.num_qubits
+            for index in final_index_layout
+        )
+        or len(set(final_index_layout)) != len(final_index_layout)
+        or any(
+            not isinstance(index, (int, np.integer))
+            or isinstance(index, (bool, np.bool_))
+            or index < 0
+            or index >= candidate_qc.num_qubits
+            for index in active_indices
+        )
+        or len(set(active_indices)) != len(active_indices)
+    ):
+        return None
     active_positions = {
         physical_index: idx for idx, physical_index in enumerate(active_indices)
     }
     if not all(physical_index in active_positions for physical_index in final_index_layout):
         return None
-    return [
+    translated = [
         active_positions[physical_index]
         for physical_index in final_index_layout
     ]
+    if len(set(translated)) != len(translated):
+        return None
+    return translated
 
 
 def _density_matrix_in_input_order(

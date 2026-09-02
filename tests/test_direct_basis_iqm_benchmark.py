@@ -154,6 +154,39 @@ class DirectBasisIqmBenchmarkTests(unittest.TestCase):
         self.assertIsNotNone(fidelity, fidelity_notes)
         self.assertGreater(fidelity, 1 - 1e-10)
 
+    def test_initial_only_layout_restores_logical_order_with_extra_physical_width(self):
+        reference = QuantumCircuit(1)
+        reference.x(0)
+        candidate = transpile(
+            reference,
+            basis_gates=["u", "cx"],
+            coupling_map=CouplingMap.from_line(2),
+            initial_layout=[1],
+            optimization_level=0,
+        )
+        self.assertEqual(candidate.num_qubits, 2)
+        self.assertIsNone(candidate.layout.final_layout)
+        self.assertEqual(candidate.layout.final_index_layout(filter_ancillas=True), [1])
+
+        logical, notes = logical_output_density_matrix(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=2,
+        )
+        fidelity, fidelity_notes = _safe_fidelity(
+            reference,
+            candidate,
+            max_qubits=2,
+        )
+
+        self.assertIsNotNone(logical, notes)
+        self.assertGreater(
+            state_fidelity(Statevector.from_instruction(reference), logical),
+            1 - 1e-10,
+        )
+        self.assertIsNotNone(fidelity, fidelity_notes)
+        self.assertGreater(fidelity, 1 - 1e-10)
+
     def test_logical_output_density_matrix_strips_idle_qubits(self):
         reference = QuantumCircuit(1)
         reference.x(0)
