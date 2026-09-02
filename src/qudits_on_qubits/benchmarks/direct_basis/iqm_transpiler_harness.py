@@ -31,6 +31,9 @@ from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_strategies import (
     iqm_transpiler_strategy_names,
     run_iqm_transpiler_strategy,
 )
+from qudits_on_qubits.benchmarks.direct_basis.phase_equivalence import (
+    deduplicate_candidates_up_to_global_phase,
+)
 from qudits_on_qubits.core.benchmark_encoding_bases import TWO_Q_GATES
 
 
@@ -310,9 +313,19 @@ def _best_trial_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _summary(
     rows: list[dict[str, Any]],
     best_rows: list[dict[str, Any]],
+    *,
+    candidate_count: int | None = None,
+    representative_candidate_count: int | None = None,
+    global_phase_duplicate_count: int = 0,
 ) -> dict[str, Any]:
     return {
-        "candidate_count": len(best_rows),
+        "candidate_count": len(best_rows) if candidate_count is None else candidate_count,
+        "representative_candidate_count": (
+            len(best_rows)
+            if representative_candidate_count is None
+            else representative_candidate_count
+        ),
+        "global_phase_duplicate_count": global_phase_duplicate_count,
         "trial_count": len(rows),
         "successful_trial_count": sum(1 for row in rows if bool(row.get("success"))),
         "failed_trial_count": sum(1 for row in rows if row.get("status") == "failed"),
@@ -344,12 +357,16 @@ def run_iqm_transpiler_harness(
 
     candidates = list(config.candidates)
     candidate_count = len(candidates)
+    deduplication = deduplicate_candidates_up_to_global_phase(candidates)
+    representatives = deduplication.representatives
+    representative_candidate_count = len(representatives)
+    candidate_global_phase_duplicates = [dict(row) for row in deduplication.duplicate_rows]
 
     rows: list[dict[str, Any]] = []
-    for candidate_index, candidate in enumerate(candidates, start=1):
+    for candidate_index, candidate in enumerate(representatives, start=1):
         print(
             "[iqm_transpiler_harness] "
-            f"{candidate_index}/{candidate_count} "
+            f"{candidate_index}/{representative_candidate_count} "
             f"{candidate.class_name}/{candidate.candidate_name}",
             flush=True,
         )
@@ -394,8 +411,18 @@ def run_iqm_transpiler_harness(
                 )
 
     best_rows = _best_trial_rows(rows)
-    summary = _summary(rows, best_rows)
-    return pd.DataFrame(rows), pd.DataFrame(best_rows), summary
+    summary = _summary(
+        rows,
+        best_rows,
+        candidate_count=candidate_count,
+        representative_candidate_count=representative_candidate_count,
+        global_phase_duplicate_count=deduplication.removed_count,
+    )
+    all_trials = pd.DataFrame(rows)
+    best_by_candidate = pd.DataFrame(best_rows)
+    all_trials.attrs["candidate_global_phase_duplicates"] = candidate_global_phase_duplicates
+    best_by_candidate.attrs["candidate_global_phase_duplicates"] = candidate_global_phase_duplicates
+    return all_trials, best_by_candidate, summary
 
 
 def write_iqm_transpiler_harness_outputs(

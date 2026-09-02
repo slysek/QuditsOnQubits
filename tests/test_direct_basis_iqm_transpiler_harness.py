@@ -230,6 +230,83 @@ class IqmTranspilerHarnessTests(unittest.TestCase):
         self.assertEqual(summary["unsupported_candidate_count"], 0)
         self.assertEqual(summary["failed_all_strategy_count"], 0)
 
+    def test_run_iqm_transpiler_harness_deduplicates_global_phase_candidates(self):
+        candidates = [
+            DirectBasisCandidate(
+                name="E_old",
+                candidate_type="identity",
+                matrix=np.eye(3, dtype=complex),
+                source_class_name="baseline",
+                source_candidate_name="E_old",
+            ),
+            DirectBasisCandidate(
+                name="I_phase",
+                candidate_type="identity",
+                matrix=1j * np.eye(3, dtype=complex),
+                source_class_name="candidate",
+                source_candidate_name="I_phase",
+            ),
+            DirectBasisCandidate(
+                name="distinct",
+                candidate_type="diagonal",
+                matrix=np.diag([1, 1, -1]).astype(complex),
+                source_class_name="candidate",
+                source_candidate_name="distinct",
+            ),
+        ]
+        calls = []
+
+        def fake_runner(
+            strategy_name,
+            circuit,
+            *,
+            backend: object,
+            seed_transpiler: int,
+            optimization_level: int,
+        ):
+            calls.append((strategy_name, seed_transpiler))
+            return SimpleNamespace(
+                strategy_name=strategy_name,
+                seed_transpiler=seed_transpiler,
+                success=True,
+                circuit=_native_iqm_circuit(),
+                compile_time_seconds=0.1,
+                error_type="",
+                error_message="",
+            )
+
+        config = IqmTranspilerHarnessConfig(
+            state_name="two_qutrit",
+            n_qutrits=2,
+            backend=object(),
+            iqm_backend_name="fake_backend",
+            iqm_use_metrics=False,
+            candidates=candidates,
+            strategy_names=("ok_strategy",),
+            n_transpile_runs=1,
+        )
+
+        all_trials, best_by_candidate, summary = run_iqm_transpiler_harness(
+            config,
+            strategy_runner=fake_runner,
+        )
+
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(all_trials), 2)
+        self.assertEqual(len(best_by_candidate), 2)
+        self.assertEqual(summary["candidate_count"], 3)
+        self.assertEqual(summary["representative_candidate_count"], 2)
+        self.assertEqual(summary["global_phase_duplicate_count"], 1)
+        duplicates = all_trials.attrs["candidate_global_phase_duplicates"]
+        self.assertEqual(len(duplicates), 1)
+        self.assertEqual(
+            duplicates[0]["duplicate_candidate_name"],
+            "I_phase",
+        )
+        self.assertEqual(duplicates[0]["representative_class_name"], "baseline")
+        self.assertEqual(duplicates[0]["representative_candidate_name"], "E_old")
+        self.assertIs(best_by_candidate.attrs["candidate_global_phase_duplicates"], duplicates)
+
     def test_run_iqm_transpiler_harness_exports_trial_circuit_and_encoding_matrices(self):
         candidate = DirectBasisCandidate(
             name="I",
