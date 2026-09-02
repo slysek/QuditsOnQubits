@@ -78,6 +78,7 @@ def deduplicate_candidates_up_to_global_phase(
     ordered = sorted(list(candidates), key=_sort_key)
     groups: list[list[DirectBasisCandidate]] = []
     keys: list[tuple] = []
+    bucket_groups: dict[tuple, list[int]] = {}
     duplicates: list[tuple[DirectBasisCandidate, DirectBasisCandidate, complex, int]] = []
     for item in ordered:
         if not item.is_supported or item.matrix is None:
@@ -85,7 +86,12 @@ def deduplicate_candidates_up_to_global_phase(
             continue
         key = _bucket_key(item.matrix, bucket_decimals)
         found = None
-        for index, (group_key, group) in enumerate(zip(keys, groups)):
+        preferred = bucket_groups.get(key, [])
+        # Check the canonical bucket first, then verify any groups outside it
+        # to handle floating-point pivot ties without trusting rounding.
+        indices = preferred + [i for i in range(len(groups)) if i not in preferred]
+        for index in indices:
+            group = groups[index]
             if not group[0].is_supported:
                 continue
             # The rounded key is only an initial bucket.  Numerical ties in
@@ -96,7 +102,9 @@ def deduplicate_candidates_up_to_global_phase(
                 found = (index, phase)
                 break
         if found is None:
+            index = len(groups)
             groups.append([item]); keys.append(key)
+            bucket_groups.setdefault(key, []).append(index)
         else:
             index, phase = found
             duplicates.append((groups[index][0], item, phase, index))
