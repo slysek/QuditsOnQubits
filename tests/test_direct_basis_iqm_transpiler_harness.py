@@ -813,6 +813,107 @@ class IqmTranspilerHarnessTests(unittest.TestCase):
             self.assertEqual(summary, {"candidate_count": 2, "preserved": "yes"})
             self.assertEqual(all_trials.attrs["candidate_global_phase_duplicates"], duplicates)
 
+    def test_compatibility_phase_dedup_preserves_legacy_and_pareto_seed_selection(self):
+        identity = np.eye(3, dtype=complex)
+        candidates = [
+            DirectBasisCandidate(
+                name="E_old",
+                candidate_type="baseline",
+                matrix=identity,
+                source_class_name="baseline",
+                source_candidate_name="E_old",
+            ),
+            DirectBasisCandidate(
+                name="phase_copy",
+                candidate_type="candidate",
+                matrix=-1j * identity,
+                source_class_name="product",
+                source_candidate_name="phase_copy",
+            ),
+            DirectBasisCandidate(
+                name="distinct",
+                candidate_type="candidate",
+                matrix=np.diag([1.0, -1.0, 1.0]).astype(complex),
+                source_class_name="product",
+                source_candidate_name="distinct",
+            ),
+        ]
+
+        def fake_runner(
+            strategy_name,
+            circuit,
+            *,
+            backend: object,
+            seed_transpiler: int,
+            optimization_level: int,
+        ):
+            transpiled = QuantumCircuit(4)
+            if seed_transpiler == 0:
+                # The historical depth-first view prefers this one-depth circuit.
+                transpiled.cz(0, 1)
+                transpiled.cz(2, 3)
+            else:
+                # The statistical view prefers this seed because it has fewer 2Q gates.
+                transpiled.r(0.1, 0.2, 0)
+                transpiled.r(0.3, 0.4, 0)
+                transpiled.cz(0, 1)
+            return SimpleNamespace(
+                strategy_name=strategy_name,
+                seed_transpiler=seed_transpiler,
+                success=True,
+                circuit=transpiled,
+                compile_time_seconds=0.1,
+                error_type="",
+                error_message="",
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            config = IqmTranspilerHarnessConfig(
+                state_name="two_qutrit",
+                n_qutrits=2,
+                backend=object(),
+                iqm_backend_name="fake_backend",
+                iqm_use_metrics=False,
+                candidates=candidates,
+                strategy_names=("strategy_a", "strategy_b"),
+                n_transpile_runs=2,
+                quantum_circuits_dir=Path(tmp) / "quantum_circuits",
+            )
+
+            all_trials, best_by_candidate, summary = run_iqm_transpiler_harness(
+                config,
+                strategy_runner=fake_runner,
+            )
+
+            self.assertEqual(summary["candidate_count"], 3)
+            self.assertEqual(summary["representative_candidate_count"], 2)
+            self.assertEqual(summary["global_phase_duplicate_count"], 1)
+            self.assertEqual(len(all_trials), 8)
+            self.assertEqual(len(best_by_candidate), 2)
+            self.assertEqual(
+                set(best_by_candidate["candidate_name"]),
+                {"E_old", "distinct"},
+            )
+
+            paths = write_iqm_transpiler_harness_outputs(
+                Path(tmp) / "results",
+                all_trials=all_trials,
+                best_by_candidate=best_by_candidate,
+                summary=summary,
+                state_loader=lambda *args, **kwargs: (Statevector([1, 0]), ""),
+            )
+
+            legacy = pd.read_csv(paths["best_by_candidate_csv"])
+            self.assertEqual(set(legacy["seed_transpiler"]), {0})
+            self.assertEqual(set(legacy["depth"]), {1})
+            self.assertEqual(set(legacy["two_qubit_gate_count"]), {2})
+
+            statistics = pd.read_csv(paths["strategy_statistics_csv"])
+            self.assertEqual(len(statistics), 4)
+            self.assertEqual(set(statistics["best_seed_transpiler"]), {1})
+            self.assertEqual(set(statistics["best_depth"]), {3.0})
+            self.assertEqual(set(statistics["best_two_qubit_gate_count"]), {1.0})
+
     def test_write_iqm_transpiler_harness_outputs_empty_preserves_all_headers(self):
         summary = {"existing": "kept"}
         with tempfile.TemporaryDirectory() as tmp:
