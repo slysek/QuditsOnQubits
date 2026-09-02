@@ -448,6 +448,68 @@ class ParetoCandidateRankingTests(unittest.TestCase):
             ],
         )
 
+    def test_more_than_nine_pareto_layers_sort_numerically(self) -> None:
+        rows = [
+            _statistics_row(f"layer_{number:02d}", (number, number, number))
+            for number in range(1, 13)
+        ]
+        result = rank_pareto_candidates(pd.DataFrame(rows))
+        self.assertEqual(result["candidate_name"].tolist(), [f"layer_{number:02d}" for number in range(1, 13)])
+        self.assertEqual(result["pareto_rank"].tolist(), list(range(1, 13)))
+        self.assertEqual(result["recommendation_order"].tolist(), list(range(1, 13)))
+
+    def test_large_finite_weights_normalize_without_overflow(self) -> None:
+        rows = [
+            _statistics_row("first", (1, 2, 3)),
+            _statistics_row("second", (3, 2, 1)),
+        ]
+        equal_weight_scores = rank_pareto_candidates(
+            pd.DataFrame(rows),
+            objective_weights={column: 1 for column in OBJECTIVE_COLUMNS},
+        )["ideal_score"]
+        large_weight_scores = rank_pareto_candidates(
+            pd.DataFrame(rows),
+            objective_weights={column: 1e308 for column in OBJECTIVE_COLUMNS},
+        )["ideal_score"]
+        pd.testing.assert_series_equal(equal_weight_scores, large_weight_scores)
+
+    def test_every_optional_boundary_and_na_value_partition_ranks_and_normalization(self) -> None:
+        rows = [
+            _statistics_row("state_a", (2, 2, 2), state_name="state_a", iqm_backend_name="state", backend_calibration_set_id="state", selection_label="state"),
+            _statistics_row("state_b", (1, 1, 1), state_name="state_b", iqm_backend_name="state", backend_calibration_set_id="state", selection_label="state"),
+        ]
+
+        def add_pair(prefix: str, metrics: tuple[int, int], **boundary: object) -> None:
+            rows.extend(
+                [
+                    _statistics_row(f"{prefix}_best", (metrics[0], metrics[0], metrics[0]), **boundary),
+                    _statistics_row(f"{prefix}_worse", (metrics[1], metrics[1], metrics[1]), **boundary),
+                ]
+            )
+
+        add_pair("backend_a", (1, 2), iqm_backend_name="backend_a", backend_calibration_set_id="backend", selection_label="backend")
+        add_pair("backend_b", (10, 20), iqm_backend_name="backend_b", backend_calibration_set_id="backend", selection_label="backend")
+        add_pair("calibration_one", (100, 200), iqm_backend_name="calibration", backend_calibration_set_id="calibration_one", selection_label="calibration")
+        add_pair("calibration_two", (1000, 2000), iqm_backend_name="calibration", backend_calibration_set_id="calibration_two", selection_label="calibration")
+        add_pair("selection_one", (3, 6), iqm_backend_name="selection", backend_calibration_set_id="selection", selection_label="selection_one")
+        add_pair("selection_two", (30, 60), iqm_backend_name="selection", backend_calibration_set_id="selection", selection_label="selection_two")
+        add_pair("na_backend", (7, 14), iqm_backend_name=np.nan, backend_calibration_set_id="na_backend", selection_label="na_backend")
+        add_pair("na_calibration", (8, 16), iqm_backend_name="na_calibration", backend_calibration_set_id=np.nan, selection_label="na_calibration")
+        add_pair("na_selection", (9, 18), iqm_backend_name="na_selection", backend_calibration_set_id="na_selection", selection_label=np.nan)
+
+        result = rank_pareto_candidates(pd.DataFrame(rows)).set_index("candidate_name")
+        for prefix in (
+            "backend_a", "backend_b", "calibration_one", "calibration_two",
+            "selection_one", "selection_two", "na_backend", "na_calibration", "na_selection",
+        ):
+            with self.subTest(prefix=prefix):
+                self.assertEqual(result.loc[f"{prefix}_best", "pareto_rank"], 1)
+                self.assertEqual(result.loc[f"{prefix}_worse", "pareto_rank"], 2)
+                self.assertEqual(result.loc[f"{prefix}_best", "normalized_mean_depth"], 0.0)
+                self.assertEqual(result.loc[f"{prefix}_worse", "normalized_mean_depth"], 1.0)
+        self.assertEqual(result.loc["state_a", "pareto_rank"], 1)
+        self.assertEqual(result.loc["state_b", "pareto_rank"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

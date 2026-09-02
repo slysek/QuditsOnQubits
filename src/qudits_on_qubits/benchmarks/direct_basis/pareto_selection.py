@@ -131,9 +131,19 @@ def _deterministic_sort(frame: pd.DataFrame, columns: Iterable[str]) -> pd.DataF
     key_columns: list[str] = []
     for position, column in enumerate(columns):
         key_column = f"__pareto_sort_{position}"
-        sortable[key_column] = sortable[column].map(_stable_value_key)
+        values = sortable[column]
+        non_missing = values.loc[
+            values.map(
+                lambda value: value is not None
+                and (isinstance(value, (list, tuple, dict, set)) or not pd.isna(value))
+            )
+        ]
+        if not non_missing.empty and non_missing.map(_is_real_number).all():
+            sortable[key_column] = pd.to_numeric(values, errors="raise")
+        else:
+            sortable[key_column] = values.map(_stable_value_key)
         key_columns.append(key_column)
-    return sortable.sort_values(key_columns, kind="mergesort").drop(columns=key_columns)
+    return sortable.sort_values(key_columns, kind="mergesort", na_position="last").drop(columns=key_columns)
 
 
 def _present_partition_columns(columns: Iterable[str]) -> tuple[str, ...]:
@@ -240,10 +250,12 @@ def _normalized_objective_weights(objective_weights: Mapping[str, object] | None
         if not _is_real_number(value) or not np.isfinite(float(value)) or float(value) < 0:
             raise ValueError("objective_weights must be finite nonnegative real numbers")
         normalized[column] = float(value)
-    total = sum(normalized.values())
-    if total <= 0:
+    maximum = max(normalized.values())
+    if maximum <= 0:
         raise ValueError("objective_weights must have a positive total")
-    return {column: value / total for column, value in normalized.items()}
+    scaled = {column: value / maximum for column, value in normalized.items()}
+    total = sum(scaled.values())
+    return {column: value / total for column, value in scaled.items()}
 
 
 def rank_pareto_candidates(
