@@ -419,10 +419,23 @@ def _restore_input_qubit_order(state: np.ndarray, input_to_output: list[int]) ->
     return restored
 
 
-def _safe_fidelity(reference_qc, candidate_qc, *, max_qubits: int) -> tuple[float | None, str]:
-    fidelity_qc = candidate_qc
-    active_indices = list(range(candidate_qc.num_qubits))
-    notes = []
+def logical_output_density_matrix(
+    circuit,
+    *,
+    logical_qubit_count: int,
+    max_qubits: int,
+) -> tuple[DensityMatrix | None, str]:
+    """Reconstruct a compiled circuit's logical output state without execution."""
+    notes: list[str] = []
+    if type(logical_qubit_count) is not int or logical_qubit_count < 0:
+        return None, "Logical state reconstruction requires a non-negative logical_qubit_count."
+    if type(max_qubits) is not int or max_qubits < 0:
+        return None, "Logical state reconstruction requires a non-negative max_qubits."
+    if any(instruction.operation.name == "measure" for instruction in circuit.data):
+        return None, "Fidelity skipped because circuit contains measurement operations."
+
+    fidelity_qc = circuit
+    active_indices = list(range(circuit.num_qubits))
     if fidelity_qc.num_qubits > int(max_qubits):
         stripped_qc, stripped_active_indices = _strip_idle_qubits_with_indices(fidelity_qc)
         if stripped_qc.num_qubits < fidelity_qc.num_qubits:
@@ -434,59 +447,72 @@ def _safe_fidelity(reference_qc, candidate_qc, *, max_qubits: int) -> tuple[floa
     if fidelity_qc.num_qubits > int(max_qubits):
         notes.append(f"Fidelity skipped because transpiled circuit has {fidelity_qc.num_qubits} qubits.")
         return None, " ".join(notes)
-    if fidelity_qc.num_qubits != reference_qc.num_qubits:
-        if fidelity_qc.num_qubits > reference_qc.num_qubits:
-            try:
-                input_to_output = _input_to_active_output_order(
-                    candidate_qc,
-                    active_indices,
-                    reference_qc.num_qubits,
-                )
-                if input_to_output is not None:
-                    reference = Statevector.from_instruction(reference_qc)
-                    candidate = Statevector.from_instruction(fidelity_qc)
-                    candidate_density = DensityMatrix(
-                        _density_matrix_in_input_order(
-                            candidate.data,
-                            input_to_output,
-                        ),
-                        dims=reference.dims(),
-                    )
-                    notes.append(
-                        "Extra active qubits traced for fidelity: "
-                        f"{fidelity_qc.num_qubits}->{reference_qc.num_qubits}."
-                    )
-                    return float(state_fidelity(reference, candidate_density)), " ".join(notes)
-            except Exception as exc:
-                notes.append(f"Fidelity skipped: {exc}")
-                return None, " ".join(notes)
+    if fidelity_qc.num_qubits < logical_qubit_count:
         notes.append(
             f"Fidelity skipped because active qubit count {fidelity_qc.num_qubits} "
-            f"differs from reference {reference_qc.num_qubits}."
+            f"differs from reference {logical_qubit_count}."
         )
         return None, " ".join(notes)
+
     try:
-        reference = Statevector.from_instruction(reference_qc)
         candidate = Statevector.from_instruction(fidelity_qc)
+        logical_dims = (2,) * logical_qubit_count
+        if fidelity_qc.num_qubits > logical_qubit_count:
+            input_to_output = _input_to_active_output_order(
+                circuit,
+                active_indices,
+                logical_qubit_count,
+            )
+            if input_to_output is None:
+                notes.append(
+                    f"Fidelity skipped because active qubit count {fidelity_qc.num_qubits} "
+                    f"differs from reference {logical_qubit_count}."
+                )
+                return None, " ".join(notes)
+            candidate_density = DensityMatrix(
+                _density_matrix_in_input_order(candidate.data, input_to_output),
+                dims=logical_dims,
+            )
+            notes.append(
+                "Extra active qubits traced for fidelity: "
+                f"{fidelity_qc.num_qubits}->{logical_qubit_count}."
+            )
+            return candidate_density, " ".join(notes)
+
         candidate_data = candidate.data
-        if fidelity_qc is candidate_qc:
-            layout = getattr(candidate_qc, "layout", None)
+        if fidelity_qc is circuit:
+            layout = getattr(circuit, "layout", None)
             if layout is not None and getattr(layout, "final_layout", None) is not None:
                 final_index_layout = layout.final_index_layout(filter_ancillas=True)
-                if len(final_index_layout) == reference_qc.num_qubits == candidate_qc.num_qubits:
+                if len(final_index_layout) == logical_qubit_count == circuit.num_qubits:
                     candidate_data = _restore_input_qubit_order(candidate_data, final_index_layout)
         else:
             candidate_data = _restore_stripped_input_order(
                 candidate_data,
-                candidate_qc,
+                circuit,
                 active_indices,
-                reference_qc.num_qubits,
+                logical_qubit_count,
             )
-        candidate_state = Statevector(candidate_data, dims=reference.dims())
-        return float(state_fidelity(reference, candidate_state)), " ".join(notes)
+        candidate_state = Statevector(candidate_data, dims=logical_dims)
+        return DensityMatrix(candidate_state), " ".join(notes)
     except Exception as exc:
         notes.append(f"Fidelity skipped: {exc}")
         return None, " ".join(notes)
+
+
+def _safe_fidelity(reference_qc, candidate_qc, *, max_qubits: int) -> tuple[float | None, str]:
+    candidate_state, notes = logical_output_density_matrix(
+        candidate_qc,
+        logical_qubit_count=reference_qc.num_qubits,
+        max_qubits=max_qubits,
+    )
+    if candidate_state is None:
+        return None, notes
+    try:
+        reference = Statevector.from_instruction(reference_qc)
+        return float(state_fidelity(reference, candidate_state)), notes
+    except Exception as exc:
+        return None, " ".join(part for part in (notes, f"Fidelity skipped: {exc}") if part)
 
 
 def benchmark_direct_basis(

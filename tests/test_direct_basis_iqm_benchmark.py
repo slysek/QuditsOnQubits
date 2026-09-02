@@ -7,11 +7,12 @@ import tempfile
 import unittest
 from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
 from qiskit import QuantumCircuit, qpy
-from qiskit.quantum_info import Statevector
+from qiskit.quantum_info import DensityMatrix, Statevector, state_fidelity
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "src"
@@ -23,6 +24,7 @@ from qudits_on_qubits.benchmarks.direct_basis.benchmark import (
     benchmark_direct_basis,
     benchmark_direct_basis_candidates,
     default_iqm_quantum_circuits_dir,
+    logical_output_density_matrix,
 )
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
 from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import backend_metadata
@@ -49,6 +51,14 @@ def _garnet_metadata(backend, *, optimization_level=3):
 
 
 class DirectBasisIqmBenchmarkTests(unittest.TestCase):
+    @staticmethod
+    def _with_final_layout(circuit, input_to_output):
+        circuit._layout = SimpleNamespace(
+            final_layout=object(),
+            final_index_layout=lambda *, filter_ancillas: list(input_to_output),
+        )
+        return circuit
+
     @staticmethod
     def _workload_ranking_transpiler(calls):
         def fake_transpile(circuit, *, trial, iqm_strategy_name, **kwargs):
@@ -93,7 +103,94 @@ class DirectBasisIqmBenchmarkTests(unittest.TestCase):
         mocked_state_fidelity.assert_called_once()
         state1, state2 = mocked_state_fidelity.call_args.args
         self.assertIsInstance(state1, Statevector)
-        self.assertIsInstance(state2, Statevector)
+        self.assertIsInstance(state2, DensityMatrix)
+
+    def test_logical_output_density_matrix_restores_layout_order(self):
+        reference = QuantumCircuit(2)
+        reference.x(0)
+        candidate = QuantumCircuit(2)
+        candidate.x(1)
+        self._with_final_layout(candidate, [1, 0])
+
+        logical, notes = logical_output_density_matrix(
+            candidate,
+            logical_qubit_count=2,
+            max_qubits=2,
+        )
+
+        self.assertIsNotNone(logical, notes)
+        self.assertGreater(state_fidelity(Statevector.from_instruction(reference), logical), 1 - 1e-10)
+
+    def test_logical_output_density_matrix_strips_idle_qubits(self):
+        reference = QuantumCircuit(1)
+        reference.x(0)
+        candidate = QuantumCircuit(3)
+        candidate.x(2)
+        self._with_final_layout(candidate, [2])
+
+        logical, notes = logical_output_density_matrix(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=1,
+        )
+
+        self.assertIsNotNone(logical, notes)
+        self.assertIn("Idle qubits stripped", notes)
+        self.assertGreater(state_fidelity(Statevector.from_instruction(reference), logical), 1 - 1e-10)
+
+    def test_logical_output_density_matrix_traces_extra_active_qubits(self):
+        reference = QuantumCircuit(1)
+        reference.h(0)
+        candidate = QuantumCircuit(2)
+        candidate.h(0)
+        candidate.x(1)
+        self._with_final_layout(candidate, [0])
+
+        logical, notes = logical_output_density_matrix(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=2,
+        )
+
+        self.assertIsNotNone(logical, notes)
+        self.assertIn("Extra active qubits traced", notes)
+        self.assertGreater(state_fidelity(Statevector.from_instruction(reference), logical), 1 - 1e-10)
+
+    def test_logical_output_density_matrix_rejects_measurements_before_simulation(self):
+        candidate = QuantumCircuit(1, 1)
+        candidate.h(0)
+        candidate.measure(0, 0)
+
+        logical, notes = logical_output_density_matrix(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=1,
+        )
+
+        self.assertIsNone(logical)
+        self.assertIn("measurement", notes.casefold())
+
+    def test_logical_output_density_matrix_reports_unsafe_widths(self):
+        too_wide = QuantumCircuit(2)
+        too_wide.x(0)
+        too_wide.x(1)
+        below_logical = QuantumCircuit(1)
+
+        wide_state, wide_notes = logical_output_density_matrix(
+            too_wide,
+            logical_qubit_count=1,
+            max_qubits=1,
+        )
+        narrow_state, narrow_notes = logical_output_density_matrix(
+            below_logical,
+            logical_qubit_count=2,
+            max_qubits=2,
+        )
+
+        self.assertIsNone(wide_state)
+        self.assertIn("2 qubits", wide_notes)
+        self.assertIsNone(narrow_state)
+        self.assertIn("active qubit count 1", narrow_notes)
 
     def test_benchmark_direct_basis_accepts_iqm_backend(self):
         backend = _fake_garnet()
