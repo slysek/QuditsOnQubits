@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -173,6 +174,7 @@ class AggregateStrategyStatisticsTests(unittest.TestCase):
         self.assertEqual(result["success_rate"], 0.0)
         self.assertTrue(pd.isna(result["mean_depth"]))
         self.assertTrue(pd.isna(result["best_seed_transpiler"]))
+        self.assertTrue(result["insufficient_stability_samples"])
         self.assertFalse(result["pareto_eligible"])
         self.assertEqual(result["analysis_status"], "no_successful_trials")
 
@@ -187,6 +189,16 @@ class AggregateStrategyStatisticsTests(unittest.TestCase):
                 with self.subTest(column=column, value=value):
                     with self.assertRaisesRegex(ValueError, rf"ghz3.*p001.*default.*{column}"):
                         aggregate_strategy_statistics(pd.DataFrame([_trial(**{column: value})]))
+
+    def test_complex_successful_metrics_are_rejected_without_complex_warning(self) -> None:
+        for column in ("depth", "two_qubit_gate_count", "one_qubit_gate_count", "size"):
+            for value in (1 + 2j, complex(1, 0)):
+                with self.subTest(column=column, value=value):
+                    with warnings.catch_warnings(record=True) as caught:
+                        warnings.simplefilter("always")
+                        with self.assertRaisesRegex(ValueError, rf"ghz3.*p001.*default.*{column}"):
+                            aggregate_strategy_statistics(pd.DataFrame([_trial(**{column: value})]))
+                    self.assertFalse(any(issubclass(item.category, np.ComplexWarning) for item in caught))
 
     def test_invalid_success_encoding_names_success_and_identity(self) -> None:
         with self.assertRaisesRegex(ValueError, r"success.*ghz3.*p001.*default"):
@@ -227,6 +239,44 @@ class AggregateStrategyStatisticsTests(unittest.TestCase):
         result = aggregate_strategy_statistics(pd.DataFrame(rows)).iloc[0]
         self.assertEqual(result["successful_trial_count"], 2)
         self.assertEqual(result["failed_trial_count"], 2)
+
+    def test_numeric_string_metrics_are_accepted(self) -> None:
+        result = aggregate_strategy_statistics(
+            pd.DataFrame(
+                [
+                    _trial(
+                        depth="10",
+                        two_qubit_gate_count="4",
+                        one_qubit_gate_count="8",
+                        size="20",
+                    )
+                ]
+            )
+        ).iloc[0]
+        self.assertEqual(result["mean_depth"], 10.0)
+        self.assertEqual(result["best_two_qubit_gate_count"], 4.0)
+
+    def test_na_boundary_values_form_one_group_and_duplicate_identity_is_rejected(self) -> None:
+        rows = [
+            _trial(seed_transpiler=1, iqm_backend_name=np.nan),
+            _trial(seed_transpiler=2, iqm_backend_name=np.nan),
+        ]
+        result = aggregate_strategy_statistics(pd.DataFrame(rows))
+        self.assertEqual(len(result), 1)
+        self.assertTrue(pd.isna(result.iloc[0]["iqm_backend_name"]))
+
+        with self.assertRaisesRegex(ValueError, "duplicate concrete trial identity"):
+            aggregate_strategy_statistics(pd.DataFrame([rows[0], rows[0].copy()]))
+
+    def test_output_order_is_stable_across_shuffled_input(self) -> None:
+        rows = [
+            _trial(state_name="ghz3", strategy_name="z", seed_transpiler=1, iqm_backend_name="b", backend_calibration_set_id="c2", selection_label="fid099"),
+            _trial(state_name="ame43", strategy_name="a", seed_transpiler=1, iqm_backend_name="a", backend_calibration_set_id="c1", selection_label="exact"),
+            _trial(state_name="ghz3", strategy_name="a", seed_transpiler=1, iqm_backend_name="a", backend_calibration_set_id="c1", selection_label="exact"),
+        ]
+        original = aggregate_strategy_statistics(pd.DataFrame(rows))
+        shuffled = aggregate_strategy_statistics(pd.DataFrame(rows).sample(frac=1, random_state=7))
+        pd.testing.assert_frame_equal(original, shuffled)
 
 
 if __name__ == "__main__":

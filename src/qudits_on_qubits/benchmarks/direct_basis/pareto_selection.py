@@ -105,6 +105,16 @@ def _identity_description(row: pd.Series) -> str:
 def _validate_successful_metrics(trials: pd.DataFrame, successful: pd.Series) -> None:
     for column in _METRIC_COLUMNS:
         successful_values = trials.loc[successful, column]
+        complex_values = successful_values.map(
+            lambda value: isinstance(value, (complex, np.complexfloating))
+        )
+        if complex_values.any():
+            index = complex_values[complex_values].index[0]
+            row = trials.loc[index]
+            raise ValueError(
+                f"invalid successful metric {_identity_description(row)}, {column}={row[column]!r}; "
+                "expected a finite nonnegative real number"
+            )
         numeric = pd.to_numeric(successful_values, errors="coerce")
         numeric_values = numeric.astype(float)
         original_is_bool = successful_values.map(lambda value: isinstance(value, (bool, np.bool_)))
@@ -202,7 +212,7 @@ def aggregate_strategy_statistics(all_trials: pd.DataFrame) -> pd.DataFrame:
                 min_two_qubit_gate_count=np.nan,
                 max_two_qubit_gate_count=np.nan,
                 std_two_qubit_gate_count=np.nan,
-                insufficient_stability_samples=pd.NA,
+                insufficient_stability_samples=True,
                 best_seed_transpiler=pd.NA,
                 best_graph_state_transpiled_qpy=pd.NA,
                 best_depth=np.nan,
@@ -239,4 +249,5 @@ def aggregate_strategy_statistics(all_trials: pd.DataFrame) -> pd.DataFrame:
                 row["n_qutrits"] = best["n_qutrits"]
         rows.append(row)
 
-    return pd.DataFrame(rows, columns=_output_columns(boundary_columns, include_n_qutrits))
+    result = pd.DataFrame(rows, columns=_output_columns(boundary_columns, include_n_qutrits))
+    return result.sort_values(group_columns, kind="mergesort", na_position="last").reset_index(drop=True)
