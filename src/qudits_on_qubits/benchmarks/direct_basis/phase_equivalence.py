@@ -53,7 +53,8 @@ def _bucket_key(matrix, decimals):
     arr = np.asarray(matrix, dtype=complex)
     if np.all(arr == 0):
         return (arr.shape, (0.0, 0.0))
-    pivot = int(np.argmax(np.abs(arr)))
+    nonzero = np.flatnonzero(np.abs(arr) > DEFAULT_PHASE_ATOL)
+    pivot = int(nonzero[0] if nonzero.size else np.argmax(np.abs(arr)))
     phase = arr.flat[pivot] / abs(arr.flat[pivot])
     normalized = arr / phase
     real = np.where(np.isclose(normalized.real, 0.0, atol=DEFAULT_PHASE_ATOL), 0.0, normalized.real)
@@ -77,20 +78,17 @@ def deduplicate_candidates_up_to_global_phase(
 ) -> CandidatePhaseDeduplication:
     ordered = sorted(list(candidates), key=_sort_key)
     groups: list[list[DirectBasisCandidate]] = []
-    keys: list[tuple] = []
     bucket_groups: dict[tuple, list[int]] = {}
+    phase_group_numbers: dict[int, int] = {}
+    next_phase_group = 1
     duplicates: list[tuple[DirectBasisCandidate, DirectBasisCandidate, complex, int]] = []
     for item in ordered:
         if not item.is_supported or item.matrix is None:
-            groups.append([item]); keys.append(("unsupported", len(groups)))
+            groups.append([item])
             continue
         key = _bucket_key(item.matrix, bucket_decimals)
         found = None
-        preferred = bucket_groups.get(key, [])
-        # Check the canonical bucket first, then verify any groups outside it
-        # to handle floating-point pivot ties without trusting rounding.
-        indices = preferred + [i for i in range(len(groups)) if i not in preferred]
-        for index in indices:
+        for index in bucket_groups.get(key, []):
             group = groups[index]
             if not group[0].is_supported:
                 continue
@@ -103,7 +101,9 @@ def deduplicate_candidates_up_to_global_phase(
                 break
         if found is None:
             index = len(groups)
-            groups.append([item]); keys.append(key)
+            groups.append([item])
+            phase_group_numbers[index] = next_phase_group
+            next_phase_group += 1
             bucket_groups.setdefault(key, []).append(index)
         else:
             index, phase = found
@@ -112,7 +112,7 @@ def deduplicate_candidates_up_to_global_phase(
     rows = []
     for rep, dup, phase, index in sorted(duplicates, key=lambda x: (x[3], x[1].class_name, x[1].candidate_name)):
         rows.append({
-            "global_phase_group_id": f"global_phase_{index + 1:04d}",
+            "global_phase_group_id": f"global_phase_{phase_group_numbers[index]:04d}",
             "representative_class_name": rep.class_name,
             "representative_candidate_name": rep.candidate_name,
             "duplicate_class_name": dup.class_name,
