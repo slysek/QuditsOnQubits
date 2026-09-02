@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import time
 import unittest
 import warnings
 from pathlib import Path
@@ -509,6 +510,47 @@ class ParetoCandidateRankingTests(unittest.TestCase):
                 self.assertEqual(result.loc[f"{prefix}_worse", "normalized_mean_depth"], 1.0)
         self.assertEqual(result.loc["state_a", "pareto_rank"], 1)
         self.assertEqual(result.loc["state_b", "pareto_rank"], 1)
+
+    def test_dominance_chain_uses_quadratic_layer_assignment(self) -> None:
+        count = 400
+        rows = [
+            _statistics_row(f"chain_{number:04d}", (number, number, number))
+            for number in range(count)
+        ]
+        started = time.perf_counter()
+        result = assign_pareto_ranks(pd.DataFrame(rows))
+        elapsed = time.perf_counter() - started
+        self.assertEqual(result["pareto_rank"].tolist(), list(range(1, count + 1)))
+        self.assertLess(elapsed, 10.0)
+
+    def test_weight_conversion_errors_use_descriptive_value_error(self) -> None:
+        weights = {column: 1 for column in OBJECTIVE_COLUMNS}
+        weights["mean_depth"] = 10**10000
+        with self.assertRaisesRegex(ValueError, "objective_weights.*finite nonnegative"):
+            rank_pareto_candidates(pd.DataFrame(self.rows), objective_weights=weights)
+
+    def test_ranking_columns_use_nullable_contract_dtypes(self) -> None:
+        rows = [
+            _statistics_row("eligible", (1, 2, 3)),
+            _statistics_row("diagnostic", (np.nan, np.nan, np.nan), pareto_eligible=False),
+        ]
+        result = rank_pareto_candidates(pd.DataFrame(rows))
+        self.assertEqual(str(result["pareto_rank"].dtype), "Int64")
+        self.assertEqual(str(result["recommendation_order"].dtype), "Int64")
+        for column in (
+            "normalized_mean_two_qubit_gate_count",
+            "normalized_mean_depth",
+            "normalized_std_depth",
+            "ideal_score",
+        ):
+            self.assertEqual(str(result[column].dtype), "Float64")
+
+        empty = rank_pareto_candidates(pd.DataFrame())
+        diagnostics = rank_pareto_candidates(pd.DataFrame([rows[1]]))
+        for output in (empty, diagnostics):
+            self.assertEqual(str(output["pareto_rank"].dtype), "Int64")
+            self.assertEqual(str(output["recommendation_order"].dtype), "Int64")
+            self.assertEqual(str(output["ideal_score"].dtype), "Float64")
 
 
 if __name__ == "__main__":

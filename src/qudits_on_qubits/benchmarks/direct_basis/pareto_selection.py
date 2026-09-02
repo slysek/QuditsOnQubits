@@ -191,7 +191,10 @@ def assign_pareto_ranks(statistics: pd.DataFrame) -> pd.DataFrame:
     but never participate in metric validation or front construction.
     """
     if statistics.empty:
-        return statistics.copy().reindex(columns=[*statistics.columns, *_PARETO_COLUMNS])
+        result = statistics.copy()
+        result["pareto_rank"] = pd.Series(pd.NA, index=result.index, dtype="Int64")
+        result["pareto_metric_group_id"] = pd.Series(pd.NA, index=result.index, dtype="string")
+        return result
 
     _validate_statistics_schema(statistics)
     result = statistics.copy().reset_index(drop=True)
@@ -200,8 +203,8 @@ def assign_pareto_ranks(statistics: pd.DataFrame) -> pd.DataFrame:
     eligible = _eligible_mask(result)
     _validate_eligible_objectives(result, eligible)
     result.loc[eligible, list(OBJECTIVE_COLUMNS)] = result.loc[eligible, list(OBJECTIVE_COLUMNS)].astype(float)
-    result["pareto_rank"] = pd.NA
-    result["pareto_metric_group_id"] = pd.NA
+    result["pareto_rank"] = pd.Series(pd.NA, index=result.index, dtype="Int64")
+    result["pareto_metric_group_id"] = pd.Series(pd.NA, index=result.index, dtype="string")
 
     ordered = _deterministic_sort(result, [*boundary_columns, "state_name", *IDENTITY_COLUMNS])
     for _, partition in ordered.groupby(list(partition_columns), dropna=False, sort=False):
@@ -219,20 +222,19 @@ def assign_pareto_ranks(statistics: pd.DataFrame) -> pd.DataFrame:
         for position, metric in metrics.items():
             result.at[position, "pareto_metric_group_id"] = metric_group_ids[metric]
 
-        remaining = positions[:]
+        values = np.array([metrics[position] for position in positions], dtype=float)
+        dominance = np.all(values[:, np.newaxis, :] <= values[np.newaxis, :, :], axis=2) & np.any(
+            values[:, np.newaxis, :] < values[np.newaxis, :, :], axis=2
+        )
+        domination_count = dominance.sum(axis=0)
+        remaining = np.ones(len(positions), dtype=bool)
         rank = 1
-        while remaining:
-            front = [
-                position
-                for position in remaining
-                if not any(
-                    _dominates(metrics[other], metrics[position])
-                    for other in remaining
-                    if other != position
-                )
-            ]
-            result.loc[front, "pareto_rank"] = rank
-            remaining = [position for position in remaining if position not in front]
+        while remaining.any():
+            front = np.flatnonzero(remaining & (domination_count == 0))
+            result.loc[[positions[index] for index in front], "pareto_rank"] = rank
+            domination_count -= dominance[front].sum(axis=0)
+            remaining[front] = False
+            domination_count[~remaining] = -1
             rank += 1
 
     return _deterministic_sort(
@@ -247,9 +249,15 @@ def _normalized_objective_weights(objective_weights: Mapping[str, object] | None
     normalized: dict[str, float] = {}
     for column in OBJECTIVE_COLUMNS:
         value = weights[column]
-        if not _is_real_number(value) or not np.isfinite(float(value)) or float(value) < 0:
+        if not _is_real_number(value):
             raise ValueError("objective_weights must be finite nonnegative real numbers")
-        normalized[column] = float(value)
+        try:
+            numeric_value = float(value)
+        except (OverflowError, TypeError, ValueError) as error:
+            raise ValueError("objective_weights must be finite nonnegative real numbers") from error
+        if not np.isfinite(numeric_value) or numeric_value < 0:
+            raise ValueError("objective_weights must be finite nonnegative real numbers")
+        normalized[column] = numeric_value
     maximum = max(normalized.values())
     if maximum <= 0:
         raise ValueError("objective_weights must have a positive total")
@@ -265,9 +273,9 @@ def rank_pareto_candidates(
     weights = _normalized_objective_weights(objective_weights)
     result = assign_pareto_ranks(statistics)
     for column in _NORMALIZED_OBJECTIVE_COLUMNS:
-        result[column] = pd.NA
-    result["ideal_score"] = pd.NA
-    result["recommendation_order"] = pd.NA
+        result[column] = pd.Series(pd.NA, index=result.index, dtype="Float64")
+    result["ideal_score"] = pd.Series(pd.NA, index=result.index, dtype="Float64")
+    result["recommendation_order"] = pd.Series(pd.NA, index=result.index, dtype="Int64")
     if result.empty:
         return result
 
@@ -303,7 +311,7 @@ def rank_pareto_candidates(
         scoring_columns = [*_NORMALIZED_OBJECTIVE_COLUMNS, "ideal_score"]
         partition.loc[eligible_rows.index, scoring_columns] = eligible_rows[scoring_columns]
         ranked = partition.loc[[*eligible_rows.index, *diagnostics.index]].copy()
-        ranked["recommendation_order"] = range(1, len(ranked) + 1)
+        ranked["recommendation_order"] = pd.array(range(1, len(ranked) + 1), dtype="Int64")
         ranked_partitions.append(ranked)
     return pd.concat(ranked_partitions, ignore_index=True)
 
