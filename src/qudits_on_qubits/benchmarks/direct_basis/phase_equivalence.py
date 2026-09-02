@@ -49,16 +49,16 @@ def global_phase_between(reference, candidate, *, atol=DEFAULT_PHASE_ATOL, rtol=
     return None
 
 
-def _bucket_key(matrix, decimals):
+def _bucket_key(matrix, decimals, atol=DEFAULT_PHASE_ATOL):
     arr = np.asarray(matrix, dtype=complex)
     if np.all(arr == 0):
         return (arr.shape, (0.0, 0.0))
-    nonzero = np.flatnonzero(np.abs(arr) > DEFAULT_PHASE_ATOL)
+    nonzero = np.flatnonzero(np.abs(arr) > atol)
     pivot = int(nonzero[0] if nonzero.size else np.argmax(np.abs(arr)))
     phase = arr.flat[pivot] / abs(arr.flat[pivot])
     normalized = arr / phase
-    real = np.where(np.isclose(normalized.real, 0.0, atol=DEFAULT_PHASE_ATOL), 0.0, normalized.real)
-    imag = np.where(np.isclose(normalized.imag, 0.0, atol=DEFAULT_PHASE_ATOL), 0.0, normalized.imag)
+    real = np.where(np.isclose(normalized.real, 0.0, atol=atol), 0.0, normalized.real)
+    imag = np.where(np.isclose(normalized.imag, 0.0, atol=atol), 0.0, normalized.imag)
     values = tuple(np.round(np.column_stack((real.ravel(), imag.ravel())), decimals).ravel())
     return (arr.shape, values)
 
@@ -79,16 +79,25 @@ def deduplicate_candidates_up_to_global_phase(
     ordered = sorted(list(candidates), key=_sort_key)
     groups: list[list[DirectBasisCandidate]] = []
     bucket_groups: dict[tuple, list[int]] = {}
+    scalar_groups: dict[tuple, list[int]] = {}
     phase_group_numbers: dict[int, int] = {}
     next_phase_group = 1
+    supported = [c for c in ordered if c.is_supported and c.matrix is not None]
+    max_size = max((np.asarray(c.matrix, dtype=complex).size for c in supported), default=0)
+    weights = np.arange(1, max_size + 1, dtype=float)
+    rmax = max((float(np.sum(weights[:np.asarray(c.matrix).size] *
+                              (atol + rtol * np.abs(np.asarray(c.matrix, dtype=complex).flat))))
+                for c in supported), default=0.0)
     duplicates: list[tuple[DirectBasisCandidate, DirectBasisCandidate, complex, int]] = []
     for item in ordered:
         if not item.is_supported or item.matrix is None:
             groups.append([item])
             continue
-        key = _bucket_key(item.matrix, bucket_decimals)
+        key = _bucket_key(item.matrix, bucket_decimals, atol)
         found = None
+        checked = set()
         for index in bucket_groups.get(key, []):
+            checked.add(index)
             group = groups[index]
             if not group[0].is_supported:
                 continue
@@ -99,12 +108,32 @@ def deduplicate_candidates_up_to_global_phase(
             if phase is not None:
                 found = (index, phase)
                 break
+        if found is None and rmax > 0:
+            arr = np.asarray(item.matrix, dtype=complex).ravel()
+            fingerprint = float(np.sum(weights[:arr.size] * np.abs(arr)))
+            scalar_bin = int(np.floor(fingerprint / rmax))
+            scalar_shape = np.asarray(item.matrix).shape
+            for probe in (scalar_bin - 1, scalar_bin, scalar_bin + 1):
+                for index in scalar_groups.get((scalar_shape, probe), []):
+                    if index in checked:
+                        continue
+                    checked.add(index)
+                    phase = global_phase_between(groups[index][0].matrix, item.matrix, atol=atol, rtol=rtol)
+                    if phase is not None:
+                        found = (index, phase)
+                        break
+                if found is not None:
+                    break
         if found is None:
             index = len(groups)
             groups.append([item])
             phase_group_numbers[index] = next_phase_group
             next_phase_group += 1
             bucket_groups.setdefault(key, []).append(index)
+            arr = np.asarray(item.matrix, dtype=complex).ravel()
+            if rmax > 0:
+                scalar_groups.setdefault((np.asarray(item.matrix).shape,
+                                          int(np.floor(float(np.sum(weights[:arr.size] * np.abs(arr))) / rmax))), []).append(index)
         else:
             index, phase = found
             duplicates.append((groups[index][0], item, phase, index))

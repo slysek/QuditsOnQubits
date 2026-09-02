@@ -102,6 +102,23 @@ def test_distinct_buckets_do_not_trigger_all_groups_phase_scan(monkeypatch):
     assert calls == 0
 
 
+def test_tolerance_edge_equivalence_survives_adjacent_canonical_buckets():
+    a = np.eye(2, dtype=complex)
+    b = a.copy(); b[1, 1] += 5e-9
+    assert global_phase_between(a, b) == 1 + 0j
+    result = deduplicate_candidates_up_to_global_phase([
+        candidate("x", "a", a), candidate("x", "b", b)
+    ])
+    assert result.removed_count == 1
+
+
+def test_custom_atol_controls_canonical_near_zero_behavior():
+    a = np.array([1.0, 1e-5], complex)
+    b = -a
+    assert deduplicate_candidates_up_to_global_phase([candidate("x", "a", a), candidate("x", "b", b)], atol=1e-6).removed_count == 1
+    assert deduplicate_candidates_up_to_global_phase([candidate("x", "a", a), candidate("x", "b", b)], atol=1e-12).removed_count == 1
+
+
 def test_unsupported_candidates_remain_independent():
     items = [candidate("x", "one", None, False), candidate("x", "two", None, False)]
     result = deduplicate_candidates_up_to_global_phase(items)
