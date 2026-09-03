@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from itertools import product
+from numbers import Real
 from typing import Iterable
 
 import numpy as np
@@ -8,6 +10,16 @@ import numpy as np
 
 OMEGA = np.exp(2j * np.pi / 3)
 _CODE_LEVELS = (0, 1, 2)
+
+
+@dataclass(frozen=True)
+class F3LeakagePhaseAnalysis:
+    """Analytic unused-state phase for F3 in a monomial encoding."""
+
+    phase: float
+    phase_factor: complex
+    support: tuple[int, int, int]
+    effective_fourier: np.ndarray
 
 
 def canonical_qutrit_embedding() -> np.ndarray:
@@ -123,15 +135,94 @@ def conjugated_qutrit_cz(w: np.ndarray) -> np.ndarray:
     return cz_w
 
 
+def optimal_f3_leakage_phase(
+    encoding: np.ndarray,
+    *,
+    tolerance: float = 1e-10,
+) -> F3LeakagePhaseAnalysis:
+    """Return the analytic F3 leakage phase for a monomial encoding.
+
+    Physical support rows are sorted before the effective qutrit block is
+    formed.  This removes the support embedding ``B_s`` from
+    ``E = B_s D P`` while preserving its physical ordering.
+    """
+    if (
+        isinstance(tolerance, bool)
+        or not isinstance(tolerance, Real)
+        or not np.isfinite(tolerance)
+        or tolerance <= 0
+    ):
+        raise ValueError("tolerance must be a finite positive real number.")
+
+    e_new = encoding_embedding(encoding)
+    logical_to_physical: list[int] = []
+    for logical_level in range(3):
+        occupied = np.flatnonzero(
+            np.abs(e_new[:, logical_level]) > float(tolerance)
+        )
+        if len(occupied) != 1:
+            raise ValueError(
+                "encoding must be monomial: each logical column must occupy "
+                "exactly one physical row."
+            )
+        logical_to_physical.append(int(occupied[0]))
+
+    if len(set(logical_to_physical)) != 3:
+        raise ValueError(
+            "encoding must be monomial with three distinct physical support rows."
+        )
+
+    support = tuple(sorted(logical_to_physical))
+    effective_basis = e_new[np.asarray(support), :]
+    if not is_unitary(effective_basis, tol=float(tolerance)):
+        raise ValueError("effective monomial basis must be unitary.")
+
+    effective_fourier = (
+        effective_basis @ qutrit_fourier() @ effective_basis.conj().T
+    )
+    product_12_21 = effective_fourier[0, 1] * effective_fourier[1, 0]
+    if abs(product_12_21) <= tolerance:
+        raise ValueError(
+            "optimal F3 leakage phase is undefined when C12*C21 is zero."
+        )
+
+    phase_factor = product_12_21 / (
+        np.linalg.det(effective_fourier) * np.conj(product_12_21)
+    )
+    phase_factor /= abs(phase_factor)
+    phase = float(np.mod(np.angle(phase_factor), 2 * np.pi))
+    if np.isclose(phase, 2 * np.pi, atol=tolerance, rtol=0.0):
+        phase = 0.0
+
+    return F3LeakagePhaseAnalysis(
+        phase=phase,
+        phase_factor=complex(phase_factor),
+        support=support,
+        effective_fourier=effective_fourier,
+    )
+
+
 def physical_single_qutrit_gate_in_encoding(
     qutrit_gate: np.ndarray,
     encoding: np.ndarray,
+    *,
+    leakage_phase: float = 0.0,
 ) -> np.ndarray:
-    """Embed a logical qutrit gate into two qubits for a 4x3 encoding."""
+    """Embed a qutrit gate with a phase on the leakage complement."""
+    if (
+        isinstance(leakage_phase, bool)
+        or not isinstance(leakage_phase, Real)
+        or not np.isfinite(leakage_phase)
+    ):
+        raise ValueError("leakage_phase must be a finite real number.")
     gate = validate_unitary(qutrit_gate, 3, name="qutrit_gate")
     e_new = encoding_embedding(encoding)
     projector = e_new @ e_new.conj().T
-    embedded = e_new @ gate @ e_new.conj().T + (np.eye(4, dtype=complex) - projector)
+    embedded = (
+        e_new @ gate @ e_new.conj().T
+        + np.exp(1j * float(leakage_phase))
+        * (np.eye(4, dtype=complex) - projector)
+    )
     if not is_unitary(embedded):
         raise ValueError("Encoded single-qutrit physical gate is not unitary.")
     return embedded
