@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 import numpy as np
 from qiskit import QuantumCircuit, qpy, transpile
+from qiskit.circuit.library import XGate
 from qiskit.quantum_info import DensityMatrix, Statevector, state_fidelity
 from qiskit.transpiler import CouplingMap
 
@@ -288,11 +289,12 @@ class DirectBasisIqmBenchmarkTests(unittest.TestCase):
         self.assertIn("non-unitary", notes.casefold())
         self.assertIn("initialize", notes.casefold())
 
-    def test_logical_output_state_rejects_classically_conditioned_operations(self):
+    def test_logical_output_state_rejects_legacy_classically_conditioned_operations(self):
         candidate = QuantumCircuit(1, 1)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            candidate.x(0).c_if(candidate.cregs[0], 1)
+        # Qiskit 2 removed InstructionSet.c_if; retain coverage of legacy QPY shapes.
+        conditioned_x = XGate().to_mutable()
+        conditioned_x._condition = (candidate.cregs[0], 1)
+        candidate.append(conditioned_x, [0])
 
         logical, notes = logical_output_state(
             candidate,

@@ -250,18 +250,20 @@ class AggregateStrategyStatisticsTests(unittest.TestCase):
         self.assertEqual(result["failed_trial_count"], 2)
 
     def test_numeric_string_metrics_are_accepted(self) -> None:
-        result = aggregate_strategy_statistics(
-            pd.DataFrame(
-                [
-                    _trial(
-                        depth="10",
-                        two_qubit_gate_count="4",
-                        one_qubit_gate_count="8",
-                        size="20",
-                    )
-                ]
-            )
-        ).iloc[0]
+        trials = pd.DataFrame(
+            [
+                _trial(
+                    depth="10",
+                    two_qubit_gate_count="4",
+                    one_qubit_gate_count="8",
+                    size="20",
+                )
+            ]
+        )
+        for column in ("depth", "two_qubit_gate_count", "one_qubit_gate_count", "size"):
+            trials[column] = trials[column].astype("string")
+
+        result = aggregate_strategy_statistics(trials).iloc[0]
         self.assertEqual(result["mean_depth"], 10.0)
         self.assertEqual(result["best_two_qubit_gate_count"], 4.0)
 

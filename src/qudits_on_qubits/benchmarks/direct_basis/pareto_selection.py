@@ -375,7 +375,9 @@ def _validate_successful_metrics(trials: pd.DataFrame, successful: pd.Series) ->
                 f"invalid successful metric {_identity_description(row)}, {column}={row[column]!r}; "
                 "expected a finite nonnegative number"
             )
-        trials.loc[successful, column] = numeric_values
+        converted_values = trials[column].astype(object)
+        converted_values.loc[successful] = numeric_values
+        trials[column] = converted_values
 
 
 def _best_successful_trial(successful_rows: pd.DataFrame) -> pd.Series:
