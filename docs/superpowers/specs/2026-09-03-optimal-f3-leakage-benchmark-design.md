@@ -160,8 +160,10 @@ mistaking seed or strategy variation for an effect of the leakage phase.
 
 The comparison ranks each arm with the same graph-state metric order already
 used by the active backend path. It reports best and mean depth, size, one-qubit
-gate count, and two-qubit gate count, along with optimal-minus-baseline deltas.
-The primary benchmark's existing ranking circuit and columns remain unchanged.
+gate count, and two-qubit gate count. Improvement columns are calculated as
+baseline minus optimal, so a positive value always means that the optimized
+circuit uses fewer gates or layers. The primary benchmark's existing ranking
+circuit and columns remain unchanged.
 
 ### CLI and applicability
 
@@ -192,7 +194,10 @@ Every row will contain stable comparison fields. Important fields are:
 - `f3_graph_successful_pairs` and `f3_graph_failed_pairs`;
 - `f3_graph_baseline_best_*` and `f3_graph_optimal_best_*` metrics;
 - `f3_graph_baseline_mean_*` and `f3_graph_optimal_mean_*` metrics;
-- `f3_graph_*_delta` fields, always defined as optimal minus baseline;
+- `f3_graph_depth_improvement`, `f3_graph_size_improvement`,
+  `f3_graph_two_qubit_gate_count_improvement`, and
+  `f3_graph_one_qubit_gate_count_improvement`, always defined as baseline minus
+  optimal;
 - `f3_graph_optimal_is_better` using the benchmark's metric ordering;
 - best seed and strategy for each arm.
 
@@ -255,7 +260,7 @@ runs while the optimized circuit data is evaluated.
   logical states.
 - The comparison changes only the unused-state phase of each local `F3`.
 - Baseline and optimal circuits use identical transpiler seeds and strategy sets.
-- CSV output exposes phase provenance, paired metrics, deltas, and explicit
-  status values.
+- CSV output exposes phase provenance, paired metrics, positive-is-better
+  improvement columns, and explicit status values.
 - Existing behavior is unchanged when the comparison flag is omitted.
 - Targeted `direct_basis` tests and all newly added tests pass.
