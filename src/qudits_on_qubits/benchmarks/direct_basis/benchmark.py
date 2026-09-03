@@ -13,8 +13,7 @@ import numpy as np
 import pandas as pd
 from qiskit import qpy, transpile
 from qiskit.circuit.library import UnitaryGate
-from qiskit.converters import circuit_to_dag, dag_to_circuit
-from qiskit.quantum_info import DensityMatrix, Statevector, state_fidelity
+from qiskit.quantum_info import Statevector, state_fidelity
 
 from qudits_on_qubits.bell_measurements import build_sampler_circuits_for_candidate
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
@@ -35,6 +34,17 @@ from qudits_on_qubits.benchmarks.direct_basis.selection import (
     selection_label as format_selection_label,
     transpiled_qpy_filename,
 )
+from qudits_on_qubits.benchmarks.direct_basis.state_reconstruction import (
+    _bits_to_index,
+    _density_matrix_in_input_order,
+    _input_to_active_output_order,
+    _restore_input_qubit_order,
+    _restore_stripped_input_order,
+    _strip_idle_qubits_with_indices,
+    _unsafe_statevector_operation,
+    logical_output_density_matrix,
+    logical_output_state,
+)
 from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_strategies import (
     run_iqm_transpiler_strategy,
 )
@@ -45,6 +55,21 @@ from qudits_on_qubits.experiments.workload_metrics import summarize_compiled_wor
 
 METHOD_NAME = "direct_basis_encoding"
 RANKING_WORKLOADS = frozenset({"state_preparation", "bell_measurements"})
+
+
+def _safe_fidelity(reference_qc, candidate_qc, *, max_qubits: int) -> tuple[float | None, str]:
+    candidate_state, notes = logical_output_state(
+        candidate_qc,
+        logical_qubit_count=reference_qc.num_qubits,
+        max_qubits=max_qubits,
+    )
+    if candidate_state is None:
+        return None, notes
+    try:
+        reference = Statevector.from_instruction(reference_qc)
+        return float(state_fidelity(reference, candidate_state)), notes
+    except Exception as exc:
+        return None, " ".join(part for part in (notes, f"Fidelity skipped: {exc}") if part)
 
 
 def default_results_dir() -> str:
@@ -182,97 +207,6 @@ def _operation_names_from_metadata(metadata) -> list[str]:
         return []
 
 
-def _strip_idle_qubits_with_indices(qc):
-    no_measurements = qc.remove_final_measurements(inplace=False)
-    dag = circuit_to_dag(no_measurements)
-    idle_qubits = [wire for wire in dag.idle_wires() if wire in dag.qubits]
-    active_original_indices = [
-        no_measurements.find_bit(qubit).index
-        for qubit in dag.qubits
-        if qubit not in idle_qubits
-    ]
-    if idle_qubits:
-        dag.remove_qubits(*idle_qubits)
-    return dag_to_circuit(dag), active_original_indices
-
-
-def _restore_stripped_input_order(
-    state: np.ndarray,
-    candidate_qc,
-    active_indices: list[int],
-    reference_qubits: int,
-) -> np.ndarray:
-    input_to_output = _input_to_active_output_order(
-        candidate_qc,
-        active_indices,
-        reference_qubits,
-    )
-    if input_to_output is None:
-        return state
-    return _restore_input_qubit_order(state, input_to_output)
-
-
-def _input_to_active_output_order(
-    candidate_qc,
-    active_indices: list[int],
-    reference_qubits: int,
-) -> list[int] | None:
-    layout = getattr(candidate_qc, "layout", None)
-    if layout is None or getattr(layout, "final_layout", None) is None:
-        return None
-    try:
-        final_index_layout = layout.final_index_layout(filter_ancillas=True)
-    except Exception:
-        return None
-    if len(final_index_layout) != reference_qubits:
-        return None
-    active_positions = {
-        physical_index: idx for idx, physical_index in enumerate(active_indices)
-    }
-    if not all(physical_index in active_positions for physical_index in final_index_layout):
-        return None
-    return [
-        active_positions[physical_index]
-        for physical_index in final_index_layout
-    ]
-
-
-def _density_matrix_in_input_order(
-    state: np.ndarray,
-    input_to_output: list[int],
-) -> np.ndarray:
-    total_qubits = int(np.log2(len(state)))
-    if 2**total_qubits != len(state):
-        raise ValueError("state length must be a power of two")
-    kept_positions = tuple(int(position) for position in input_to_output)
-    if len(set(kept_positions)) != len(kept_positions):
-        raise ValueError("input_to_output contains duplicate output positions")
-    traced_positions = tuple(
-        position for position in range(total_qubits) if position not in set(kept_positions)
-    )
-    dim = 2 ** len(kept_positions)
-    groups: dict[int, list[tuple[int, complex]]] = {}
-    for basis_index, amplitude in enumerate(np.asarray(state, dtype=complex)):
-        traced_index = _bits_to_index(basis_index, traced_positions)
-        kept_index = _bits_to_index(basis_index, kept_positions)
-        groups.setdefault(traced_index, []).append((kept_index, amplitude))
-
-    density = np.zeros((dim, dim), dtype=complex)
-    for amplitudes in groups.values():
-        vector = np.zeros(dim, dtype=complex)
-        for kept_index, amplitude in amplitudes:
-            vector[kept_index] = amplitude
-        density += np.outer(vector, vector.conj())
-    return density
-
-
-def _bits_to_index(source_index: int, positions: tuple[int, ...]) -> int:
-    target_index = 0
-    for target_bit, source_bit in enumerate(positions):
-        target_index |= ((source_index >> source_bit) & 1) << target_bit
-    return target_index
-
-
 def _transpile_one_trial(
     qc,
     *,
@@ -403,90 +337,6 @@ def _base_row(
         "basis_change_qpy": "",
         "basis_change_matrix_npy": "",
     }
-
-
-def _restore_input_qubit_order(state: np.ndarray, input_to_output: list[int]) -> np.ndarray:
-    """Reorder a statevector from final physical order back to input logical order."""
-    n_qubits = len(input_to_output)
-    restored = np.zeros_like(state)
-    for input_index in range(2**n_qubits):
-        input_bits = [(input_index >> bit) & 1 for bit in range(n_qubits)]
-        output_bits = [0] * n_qubits
-        for input_bit, output_bit in enumerate(input_to_output):
-            output_bits[output_bit] = input_bits[input_bit]
-        output_index = sum(bit_value << bit for bit, bit_value in enumerate(output_bits))
-        restored[input_index] = state[output_index]
-    return restored
-
-
-def _safe_fidelity(reference_qc, candidate_qc, *, max_qubits: int) -> tuple[float | None, str]:
-    fidelity_qc = candidate_qc
-    active_indices = list(range(candidate_qc.num_qubits))
-    notes = []
-    if fidelity_qc.num_qubits > int(max_qubits):
-        stripped_qc, stripped_active_indices = _strip_idle_qubits_with_indices(fidelity_qc)
-        if stripped_qc.num_qubits < fidelity_qc.num_qubits:
-            notes.append(
-                f"Idle qubits stripped for fidelity: {fidelity_qc.num_qubits}->{stripped_qc.num_qubits}."
-            )
-            fidelity_qc = stripped_qc
-            active_indices = stripped_active_indices
-    if fidelity_qc.num_qubits > int(max_qubits):
-        notes.append(f"Fidelity skipped because transpiled circuit has {fidelity_qc.num_qubits} qubits.")
-        return None, " ".join(notes)
-    if fidelity_qc.num_qubits != reference_qc.num_qubits:
-        if fidelity_qc.num_qubits > reference_qc.num_qubits:
-            try:
-                input_to_output = _input_to_active_output_order(
-                    candidate_qc,
-                    active_indices,
-                    reference_qc.num_qubits,
-                )
-                if input_to_output is not None:
-                    reference = Statevector.from_instruction(reference_qc)
-                    candidate = Statevector.from_instruction(fidelity_qc)
-                    candidate_density = DensityMatrix(
-                        _density_matrix_in_input_order(
-                            candidate.data,
-                            input_to_output,
-                        ),
-                        dims=reference.dims(),
-                    )
-                    notes.append(
-                        "Extra active qubits traced for fidelity: "
-                        f"{fidelity_qc.num_qubits}->{reference_qc.num_qubits}."
-                    )
-                    return float(state_fidelity(reference, candidate_density)), " ".join(notes)
-            except Exception as exc:
-                notes.append(f"Fidelity skipped: {exc}")
-                return None, " ".join(notes)
-        notes.append(
-            f"Fidelity skipped because active qubit count {fidelity_qc.num_qubits} "
-            f"differs from reference {reference_qc.num_qubits}."
-        )
-        return None, " ".join(notes)
-    try:
-        reference = Statevector.from_instruction(reference_qc)
-        candidate = Statevector.from_instruction(fidelity_qc)
-        candidate_data = candidate.data
-        if fidelity_qc is candidate_qc:
-            layout = getattr(candidate_qc, "layout", None)
-            if layout is not None and getattr(layout, "final_layout", None) is not None:
-                final_index_layout = layout.final_index_layout(filter_ancillas=True)
-                if len(final_index_layout) == reference_qc.num_qubits == candidate_qc.num_qubits:
-                    candidate_data = _restore_input_qubit_order(candidate_data, final_index_layout)
-        else:
-            candidate_data = _restore_stripped_input_order(
-                candidate_data,
-                candidate_qc,
-                active_indices,
-                reference_qc.num_qubits,
-            )
-        candidate_state = Statevector(candidate_data, dims=reference.dims())
-        return float(state_fidelity(reference, candidate_state)), " ".join(notes)
-    except Exception as exc:
-        notes.append(f"Fidelity skipped: {exc}")
-        return None, " ".join(notes)
 
 
 def benchmark_direct_basis(

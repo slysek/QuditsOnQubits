@@ -180,6 +180,11 @@ def main(argv=None) -> int:
 
     print(f"All trials CSV: {paths['all_trials_csv']}")
     print(f"Best by candidate CSV: {paths['best_by_candidate_csv']}")
+    print(f"Candidate global phase duplicates CSV: {paths['candidate_global_phase_duplicates_csv']}")
+    print(f"Strategy statistics CSV: {paths['strategy_statistics_csv']}")
+    print(f"Pareto ranked CSV: {paths['pareto_ranked_csv']}")
+    print(f"State equivalence groups CSV: {paths['state_equivalence_groups_csv']}")
+    print(f"Recommended circuits CSV: {paths['recommended_circuits_csv']}")
     print(f"Summary JSON: {paths['summary_json']}")
     return 0
 

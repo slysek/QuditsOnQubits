@@ -441,6 +441,10 @@ python scripts/run_iqm_transpiler_harness.py `
   --n-transpile-runs 3
 ```
 
+Before transpilation, the harness deduplicates candidate matrices that differ
+only by a global phase. The representative is transpiled and the removed
+candidates remain traceable in the phase-audit CSV.
+
 The harness only transpiles circuits. It does not submit jobs to IQM hardware.
 It writes:
 
@@ -448,6 +452,11 @@ It writes:
 artifacts/iqm_runs/processed/transpiler_harness/<run_id>/
   all_trials.csv
   best_by_candidate.csv
+  candidate_global_phase_duplicates.csv
+  strategy_statistics.csv
+  pareto_ranked.csv
+  state_equivalence_groups.csv
+  recommended_circuits.csv
   summary.json
   quantum_circuits/<state>/<class>__<candidate>/
     F3_W.qpy
@@ -472,7 +481,31 @@ transpile_to_iqm_exact
 
 `best_by_candidate.csv` chooses the best successful trial by
 `(depth, cz_count, r_count, size)` and flags warning thresholds such as
-`depth_gt_100` and `cz_gt_50`.
+`depth_gt_100` and `cz_gt_50`. This is the legacy depth-first view and its
+selection order is unchanged.
+
+The statistical outputs are computed after IQM transpilation from the
+successful rows in `all_trials.csv`. Each candidate/strategy pair remains a
+separate statistical alternative across transpiler seeds. `pareto_ranked.csv`
+assigns rank 1 to the nondominated front over mean 2Q-gate count, mean depth,
+and depth standard deviation. Within each Pareto rank, `ideal_score` uses
+weights 0.50/0.30/0.20 for those objectives; the score never overrides the
+Pareto rank.
+
+`state_equivalence_groups.csv` groups alternatives that prepare the same
+compiled logical state. Physical costs are evaluated before this grouping,
+and `recommended_circuits.csv` then keeps one recommendation per
+state-equivalence group.
+
+Existing `all_trials.csv` results can be analyzed again without rerunning the
+harness:
+
+```powershell
+python scripts/analyze_iqm_transpiler_harness.py --all-trials artifacts/iqm_runs/processed/transpiler_harness/20260902_120000/all_trials.csv
+```
+
+Neither the harness CLI nor this standalone analysis CLI submits hardware
+jobs.
 
 ## PiastQ managed Bell execution
 

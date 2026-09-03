@@ -4,12 +4,14 @@ import json
 import sys
 import tempfile
 import unittest
+from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 from qiskit import QuantumCircuit, qpy
+from qiskit.quantum_info import Statevector
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "src"
@@ -29,6 +31,12 @@ from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_harness import (
     run_iqm_transpiler_harness,
     write_iqm_transpiler_harness_outputs,
 )
+from qudits_on_qubits.benchmarks.direct_basis.phase_equivalence import (
+    PHASE_DUPLICATE_COLUMNS,
+)
+from qudits_on_qubits.benchmarks.direct_basis.pareto_selection import (
+    analyze_iqm_trials,
+)
 
 
 def _native_iqm_circuit() -> QuantumCircuit:
@@ -37,6 +45,59 @@ def _native_iqm_circuit() -> QuantumCircuit:
     circuit.r(0.3, 0.4, 1)
     circuit.cz(0, 1)
     return circuit
+
+
+def _analysis_trial(
+    *,
+    candidate_name: str = "candidate_a",
+    strategy_name: str = "strategy_a",
+    seed_transpiler: int = 1,
+    success: bool = True,
+    status: str = "ok",
+    depth: int = 10,
+    two_qubit_gate_count: int = 2,
+    qpy_path: str = "candidate_a.qpy",
+) -> dict[str, object]:
+    return {
+        "state_name": "ghz3",
+        "n_qutrits": 1,
+        "class_name": "product",
+        "candidate_name": candidate_name,
+        "basis_candidate_name": candidate_name,
+        "basis_candidate_type": "test",
+        "strategy_name": strategy_name,
+        "seed_transpiler": seed_transpiler,
+        "success": success,
+        "status": status,
+        "error_type": "",
+        "error_message": "",
+        "compile_time_seconds": 0.1,
+        "depth": depth,
+        "size": depth + 2,
+        "one_qubit_gate_count": 3,
+        "two_qubit_gate_count": two_qubit_gate_count,
+        "graph_state_transpiled_qpy": qpy_path,
+        "warning_flags": "",
+    }
+
+
+def _analysis_loader(states):
+    def load(path, logical_qubit_count, *, max_qubits):
+        return states[Path(path).name], ""
+
+    return load
+
+
+OUTPUT_FILENAMES = {
+    "all_trials_csv": "all_trials.csv",
+    "best_by_candidate_csv": "best_by_candidate.csv",
+    "candidate_global_phase_duplicates_csv": "candidate_global_phase_duplicates.csv",
+    "strategy_statistics_csv": "strategy_statistics.csv",
+    "pareto_ranked_csv": "pareto_ranked.csv",
+    "state_equivalence_groups_csv": "state_equivalence_groups.csv",
+    "recommended_circuits_csv": "recommended_circuits.csv",
+    "summary_json": "summary.json",
+}
 
 
 class NonExceptionHarnessFailure(BaseException):
@@ -229,6 +290,174 @@ class IqmTranspilerHarnessTests(unittest.TestCase):
         self.assertEqual(summary["failed_trial_count"], 1)
         self.assertEqual(summary["unsupported_candidate_count"], 0)
         self.assertEqual(summary["failed_all_strategy_count"], 0)
+
+    def test_run_iqm_transpiler_harness_deduplicates_global_phase_candidates(self):
+        candidates = [
+            DirectBasisCandidate(
+                name="E_old",
+                candidate_type="identity",
+                matrix=np.eye(3, dtype=complex),
+                source_class_name="baseline",
+                source_candidate_name="E_old",
+            ),
+            DirectBasisCandidate(
+                name="I_phase",
+                candidate_type="identity",
+                matrix=1j * np.eye(3, dtype=complex),
+                source_class_name="candidate",
+                source_candidate_name="I_phase",
+            ),
+            DirectBasisCandidate(
+                name="distinct",
+                candidate_type="diagonal",
+                matrix=np.diag([1, 1, -1]).astype(complex),
+                source_class_name="candidate",
+                source_candidate_name="distinct",
+            ),
+        ]
+        calls = []
+
+        def fake_runner(
+            strategy_name,
+            circuit,
+            *,
+            backend: object,
+            seed_transpiler: int,
+            optimization_level: int,
+        ):
+            calls.append((strategy_name, seed_transpiler))
+            return SimpleNamespace(
+                strategy_name=strategy_name,
+                seed_transpiler=seed_transpiler,
+                success=True,
+                circuit=_native_iqm_circuit(),
+                compile_time_seconds=0.1,
+                error_type="",
+                error_message="",
+            )
+
+        config = IqmTranspilerHarnessConfig(
+            state_name="two_qutrit",
+            n_qutrits=2,
+            backend=object(),
+            iqm_backend_name="fake_backend",
+            iqm_use_metrics=False,
+            candidates=candidates,
+            strategy_names=("ok_strategy",),
+            n_transpile_runs=1,
+        )
+
+        all_trials, best_by_candidate, summary = run_iqm_transpiler_harness(
+            config,
+            strategy_runner=fake_runner,
+        )
+
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(all_trials), 2)
+        self.assertEqual(len(best_by_candidate), 2)
+        self.assertEqual(summary["candidate_count"], 3)
+        self.assertEqual(summary["representative_candidate_count"], 2)
+        self.assertEqual(summary["global_phase_duplicate_count"], 1)
+        self.assertEqual(
+            summary["candidate_count"],
+            summary["representative_candidate_count"]
+            + summary["global_phase_duplicate_count"],
+        )
+        self.assertEqual(
+            set(zip(all_trials["class_name"], all_trials["candidate_name"])),
+            {("baseline", "E_old"), ("candidate", "distinct")},
+        )
+        duplicates = all_trials.attrs["candidate_global_phase_duplicates"]
+        self.assertEqual(len(duplicates), 1)
+        self.assertEqual(
+            duplicates[0]["duplicate_candidate_name"],
+            "I_phase",
+        )
+        self.assertEqual(duplicates[0]["representative_class_name"], "baseline")
+        self.assertEqual(duplicates[0]["representative_candidate_name"], "E_old")
+        best_duplicates = best_by_candidate.attrs["candidate_global_phase_duplicates"]
+        self.assertEqual(best_duplicates, duplicates)
+        self.assertIsNot(best_duplicates, duplicates)
+        duplicates[0]["reason"] = "mutated"
+        duplicates.append({"unexpected": True})
+        self.assertEqual(best_duplicates[0]["reason"], "global_phase_equivalent_matrix")
+        self.assertEqual(len(best_duplicates), 1)
+
+    def test_run_iqm_transpiler_harness_handles_empty_and_one_shot_candidates(self):
+        base_kwargs = dict(
+            state_name="two_qutrit",
+            n_qutrits=2,
+            backend=object(),
+            iqm_backend_name="fake_backend",
+            iqm_use_metrics=False,
+            strategy_names=("ok_strategy",),
+        )
+        empty_config = IqmTranspilerHarnessConfig(candidates=[], **base_kwargs)
+        empty_trials, empty_best, empty_summary = run_iqm_transpiler_harness(empty_config)
+        self.assertTrue(empty_trials.empty)
+        self.assertTrue(empty_best.empty)
+        self.assertEqual(empty_summary["candidate_count"], 0)
+        self.assertEqual(empty_summary["representative_candidate_count"], 0)
+
+        candidate = DirectBasisCandidate(
+            name="I", candidate_type="identity", matrix=np.eye(3, dtype=complex),
+            source_class_name="baseline", source_candidate_name="I",
+        )
+        calls = []
+
+        def fake_runner(strategy_name, circuit, **kwargs):
+            calls.append(candidate.candidate_name)
+            return SimpleNamespace(
+                strategy_name=strategy_name, seed_transpiler=kwargs["seed_transpiler"],
+                success=True, circuit=_native_iqm_circuit(), compile_time_seconds=0.1,
+                error_type="", error_message="",
+            )
+
+        generator_config = IqmTranspilerHarnessConfig(
+            candidates=(item for item in [candidate]), **base_kwargs
+        )
+        _, generator_best, generator_summary = run_iqm_transpiler_harness(
+            generator_config, strategy_runner=fake_runner
+        )
+        self.assertEqual(calls, ["I"])
+        self.assertEqual(len(generator_best), 1)
+        self.assertEqual(generator_summary["candidate_count"], 1)
+
+    def test_run_iqm_transpiler_harness_keeps_unsupported_phase_group_representative(self):
+        supported = DirectBasisCandidate(
+            name="E_old", candidate_type="identity", matrix=np.eye(3, dtype=complex),
+            source_class_name="baseline", source_candidate_name="E_old",
+        )
+        duplicate = DirectBasisCandidate(
+            name="I_phase", candidate_type="identity", matrix=-np.eye(3, dtype=complex),
+            source_class_name="candidate", source_candidate_name="I_phase",
+        )
+        unsupported = DirectBasisCandidate(
+            name="missing", candidate_type="unknown", matrix=None,
+            source_class_name="legacy", source_candidate_name="missing",
+            error_message="not found",
+        )
+
+        def fake_runner(strategy_name, circuit, **kwargs):
+            return SimpleNamespace(
+                strategy_name=strategy_name, seed_transpiler=kwargs["seed_transpiler"],
+                success=True, circuit=_native_iqm_circuit(), compile_time_seconds=0.1,
+                error_type="", error_message="",
+            )
+
+        config = IqmTranspilerHarnessConfig(
+            state_name="two_qutrit", n_qutrits=2, backend=object(),
+            iqm_backend_name="fake_backend", iqm_use_metrics=False,
+            candidates=[supported, duplicate, unsupported], strategy_names=("ok_strategy",),
+        )
+        all_trials, best_by_candidate, summary = run_iqm_transpiler_harness(
+            config, strategy_runner=fake_runner
+        )
+        self.assertEqual(summary["candidate_count"], 3)
+        self.assertEqual(summary["representative_candidate_count"], 2)
+        self.assertEqual(summary["global_phase_duplicate_count"], 1)
+        self.assertIn("unsupported_candidate", set(all_trials["status"]))
+        self.assertEqual(set(best_by_candidate["candidate_name"]), {"E_old", "missing"})
 
     def test_run_iqm_transpiler_harness_exports_trial_circuit_and_encoding_matrices(self):
         candidate = DirectBasisCandidate(
@@ -502,22 +731,259 @@ class IqmTranspilerHarnessTests(unittest.TestCase):
         self.assertTrue(pd.isna(best_by_candidate.iloc[0]["num_qubits"]))
         self.assertEqual(summary["unsupported_candidate_count"], 1)
 
-    def test_write_iqm_transpiler_harness_outputs(self):
+    def test_write_iqm_transpiler_harness_outputs_emits_analysis_and_phase_audit(self):
+        all_trials = pd.DataFrame(
+            [
+                _analysis_trial(candidate_name="a", strategy_name="a", seed_transpiler=seed,
+                                depth=10, two_qubit_gate_count=2, qpy_path="a.qpy")
+                for seed in (1, 2)
+            ]
+            + [
+                _analysis_trial(candidate_name="b", strategy_name="b", seed_transpiler=seed,
+                                depth=5, two_qubit_gate_count=4, qpy_path="b.qpy")
+                for seed in (1, 2)
+            ]
+        )
+        duplicates = [{
+            "global_phase_group_id": "global_phase_0001",
+            "representative_class_name": "product",
+            "representative_candidate_name": "a",
+            "duplicate_class_name": "product",
+            "duplicate_candidate_name": "b",
+            "detected_phase_real": 0.0,
+            "detected_phase_imag": 1.0,
+            "reason": "global_phase_equivalent_matrix",
+        }]
+        all_trials.attrs["candidate_global_phase_duplicates"] = duplicates
+        summary = {"candidate_count": np.int64(2), "preserved": "yes"}
         with tempfile.TemporaryDirectory() as tmp:
             paths = write_iqm_transpiler_harness_outputs(
                 tmp,
-                all_trials=pd.DataFrame([{"status": "ok", "depth": 2}]),
-                best_by_candidate=pd.DataFrame([{"status": "ok", "depth": 2}]),
-                summary={"candidate_count": 1},
+                all_trials=all_trials,
+                best_by_candidate=pd.DataFrame([_analysis_trial()]),
+                summary=summary,
+                state_loader=_analysis_loader({
+                    "a.qpy": Statevector([1, 0]),
+                    "b.qpy": Statevector([-1j, 0]),
+                }),
             )
 
-            self.assertTrue(Path(paths["all_trials_csv"]).is_file())
-            self.assertTrue(Path(paths["best_by_candidate_csv"]).is_file())
-            self.assertTrue(Path(paths["summary_json"]).is_file())
+            self.assertEqual(set(paths), set(OUTPUT_FILENAMES))
             self.assertEqual(
-                json.loads(Path(paths["summary_json"]).read_text(encoding="utf-8")),
-                {"candidate_count": 1},
+                {key: Path(path).name for key, path in paths.items()},
+                OUTPUT_FILENAMES,
             )
+            for path in paths.values():
+                self.assertTrue(Path(path).is_file())
+            phase_audit = pd.read_csv(paths["candidate_global_phase_duplicates_csv"])
+            self.assertEqual(phase_audit.columns.tolist(), list(PHASE_DUPLICATE_COLUMNS))
+            self.assertEqual(phase_audit["duplicate_candidate_name"].tolist(), ["b"])
+            pd.testing.assert_frame_equal(
+                pd.read_csv(paths["all_trials_csv"]),
+                pd.read_csv(StringIO(all_trials.to_csv(index=False))),
+                check_dtype=False,
+            )
+            pd.testing.assert_frame_equal(
+                pd.read_csv(paths["best_by_candidate_csv"]),
+                pd.read_csv(StringIO(pd.DataFrame([_analysis_trial()]).to_csv(index=False))),
+                check_dtype=False,
+            )
+            strategy_statistics = pd.read_csv(paths["strategy_statistics_csv"])
+            pareto_ranked = pd.read_csv(paths["pareto_ranked_csv"])
+            state_equivalence_groups = pd.read_csv(paths["state_equivalence_groups_csv"])
+            recommended_circuits = pd.read_csv(paths["recommended_circuits_csv"])
+            self.assertEqual(len(strategy_statistics), 2)
+            self.assertEqual((pareto_ranked["pareto_rank"] == 1).sum(), 2)
+            self.assertEqual(state_equivalence_groups["state_equivalence_group_id"].nunique(), 1)
+            self.assertEqual(len(recommended_circuits), 1)
+            written_summary = json.loads(Path(paths["summary_json"]).read_text(encoding="utf-8"))
+            self.assertEqual(written_summary["preserved"], "yes")
+            self.assertEqual(
+                {key: written_summary[key] for key in (
+                    "analyzed_strategy_combination_count", "pareto_front_count",
+                    "state_equivalence_group_count", "recommended_circuit_count",
+                )},
+                {
+                    "analyzed_strategy_combination_count": 2,
+                    "pareto_front_count": 2,
+                    "state_equivalence_group_count": 1,
+                    "recommended_circuit_count": 1,
+                },
+            )
+            self.assertEqual(summary, {"candidate_count": 2, "preserved": "yes"})
+            self.assertEqual(all_trials.attrs["candidate_global_phase_duplicates"], duplicates)
+
+    def test_compatibility_phase_dedup_preserves_legacy_and_pareto_seed_selection(self):
+        identity = np.eye(3, dtype=complex)
+        candidates = [
+            DirectBasisCandidate(
+                name="E_old",
+                candidate_type="baseline",
+                matrix=identity,
+                source_class_name="baseline",
+                source_candidate_name="E_old",
+            ),
+            DirectBasisCandidate(
+                name="phase_copy",
+                candidate_type="candidate",
+                matrix=-1j * identity,
+                source_class_name="product",
+                source_candidate_name="phase_copy",
+            ),
+            DirectBasisCandidate(
+                name="distinct",
+                candidate_type="candidate",
+                matrix=np.diag([1.0, -1.0, 1.0]).astype(complex),
+                source_class_name="product",
+                source_candidate_name="distinct",
+            ),
+        ]
+
+        def fake_runner(
+            strategy_name,
+            circuit,
+            *,
+            backend: object,
+            seed_transpiler: int,
+            optimization_level: int,
+        ):
+            transpiled = QuantumCircuit(4)
+            if seed_transpiler == 0:
+                # The historical depth-first view prefers this one-depth circuit.
+                transpiled.cz(0, 1)
+                transpiled.cz(2, 3)
+            else:
+                # The statistical view prefers this seed because it has fewer 2Q gates.
+                transpiled.r(0.1, 0.2, 0)
+                transpiled.r(0.3, 0.4, 0)
+                transpiled.cz(0, 1)
+            return SimpleNamespace(
+                strategy_name=strategy_name,
+                seed_transpiler=seed_transpiler,
+                success=True,
+                circuit=transpiled,
+                compile_time_seconds=0.1,
+                error_type="",
+                error_message="",
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            config = IqmTranspilerHarnessConfig(
+                state_name="two_qutrit",
+                n_qutrits=2,
+                backend=object(),
+                iqm_backend_name="fake_backend",
+                iqm_use_metrics=False,
+                candidates=candidates,
+                strategy_names=("strategy_a", "strategy_b"),
+                n_transpile_runs=2,
+                quantum_circuits_dir=Path(tmp) / "quantum_circuits",
+            )
+
+            all_trials, best_by_candidate, summary = run_iqm_transpiler_harness(
+                config,
+                strategy_runner=fake_runner,
+            )
+
+            self.assertEqual(summary["candidate_count"], 3)
+            self.assertEqual(summary["representative_candidate_count"], 2)
+            self.assertEqual(summary["global_phase_duplicate_count"], 1)
+            self.assertEqual(len(all_trials), 8)
+            self.assertEqual(len(best_by_candidate), 2)
+            self.assertEqual(
+                set(best_by_candidate["candidate_name"]),
+                {"E_old", "distinct"},
+            )
+
+            paths = write_iqm_transpiler_harness_outputs(
+                Path(tmp) / "results",
+                all_trials=all_trials,
+                best_by_candidate=best_by_candidate,
+                summary=summary,
+                state_loader=lambda *args, **kwargs: (Statevector([1, 0]), ""),
+            )
+
+            legacy = pd.read_csv(paths["best_by_candidate_csv"])
+            self.assertEqual(set(legacy["seed_transpiler"]), {0})
+            self.assertEqual(set(legacy["depth"]), {1})
+            self.assertEqual(set(legacy["two_qubit_gate_count"]), {2})
+
+            statistics = pd.read_csv(paths["strategy_statistics_csv"])
+            self.assertEqual(len(statistics), 4)
+            self.assertEqual(set(statistics["best_seed_transpiler"]), {1})
+            self.assertEqual(set(statistics["best_depth"]), {3.0})
+            self.assertEqual(set(statistics["best_two_qubit_gate_count"]), {1.0})
+
+    def test_write_iqm_transpiler_harness_outputs_empty_preserves_all_headers(self):
+        summary = {"existing": "kept"}
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = write_iqm_transpiler_harness_outputs(
+                tmp,
+                all_trials=pd.DataFrame(),
+                best_by_candidate=pd.DataFrame(),
+                summary=summary,
+            )
+
+            self.assertEqual(set(paths), set(OUTPUT_FILENAMES))
+            self.assertEqual(
+                {key: Path(path).name for key, path in paths.items()},
+                OUTPUT_FILENAMES,
+            )
+            for path in paths.values():
+                self.assertTrue(Path(path).is_file())
+            self.assertEqual(
+                Path(paths["candidate_global_phase_duplicates_csv"]).read_text(encoding="utf-8").strip(),
+                ",".join(PHASE_DUPLICATE_COLUMNS),
+            )
+            phase_audit = pd.read_csv(paths["candidate_global_phase_duplicates_csv"])
+            self.assertTrue(phase_audit.empty)
+            self.assertEqual(phase_audit.columns.tolist(), list(PHASE_DUPLICATE_COLUMNS))
+            empty_analysis = analyze_iqm_trials(pd.DataFrame())
+            for key, expected in {
+                "strategy_statistics_csv": empty_analysis.strategy_statistics,
+                "pareto_ranked_csv": empty_analysis.pareto_ranked,
+                "state_equivalence_groups_csv": empty_analysis.state_equivalence_groups,
+                "recommended_circuits_csv": empty_analysis.recommended_circuits,
+            }.items():
+                written = pd.read_csv(paths[key])
+                self.assertTrue(written.empty)
+                self.assertEqual(written.columns.tolist(), expected.columns.tolist())
+            written_summary = json.loads(Path(paths["summary_json"]).read_text(encoding="utf-8"))
+            self.assertEqual(written_summary["existing"], "kept")
+            self.assertEqual(
+                {key: written_summary[key] for key in empty_analysis.summary_counts},
+                empty_analysis.summary_counts,
+            )
+            self.assertEqual(summary, {"existing": "kept"})
+
+    def test_write_iqm_transpiler_harness_outputs_keeps_missing_and_broken_qpy_diagnostics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            broken_qpy = Path(tmp) / "broken.qpy"
+            broken_qpy.write_text("not a qpy payload", encoding="utf-8")
+            trials = pd.DataFrame(
+                [
+                    _analysis_trial(candidate_name="missing", strategy_name="missing",
+                                    seed_transpiler=seed, qpy_path="does-not-exist.qpy")
+                    for seed in (1, 2)
+                ]
+                + [
+                    _analysis_trial(candidate_name="broken", strategy_name="broken",
+                                    seed_transpiler=seed, qpy_path=str(broken_qpy))
+                    for seed in (1, 2)
+                ]
+            )
+            paths = write_iqm_transpiler_harness_outputs(
+                tmp,
+                all_trials=trials,
+                best_by_candidate=pd.DataFrame([_analysis_trial()]),
+                summary={},
+            )
+
+            detailed = pd.read_csv(paths["state_equivalence_groups_csv"])
+            self.assertEqual(len(pd.read_csv(paths["pareto_ranked_csv"])), 2)
+            statuses = detailed.set_index("candidate_name")["state_equivalence_status"]
+            self.assertEqual(statuses["missing"], "missing_qpy")
+            self.assertEqual(statuses["broken"], "state_reconstruction_failed")
 
     def test_default_iqm_transpiler_harness_output_dir_uses_run_id(self):
         output_dir = default_iqm_transpiler_harness_output_dir("run123")

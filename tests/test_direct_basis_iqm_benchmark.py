@@ -5,13 +5,17 @@ import os
 import sys
 import tempfile
 import unittest
+import warnings
 from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
-from qiskit import QuantumCircuit, qpy
-from qiskit.quantum_info import Statevector
+from qiskit import QuantumCircuit, qpy, transpile
+from qiskit.circuit.library import XGate
+from qiskit.quantum_info import DensityMatrix, Statevector, state_fidelity
+from qiskit.transpiler import CouplingMap
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "src"
@@ -23,6 +27,8 @@ from qudits_on_qubits.benchmarks.direct_basis.benchmark import (
     benchmark_direct_basis,
     benchmark_direct_basis_candidates,
     default_iqm_quantum_circuits_dir,
+    logical_output_density_matrix,
+    logical_output_state,
 )
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
 from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import backend_metadata
@@ -49,6 +55,14 @@ def _garnet_metadata(backend, *, optimization_level=3):
 
 
 class DirectBasisIqmBenchmarkTests(unittest.TestCase):
+    @staticmethod
+    def _with_final_layout(circuit, input_to_output):
+        circuit._layout = SimpleNamespace(
+            final_layout=object(),
+            final_index_layout=lambda *, filter_ancillas: list(input_to_output),
+        )
+        return circuit
+
     @staticmethod
     def _workload_ranking_transpiler(calls):
         def fake_transpile(circuit, *, trial, iqm_strategy_name, **kwargs):
@@ -94,6 +108,245 @@ class DirectBasisIqmBenchmarkTests(unittest.TestCase):
         state1, state2 = mocked_state_fidelity.call_args.args
         self.assertIsInstance(state1, Statevector)
         self.assertIsInstance(state2, Statevector)
+
+    def test_logical_output_state_keeps_12_qubit_pure_output_compact(self):
+        candidate = QuantumCircuit(12)
+        candidate.x(0)
+
+        logical, notes = logical_output_state(
+            candidate,
+            logical_qubit_count=12,
+            max_qubits=12,
+        )
+
+        self.assertEqual(notes, "")
+        self.assertIsInstance(logical, Statevector)
+        self.assertEqual(logical.data.shape, (4096,))
+
+    def test_logical_output_density_matrix_restores_layout_order(self):
+        reference = QuantumCircuit(2)
+        reference.x(0)
+        candidate = QuantumCircuit(2)
+        candidate.x(1)
+        self._with_final_layout(candidate, [1, 0])
+
+        logical, notes = logical_output_density_matrix(
+            candidate,
+            logical_qubit_count=2,
+            max_qubits=2,
+        )
+
+        self.assertIsNotNone(logical, notes)
+        self.assertIsInstance(logical, DensityMatrix)
+        self.assertGreater(state_fidelity(Statevector.from_instruction(reference), logical), 1 - 1e-10)
+
+    def test_initial_only_transpiler_layout_restores_logical_order(self):
+        reference = QuantumCircuit(2)
+        reference.x(0)
+        candidate = transpile(
+            reference,
+            basis_gates=["u", "cx"],
+            coupling_map=CouplingMap.from_line(2),
+            initial_layout=[1, 0],
+            optimization_level=0,
+        )
+        self.assertIsNone(candidate.layout.final_layout)
+        self.assertEqual(candidate.layout.final_index_layout(filter_ancillas=True), [1, 0])
+
+        logical, notes = logical_output_density_matrix(
+            candidate,
+            logical_qubit_count=2,
+            max_qubits=2,
+        )
+        fidelity, fidelity_notes = _safe_fidelity(
+            reference,
+            candidate,
+            max_qubits=2,
+        )
+
+        self.assertIsNotNone(logical, notes)
+        self.assertGreater(
+            state_fidelity(Statevector.from_instruction(reference), logical),
+            1 - 1e-10,
+        )
+        self.assertIsNotNone(fidelity, fidelity_notes)
+        self.assertGreater(fidelity, 1 - 1e-10)
+
+    def test_initial_only_layout_restores_logical_order_with_extra_physical_width(self):
+        reference = QuantumCircuit(1)
+        reference.x(0)
+        candidate = transpile(
+            reference,
+            basis_gates=["u", "cx"],
+            coupling_map=CouplingMap.from_line(2),
+            initial_layout=[1],
+            optimization_level=0,
+        )
+        self.assertEqual(candidate.num_qubits, 2)
+        self.assertIsNone(candidate.layout.final_layout)
+        self.assertEqual(candidate.layout.final_index_layout(filter_ancillas=True), [1])
+
+        logical, notes = logical_output_density_matrix(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=2,
+        )
+        fidelity, fidelity_notes = _safe_fidelity(
+            reference,
+            candidate,
+            max_qubits=2,
+        )
+
+        self.assertIsNotNone(logical, notes)
+        self.assertGreater(
+            state_fidelity(Statevector.from_instruction(reference), logical),
+            1 - 1e-10,
+        )
+        self.assertIsNotNone(fidelity, fidelity_notes)
+        self.assertGreater(fidelity, 1 - 1e-10)
+
+    def test_logical_output_density_matrix_strips_idle_qubits(self):
+        reference = QuantumCircuit(1)
+        reference.x(0)
+        candidate = QuantumCircuit(3)
+        candidate.x(2)
+        self._with_final_layout(candidate, [2])
+
+        logical, notes = logical_output_state(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=1,
+        )
+
+        self.assertIsNotNone(logical, notes)
+        self.assertIsInstance(logical, Statevector)
+        self.assertIn("Idle qubits stripped", notes)
+        self.assertGreater(state_fidelity(Statevector.from_instruction(reference), logical), 1 - 1e-10)
+
+    def test_logical_output_density_matrix_traces_extra_active_qubits(self):
+        reference = QuantumCircuit(1)
+        reference.h(0)
+        candidate = QuantumCircuit(2)
+        candidate.h(0)
+        candidate.x(1)
+        self._with_final_layout(candidate, [0])
+
+        logical, notes = logical_output_state(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=2,
+        )
+
+        self.assertIsNotNone(logical, notes)
+        self.assertIsInstance(logical, DensityMatrix)
+        self.assertIn("Extra active qubits traced", notes)
+        self.assertGreater(state_fidelity(Statevector.from_instruction(reference), logical), 1 - 1e-10)
+
+    def test_logical_output_density_matrix_rejects_measurements_before_simulation(self):
+        candidate = QuantumCircuit(1, 1)
+        candidate.h(0)
+        candidate.measure(0, 0)
+
+        logical, notes = logical_output_density_matrix(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=1,
+        )
+
+        self.assertIsNone(logical)
+        self.assertIn("measurement", notes.casefold())
+
+    def test_logical_output_state_rejects_entangled_reset_deterministically(self):
+        candidate = QuantumCircuit(2)
+        candidate.h(0)
+        candidate.cx(0, 1)
+        candidate.reset(0)
+
+        results = [
+            logical_output_state(
+                candidate,
+                logical_qubit_count=2,
+                max_qubits=2,
+            )
+            for _ in range(20)
+        ]
+
+        self.assertTrue(all(state is None for state, _ in results))
+        self.assertEqual(len({diagnostic for _, diagnostic in results}), 1)
+        self.assertIn("reset", results[0][1].casefold())
+
+    def test_logical_output_state_rejects_other_non_unitary_operations(self):
+        candidate = QuantumCircuit(1)
+        candidate.initialize([1, 0], 0)
+
+        logical, notes = logical_output_state(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=1,
+        )
+
+        self.assertIsNone(logical)
+        self.assertIn("non-unitary", notes.casefold())
+        self.assertIn("initialize", notes.casefold())
+
+    def test_logical_output_state_rejects_legacy_classically_conditioned_operations(self):
+        candidate = QuantumCircuit(1, 1)
+        # Qiskit 2 removed InstructionSet.c_if; retain coverage of legacy QPY shapes.
+        conditioned_x = XGate().to_mutable()
+        conditioned_x._condition = (candidate.cregs[0], 1)
+        candidate.append(conditioned_x, [0])
+
+        logical, notes = logical_output_state(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=1,
+        )
+
+        self.assertIsNone(logical)
+        self.assertIn("classically controlled", notes.casefold())
+
+    def test_logical_output_state_rejects_control_flow_operations(self):
+        true_body = QuantumCircuit(1)
+        true_body.x(0)
+        candidate = QuantumCircuit(1, 1)
+        candidate.if_test(
+            (candidate.clbits[0], True),
+            true_body,
+            [candidate.qubits[0]],
+            [],
+        )
+
+        logical, notes = logical_output_state(
+            candidate,
+            logical_qubit_count=1,
+            max_qubits=1,
+        )
+
+        self.assertIsNone(logical)
+        self.assertIn("control-flow", notes.casefold())
+        self.assertIn("if_else", notes.casefold())
+
+    def test_logical_output_density_matrix_reports_unsafe_widths(self):
+        too_wide = QuantumCircuit(2)
+        too_wide.x(0)
+        too_wide.x(1)
+        below_logical = QuantumCircuit(1)
+
+        wide_state, wide_notes = logical_output_density_matrix(
+            too_wide,
+            logical_qubit_count=1,
+            max_qubits=1,
+        )
+        narrow_state, narrow_notes = logical_output_density_matrix(
+            below_logical,
+            logical_qubit_count=2,
+            max_qubits=2,
+        )
+
+        self.assertIsNone(wide_state)
+        self.assertIn("2 qubits", wide_notes)
+        self.assertIsNone(narrow_state)
+        self.assertIn("active qubit count 1", narrow_notes)
 
     def test_benchmark_direct_basis_accepts_iqm_backend(self):
         backend = _fake_garnet()

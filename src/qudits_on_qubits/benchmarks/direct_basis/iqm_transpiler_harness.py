@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from importlib import metadata as importlib_metadata
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 import pandas as pd
 from qiskit import qpy
@@ -30,6 +30,17 @@ from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_strategies import (
     get_iqm_transpiler_strategy,
     iqm_transpiler_strategy_names,
     run_iqm_transpiler_strategy,
+)
+from qudits_on_qubits.benchmarks.direct_basis.pareto_selection import (
+    analyze_iqm_trials,
+    write_pareto_analysis_outputs,
+)
+from qudits_on_qubits.benchmarks.direct_basis.phase_equivalence import (
+    PHASE_DUPLICATE_COLUMNS,
+    deduplicate_candidates_up_to_global_phase,
+)
+from qudits_on_qubits.benchmarks.direct_basis.state_equivalence import (
+    load_logical_state_from_qpy,
 )
 from qudits_on_qubits.core.benchmark_encoding_bases import TWO_Q_GATES
 
@@ -310,9 +321,19 @@ def _best_trial_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _summary(
     rows: list[dict[str, Any]],
     best_rows: list[dict[str, Any]],
+    *,
+    candidate_count: int | None = None,
+    representative_candidate_count: int | None = None,
+    global_phase_duplicate_count: int = 0,
 ) -> dict[str, Any]:
     return {
-        "candidate_count": len(best_rows),
+        "candidate_count": len(best_rows) if candidate_count is None else candidate_count,
+        "representative_candidate_count": (
+            len(best_rows)
+            if representative_candidate_count is None
+            else representative_candidate_count
+        ),
+        "global_phase_duplicate_count": global_phase_duplicate_count,
         "trial_count": len(rows),
         "successful_trial_count": sum(1 for row in rows if bool(row.get("success"))),
         "failed_trial_count": sum(1 for row in rows if row.get("status") == "failed"),
@@ -344,12 +365,16 @@ def run_iqm_transpiler_harness(
 
     candidates = list(config.candidates)
     candidate_count = len(candidates)
+    deduplication = deduplicate_candidates_up_to_global_phase(candidates)
+    representatives = deduplication.representatives
+    representative_candidate_count = len(representatives)
+    candidate_global_phase_duplicates = [dict(row) for row in deduplication.duplicate_rows]
 
     rows: list[dict[str, Any]] = []
-    for candidate_index, candidate in enumerate(candidates, start=1):
+    for candidate_index, candidate in enumerate(representatives, start=1):
         print(
             "[iqm_transpiler_harness] "
-            f"{candidate_index}/{candidate_count} "
+            f"{candidate_index}/{representative_candidate_count} "
             f"{candidate.class_name}/{candidate.candidate_name}",
             flush=True,
         )
@@ -394,8 +419,22 @@ def run_iqm_transpiler_harness(
                 )
 
     best_rows = _best_trial_rows(rows)
-    summary = _summary(rows, best_rows)
-    return pd.DataFrame(rows), pd.DataFrame(best_rows), summary
+    summary = _summary(
+        rows,
+        best_rows,
+        candidate_count=candidate_count,
+        representative_candidate_count=representative_candidate_count,
+        global_phase_duplicate_count=deduplication.removed_count,
+    )
+    all_trials = pd.DataFrame(rows)
+    best_by_candidate = pd.DataFrame(best_rows)
+    all_trials.attrs["candidate_global_phase_duplicates"] = [
+        dict(row) for row in candidate_global_phase_duplicates
+    ]
+    best_by_candidate.attrs["candidate_global_phase_duplicates"] = [
+        dict(row) for row in candidate_global_phase_duplicates
+    ]
+    return all_trials, best_by_candidate, summary
 
 
 def write_iqm_transpiler_harness_outputs(
@@ -404,26 +443,63 @@ def write_iqm_transpiler_harness_outputs(
     all_trials: pd.DataFrame,
     best_by_candidate: pd.DataFrame,
     summary: dict[str, Any],
+    objective_weights: Mapping[str, object] | None = None,
+    max_state_qubits: int = 12,
+    state_loader: Any = load_logical_state_from_qpy,
 ) -> dict[str, str]:
+    analysis = analyze_iqm_trials(
+        all_trials,
+        objective_weights=objective_weights,
+        max_state_qubits=max_state_qubits,
+        state_loader=state_loader,
+    )
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
     all_trials_csv = output_path / "all_trials.csv"
     best_by_candidate_csv = output_path / "best_by_candidate.csv"
+    candidate_global_phase_duplicates_csv = output_path / "candidate_global_phase_duplicates.csv"
     summary_json = output_path / "summary.json"
 
     all_trials.to_csv(all_trials_csv, index=False)
     best_by_candidate.to_csv(best_by_candidate_csv, index=False)
+    pd.DataFrame(
+        [dict(row) for row in all_trials.attrs.get("candidate_global_phase_duplicates", ())],
+        columns=PHASE_DUPLICATE_COLUMNS,
+    ).to_csv(candidate_global_phase_duplicates_csv, index=False)
+    analysis_paths = write_pareto_analysis_outputs(output_path, analysis)
+    merged_summary = {**summary, **analysis.summary_counts}
     summary_json.write_text(
-        json.dumps(summary, indent=2, sort_keys=True),
+        json.dumps(_json_safe_value(merged_summary), indent=2, sort_keys=True),
         encoding="utf-8",
     )
 
     return {
         "all_trials_csv": str(all_trials_csv),
         "best_by_candidate_csv": str(best_by_candidate_csv),
+        "candidate_global_phase_duplicates_csv": str(candidate_global_phase_duplicates_csv),
+        **analysis_paths,
         "summary_json": str(summary_json),
     }
+
+
+def _json_safe_value(value: Any) -> Any:
+    """Convert scalar values supplied by dataframe-backed callers for JSON."""
+    if value is pd.NA:
+        return None
+    if isinstance(value, dict):
+        return {key: _json_safe_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe_value(item) for item in value]
+    item = getattr(value, "item", None)
+    if callable(item):
+        try:
+            scalar = item()
+        except (TypeError, ValueError):
+            return value
+        if scalar is not value:
+            return _json_safe_value(scalar)
+    return value
 
 
 def _base_row(

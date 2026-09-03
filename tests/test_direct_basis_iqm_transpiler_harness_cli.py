@@ -106,6 +106,11 @@ class IqmTranspilerHarnessCliTests(unittest.TestCase):
         output_paths = {
             "all_trials_csv": os.path.join("out", "all_trials.csv"),
             "best_by_candidate_csv": os.path.join("out", "best_by_candidate.csv"),
+            "candidate_global_phase_duplicates_csv": os.path.join("out", "candidate_global_phase_duplicates.csv"),
+            "strategy_statistics_csv": os.path.join("out", "strategy_statistics.csv"),
+            "pareto_ranked_csv": os.path.join("out", "pareto_ranked.csv"),
+            "state_equivalence_groups_csv": os.path.join("out", "state_equivalence_groups.csv"),
+            "recommended_circuits_csv": os.path.join("out", "recommended_circuits.csv"),
             "summary_json": os.path.join("out", "summary.json"),
         }
 
@@ -124,7 +129,7 @@ class IqmTranspilerHarnessCliTests(unittest.TestCase):
                 "scripts.run_iqm_transpiler_harness.write_iqm_transpiler_harness_outputs",
                 return_value=output_paths,
             ) as write_outputs,
-            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stdout(stdout := io.StringIO()),
         ):
             return_code = main(
                 [
@@ -159,6 +164,11 @@ class IqmTranspilerHarnessCliTests(unittest.TestCase):
         self.assertEqual(config.max_cz_warning, 40)
         self.assertEqual(config.quantum_circuits_dir, os.path.join("out", "quantum_circuits"))
         write_outputs.assert_called_once()
+        self.assertIn("Candidate global phase duplicates CSV: out" + os.sep + "candidate_global_phase_duplicates.csv", stdout.getvalue())
+        self.assertIn("Strategy statistics CSV: out" + os.sep + "strategy_statistics.csv", stdout.getvalue())
+        self.assertIn("Pareto ranked CSV: out" + os.sep + "pareto_ranked.csv", stdout.getvalue())
+        self.assertIn("State equivalence groups CSV: out" + os.sep + "state_equivalence_groups.csv", stdout.getvalue())
+        self.assertIn("Recommended circuits CSV: out" + os.sep + "recommended_circuits.csv", stdout.getvalue())
 
 
 if __name__ == "__main__":
