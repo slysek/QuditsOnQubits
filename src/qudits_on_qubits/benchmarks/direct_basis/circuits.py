@@ -5,6 +5,7 @@ from qiskit.circuit import QuantumCircuit
 from qiskit.circuit.library import DiagonalGate, StatePreparation, UnitaryGate
 
 from qudits_on_qubits.benchmarks.direct_basis.math_utils import (
+    encoding_embedding,
     local_plus_state_in_direct_basis,
     physical_single_qutrit_gate_in_encoding,
     physical_two_qutrit_gate_in_encoding,
@@ -47,9 +48,15 @@ def build_direct_basis_edge_gate(
     return gate
 
 
-def build_direct_basis_fourier_gate(encoding: np.ndarray) -> UnitaryGate:
-    """Build the two-qubit encoded qutrit F3 gate."""
-    embedded = physical_single_qutrit_gate_in_encoding(qutrit_fourier(), encoding)
+def build_direct_basis_fourier_gate(
+    encoding: np.ndarray,
+    *,
+    leakage_phase: float = 0.0,
+) -> UnitaryGate:
+    """Build encoded F3 with a phase on the unused-state complement."""
+    embedded = physical_single_qutrit_gate_in_encoding(
+        qutrit_fourier(), encoding, leakage_phase=leakage_phase
+    )
     gate = UnitaryGate(embedded, label="F3_W")
     gate.name = "F3_W"
     return gate
@@ -100,6 +107,45 @@ def build_direct_basis_graph_state_circuit(
             ],
         )
 
+    return qc
+
+
+def build_direct_basis_fourier_graph_state_circuit(
+    state_name: str,
+    basis_matrix: np.ndarray,
+    *,
+    leakage_phase: float,
+    n_qutrits: int | None = None,
+) -> QuantumCircuit:
+    """Prepare a graph state with explicit encoded F3 gates on every qutrit.
+
+    Preparing E|0> first is essential: in a noncanonical monomial encoding,
+    the physical |00> input need not represent logical zero (or even be coded).
+    """
+    state = resolve_direct_state(state_name, n_qutrits=n_qutrits)
+    qubit_pairs = [[2 * index, 2 * index + 1] for index in range(state.num_qutrits)]
+    qc = QuantumCircuit(
+        2 * state.num_qutrits, name=f"{state.state_id}_direct_basis_f3"
+    )
+    encoded_zero = encoding_embedding(basis_matrix)[:, 0]
+    zero_preparation = StatePreparation(encoded_zero, label="zero_W")
+    fourier = build_direct_basis_fourier_gate(
+        basis_matrix, leakage_phase=leakage_phase
+    )
+    edge_gate = build_direct_basis_edge_gate(basis_matrix)
+    for pair in qubit_pairs:
+        qc.append(zero_preparation, pair)
+        qc.append(fourier, pair)
+    for left, right in state.edges:
+        if left == right:
+            continue
+        # Match the historical builder's logical/physical block ordering.
+        left_pair = qubit_pairs[state.num_qutrits - 1 - left]
+        right_pair = qubit_pairs[state.num_qutrits - 1 - right]
+        qc.append(
+            edge_gate,
+            [left_pair[0], left_pair[1], right_pair[0], right_pair[1]],
+        )
     return qc
 
 

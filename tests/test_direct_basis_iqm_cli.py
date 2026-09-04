@@ -15,6 +15,14 @@ from scripts.run_direct_basis_benchmarks import (
 
 
 class DirectBasisIqmCliTests(unittest.TestCase):
+    def test_optimal_f3_comparison_is_opt_in(self):
+        default = build_parser().parse_args(["--state", "two_qutrit"])
+        enabled = build_parser().parse_args(
+            ["--state", "two_qutrit", "--compare-optimal-f3-leakage"]
+        )
+        self.assertFalse(default.compare_optimal_f3_leakage)
+        self.assertTrue(enabled.compare_optimal_f3_leakage)
+
     def test_iqm_backend_flag_defaults_iqm_options(self):
         args = build_parser().parse_args(["--state", "two_qutrit", "--iqm-backend", "garnet"])
 
@@ -127,6 +135,7 @@ class DirectBasisIqmCliTests(unittest.TestCase):
                     "sabre",
                     "--jobs",
                     "3",
+                    "--compare-optimal-f3-leakage",
                     "--no-export-quantum-circuits",
                     "--no-fidelity",
                 ]
@@ -149,6 +158,7 @@ class DirectBasisIqmCliTests(unittest.TestCase):
         self.assertEqual(benchmark_kwargs["layout_method"], "sabre")
         self.assertEqual(benchmark_kwargs["routing_method"], "sabre")
         self.assertEqual(benchmark_kwargs["jobs"], 3)
+        self.assertTrue(benchmark_kwargs["compare_optimal_f3_leakage"])
         self.assertIsNone(benchmark_kwargs["quantum_circuits_dir"])
         self.assertEqual(
             benchmark_kwargs["iqm_strategy_names"],
@@ -208,6 +218,7 @@ class DirectBasisIqmCliTests(unittest.TestCase):
         benchmark_kwargs = benchmark_direct_basis_candidates.call_args.kwargs
         self.assertEqual(benchmark_kwargs["output_csv"], "explicit.csv")
         self.assertEqual(benchmark_kwargs["ranking_workload"], "bell_measurements")
+        self.assertFalse(benchmark_kwargs["compare_optimal_f3_leakage"])
 
 
 if __name__ == "__main__":
