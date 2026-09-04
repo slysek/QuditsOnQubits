@@ -20,6 +20,7 @@ from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandi
 from qudits_on_qubits.benchmarks.direct_basis.circuits import (
     build_direct_basis_edge_gate,
     build_direct_basis_fourier_gate,
+    build_direct_basis_fourier_graph_state_circuit,
     build_direct_basis_graph_state_circuit,
     gate_as_circuit,
     resolve_direct_state,
@@ -29,6 +30,7 @@ from qudits_on_qubits.benchmarks.direct_basis.math_utils import (
     embed_single_qutrit_gate_identity_leakage,
     is_isometry,
     is_unitary,
+    optimal_f3_leakage_phase,
 )
 from qudits_on_qubits.benchmarks.direct_basis.selection import (
     selection_label as format_selection_label,
@@ -55,6 +57,7 @@ from qudits_on_qubits.experiments.workload_metrics import summarize_compiled_wor
 
 METHOD_NAME = "direct_basis_encoding"
 RANKING_WORKLOADS = frozenset({"state_preparation", "bell_measurements"})
+_F3_GRAPH_METRICS = ("depth", "size", "two_qubit_gate_count", "one_qubit_gate_count")
 
 
 def _safe_fidelity(reference_qc, candidate_qc, *, max_qubits: int) -> tuple[float | None, str]:
@@ -257,6 +260,202 @@ def _transpile_one_trial(
     return pass_manager.run(qc)
 
 
+def _f3_graph_comparison_defaults() -> dict:
+    """Stable additive CSV schema, including inapplicable and failed rows."""
+    result = {
+        "f3_graph_comparison_status": "not_requested",
+        "f3_graph_comparison_error": "",
+        "f3_graph_export_error": "",
+        "f3_graph_baseline_qpy": "",
+        "f3_graph_optimal_qpy": "",
+        "f3_baseline_w_qpy": "",
+        "f3_optimal_w_qpy": "",
+        "f3_optimal_leakage_phase": None,
+        "f3_optimal_leakage_phase_over_pi": None,
+        "f3_optimal_leakage_phase_real": None,
+        "f3_optimal_leakage_phase_imag": None,
+        "f3_graph_successful_pairs": 0,
+        "f3_graph_failed_pairs": 0,
+        "f3_graph_optimal_is_better": None,
+    }
+    for metric in _F3_GRAPH_METRICS:
+        result[f"f3_graph_{metric}_improvement"] = None
+    for variant in ("baseline", "optimal"):
+        prefix = f"f3_graph_{variant}"
+        for metric in _F3_GRAPH_METRICS:
+            for statistic in ("best", "mean"):
+                result[f"{prefix}_{statistic}_{metric}"] = None
+        result[f"{prefix}_best_count_ops"] = ""
+        result[f"{prefix}_best_seed_transpiler"] = None
+        result[f"{prefix}_best_strategy"] = ""
+    return result
+
+
+def _f3_graph_metrics(circuit) -> dict:
+    return {
+        "depth": int(circuit.depth()),
+        "size": int(circuit.size()),
+        "two_qubit_gate_count": _count_two_qubit_gates_from_ops(circuit.count_ops()),
+        "one_qubit_gate_count": _count_one_qubit_gates(circuit),
+        "count_ops": dict(circuit.count_ops()),
+    }
+
+
+def _f3_graph_rank(metrics: dict, *, transpiler_backend) -> tuple[int, ...]:
+    order = ("depth", "two_qubit_gate_count", "size")
+    if transpiler_backend is not None:
+        order = ("depth", "two_qubit_gate_count", "one_qubit_gate_count", "size")
+    return tuple(metrics[metric] for metric in order)
+
+
+def benchmark_optimal_f3_graph_comparison(
+    *,
+    state_name: str,
+    basis_matrix: np.ndarray,
+    n_qutrits: int | None,
+    coupling_map,
+    basis_gates,
+    n_transpile_runs: int,
+    transpiler_backend,
+    optimization_level: int,
+    layout_method: str | None,
+    routing_method: str | None,
+    approximation_degree: float | None,
+    iqm_strategy_names: Iterable[str] | None,
+    quantum_circuits_dir: str | None = None,
+    class_name: str = "",
+    candidate_name: str = "",
+) -> dict:
+    """Compare explicit-F3 graph circuits over the same successful trial pairs.
+
+    Each arm selects its own depth-first best circuit from that shared set.
+    Deltas are baseline minus optimal, not a comparison with the historical
+    direct-|+> state-preparation circuit or a guarantee of full-circuit gains.
+    """
+    result = _f3_graph_comparison_defaults()
+    try:
+        analysis = optimal_f3_leakage_phase(basis_matrix)
+    except (KeyboardInterrupt, SystemExit, MemoryError):
+        raise
+    except Exception as exc:
+        result["f3_graph_comparison_status"] = (
+            "not_monomial"
+            if isinstance(exc, ValueError) and str(exc).startswith("encoding must be monomial")
+            else "analysis_error"
+        )
+        result["f3_graph_comparison_error"] = str(exc)
+        return result
+
+    result.update({
+        "f3_optimal_leakage_phase": analysis.phase,
+        "f3_optimal_leakage_phase_over_pi": analysis.phase / np.pi,
+        "f3_optimal_leakage_phase_real": analysis.phase_factor.real,
+        "f3_optimal_leakage_phase_imag": analysis.phase_factor.imag,
+    })
+    try:
+        circuits = {}
+        for variant, phase in (("baseline", 0.0), ("optimal", analysis.phase)):
+            circuit = build_direct_basis_fourier_graph_state_circuit(
+                state_name, basis_matrix, leakage_phase=phase, n_qutrits=n_qutrits,
+            )
+            circuit.name = f"{circuit.name}_{variant}"
+            circuits[variant] = circuit
+    except (KeyboardInterrupt, SystemExit, MemoryError):
+        raise
+    except Exception as exc:
+        result["f3_graph_comparison_status"] = "analysis_error"
+        result["f3_graph_comparison_error"] = f"Circuit build failed: {exc}"
+        return result
+
+    if quantum_circuits_dir is not None:
+        try:
+            output_dir = candidate_circuit_output_dir(
+                quantum_circuits_dir,
+                state_name=resolve_direct_state(state_name, n_qutrits=n_qutrits).state_id,
+                class_name=class_name, candidate_name=candidate_name,
+            )
+            for variant, phase in (("baseline", 0.0), ("optimal", analysis.phase)):
+                graph_path = os.path.join(output_dir, f"graph_state_f3_{variant}.qpy")
+                result[f"f3_graph_{variant}_qpy"] = _save_qpy(circuits[variant], graph_path)
+                gate_name = "F3_W_phi0" if variant == "baseline" else "F3_W_phi_optimal"
+                gate_circuit = gate_as_circuit(
+                    build_direct_basis_fourier_gate(basis_matrix, leakage_phase=phase),
+                    2, gate_name,
+                )
+                result[f"f3_{variant}_w_qpy"] = _save_qpy(
+                    gate_circuit, os.path.join(output_dir, f"{gate_name}.qpy"),
+                )
+        except (KeyboardInterrupt, SystemExit, MemoryError):
+            raise
+        except Exception as exc:
+            # Export is diagnostic; keep valid metrics even on a full/read-only disk.
+            result["f3_graph_export_error"] = f"{type(exc).__name__}: {exc}"
+
+    runs = {variant: [] for variant in circuits}
+    strategy_names = tuple(iqm_strategy_names or ())
+    active_strategies = (
+        strategy_names if transpiler_backend is not None and strategy_names else (None,)
+    )
+    for trial in range(int(n_transpile_runs)):
+        for strategy_name in active_strategies:
+            common = dict(
+                trial=trial, transpiler_backend=transpiler_backend,
+                basis_gates=basis_gates, coupling_map=coupling_map,
+                optimization_level=int(optimization_level), layout_method=layout_method,
+                routing_method=routing_method, approximation_degree=approximation_degree,
+                iqm_strategy_name=strategy_name,
+            )
+            try:
+                # Stage both metric records before accepting either arm.
+                pair = {
+                    variant: {
+                        **_f3_graph_metrics(_transpile_one_trial(circuit, **common)),
+                        "seed_transpiler": trial,
+                        "strategy_name": strategy_name or "",
+                    }
+                    for variant, circuit in circuits.items()
+                }
+            except (KeyboardInterrupt, SystemExit, MemoryError):
+                raise
+            except BaseException as exc:
+                # Match the primary benchmark's Rust/PyO3 panic handling.
+                result["f3_graph_failed_pairs"] += 1
+                result["f3_graph_comparison_error"] = f"{type(exc).__name__}: {exc}".splitlines()[0]
+                continue
+            for variant, metrics in pair.items():
+                runs[variant].append(metrics)
+            result["f3_graph_successful_pairs"] += 1
+
+    if not result["f3_graph_successful_pairs"]:
+        result["f3_graph_comparison_status"] = "all_transpile_failed"
+        if not result["f3_graph_comparison_error"]:
+            result["f3_graph_comparison_error"] = "No successful transpilation pairs."
+        return result
+
+    best_by_variant = {}
+    for variant, records in runs.items():
+        best = min(records, key=lambda item: _f3_graph_rank(item, transpiler_backend=transpiler_backend))
+        best_by_variant[variant] = best
+        prefix = f"f3_graph_{variant}"
+        for metric in _F3_GRAPH_METRICS:
+            result[f"{prefix}_best_{metric}"] = best[metric]
+            result[f"{prefix}_mean_{metric}"] = round(
+                float(np.mean([item[metric] for item in records])), 6,
+            )
+        result[f"{prefix}_best_count_ops"] = json.dumps(best["count_ops"], sort_keys=True)
+        result[f"{prefix}_best_seed_transpiler"] = best["seed_transpiler"]
+        result[f"{prefix}_best_strategy"] = best["strategy_name"]
+    baseline, optimal = best_by_variant["baseline"], best_by_variant["optimal"]
+    for metric in _F3_GRAPH_METRICS:
+        result[f"f3_graph_{metric}_improvement"] = baseline[metric] - optimal[metric]
+    result["f3_graph_optimal_is_better"] = (
+        _f3_graph_rank(optimal, transpiler_backend=transpiler_backend)
+        < _f3_graph_rank(baseline, transpiler_backend=transpiler_backend)
+    )
+    result["f3_graph_comparison_status"] = "ok"
+    return result
+
+
 def _base_row(
     *,
     state_name: str,
@@ -336,6 +535,7 @@ def _base_row(
         "graph_state_transpiled_qpy": "",
         "basis_change_qpy": "",
         "basis_change_matrix_npy": "",
+        **_f3_graph_comparison_defaults(),
     }
 
 
@@ -365,6 +565,7 @@ def benchmark_direct_basis(
     routing_method: str | None = None,
     iqm_strategy_names: Iterable[str] | None = None,
     ranking_workload: str = "state_preparation",
+    compare_optimal_f3_leakage: bool = False,
 ) -> dict:
     """Benchmark graph-state preparation using direct W-defined encoding."""
     ranking_workload = _validate_ranking_workload(ranking_workload)
@@ -430,6 +631,9 @@ def benchmark_direct_basis(
     except Exception:
         row["status"] = "build_error"
         row["error_message"] = traceback.format_exc()
+        if compare_optimal_f3_leakage:
+            row["f3_graph_comparison_status"] = "analysis_error"
+            row["f3_graph_comparison_error"] = "Comparison not run: primary circuit build/export failed."
         row["compile_time_seconds"] = round(time.time() - started, 6)
         return row
 
@@ -447,6 +651,18 @@ def benchmark_direct_basis(
     oneq_counts: list[int] = []
     successful = []
     iqm_strategy_names = tuple(iqm_strategy_names or ())
+
+    if compare_optimal_f3_leakage:
+        row.update(benchmark_optimal_f3_graph_comparison(
+            state_name=state_name, basis_matrix=basis_matrix, n_qutrits=n_qutrits,
+            coupling_map=coupling_map, basis_gates=basis_gates,
+            n_transpile_runs=n_transpile_runs, transpiler_backend=transpiler_backend,
+            optimization_level=optimization_level, layout_method=layout_method,
+            routing_method=routing_method, approximation_degree=approximation_degree,
+            iqm_strategy_names=iqm_strategy_names,
+            quantum_circuits_dir=quantum_circuits_dir,
+            class_name=class_name, candidate_name=candidate_name,
+        ))
 
     last_trial_error = ""
     for trial in range(int(n_transpile_runs)):
@@ -710,6 +926,7 @@ def _benchmark_direct_basis_candidate_group(
     routing_method: str | None = None,
     iqm_strategy_names: Iterable[str] | None = None,
     ranking_workload: str = "state_preparation",
+    compare_optimal_f3_leakage: bool = False,
 ) -> list[tuple[int, dict]]:
     rows: list[tuple[int, dict]] = []
     for spec_index, (
@@ -741,6 +958,11 @@ def _benchmark_direct_basis_candidate_group(
                 routing_method=routing_method,
                 iqm_strategy_names=iqm_strategy_names,
             )
+            if compare_optimal_f3_leakage:
+                row["f3_graph_comparison_status"] = "analysis_error"
+                row["f3_graph_comparison_error"] = (
+                    candidate.error_message or "Unsupported encoding candidate."
+                )
         else:
             row = benchmark_direct_basis(
                 state_name=state_name,
@@ -767,6 +989,7 @@ def _benchmark_direct_basis_candidate_group(
                 routing_method=routing_method,
                 iqm_strategy_names=iqm_strategy_names,
                 ranking_workload=ranking_workload,
+                compare_optimal_f3_leakage=compare_optimal_f3_leakage,
             )
 
         _print_candidate_row_result(row)
@@ -795,10 +1018,13 @@ def benchmark_direct_basis_candidates(
     routing_method: str | None = None,
     iqm_strategy_names: Iterable[str] | None = None,
     ranking_workload: str = "state_preparation",
+    compare_optimal_f3_leakage: bool = False,
     jobs: int = 1,
 ) -> tuple[pd.DataFrame, str | None]:
     ranking_workload = _validate_ranking_workload(ranking_workload)
     candidates = list(candidates)
+    if iqm_strategy_names is not None:
+        iqm_strategy_names = tuple(iqm_strategy_names)
     run_specs = _direct_basis_run_specs(approximation_degrees)
     jobs = max(int(jobs or 1), 1)
     if transpiler_backend is not None and jobs > 1:
@@ -832,6 +1058,7 @@ def benchmark_direct_basis_candidates(
         "routing_method": routing_method,
         "iqm_strategy_names": iqm_strategy_names,
         "ranking_workload": ranking_workload,
+        "compare_optimal_f3_leakage": compare_optimal_f3_leakage,
     }
 
     def run_group(index: int, candidate: DirectBasisCandidate) -> list[tuple[int, dict]]:

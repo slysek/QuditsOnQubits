@@ -89,6 +89,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--near-identity-seed", type=int, default=500)
     parser.add_argument("--n-transpile-runs", type=int, default=1)
     parser.add_argument(
+        "--compare-optimal-f3-leakage",
+        action="store_true",
+        help=(
+            "For monomial encodings, compare full graph-state circuits using "
+            "F3 leakage phases 0 and the analytic per-basis optimum."
+        ),
+    )
+    parser.add_argument(
         "--ranking-workload",
         choices=("state_preparation", "bell_measurements"),
         default="state_preparation",
@@ -412,6 +420,7 @@ def main(argv=None) -> int:
         routing_method=args.routing_method,
         iqm_strategy_names=iqm_strategy_names,
         ranking_workload=args.ranking_workload,
+        compare_optimal_f3_leakage=args.compare_optimal_f3_leakage,
         jobs=args.jobs,
     )
     print(f"Done. Results saved to: {path}")

@@ -507,6 +507,57 @@ python scripts/analyze_iqm_transpiler_harness.py --all-trials artifacts/iqm_runs
 Neither the harness CLI nor this standalone analysis CLI submits hardware
 jobs.
 
+## Optimal monomial F3 leakage-phase comparison
+
+Add `--compare-optimal-f3-leakage` to the direct-basis benchmark to compare
+complete graph-state circuits with explicit F3 gates, using unused-state phase
+zero versus the analytic phase for each actual monomial encoding matrix:
+
+```powershell
+python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set v2-stage1 --candidate-class monomial_full --compare-optimal-f3-leakage --n-transpile-runs 3
+```
+
+For a quick local smoke run, add `--limit-candidates 2 --local-line-coupling`.
+The comparison is off by default and adds two compilations per seed/strategy
+for each eligible candidate. It performs no hardware execution.
+
+Both arms prepare encoded logical zero, apply one F3 per qutrit, and apply the
+same encoded CZ edges. Only the phase on the unused state changes. Analysis
+first maps the unused physical level to `|11>` with a local-X frame, then forms
+`C = W F3 W†` and evaluates `p = C[1,2] C[2,1]`,
+`z = p / (det(C) conjugate(p))`. Indices label qutrit levels 0, 1, 2.
+The phase is `π/2` or `11π/6`, independent of the diagonal monomial phases;
+canonical `E_Z` uses `11π/6`. This local optimum need not improve every metric
+after routing and whole-circuit optimization.
+
+The CSV retains all historical ranking columns and adds:
+
+- `f3_optimal_leakage_phase` (radians), `_over_pi`, `_real`, `_imag` (the last
+  two store the complex phase factor, not the angle).
+- `f3_graph_baseline_best_*`, `f3_graph_optimal_best_*` and corresponding
+  `mean_*` values for `depth`, `size`, `two_qubit_gate_count`, and
+  `one_qubit_gate_count`, plus best seeds, strategies and operation counts.
+- `f3_graph_depth_improvement`, `f3_graph_size_improvement`,
+  `f3_graph_two_qubit_gate_count_improvement`, and
+  `f3_graph_one_qubit_gate_count_improvement`: **baseline minus optimal**.
+  Positive means fewer layers/gates; zero means no change; negative means worse.
+- `f3_graph_optimal_is_better` uses depth-first ranking (then 2Q, then size;
+  IQM also uses 1Q before size).
+- `f3_graph_comparison_status`, `f3_graph_successful_pairs`,
+  `f3_graph_failed_pairs`, and error details. Non-monomial encodings are marked
+  `not_monomial`; unrequested or unsuccessful comparisons leave metrics empty.
+
+Each arm selects its own best circuit over the **same successful seed/strategy
+pairs**. Means also use only complete pairs. These deltas compare `F3 ⊕ 1`
+against phased F3, not against the historical direct `StatePreparation(E|+>)`
+circuit. That historical circuit, its ranking, and Top-K selection are unchanged
+(also when Bell-measurement ranking is requested).
+
+With export enabled, additional source QPYs are `graph_state_f3_baseline.qpy`,
+`graph_state_f3_optimal.qpy`, `F3_W_phi0.qpy`, and `F3_W_phi_optimal.qpy`.
+They do not replace historical artifacts or represent the best compiled circuits.
+Export failures are reported separately in `f3_graph_export_error`.
+
 ## PiastQ managed Bell execution
 
 Install `cft-piastq` separately in the environment used by this project. The

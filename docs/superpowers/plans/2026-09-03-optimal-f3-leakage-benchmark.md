@@ -1,12 +1,29 @@
 # Optimal F3 Leakage-Phase Benchmark Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add an opt-in, paired comparison of full qutrit graph-state circuits using the historical `F3 ⊕ 1` embedding and the analytically optimal monomial-basis leakage phase.
 
 **Architecture:** Put the basis-dependent phase calculation in Qiskit-free numerical helpers, add a Fourier-explicit graph-state circuit builder beside the unchanged historical builder, and compile baseline/optimal circuit pairs through the existing direct-basis transpiler path. Expose the comparison through one CLI flag and additive CSV/QPY fields so existing benchmark runs remain compatible.
 
 **Tech Stack:** Python 3.11+, NumPy, Qiskit 2.x, pandas, pytest/unittest, QPY.
+
+**Implementation status (2026-09-04):** Tasks 1–4 are implemented and tested.
+Comparison tests live in the focused `tests/test_direct_basis_f3_comparison.py`
+module. Tasks 3 and 4 share a final integration commit. Direct-basis verification
+passes 346 tests and 86 subtests. Final repository-wide verification: 1581
+passed, 7 skipped, 383 passing subtests, and the same 17 pre-existing failures
+as the baseline (Qiskit/QPY/IQM dependency incompatibilities). No new failures.
+A real local CLI smoke run also wrote three successful comparison rows and QPY
+artifacts. Canonical full-graph metrics: depth 48→45, size 96→89, 2Q 24→22,
+1Q 72→67. No QPU jobs were submitted. Branch is preserved for review; automatic
+merge/PR is not performed with the repository-wide environment checks failing.
+
+**Verification correction:** Real exact CZ synthesis showed that qutrit-labelled
+`C12*C21` must be `C[1,2]*C[2,1]`, after local-X normalization of the unused
+state to `|11>`. The snippets below have been corrected accordingly. Canonical
+E_Z has phase `11π/6`. All PowerShell test commands also require
+`$env:PYTHONPATH=(Join-Path (Get-Location) 'src')` in the relocated worktree.
 
 ---
 
@@ -16,7 +33,7 @@
 - Create: `tests/test_direct_basis_f3_leakage_phase.py`
 - Modify: `src/qudits_on_qubits/benchmarks/direct_basis/math_utils.py`
 
-- [ ] **Step 1: Write failing numerical tests**
+- [x] **Step 1: Write failing numerical tests**
 
 Create tests that construct `E = B_s D P` from the production monomial
 generator and assert the desired public API:
@@ -51,7 +68,7 @@ def test_optimal_phase_for_effective_f3_permutations(permutation):
 
     analysis = optimal_f3_leakage_phase(encoding)
 
-    expected = 11 * np.pi / 6 if permutation in {(1, 2, 0), (2, 1, 0)} else np.pi / 2
+    expected = 11 * np.pi / 6 if permutation in {(0, 1, 2), (0, 2, 1)} else np.pi / 2
     assert isinstance(analysis, F3LeakagePhaseAnalysis)
     assert analysis.phase == pytest.approx(expected)
     assert abs(abs(analysis.phase_factor) - 1.0) < 1e-12
@@ -78,7 +95,7 @@ def test_diagonal_monomial_phases_do_not_change_optimal_phase():
     )
 
 
-def test_support_embedding_is_removed_in_ascending_physical_order():
+def test_support_is_ordered_by_local_x_mapping_unused_state_to_11():
     support_embedding = np.eye(4, dtype=complex)[:, [0, 2, 3]]
     permutation = _permutation_matrix((2, 0, 1))
     encoding = support_embedding @ permutation
@@ -88,7 +105,7 @@ def test_support_embedding_is_removed_in_ascending_physical_order():
     assert analysis.support == (0, 2, 3)
     np.testing.assert_allclose(
         analysis.effective_fourier,
-        permutation @ qutrit_fourier() @ permutation.conj().T,
+        encoding[[2, 3, 0], :] @ qutrit_fourier() @ encoding[[2, 3, 0], :].conj().T,
     )
 
 
@@ -118,7 +135,7 @@ def test_phase_embedding_rejects_invalid_phase(phase):
         )
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run:
 
@@ -131,7 +148,7 @@ python -m pytest -q -p no:cacheprovider tests/test_direct_basis_f3_leakage_phase
 Expected: collection fails because `F3LeakagePhaseAnalysis` and
 `optimal_f3_leakage_phase` do not exist.
 
-- [ ] **Step 3: Implement the pure phase analysis and phased embedding**
+- [x] **Step 3: Implement the pure phase analysis and phased embedding**
 
 In `math_utils.py`, import `dataclass` and `Real`, define the immutable result,
 and add the helper below. Extend `physical_single_qutrit_gate_in_encoding` with
@@ -162,11 +179,13 @@ def optimal_f3_leakage_phase(
         raise ValueError("encoding must be monomial with distinct support rows")
 
     support = tuple(sorted(logical_to_physical))
-    effective_basis = e_new[np.asarray(support), :]
+    unused = next(index for index in range(4) if index not in support)
+    mask = unused ^ 3
+    effective_basis = e_new[[index ^ mask for index in range(3)], :]
     if not is_unitary(effective_basis, tol=tolerance):
         raise ValueError("effective monomial basis must be unitary")
     effective_fourier = effective_basis @ qutrit_fourier() @ effective_basis.conj().T
-    product_12_21 = effective_fourier[0, 1] * effective_fourier[1, 0]
+    product_12_21 = effective_fourier[1, 2] * effective_fourier[2, 1]
     if abs(product_12_21) <= tolerance:
         raise ValueError("optimal F3 leakage phase is undefined when C12*C21 is zero")
     phase_factor = product_12_21 / (
@@ -210,11 +229,11 @@ def physical_single_qutrit_gate_in_encoding(
     return embedded
 ```
 
-- [ ] **Step 4: Run tests and verify GREEN**
+- [x] **Step 4: Run tests and verify GREEN**
 
 Run the Task 1 command. Expected: all tests pass.
 
-- [ ] **Step 5: Commit the numerical unit**
+- [x] **Step 5: Commit the numerical unit**
 
 ```powershell
 git add -- tests/test_direct_basis_f3_leakage_phase.py src/qudits_on_qubits/benchmarks/direct_basis/math_utils.py
@@ -227,7 +246,7 @@ git commit -m "feat: calculate optimal monomial F3 leakage phase"
 - Modify: `tests/test_direct_basis_f3_leakage_phase.py`
 - Modify: `src/qudits_on_qubits/benchmarks/direct_basis/circuits.py`
 
-- [ ] **Step 1: Add failing graph-circuit tests**
+- [x] **Step 1: Add failing graph-circuit tests**
 
 Append tests which import `build_direct_basis_fourier_gate` and
 `build_direct_basis_fourier_graph_state_circuit`:
@@ -264,12 +283,12 @@ def test_full_graph_circuits_are_equivalent_and_contain_explicit_f3_per_qutrit()
     assert Statevector.from_instruction(baseline).equiv(Statevector.from_instruction(optimal))
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run the Task 1 pytest command. Expected: import failure for the new graph-state
 builder or a signature failure for `leakage_phase`.
 
-- [ ] **Step 3: Implement the phase-aware gate and full-circuit builder**
+- [x] **Step 3: Implement the phase-aware gate and full-circuit builder**
 
 Change `build_direct_basis_fourier_gate` to pass `leakage_phase` into the
 physical embedding. Add a new builder which prepares `E|0>`, appends one F3 per
@@ -322,11 +341,11 @@ def build_direct_basis_fourier_graph_state_circuit(
 
 Import `encoding_embedding` into `circuits.py`.
 
-- [ ] **Step 4: Run the focused test and verify GREEN**
+- [x] **Step 4: Run the focused test and verify GREEN**
 
 Run the Task 1 pytest command. Expected: all phase and circuit tests pass.
 
-- [ ] **Step 5: Commit the circuit unit**
+- [x] **Step 5: Commit the circuit unit**
 
 ```powershell
 git add -- tests/test_direct_basis_f3_leakage_phase.py src/qudits_on_qubits/benchmarks/direct_basis/circuits.py
@@ -340,7 +359,7 @@ git commit -m "feat: build graph states with explicit phased F3 gates"
 - Modify: `tests/test_direct_basis_iqm_benchmark.py`
 - Modify: `src/qudits_on_qubits/benchmarks/direct_basis/benchmark.py`
 
-- [ ] **Step 1: Add failing paired-comparison tests**
+- [x] **Step 1: Add failing paired-comparison tests**
 
 Import `QuantumCircuit`, `patch`, and
 `benchmark_optimal_f3_graph_comparison`, then add these tests:
@@ -385,7 +404,7 @@ def test_full_graph_comparison_pairs_seeds_and_reports_positive_improvements():
     ]
     assert result["f3_graph_comparison_status"] == "ok"
     assert result["f3_graph_successful_pairs"] == 2
-    assert result["f3_optimal_leakage_phase_over_pi"] == pytest.approx(0.5)
+    assert result["f3_optimal_leakage_phase_over_pi"] == pytest.approx(11 / 6)
     assert result["f3_graph_two_qubit_gate_count_improvement"] == 1
     assert result["f3_graph_optimal_is_better"] is True
 
@@ -442,7 +461,7 @@ In `test_direct_basis_iqm_benchmark.py`, assert
 `benchmark_direct_basis_candidates(..., compare_optimal_f3_leakage=True)`
 forwards the flag into each `benchmark_direct_basis` call.
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 ```powershell
 $env:PYTHONDONTWRITEBYTECODE='1'
@@ -452,7 +471,7 @@ python -m pytest -q -p no:cacheprovider tests/test_direct_basis_f3_leakage_phase
 
 Expected: failures for the missing comparison API and keyword forwarding.
 
-- [ ] **Step 3: Implement result defaults and paired compilation**
+- [x] **Step 3: Implement result defaults and paired compilation**
 
 Add imports for the new circuit builder and phase helper. Extend `_base_row`
 with empty comparison/artifact fields and `not_requested` status. Add these
@@ -640,7 +659,7 @@ def benchmark_optimal_f3_graph_comparison(
     return result
 ```
 
-- [ ] **Step 4: Wire the comparison through candidate execution**
+- [x] **Step 4: Wire the comparison through candidate execution**
 
 Add `compare_optimal_f3_leakage: bool = False` to `benchmark_direct_basis`,
 `_benchmark_direct_basis_candidate_group`, and
@@ -649,11 +668,11 @@ After backend/basis-gate resolution and before the historical transpilation
 loop, merge the comparison result only when the flag is true. Leave the existing
 primary circuit, rank keys, and metrics untouched.
 
-- [ ] **Step 5: Run focused tests and verify GREEN**
+- [x] **Step 5: Run focused tests and verify GREEN**
 
 Run the Task 3 pytest command. Expected: all tests pass.
 
-- [ ] **Step 6: Commit the benchmark unit**
+- [x] **Step 6: Commit the benchmark unit**
 
 ```powershell
 git add -- tests/test_direct_basis_f3_leakage_phase.py tests/test_direct_basis_iqm_benchmark.py src/qudits_on_qubits/benchmarks/direct_basis/benchmark.py
@@ -669,7 +688,7 @@ git commit -m "feat: compare optimal F3 phase in full graph benchmarks"
 - Modify: `src/qudits_on_qubits/benchmarks/direct_basis/benchmark.py`
 - Modify: `README.md`
 
-- [ ] **Step 1: Add failing CLI and artifact tests**
+- [x] **Step 1: Add failing CLI and artifact tests**
 
 Add parser assertions:
 
@@ -696,7 +715,7 @@ graph_state_f3_baseline.qpy
 graph_state_f3_optimal.qpy
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 ```powershell
 $env:PYTHONDONTWRITEBYTECODE='1'
@@ -706,7 +725,7 @@ python -m pytest -q -p no:cacheprovider tests/test_direct_basis_f3_leakage_phase
 
 Expected: parser/forwarding and artifact-path assertions fail.
 
-- [ ] **Step 3: Add CLI forwarding**
+- [x] **Step 3: Add CLI forwarding**
 
 Add this parser option and pass it to `benchmark_direct_basis_candidates`:
 
@@ -721,7 +740,7 @@ parser.add_argument(
 )
 ```
 
-- [ ] **Step 4: Export comparison source artifacts**
+- [x] **Step 4: Export comparison source artifacts**
 
 When the comparison analysis succeeds and `quantum_circuits_dir` is provided,
 write the two full source circuits and two local F3 circuits into the existing
@@ -729,7 +748,7 @@ candidate output directory with `_save_qpy`. Return their paths in the row using
 the four artifact fields specified by the design. Do not alter historical
 `F3_W.qpy` or `graph_state_direct_basis.qpy`.
 
-- [ ] **Step 5: Document invocation and result semantics**
+- [x] **Step 5: Document invocation and result semantics**
 
 Add a concise README example:
 
@@ -741,11 +760,11 @@ Document that the analytic comparison applies only to monomial rows and that
 positive `f3_graph_*_improvement` values mean fewer gates/layers in the optimal
 circuit.
 
-- [ ] **Step 6: Run focused tests and verify GREEN**
+- [x] **Step 6: Run focused tests and verify GREEN**
 
 Run the Task 4 pytest command. Expected: all tests pass.
 
-- [ ] **Step 7: Commit the interface unit**
+- [x] **Step 7: Commit the interface unit**
 
 ```powershell
 git add -- README.md scripts/run_direct_basis_benchmarks.py src/qudits_on_qubits/benchmarks/direct_basis/benchmark.py tests/test_direct_basis_f3_leakage_phase.py tests/test_direct_basis_iqm_cli.py
@@ -757,7 +776,7 @@ git commit -m "feat: expose optimal F3 graph comparison"
 **Files:**
 - Modify only if a test reveals a feature regression.
 
-- [ ] **Step 1: Run the new feature tests**
+- [x] **Step 1: Run the new feature tests**
 
 ```powershell
 $env:PYTHONDONTWRITEBYTECODE='1'
@@ -767,7 +786,7 @@ python -m pytest -q -p no:cacheprovider tests/test_direct_basis_f3_leakage_phase
 
 Expected: all pass.
 
-- [ ] **Step 2: Run the complete direct-basis regression selection**
+- [x] **Step 2: Run the complete direct-basis regression selection**
 
 ```powershell
 $env:PYTHONDONTWRITEBYTECODE='1'
@@ -779,7 +798,7 @@ python -m pytest -q -p no:cacheprovider @tests
 Expected baseline: at least the previously observed 280 tests and 86 subtests
 pass, with no failures.
 
-- [ ] **Step 3: Run the repository-wide suite**
+- [x] **Step 3: Run the repository-wide suite**
 
 ```powershell
 $env:PYTHONDONTWRITEBYTECODE='1'
@@ -792,7 +811,7 @@ has 17 environment/artifact failures, 1515 passes, 7 skips, and 383 passing
 subtests due to incompatible global IQM/Qiskit distributions and historical QPY
 artifacts.
 
-- [ ] **Step 4: Verify diff quality and acceptance criteria**
+- [x] **Step 4: Verify diff quality and acceptance criteria**
 
 ```powershell
 git diff --check main...HEAD
@@ -804,7 +823,7 @@ Expected: no whitespace errors; only intended source, test, README, spec, and
 plan changes; every acceptance criterion from the design has a corresponding
 test.
 
-- [ ] **Step 5: Record final verification commit if needed**
+- [x] **Step 5: Record final verification commit if needed**
 
 If verification required code changes, stage only those intended files and use:
 
