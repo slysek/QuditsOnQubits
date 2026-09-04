@@ -47,22 +47,23 @@ encoding isometry. For phase optimization it first resolves the physical
 encoding `E` and verifies that it is monomial: every logical column has one
 nonzero entry, and those entries occupy three distinct physical rows.
 
-Let `support` be those three physical rows in ascending physical basis order and
-let
+Let `support` be those three physical rows in ascending physical basis order.
+Let `u` be the remaining (unused) physical index. To account for `B_s`, map
+that index to `|11>` by local X operations, with `mask = u XOR 3`. Let
 
 ```text
-S = E[support, :].
+S = E[[0 XOR mask, 1 XOR mask, 2 XOR mask], :].
 ```
 
 For an encoding generated as `B_s D P`, this removes the support embedding
-`B_s` while retaining its effective physical ordering. The qutrit block used by
+`B_s` in a locally equivalent canonical frame. The qutrit block used by
 the formula is
 
 ```text
 C = S F3 S†.
 ```
 
-Using mathematical one-based indices, define
+Using qutrit level labels 0, 1, 2, define
 
 ```text
 p  = C_12 C_21
@@ -70,7 +71,7 @@ z* = p / (det(C) conjugate(p))
 φ* = arg(z*) mod 2π.
 ```
 
-In zero-based NumPy notation, `p = C[0, 1] * C[1, 0]`. The implementation
+In zero-based NumPy notation, `p = C[1, 2] * C[2, 1]`. The implementation
 normalizes `z*` to unit modulus to remove floating-point drift before extracting
 the angle. A numerically zero `p` is rejected because the formula would be
 undefined.
@@ -84,6 +85,13 @@ effective permutations therefore produce only
 
 This two-value property is an invariant tested across every support,
 permutation, and generated diagonal phase.
+
+Implementation verification corrected the initial one-based interpretation:
+for canonical `E_Z`, the optimum is `11π/6`, not `π/2`. Exact local synthesis
+is tested for all 24 support/permutation combinations, including continuous
+diagonal phases, and must reduce F3 from three CZ gates to two. The local X
+frame is used only to analyze the matrix; no extra X gates are inserted into
+the source circuits. Full-circuit gains remain measured, not guaranteed.
 
 The physical encoded Fourier operator is
 

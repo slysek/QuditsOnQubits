@@ -142,9 +142,10 @@ def optimal_f3_leakage_phase(
 ) -> F3LeakagePhaseAnalysis:
     """Return the analytic F3 leakage phase for a monomial encoding.
 
-    Physical support rows are sorted before the effective qutrit block is
-    formed.  This removes the support embedding ``B_s`` from
-    ``E = B_s D P`` while preserving its physical ordering.
+    First map the unused computational state to |11> by local bit flips.
+    In that canonical frame, C12*C21 means C[1, 2]*C[2, 1] (qutrit levels
+    are labelled 0, 1, 2). These are the |01> <-> |10> entries, not the
+    first and second rows in one-based matrix notation.
     """
     if (
         isinstance(tolerance, bool)
@@ -173,14 +174,17 @@ def optimal_f3_leakage_phase(
         )
 
     support = tuple(sorted(logical_to_physical))
-    effective_basis = e_new[np.asarray(support), :]
+    unused = next(index for index in range(4) if index not in support)
+    bit_flip_mask = unused ^ 3
+    effective_rows = [index ^ bit_flip_mask for index in range(3)]
+    effective_basis = e_new[effective_rows, :]
     if not is_unitary(effective_basis, tol=float(tolerance)):
         raise ValueError("effective monomial basis must be unitary.")
 
     effective_fourier = (
         effective_basis @ qutrit_fourier() @ effective_basis.conj().T
     )
-    product_12_21 = effective_fourier[0, 1] * effective_fourier[1, 0]
+    product_12_21 = effective_fourier[1, 2] * effective_fourier[2, 1]
     if abs(product_12_21) <= tolerance:
         raise ValueError(
             "optimal F3 leakage phase is undefined when C12*C21 is zero."
