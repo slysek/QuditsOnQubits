@@ -1,0 +1,65 @@
+[
+  {
+    "state": "two_qutrit",
+    "non_spectator_assignments": 729,
+    "spectator_indices": [],
+    "cases": [
+      {
+        "spectator_acceptance": [],
+        "classical_bound": 5.6381557247154515
+      }
+    ],
+    "maximum": 5.6381557247154515
+  },
+  {
+    "state": "ghz3",
+    "non_spectator_assignments": 6561,
+    "spectator_indices": [],
+    "cases": [
+      {
+        "spectator_acceptance": [],
+        "classical_bound": 5.638155724715454
+      }
+    ],
+    "maximum": 5.638155724715454
+  },
+  {
+    "state": "ame43",
+    "non_spectator_assignments": 59049,
+    "spectator_indices": [
+      0,
+      2
+    ],
+    "cases": [
+      {
+        "spectator_acceptance": [
+          0,
+          0
+        ],
+        "classical_bound": 3.758770483143636
+      },
+      {
+        "spectator_acceptance": [
+          0,
+          1
+        ],
+        "classical_bound": 5.638155724715455
+      },
+      {
+        "spectator_acceptance": [
+          1,
+          0
+        ],
+        "classical_bound": 5.7587704831436355
+      },
+      {
+        "spectator_acceptance": [
+          1,
+          1
+        ],
+        "classical_bound": 7.638155724715455
+      }
+    ],
+    "maximum": 7.638155724715455
+  }
+]

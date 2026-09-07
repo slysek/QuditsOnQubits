@@ -1,0 +1,36 @@
+name: Bell benchmark replay
+
+on:
+  pull_request:
+    paths:
+      - 'benchmarks/bell_20260907/**'
+      - 'src/qudits_on_qubits/**'
+      - '.github/workflows/bell-replay.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-replay:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: benchmarks/bell_20260907/requirements.txt
+      - name: Install replay dependencies
+        run: |
+          python -m pip install -r benchmarks/bell_20260907/requirements.txt
+          python -m pip install --no-deps -e .
+      - name: Verify archive and replay all point estimates
+        run: python benchmarks/bell_20260907/reproduce.py --output artifacts/bell-ci
+      - name: Test analysis and decoder
+        run: python -m pytest -q benchmarks/bell_20260907 tests/test_bell_identity_spectator.py tests/test_bell_replay_runtime_options.py tests/test_bell_circuit_serialization.py

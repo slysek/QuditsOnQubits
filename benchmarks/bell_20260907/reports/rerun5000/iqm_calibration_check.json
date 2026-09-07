@@ -1,0 +1,31 @@
+{
+  "current_calibration": "d1c88e70-1301-4783-8052-6157b6687f46",
+  "requests": {
+    "old": {
+      "calibration_set_id": "d1c88e70-1301-4783-8052-6157b6687f46",
+      "shots": 1024,
+      "max_circuit_duration_over_t2": null,
+      "heralding_mode": "none",
+      "move_gate_validation": "strict",
+      "move_gate_frame_tracking": "full",
+      "active_reset_cycles": null,
+      "dd_mode": "disabled",
+      "dd_strategy": null,
+      "move_validation_mode": "strict",
+      "move_gate_frame_tracking_mode": "full"
+    },
+    "new": {
+      "calibration_set_id": "d1c88e70-1301-4783-8052-6157b6687f46",
+      "shots": 5000,
+      "max_circuit_duration_over_t2": null,
+      "heralding_mode": "none",
+      "move_gate_validation": "strict",
+      "move_gate_frame_tracking": "full",
+      "active_reset_cycles": null,
+      "dd_mode": "disabled",
+      "dd_strategy": null,
+      "move_validation_mode": "strict",
+      "move_gate_frame_tracking_mode": "full"
+    }
+  }
+}

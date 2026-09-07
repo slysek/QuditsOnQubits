@@ -625,3 +625,7 @@ or round the quasi probabilities.
 
 The example contacts the managed dashboard and can consume real hardware shots.
 Run it only as an intentional manual smoke test.
+
+## Reproducible Bell hardware benchmark
+
+[Full analysis and offline reproduction instructions](benchmarks/bell_20260907/README.md): IBM Kingston/Marrakesh/Fez and IQM Garnet, including the complete 5000-shot Fez/Garnet repeat. Includes hardware counts, QPY circuits, calibrations, SHA-256 manifest, pinned dependencies, and an offline replay of Bell values and bootstrap uncertainties.

@@ -1,0 +1,85 @@
+{
+  "interpretation": "Exploratory consecutive returned-memory blocks; no assertion about physical execution order or causal drift. Full-memory counters exactly match saved results.",
+  "rows": [
+    {
+      "label": "raw5000-iqm-02",
+      "job_id": "01a07b57-5aa7-7be0-ad6a-e5d49c842570",
+      "block": 1,
+      "shots_per_setting": 1000,
+      "raw_conditional": 3.2302816711584486,
+      "approx_iid_se": 0.08721093550310813
+    },
+    {
+      "label": "raw5000-iqm-02",
+      "job_id": "01a07b57-5aa7-7be0-ad6a-e5d49c842570",
+      "block": 2,
+      "shots_per_setting": 1000,
+      "raw_conditional": 2.94474254954321,
+      "approx_iid_se": 0.08764116024883038
+    },
+    {
+      "label": "raw5000-iqm-02",
+      "job_id": "01a07b57-5aa7-7be0-ad6a-e5d49c842570",
+      "block": 3,
+      "shots_per_setting": 1000,
+      "raw_conditional": 3.1179052843132844,
+      "approx_iid_se": 0.08781528741540705
+    },
+    {
+      "label": "raw5000-iqm-02",
+      "job_id": "01a07b57-5aa7-7be0-ad6a-e5d49c842570",
+      "block": 4,
+      "shots_per_setting": 1000,
+      "raw_conditional": 3.013326221713721,
+      "approx_iid_se": 0.08742567688691409
+    },
+    {
+      "label": "raw5000-iqm-02",
+      "job_id": "01a07b57-5aa7-7be0-ad6a-e5d49c842570",
+      "block": 5,
+      "shots_per_setting": 1000,
+      "raw_conditional": 3.109395949661437,
+      "approx_iid_se": 0.08823620758400369
+    },
+    {
+      "label": "raw5000-iqm-16",
+      "job_id": "01a07b5d-69c2-7b10-8f82-9916156470e8",
+      "block": 1,
+      "shots_per_setting": 1000,
+      "raw_conditional": 1.589849211339992,
+      "approx_iid_se": 0.10529532858015794
+    },
+    {
+      "label": "raw5000-iqm-16",
+      "job_id": "01a07b5d-69c2-7b10-8f82-9916156470e8",
+      "block": 2,
+      "shots_per_setting": 1000,
+      "raw_conditional": 1.747854661510297,
+      "approx_iid_se": 0.10505558389382562
+    },
+    {
+      "label": "raw5000-iqm-16",
+      "job_id": "01a07b5d-69c2-7b10-8f82-9916156470e8",
+      "block": 3,
+      "shots_per_setting": 1000,
+      "raw_conditional": 1.970755342609367,
+      "approx_iid_se": 0.10633217290532757
+    },
+    {
+      "label": "raw5000-iqm-16",
+      "job_id": "01a07b5d-69c2-7b10-8f82-9916156470e8",
+      "block": 4,
+      "shots_per_setting": 1000,
+      "raw_conditional": 1.809318270486815,
+      "approx_iid_se": 0.10609401782030282
+    },
+    {
+      "label": "raw5000-iqm-16",
+      "job_id": "01a07b5d-69c2-7b10-8f82-9916156470e8",
+      "block": 5,
+      "shots_per_setting": 1000,
+      "raw_conditional": 1.6288799946888322,
+      "approx_iid_se": 0.1058003554423762
+    }
+  ]
+}

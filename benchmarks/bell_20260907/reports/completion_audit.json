@@ -1,0 +1,39 @@
+{
+  "observed_at": "2026-09-07T06:19:16.201325+00:00",
+  "all_remote_jobs_terminal": true,
+  "job_count": 24,
+  "completed_hardware_jobs": 18,
+  "hardware_shots_including_calibration_and_pilot": 1492480,
+  "budgets_seconds": {
+    "ibm": 311.0,
+    "iqm": 218.937842
+  },
+  "no_reservations_remaining": true,
+  "primary_arms": 96,
+  "monomial_candidates_per_state": 3,
+  "exhaustive_rows_per_original_provider": 651,
+  "verified_primary_qpy_sets": 96,
+  "source_hashes_unchanged_since_validation": true,
+  "tests": "68 passed; 4 deprecation warnings",
+  "changed_module_coverage_percent": 86,
+  "independent_review_round": 3,
+  "independent_review_verdict": "CLEAN",
+  "no16_hardware_executed": false,
+  "zne_providers": [
+    "iqm_garnet",
+    "ibm_fez"
+  ],
+  "quality_gate": "PASS",
+  "requirements": {
+    "repo_analysis": "UWAGI_I_REPO.md and RAPORT_KONCOWY.md",
+    "three_monomial_candidates_each_state": "selection.json and coding_bases.json",
+    "ordinary_and_optimized_f3": "all_results.csv: both variants for every backend/state/basis",
+    "baseline_differences": "all_differences.csv: both matched F3 variants, absolute and relative, with CI",
+    "real_hardware": "hardware_jobs.csv plus original counts, QPY, receipts and metrics/timelines",
+    "budgets": "311/540 s IBM; 218.937842/1000 s IQM upper bound",
+    "optimization": "exhaustive target screening, analytic F3 completion, weighted graph edges, three compile seeds, three IBM processors, readout correction and audited ZNE"
+  },
+  "all_624_differences_and_percentages_checked": true,
+  "report_links_checked": true,
+  "figures_visually_checked": true
+}

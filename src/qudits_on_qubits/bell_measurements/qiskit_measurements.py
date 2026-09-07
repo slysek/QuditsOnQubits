@@ -5,7 +5,7 @@ from typing import Any, TYPE_CHECKING
 
 import numpy as np
 
-from .basis import local_measurement_basis_unitary
+from .basis import complete_isometry_to_unitary, local_measurement_basis_unitary
 
 if TYPE_CHECKING:
     from qiskit import QuantumCircuit
@@ -33,6 +33,11 @@ def append_measurement_for_global_setting(
     pairs = _normalize_qutrit_qubits(qutrit_qubits)
     if len(labels) != len(pairs):
         raise ValueError("global_setting and qutrit_qubits must have the same length")
+    encoding = np.asarray(E, dtype=complex)
+    if encoding.shape != (4, d):
+        raise ValueError(f"E must have shape (4, {d})")
+    if not np.allclose(encoding.conj().T @ encoding, np.eye(d), atol=1e-8):
+        raise ValueError("E must satisfy E^dagger E = I")
 
     qc = state_circuit if inplace else state_circuit.copy()
     _validate_qubits_exist(qc, pairs)
@@ -42,8 +47,40 @@ def append_measurement_for_global_setting(
 
     for label, qubits in zip(labels, pairs):
         if label is None:
+            # Spectators are measured too, and the common decoder treats the
+            # fourth output as leakage. Map a noncanonical code subspace into
+            # the canonical output subspace before applying that policy.
+            # Within the canonical subspace the spectator's outcome is unused,
+            # so permutations/phases there require no additional gate.
+            canonical_projector = np.diag([1.0] * d + [0.0] * (encoding.shape[0] - d))
+            if not np.allclose(encoding @ encoding.conj().T, canonical_projector, atol=1e-10, rtol=0):
+                projector = encoding @ encoding.conj().T
+                diagonal = np.diag(projector).real
+                unused = np.flatnonzero(np.isclose(diagonal, 0, atol=1e-10, rtol=0))
+                computational_support = (
+                    d == 3 and len(unused) == 1
+                    and np.allclose(projector, np.diag(np.round(diagonal)), atol=1e-10, rtol=0)
+                )
+                if computational_support:
+                    # Only move leakage to 11. The labels and phases of the
+                    # other three outcomes are immaterial for an identity.
+                    mask = int(unused[0]) ^ 3
+                    decoder = np.eye(4, dtype=complex)[[i ^ mask for i in range(4)]]
+                    for bit, qubit in enumerate(qubits):
+                        if mask & (1 << bit):
+                            qc.x(qubit)
+                else:
+                    decoder = complete_isometry_to_unitary(encoding, tol=1e-8).conj().T
+                    qc.append(UnitaryGate(decoder, label="meas_identity_decode"), list(qubits))
+                local_basis_gates.append({
+                    "setting_label": None,
+                    "gate_label": "meas_identity_decode",
+                    "qubits": qubits,
+                    "unitary": decoder,
+                })
+            else:
+                local_basis_gates.append(None)
             local_gammas.append(None)
-            local_basis_gates.append(None)
             continue
 
         observable = observable_from_label(label)

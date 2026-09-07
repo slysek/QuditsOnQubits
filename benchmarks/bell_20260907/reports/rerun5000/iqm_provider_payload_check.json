@@ -1,0 +1,43 @@
+{
+  "old_job_id": "01a079e3-ec18-75f0-be0a-16f32165daef",
+  "new_job_id": "01a07b57-5aa7-7be0-ad6a-e5d49c842570",
+  "qubit_mapping_match": true,
+  "circuits": [
+    {
+      "setting": 3,
+      "provider_instruction_match": true
+    },
+    {
+      "setting": 1,
+      "provider_instruction_match": true
+    },
+    {
+      "setting": 8,
+      "provider_instruction_match": true
+    },
+    {
+      "setting": 0,
+      "provider_instruction_match": true
+    },
+    {
+      "setting": 7,
+      "provider_instruction_match": true
+    },
+    {
+      "setting": 5,
+      "provider_instruction_match": true
+    },
+    {
+      "setting": 2,
+      "provider_instruction_match": true
+    },
+    {
+      "setting": 6,
+      "provider_instruction_match": true
+    },
+    {
+      "setting": 4,
+      "provider_instruction_match": true
+    }
+  ]
+}

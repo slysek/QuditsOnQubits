@@ -1,0 +1,218 @@
+[
+  {
+    "arm": [
+      "two_qutrit",
+      "canonical_ez",
+      "standard"
+    ],
+    "circuits": 11,
+    "reserve": 172
+  },
+  {
+    "arm": [
+      "two_qutrit",
+      "canonical_ez",
+      "optimal"
+    ],
+    "circuits": 11,
+    "reserve": 172
+  },
+  {
+    "arm": [
+      "two_qutrit",
+      "sup023_P021_ph000",
+      "standard"
+    ],
+    "circuits": 11,
+    "reserve": 172
+  },
+  {
+    "arm": [
+      "two_qutrit",
+      "sup023_P021_ph000",
+      "optimal"
+    ],
+    "circuits": 11,
+    "reserve": 172
+  },
+  {
+    "arm": [
+      "two_qutrit",
+      "sup023_P021_ph012",
+      "standard"
+    ],
+    "circuits": 11,
+    "reserve": 172
+  },
+  {
+    "arm": [
+      "two_qutrit",
+      "sup023_P021_ph012",
+      "optimal"
+    ],
+    "circuits": 11,
+    "reserve": 172
+  },
+  {
+    "arm": [
+      "two_qutrit",
+      "sup023_P021_ph020",
+      "standard"
+    ],
+    "circuits": 11,
+    "reserve": 172
+  },
+  {
+    "arm": [
+      "two_qutrit",
+      "sup023_P021_ph020",
+      "optimal"
+    ],
+    "circuits": 11,
+    "reserve": 172
+  },
+  {
+    "arm": [
+      "ghz3",
+      "canonical_ez",
+      "standard"
+    ],
+    "circuits": 14,
+    "reserve": 211
+  },
+  {
+    "arm": [
+      "ghz3",
+      "canonical_ez",
+      "optimal"
+    ],
+    "circuits": 14,
+    "reserve": 211
+  },
+  {
+    "arm": [
+      "ghz3",
+      "sup023_P021_ph001",
+      "standard"
+    ],
+    "circuits": 14,
+    "reserve": 211
+  },
+  {
+    "arm": [
+      "ghz3",
+      "sup023_P021_ph001",
+      "optimal"
+    ],
+    "circuits": 14,
+    "reserve": 211
+  },
+  {
+    "arm": [
+      "ghz3",
+      "sup023_P021_ph011",
+      "standard"
+    ],
+    "circuits": 14,
+    "reserve": 211
+  },
+  {
+    "arm": [
+      "ghz3",
+      "sup023_P021_ph011",
+      "optimal"
+    ],
+    "circuits": 14,
+    "reserve": 211
+  },
+  {
+    "arm": [
+      "ghz3",
+      "sup023_P021_ph021",
+      "standard"
+    ],
+    "circuits": 14,
+    "reserve": 211
+  },
+  {
+    "arm": [
+      "ghz3",
+      "sup023_P021_ph021",
+      "optimal"
+    ],
+    "circuits": 14,
+    "reserve": 211
+  },
+  {
+    "arm": [
+      "ame43",
+      "canonical_ez",
+      "standard"
+    ],
+    "circuits": 15,
+    "reserve": 224
+  },
+  {
+    "arm": [
+      "ame43",
+      "canonical_ez",
+      "optimal"
+    ],
+    "circuits": 15,
+    "reserve": 224
+  },
+  {
+    "arm": [
+      "ame43",
+      "sup012_P210_ph002",
+      "standard"
+    ],
+    "circuits": 15,
+    "reserve": 224
+  },
+  {
+    "arm": [
+      "ame43",
+      "sup012_P210_ph002",
+      "optimal"
+    ],
+    "circuits": 15,
+    "reserve": 224
+  },
+  {
+    "arm": [
+      "ame43",
+      "sup023_P021_ph000",
+      "standard"
+    ],
+    "circuits": 15,
+    "reserve": 224
+  },
+  {
+    "arm": [
+      "ame43",
+      "sup023_P021_ph000",
+      "optimal"
+    ],
+    "circuits": 15,
+    "reserve": 224
+  },
+  {
+    "arm": [
+      "ame43",
+      "sup023_P021_ph011",
+      "standard"
+    ],
+    "circuits": 15,
+    "reserve": 224
+  },
+  {
+    "arm": [
+      "ame43",
+      "sup023_P021_ph011",
+      "optimal"
+    ],
+    "circuits": 15,
+    "reserve": 224
+  }
+]

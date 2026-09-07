@@ -1,0 +1,2132 @@
+{
+  "schema": 1,
+  "archive_sha256": "d8a107d2399bdca2f4b6653a1fc9643ce0521aa7bc21cf379fe983d1c01795dc",
+  "files": {
+    "design/bounds.json": {
+      "sha256": "17cc620685332c7c0443ea1c923e803065fd0f1b1b61e5359306cea36d19ddfb",
+      "bytes": 353
+    },
+    "design/classical_abort_check.json": {
+      "sha256": "11dc482c0293dc9de98c42bcddeddc43ec30b6458f709a71122e32f527b5be95",
+      "bytes": 1280
+    },
+    "design/coding_bases.json": {
+      "sha256": "d1711158f973bdd42f0e401764ccc634b5fb782d21e495e29e255ed6fe9f9e40",
+      "bytes": 11192
+    },
+    "design/garnet/calibration.json": {
+      "sha256": "038ed4e8a7418bd4e5317f1dab7949b4f1aacd46f57464276f6858a78080383d",
+      "bytes": 7086
+    },
+    "design/garnet/exhaustive_compile.json": {
+      "sha256": "394fe3ab3e3e2e9982f287e5488aa11fe71251c017893000404eea5897668c63",
+      "bytes": 269365
+    },
+    "design/garnet/final/ame43/canonical_ez/optimal/circuits.qpy": {
+      "sha256": "9899db0405a144c979ea2eab3cab9dad9c70dea0025646ac6d3e3cec0b6f31f4",
+      "bytes": 181976
+    },
+    "design/garnet/final/ame43/canonical_ez/standard/circuits.qpy": {
+      "sha256": "f384b0cd7033c3f940fdcb56c7e196d1c9db90be3b52164d621ef8836cd5c04c",
+      "bytes": 192532
+    },
+    "design/garnet/final/ame43/sup012_P210_ph002/optimal/circuits.qpy": {
+      "sha256": "9107d523235e174c5b6129c249c6c0cad349a5499079bff888774baeaa193e13",
+      "bytes": 180597
+    },
+    "design/garnet/final/ame43/sup012_P210_ph002/standard/circuits.qpy": {
+      "sha256": "a359252d46b7ce47301e0581e761f13b0dc04582f07b85e7b2040696e4912f7a",
+      "bytes": 185875
+    },
+    "design/garnet/final/ame43/sup023_P021_ph000/optimal/circuits.qpy": {
+      "sha256": "3d42db13d123c9f3abbcc93b4d40eea656b99fdef3e0c6a40aab80d15a00d27c",
+      "bytes": 180135
+    },
+    "design/garnet/final/ame43/sup023_P021_ph000/standard/circuits.qpy": {
+      "sha256": "d06bee71648e6e8b97bf654016f28f063b19e3d14df28c0e4a6fa964302e9baa",
+      "bytes": 185413
+    },
+    "design/garnet/final/ame43/sup023_P021_ph011/optimal/circuits.qpy": {
+      "sha256": "722a037e926ca7e314011132edd3d502362f46e968a962bf6b3ed3eca0b334aa",
+      "bytes": 182522
+    },
+    "design/garnet/final/ame43/sup023_P021_ph011/standard/circuits.qpy": {
+      "sha256": "357b9e1e0d28363f7579662688c77cf6c4bf90ec3f3f2986d1d27c260f4b61e7",
+      "bytes": 187800
+    },
+    "design/garnet/final/ghz3/canonical_ez/optimal/circuits.qpy": {
+      "sha256": "3d8402ed93872f6d213846100576d5b1824c15dd18eb818a46d70fcc6c3c2ec4",
+      "bytes": 98786
+    },
+    "design/garnet/final/ghz3/canonical_ez/standard/circuits.qpy": {
+      "sha256": "9373b26e3c40c3450b5877d8f769550088aa06753b12ffb0f2ad90dd167499eb",
+      "bytes": 108824
+    },
+    "design/garnet/final/ghz3/sup023_P021_ph001/optimal/circuits.qpy": {
+      "sha256": "eda303f6fe0522d8f05eed6801cf1490bd1119a6790a9c0c0556f8ac546aee9f",
+      "bytes": 105548
+    },
+    "design/garnet/final/ghz3/sup023_P021_ph001/standard/circuits.qpy": {
+      "sha256": "83751a1cac90f376e163add06204c1b7c8984b529f1dd693be8ec51dc1009d8c",
+      "bytes": 110420
+    },
+    "design/garnet/final/ghz3/sup023_P021_ph011/optimal/circuits.qpy": {
+      "sha256": "0111a16427c7a995ad9f1fce00c3246d8e3834938a3fcedd37aa124f70438bc7",
+      "bytes": 106934
+    },
+    "design/garnet/final/ghz3/sup023_P021_ph011/standard/circuits.qpy": {
+      "sha256": "b0111e758159d200f5c06beecbd53acadd2392bd4e609b3a10e79ea18d8a305e",
+      "bytes": 111806
+    },
+    "design/garnet/final/ghz3/sup023_P021_ph021/optimal/circuits.qpy": {
+      "sha256": "27044121acad59baa2c30d0208312b265aad9b8f7f6c6f1e28fc8ca9cee19f5f",
+      "bytes": 105548
+    },
+    "design/garnet/final/ghz3/sup023_P021_ph021/standard/circuits.qpy": {
+      "sha256": "5fd49d53124d3d3a85e4baf7919004c04344a9a61a2092e68e73a481b4fcf412",
+      "bytes": 110420
+    },
+    "design/garnet/final/two_qutrit/canonical_ez/optimal/circuits.qpy": {
+      "sha256": "3111ec7b02a048c3428178f512224323aa3619ba1d26a98a34deb4277d928f12",
+      "bytes": 44684
+    },
+    "design/garnet/final/two_qutrit/canonical_ez/standard/circuits.qpy": {
+      "sha256": "b3e09ba2754d54ab575d55fe6ccff0ed69dba802942f362acaf17f14cdddad0c",
+      "bytes": 48338
+    },
+    "design/garnet/final/two_qutrit/sup023_P021_ph000/optimal/circuits.qpy": {
+      "sha256": "119b7f45ced4ce611e68a65a671312a9d1ade75e29abf70c33e2cea17eb5b0a8",
+      "bytes": 48254
+    },
+    "design/garnet/final/two_qutrit/sup023_P021_ph000/standard/circuits.qpy": {
+      "sha256": "f2833091309d0518586c79fe33bcf54a2725acba5444f2161a1299445d384bde",
+      "bytes": 50081
+    },
+    "design/garnet/final/two_qutrit/sup023_P021_ph012/optimal/circuits.qpy": {
+      "sha256": "f5ec33ac1a3ecd8b123e3ed2911a381ab1256fe1dadaf744ebdea7448a1b0317",
+      "bytes": 48254
+    },
+    "design/garnet/final/two_qutrit/sup023_P021_ph012/standard/circuits.qpy": {
+      "sha256": "ebf6c8a4c567ceae1bf4e98dfe41f1b2ab2f79c3132f2e1292695fe2519c3ad3",
+      "bytes": 50081
+    },
+    "design/garnet/final/two_qutrit/sup023_P021_ph020/optimal/circuits.qpy": {
+      "sha256": "6b918c83cf42014e85e052707ea51596178d3fc3d1c1c4d892db3e4cff4cb268",
+      "bytes": 48254
+    },
+    "design/garnet/final/two_qutrit/sup023_P021_ph020/standard/circuits.qpy": {
+      "sha256": "62bb6450f566cd80374f11975c89ae4532523a3a70b20f1221d66019d3ac8576",
+      "bytes": 50081
+    },
+    "design/garnet/final_compile.json": {
+      "sha256": "f93330aaff834d48f78ebc0e7d684bcbad3f66182d2f205d3da215c58a22ee3f",
+      "bytes": 30847
+    },
+    "design/garnet/verification.json": {
+      "sha256": "4ec9b5decfab96f2d6fdc5d6213eec33590609556023b957ed1a232ce937a380",
+      "bytes": 6218
+    },
+    "design/ibm_fez/calibration.json": {
+      "sha256": "541448630cc0284278017f5e5627dd1e5c03c96e223e9b8526141a21bde54b52",
+      "bytes": 174479
+    },
+    "design/ibm_fez/final/ame43/canonical_ez/optimal/circuits.qpy": {
+      "sha256": "d8c23a521b7ab84d2d77ec2448068cf0d27c81b3de16a3d65ec8847c04f8e8c0",
+      "bytes": 376407
+    },
+    "design/ibm_fez/final/ame43/canonical_ez/standard/circuits.qpy": {
+      "sha256": "d54f75bd730cbffb79b7bced2780fa4bd1dd3138a2fa36f89d478c98f3bfcbeb",
+      "bytes": 383531
+    },
+    "design/ibm_fez/final/ame43/sup012_P210_ph002/optimal/circuits.qpy": {
+      "sha256": "7f844c3fe6f04f0a63c0d39ea188b7a650bab15f2ac55416f3fda0c9da7cea81",
+      "bytes": 347912
+    },
+    "design/ibm_fez/final/ame43/sup012_P210_ph002/standard/circuits.qpy": {
+      "sha256": "b7ad726dd335a6af2151ec629421a32a0053f877943eb91b9fd67097ec0493ba",
+      "bytes": 356583
+    },
+    "design/ibm_fez/final/ame43/sup023_P021_ph000/optimal/circuits.qpy": {
+      "sha256": "bab8d2cbe5a49bc9fb91d14be616dfd99c75d5c1c1a35c9b9c0f41442f3dec42",
+      "bytes": 341012
+    },
+    "design/ibm_fez/final/ame43/sup023_P021_ph000/standard/circuits.qpy": {
+      "sha256": "243373d98ebafb19244c60d3af584cf69ac5266728b1fcde4d83031acef0630d",
+      "bytes": 347525
+    },
+    "design/ibm_fez/final/ame43/sup023_P021_ph011/optimal/circuits.qpy": {
+      "sha256": "def6e4fe2b1264d1b915001bfd2d59f6af4ffad158f510cd7f0b089a800d3db3",
+      "bytes": 341885
+    },
+    "design/ibm_fez/final/ame43/sup023_P021_ph011/standard/circuits.qpy": {
+      "sha256": "f7dc0e93d666438e64948dc1f8cfee09c375bb8af319d181f97718bf0dae6f81",
+      "bytes": 348398
+    },
+    "design/ibm_fez/final/ghz3/canonical_ez/optimal/circuits.qpy": {
+      "sha256": "941edd3c70253aa7cf8e7588e2df847c920cc851b78068fa7ee04ebd6cb83701",
+      "bytes": 233585
+    },
+    "design/ibm_fez/final/ghz3/canonical_ez/standard/circuits.qpy": {
+      "sha256": "e816e889a57e2c661e69256419c7a0a0735b1ccdb7cf7e0e442fb775ffe25bcb",
+      "bytes": 238517
+    },
+    "design/ibm_fez/final/ghz3/sup023_P021_ph001/optimal/circuits.qpy": {
+      "sha256": "ff1935b6767d510080db87cd40d91bd4f0801332702cdee71e2d03296aa90ac2",
+      "bytes": 226661
+    },
+    "design/ibm_fez/final/ghz3/sup023_P021_ph001/standard/circuits.qpy": {
+      "sha256": "6d58de141d89c2770500f5e93d72860652763f05ebdcce5fa3df32d4557f9a0e",
+      "bytes": 231413
+    },
+    "design/ibm_fez/final/ghz3/sup023_P021_ph011/optimal/circuits.qpy": {
+      "sha256": "831520eb0a025dfb32ff1dafa0ca006a79c1df5cb1a1282ac7313330e1c54ce5",
+      "bytes": 226070
+    },
+    "design/ibm_fez/final/ghz3/sup023_P021_ph011/standard/circuits.qpy": {
+      "sha256": "fed9c94ea4f11d9b85e59098f680c2e7bbc9a03f104d960cb1bb64b478a7272b",
+      "bytes": 230822
+    },
+    "design/ibm_fez/final/ghz3/sup023_P021_ph021/optimal/circuits.qpy": {
+      "sha256": "f6e81e2ca641492935edeb786268073262e3984c63bfdd71f417d976b978ff91",
+      "bytes": 226466
+    },
+    "design/ibm_fez/final/ghz3/sup023_P021_ph021/standard/circuits.qpy": {
+      "sha256": "36b5e770912502a5aa1c633f9feb08e316ff2277a07359225a55f5d24dc8f768",
+      "bytes": 231950
+    },
+    "design/ibm_fez/final/two_qutrit/canonical_ez/optimal/circuits.qpy": {
+      "sha256": "ceb6ff0615f020dc1d691becc9f54541f12e3e4813807bcd02d6a7a4cc249113",
+      "bytes": 131327
+    },
+    "design/ibm_fez/final/two_qutrit/canonical_ez/standard/circuits.qpy": {
+      "sha256": "f68a976a21f9e1477741aed1b4e044b0af04a9e2b1935113a45a11d60e451262",
+      "bytes": 133793
+    },
+    "design/ibm_fez/final/two_qutrit/sup023_P021_ph000/optimal/circuits.qpy": {
+      "sha256": "d6fe853a5c3a2b86fc0b80055b0fb87a00c3584e6e0c08ebfc2783fc47b4b13d",
+      "bytes": 126635
+    },
+    "design/ibm_fez/final/two_qutrit/sup023_P021_ph000/standard/circuits.qpy": {
+      "sha256": "322a8ebb4a61679f279089a6950b4e7b5c8d0c454181eada4fe212fae6b79265",
+      "bytes": 128417
+    },
+    "design/ibm_fez/final/two_qutrit/sup023_P021_ph012/optimal/circuits.qpy": {
+      "sha256": "cd66b01824fd7d5da5cd74143bbea09a30906dc23e8afd48a02cda4d69b41456",
+      "bytes": 126452
+    },
+    "design/ibm_fez/final/two_qutrit/sup023_P021_ph012/standard/circuits.qpy": {
+      "sha256": "ca31e0382e480f600864517582c12636fb6b113d29cfe4b05ddc3e6417eb8019",
+      "bytes": 128234
+    },
+    "design/ibm_fez/final/two_qutrit/sup023_P021_ph020/optimal/circuits.qpy": {
+      "sha256": "2eb0a4583656485347e8510cfda849a7fb98657cf54d6e5c7b0dabfdab8e1197",
+      "bytes": 126818
+    },
+    "design/ibm_fez/final/two_qutrit/sup023_P021_ph020/standard/circuits.qpy": {
+      "sha256": "8535cc53966d1acce5b1ed2781aaaf86d923703fe97c08b74c0583f50ebf594c",
+      "bytes": 128600
+    },
+    "design/ibm_fez/final_compile.json": {
+      "sha256": "90bed2613396ef60e8c2e435203717387d648ddbd7d653356a3613ece8a812e8",
+      "bytes": 31132
+    },
+    "design/ibm_fez/verification.json": {
+      "sha256": "13fb499da925229b856ce721790f1b61dcffe66a79193517b5e2642062f85758",
+      "bytes": 6181
+    },
+    "design/ibm_kingston/calibration.json": {
+      "sha256": "a7da5763ea2b139991cd466690ffe955fae0020038b49912ea7daa36a69ec6cc",
+      "bytes": 174376
+    },
+    "design/ibm_kingston/exhaustive_compile.json": {
+      "sha256": "3ce415d69bc90adc83e8fb6b447394fb4c569043a04fad9f072cb02c666cd609",
+      "bytes": 272456
+    },
+    "design/ibm_kingston/final/ame43/canonical_ez/optimal/circuits.qpy": {
+      "sha256": "1e8c12ffd367f6ac9e06671066dd82bb05bb1afaa6e9d83ffe5490a4eb1c4c69",
+      "bytes": 374774
+    },
+    "design/ibm_kingston/final/ame43/canonical_ez/standard/circuits.qpy": {
+      "sha256": "2b4df40f1b0b96b117eee657a4e2ab5f4069698eb4079df4a4eb86aeb1bfcb4a",
+      "bytes": 381898
+    },
+    "design/ibm_kingston/final/ame43/sup012_P210_ph002/optimal/circuits.qpy": {
+      "sha256": "942d806f319158b5098892d85fb57eace6f47acbfeb2c4b3d8fcad433b7ff615",
+      "bytes": 347119
+    },
+    "design/ibm_kingston/final/ame43/sup012_P210_ph002/standard/circuits.qpy": {
+      "sha256": "e8a77811a67d1a0cd9a1e83ab85922f4a2ba00d2f2ba0b285ab43b86c4972405",
+      "bytes": 356583
+    },
+    "design/ibm_kingston/final/ame43/sup023_P021_ph000/optimal/circuits.qpy": {
+      "sha256": "f4d09d8fc78232dcc81cc9af73cc33ebba5afe8407b9f5788c732be3e80e015b",
+      "bytes": 338757
+    },
+    "design/ibm_kingston/final/ame43/sup023_P021_ph000/standard/circuits.qpy": {
+      "sha256": "bdc589996d81ccc2d32c4077682d991c380f1b5a40ab0739e06c725a149e9c16",
+      "bytes": 348221
+    },
+    "design/ibm_kingston/final/ame43/sup023_P021_ph011/optimal/circuits.qpy": {
+      "sha256": "9a804c906e4e62ffa4e06f9b9eb78a4d3f411f82a790b9969871e27f2595c004",
+      "bytes": 340520
+    },
+    "design/ibm_kingston/final/ame43/sup023_P021_ph011/standard/circuits.qpy": {
+      "sha256": "5f648d08e2bdbb22a2ae535e82ae42dff075b11ded09dfb2f65fd466b7affa5b",
+      "bytes": 348398
+    },
+    "design/ibm_kingston/final/ghz3/canonical_ez/optimal/circuits.qpy": {
+      "sha256": "7e76715d10b38d249b2861473f1e41b9a255bf4774046f2f8710760a185735ac",
+      "bytes": 233585
+    },
+    "design/ibm_kingston/final/ghz3/canonical_ez/standard/circuits.qpy": {
+      "sha256": "cb330c0395c8c8868fee98323a89e7c45359a8d563f7a4126700e06d814d5ab2",
+      "bytes": 238517
+    },
+    "design/ibm_kingston/final/ghz3/sup023_P021_ph001/optimal/circuits.qpy": {
+      "sha256": "1aeaae810a4ab1cae293cbf825fb24b05d8e84379117daa7f9f8235738cc4d6a",
+      "bytes": 226661
+    },
+    "design/ibm_kingston/final/ghz3/sup023_P021_ph001/standard/circuits.qpy": {
+      "sha256": "6279a74b6da1de1f57d1607e44e3f8d3a968bf7f56a7b30113d4b9e99a037a3d",
+      "bytes": 231413
+    },
+    "design/ibm_kingston/final/ghz3/sup023_P021_ph011/optimal/circuits.qpy": {
+      "sha256": "4e4a5a18f17054f7c9716d89f09518391cf4b7052cd82228c2fb4fffcc1f2032",
+      "bytes": 224810
+    },
+    "design/ibm_kingston/final/ghz3/sup023_P021_ph011/standard/circuits.qpy": {
+      "sha256": "983ac8fc920e0c33136c15f8187379a81bfb23c0db7817c6bca5ed31719e7e28",
+      "bytes": 230822
+    },
+    "design/ibm_kingston/final/ghz3/sup023_P021_ph021/optimal/circuits.qpy": {
+      "sha256": "1215d6a15d77f808176acd8b7f1c73c4f2fb3d96adfb61819f7fa9f279d514e6",
+      "bytes": 226466
+    },
+    "design/ibm_kingston/final/ghz3/sup023_P021_ph021/standard/circuits.qpy": {
+      "sha256": "aa125546f4371021896e6c805e1ef2f464188a546b9c5c6540fdb8a7e44ed2a6",
+      "bytes": 231950
+    },
+    "design/ibm_kingston/final/two_qutrit/canonical_ez/optimal/circuits.qpy": {
+      "sha256": "873eef7264b8f89fc168474cc240b64e69a53a8440c4cd35661015d615bd0b70",
+      "bytes": 132875
+    },
+    "design/ibm_kingston/final/two_qutrit/canonical_ez/standard/circuits.qpy": {
+      "sha256": "553c0b796842de67bb7e87b56470437e7c9edbed6da05e691048c3257ffd6370",
+      "bytes": 135341
+    },
+    "design/ibm_kingston/final/two_qutrit/sup023_P021_ph000/optimal/circuits.qpy": {
+      "sha256": "02d4ea18a809d45fd99ca6db1c73ac82e16a91609aac44043aae6254c8ee278f",
+      "bytes": 126818
+    },
+    "design/ibm_kingston/final/two_qutrit/sup023_P021_ph000/standard/circuits.qpy": {
+      "sha256": "5fc1da19fa91c1974796495addcfc8d167804afbef806d9eaeadc7abfcd4d1d5",
+      "bytes": 128600
+    },
+    "design/ibm_kingston/final/two_qutrit/sup023_P021_ph012/optimal/circuits.qpy": {
+      "sha256": "5bc31bfd219bed85e98090b866a2b13fd4b529720b19267f75fbcece2294c4e6",
+      "bytes": 126635
+    },
+    "design/ibm_kingston/final/two_qutrit/sup023_P021_ph012/standard/circuits.qpy": {
+      "sha256": "430b55534b061bc1aba8d24f9e1bb6afc87fdd743b396910ebb34e536d7e2664",
+      "bytes": 128417
+    },
+    "design/ibm_kingston/final/two_qutrit/sup023_P021_ph020/optimal/circuits.qpy": {
+      "sha256": "c72441bb2ef3911ecb1f1e5b97d5424f32e74dac2708bb257f986f676e4cf710",
+      "bytes": 126818
+    },
+    "design/ibm_kingston/final/two_qutrit/sup023_P021_ph020/standard/circuits.qpy": {
+      "sha256": "a45e4f807e7e19667deed29bf240614e5514fbedea3ae7d78c604635ea530d2e",
+      "bytes": 128600
+    },
+    "design/ibm_kingston/final_compile.json": {
+      "sha256": "0efffad6c19cdf5b04a3a55a2a9328b83062975108ea59e48a4481694faafdf2",
+      "bytes": 31181
+    },
+    "design/ibm_kingston/verification.json": {
+      "sha256": "7a76404b779256576d5f900d7855a7f575c65cc28465875d8e126db861091095",
+      "bytes": 6190
+    },
+    "design/ibm_marrakesh/calibration.json": {
+      "sha256": "267fd165fae3dd417378ac21d89c0e71921bffa8558865e80400c6aa48ca3114",
+      "bytes": 173744
+    },
+    "design/ibm_marrakesh/final/ame43/canonical_ez/optimal/circuits.qpy": {
+      "sha256": "1d335e4e66f93e45d0aa3dff94b6fd0305ca5683914938b325223093a59650aa",
+      "bytes": 375757
+    },
+    "design/ibm_marrakesh/final/ame43/canonical_ez/standard/circuits.qpy": {
+      "sha256": "bf92e1ab623396e961f2649bb3d37be2767cf52aa2df34c5e6ef0de2a031d8b8",
+      "bytes": 382881
+    },
+    "design/ibm_marrakesh/final/ame43/sup012_P210_ph002/optimal/circuits.qpy": {
+      "sha256": "ae9d4bdba1d13ea035c1c43346d14d0a22c4f7bc5e47ea08cfd438f49c15a22d",
+      "bytes": 347912
+    },
+    "design/ibm_marrakesh/final/ame43/sup012_P210_ph002/standard/circuits.qpy": {
+      "sha256": "86de15c5ca2f5939a1aefb7497410cd05af046dc166b115251d40ca55190d226",
+      "bytes": 356583
+    },
+    "design/ibm_marrakesh/final/ame43/sup023_P021_ph000/optimal/circuits.qpy": {
+      "sha256": "026a82e2328ad0080d144eb5638b1a9d6dff92457e6251a189edf4af5285f476",
+      "bytes": 340951
+    },
+    "design/ibm_marrakesh/final/ame43/sup023_P021_ph000/standard/circuits.qpy": {
+      "sha256": "cf08bdafb61e90fef10ebf80758468a9be29178124bd0b2229ef27fe0314cc41",
+      "bytes": 347525
+    },
+    "design/ibm_marrakesh/final/ame43/sup023_P021_ph011/optimal/circuits.qpy": {
+      "sha256": "7533699396ef1cef6379f13766fa7a74cfdd48c981872be26eddd82bdb05e609",
+      "bytes": 341885
+    },
+    "design/ibm_marrakesh/final/ame43/sup023_P021_ph011/standard/circuits.qpy": {
+      "sha256": "dfe982447353d61865220f1e505e5fbd6aa152ac76a188179bb2dd61cb14e881",
+      "bytes": 348398
+    },
+    "design/ibm_marrakesh/final/ghz3/canonical_ez/optimal/circuits.qpy": {
+      "sha256": "5a041241bb1305bad794b11872b55c46499db9457858d5c36f2035726087985c",
+      "bytes": 232487
+    },
+    "design/ibm_marrakesh/final/ghz3/canonical_ez/standard/circuits.qpy": {
+      "sha256": "90be67061903dcaa74abe466bbfc411408f77972f5ae1ea3fc4fc683f2b0916c",
+      "bytes": 237419
+    },
+    "design/ibm_marrakesh/final/ghz3/sup023_P021_ph001/optimal/circuits.qpy": {
+      "sha256": "4dc6ae14d8deab634b92ed92ccb6206a075392b41a07b816446d24b3f2aba9d3",
+      "bytes": 226070
+    },
+    "design/ibm_marrakesh/final/ghz3/sup023_P021_ph001/standard/circuits.qpy": {
+      "sha256": "fca4c819cfe8b60049938f7345fa02dec629222bad2446ba2552815fa19e5365",
+      "bytes": 230822
+    },
+    "design/ibm_marrakesh/final/ghz3/sup023_P021_ph011/optimal/circuits.qpy": {
+      "sha256": "a21e7a75ceb1b26900f33b9832cb938e77e9e251733e12c473eaa457b1d43141",
+      "bytes": 226802
+    },
+    "design/ibm_marrakesh/final/ghz3/sup023_P021_ph011/standard/circuits.qpy": {
+      "sha256": "d68f7870241f5ca5c501927084f3eea9f953507ee4420fc2dcb4048761097f35",
+      "bytes": 231554
+    },
+    "design/ibm_marrakesh/final/ghz3/sup023_P021_ph021/optimal/circuits.qpy": {
+      "sha256": "1b8c6ba9becc8955f0a1daf828d6cedd44e0616a461fabb6462373b436bafac5",
+      "bytes": 225476
+    },
+    "design/ibm_marrakesh/final/ghz3/sup023_P021_ph021/standard/circuits.qpy": {
+      "sha256": "01e0dfc5ce07d328ba9dbb3fcd629cc27314d68a4be47c7cdbfce37d30e1050d",
+      "bytes": 230960
+    },
+    "design/ibm_marrakesh/final/two_qutrit/canonical_ez/optimal/circuits.qpy": {
+      "sha256": "60afe1d1ce9cd3a3fa698254a46d6ca96551d4a67c38382a57b8df239f26075e",
+      "bytes": 132875
+    },
+    "design/ibm_marrakesh/final/two_qutrit/canonical_ez/standard/circuits.qpy": {
+      "sha256": "5b69788cd94ba7b7deb870300fd1700397946c4a134b44322a966e4a852412c7",
+      "bytes": 135341
+    },
+    "design/ibm_marrakesh/final/two_qutrit/sup023_P021_ph000/optimal/circuits.qpy": {
+      "sha256": "49972fc15b5a94caf9b327931d1ae73dbb5f6c02c996a1006ad835f3fd4985b5",
+      "bytes": 125141
+    },
+    "design/ibm_marrakesh/final/two_qutrit/sup023_P021_ph000/standard/circuits.qpy": {
+      "sha256": "2ff207471692841cbf82aa9acc8b2e81998b6317a93bad699f4c72301afefd89",
+      "bytes": 128417
+    },
+    "design/ibm_marrakesh/final/two_qutrit/sup023_P021_ph012/optimal/circuits.qpy": {
+      "sha256": "61191965882b9ce714b5cf639f45df049aea722cdb5625ff21dfc47520fd0166",
+      "bytes": 126452
+    },
+    "design/ibm_marrakesh/final/two_qutrit/sup023_P021_ph012/standard/circuits.qpy": {
+      "sha256": "d0f47af20feed09829b72478821375c3692f05f38f1eeb42b9e52dec89e00814",
+      "bytes": 128234
+    },
+    "design/ibm_marrakesh/final/two_qutrit/sup023_P021_ph020/optimal/circuits.qpy": {
+      "sha256": "c55a1bd93da04a7595354fef165a0d34255d941707bd8ac9bfc391ce3e8b98ac",
+      "bytes": 126818
+    },
+    "design/ibm_marrakesh/final/two_qutrit/sup023_P021_ph020/standard/circuits.qpy": {
+      "sha256": "303a1049a4c39764a629b50f4675798b1b5f4930f11b0d0e9ee23f3c0044d265",
+      "bytes": 128051
+    },
+    "design/ibm_marrakesh/final_compile.json": {
+      "sha256": "90a0cd827c154940e236f5b20fc2f505de83c2e40d8da57320631c407c0534dd",
+      "bytes": 31212
+    },
+    "design/ibm_marrakesh/verification.json": {
+      "sha256": "3f9e06f2cf53cea8711799ba4509e0c36cdf0c9511054ebd8cfc1b18afa350fc",
+      "bytes": 6177
+    },
+    "design/selection.json": {
+      "sha256": "ad4f792f294cbfe44575e54aaba865e466bf0e821218f404a99551dfb1c7ba71",
+      "bytes": 142904
+    },
+    "design/shortlist.json": {
+      "sha256": "1b04ca8083c081e62af3dda50f4fcea8d7736ccfc3ac8e684f9024fe924955be",
+      "bytes": 363
+    },
+    "jobs/ibm/raw-fez/counts.json": {
+      "sha256": "3a19c825b8acaaae9f8351e7e72d59424e8b316f9d3bd65d95ceb531658be928",
+      "bytes": 549471
+    },
+    "jobs/ibm/raw-fez/expected_analysis.json": {
+      "sha256": "4a9ae09d5bcff25314276bebcaa3c24051a8485a63385489bc3cb5a36e224cab",
+      "bytes": 31376
+    },
+    "jobs/ibm/raw-fez/expected_bootstrap.npz": {
+      "sha256": "d680f09b14faa1790eab4b9d3d51711ff1978dc3c6ad9f8982f5baa7abb7cf98",
+      "bytes": 1417765
+    },
+    "jobs/ibm/raw-fez/metrics.json": {
+      "sha256": "eee2746d69764159c1bbab238ec63925ee516ae3bfd039f1ee0fcfec41bc79c7",
+      "bytes": 457
+    },
+    "jobs/ibm/raw-fez/receipt.json": {
+      "sha256": "9b7abdc7443c2f48f0dcc29c1f36debd3f4d6e772a9b68896ab40d31ea546fd4",
+      "bytes": 72770
+    },
+    "jobs/ibm/raw-fez/submitted.qpy": {
+      "sha256": "6b6a0619671eef60acf32d68dab95440c136e4d60fe3ce7488c4ea4f2d6dd6f5",
+      "bytes": 5732431
+    },
+    "jobs/ibm/raw-marrakesh/counts.json": {
+      "sha256": "68e5e9ac44910dc692f5d0fc796ea686062fa5fc2e1865c530ea0cd479d8fdbe",
+      "bytes": 454940
+    },
+    "jobs/ibm/raw-marrakesh/expected_analysis.json": {
+      "sha256": "88503c6ad4f22cd2ed3f96304ed5506529911267a9d4b36b141296a5e5f870b0",
+      "bytes": 31240
+    },
+    "jobs/ibm/raw-marrakesh/expected_bootstrap.npz": {
+      "sha256": "e3f6a42a94fe7ae620ad0c94a4fa7d39b9ad93ce221236c805f621399bdba385",
+      "bytes": 1422882
+    },
+    "jobs/ibm/raw-marrakesh/metrics.json": {
+      "sha256": "0a0fc8db9ece2304b3042c1b45abc208b5db6a71f66f857d6e8545b5533c4eed",
+      "bytes": 457
+    },
+    "jobs/ibm/raw-marrakesh/receipt.json": {
+      "sha256": "ad2dc1767419e685cdea849a84bcce575a3ffa381e0d01f75b6824ef5232c1c1",
+      "bytes": 71287
+    },
+    "jobs/ibm/raw-marrakesh/submitted.qpy": {
+      "sha256": "5dfea63feb80376caa21f614c35bcf1dbfbefb138461b966ade233e1d90b2151",
+      "bytes": 5729024
+    },
+    "jobs/ibm/raw-no16/metrics.json": {
+      "sha256": "1f957fcde4e13fc83242fd820b3b1c5125260c14a301936fc4e123b55a6b7858",
+      "bytes": 401
+    },
+    "jobs/ibm/raw-no16/receipt.json": {
+      "sha256": "4e34bd2ead6249592e94e458373c24d5c483cccd6b29541e413e39b9322fe7ef",
+      "bytes": 72623
+    },
+    "jobs/ibm/raw/counts.json": {
+      "sha256": "524d6ad4f8a117e0712cdbd861385801c299a84251c0ea734c82a4675ad65092",
+      "bytes": 537594
+    },
+    "jobs/ibm/raw/expected_analysis.json": {
+      "sha256": "db4204e731fac45393e02114363af070741e49f286b28032e68e757b309646ce",
+      "bytes": 31282
+    },
+    "jobs/ibm/raw/expected_bootstrap.npz": {
+      "sha256": "a81ed9a897fbad7c82c6aae2f68172c16ac375dfad61c1739c78753b74eb0d5e",
+      "bytes": 1416832
+    },
+    "jobs/ibm/raw/metrics.json": {
+      "sha256": "e825e5e498493e8959275da2eb0a0768092557fbc328ac3ab64f148790c281b7",
+      "bytes": 457
+    },
+    "jobs/ibm/raw/receipt.json": {
+      "sha256": "200a26874b851816f3910ed425bdfe32b54782a6605b97304bfe62cf8173e18b",
+      "bytes": 71693
+    },
+    "jobs/ibm/raw/submitted.qpy": {
+      "sha256": "a92e729094ac1cc7cc0698256312a71c6f92603a5a9b24b8531ea2ac785b309d",
+      "bytes": 5720405
+    },
+    "jobs/ibm/raw5000-fez/counts.json": {
+      "sha256": "7978cca5da190415d248b6ad788950d6b7393938eec5df801ac42980a7fe2e85",
+      "bytes": 668341
+    },
+    "jobs/ibm/raw5000-fez/expected_analysis.json": {
+      "sha256": "87c61a1165732899858ede4e398fc4e911360d0634eccede9e933cd467bd7724",
+      "bytes": 31490
+    },
+    "jobs/ibm/raw5000-fez/expected_bootstrap.npz": {
+      "sha256": "a3916b7ef90e0a23836cfc145794302d5d33dbfed64e948e00fc6c2e753e765c",
+      "bytes": 1397763
+    },
+    "jobs/ibm/raw5000-fez/metrics.json": {
+      "sha256": "80c92a3fadfbacc83b6cbeebaeba777e2ca9e13f79352a00044bfe9a8d214fa4",
+      "bytes": 460
+    },
+    "jobs/ibm/raw5000-fez/receipt.json": {
+      "sha256": "0fb9769b6dce1ddbd21a3a778675d4e12e1906db7154566404473d8281c26a61",
+      "bytes": 72884
+    },
+    "jobs/ibm/raw5000-fez/submitted.qpy": {
+      "sha256": "0043e4836a03ae501750ed33d3cc52ba25d7f8f47a9f660b99bceabcc15fb58f",
+      "bytes": 5732431
+    },
+    "jobs/ibm/zne3-fez/counts.json": {
+      "sha256": "e26e75b52ea3af1c0b614b1008cba89c5103089eef0dad44f1c4d3fd915a2f32",
+      "bytes": 546664
+    },
+    "jobs/ibm/zne3-fez/expected_analysis.json": {
+      "sha256": "8f4efb53818c9302bfc24bff27d167635615f2f6d5991f15299799dd9f3e2f64",
+      "bytes": 31228
+    },
+    "jobs/ibm/zne3-fez/expected_bootstrap.npz": {
+      "sha256": "4206accade3a7329efcb3baaa48e78b1481ed8d006007133579de5006ca761d5",
+      "bytes": 1439754
+    },
+    "jobs/ibm/zne3-fez/metrics.json": {
+      "sha256": "8e9783d34a8810e9a2f415772b657601fbd9bd3ea778b979c1ae3818351254d3",
+      "bytes": 457
+    },
+    "jobs/ibm/zne3-fez/receipt.json": {
+      "sha256": "08624dae3fcdd42edbe7ac112923c619c7bba6906f7bd7e13e5d06c38bfd017e",
+      "bytes": 72768
+    },
+    "jobs/ibm/zne3-fez/submitted.qpy": {
+      "sha256": "a8d46f4837a4772655fcadf0e41b32053bd914bfd03d7f13744214e604cc1008",
+      "bytes": 7222325
+    },
+    "jobs/ibm/zne3-no16/metrics.json": {
+      "sha256": "31007f626c2351addd60b778744351577e2d454115b868dce7b57a35a253de61",
+      "bytes": 401
+    },
+    "jobs/ibm/zne3-no16/receipt.json": {
+      "sha256": "3fe7b3e6782acd71b01ae6441d52527df7bf7e03c1896d79473f7356bfc5df81",
+      "bytes": 72550
+    },
+    "jobs/ibm/zne3/metrics.json": {
+      "sha256": "1377353d69a2600e5411486a60dc4c983263a53aad773c964c42bc0fa1c38d15",
+      "bytes": 402
+    },
+    "jobs/ibm/zne3/receipt.json": {
+      "sha256": "cc9fdae3d4f1fae1ac2fbaff3f983a759d930eb2f7431cac6bde562cc77bfc6f",
+      "bytes": 71828
+    },
+    "jobs/ibm/zne5-fez/counts.json": {
+      "sha256": "c14253a4d0634eb92fcf9701f063b5dc25cf22bea0a95106119e0da6daab6f6e",
+      "bytes": 577308
+    },
+    "jobs/ibm/zne5-fez/expected_analysis.json": {
+      "sha256": "0caa224a1aadbb18f44eaa6c0ef1987f7eaba40edbb9417320bb3dc60628eaa1",
+      "bytes": 31262
+    },
+    "jobs/ibm/zne5-fez/expected_bootstrap.npz": {
+      "sha256": "f2dbe2c704a9db8ed2960ea68b7ac72d06eb9fe8d9391b071f8678e5d0ea3f4e",
+      "bytes": 1441932
+    },
+    "jobs/ibm/zne5-fez/metrics.json": {
+      "sha256": "0ac485b0c47867ccfeb96da6ef3ce05bb97c46206454efaa1b0b3989f3ddd06e",
+      "bytes": 457
+    },
+    "jobs/ibm/zne5-fez/receipt.json": {
+      "sha256": "772610049caa1fb7906ab553f6ce2fcc6f9bb1c78408558515b9df097592e33f",
+      "bytes": 72768
+    },
+    "jobs/ibm/zne5-fez/submitted.qpy": {
+      "sha256": "dce7bf3e1fe775194d5af6881bde29676c2c6e2d52407785a361ba9aeda72dc1",
+      "bytes": 8712219
+    },
+    "jobs/ibm/zne5-no16/metrics.json": {
+      "sha256": "df91a0b20fa74ae543e871e61f0a749eeae7cb2a3d6da73c257027e5b31ab56b",
+      "bytes": 402
+    },
+    "jobs/ibm/zne5-no16/receipt.json": {
+      "sha256": "18695edd3ac9b434bc2b390eaea097c608a2c8ef173e237b25abdc3eb9e1767c",
+      "bytes": 72550
+    },
+    "jobs/ibm/zne5/metrics.json": {
+      "sha256": "1e631cc0da1172b1296dcb8d09f219e8b8017482dc2672e9b308af5bb4892bb9",
+      "bytes": 402
+    },
+    "jobs/ibm/zne5/receipt.json": {
+      "sha256": "bcedae77b5536f1b22f0ac990dbe4c9ef8104735bc1064472feb8df6234ac28b",
+      "bytes": 71828
+    },
+    "jobs/iqm/pilot/counts.json": {
+      "sha256": "aeb54fc7dbe2fdfec247ff90174bf97234a7ebf5217f423ade6f4da5331756b1",
+      "bytes": 4384
+    },
+    "jobs/iqm/pilot/receipt.json": {
+      "sha256": "3962013e00d95676cdeae4d5c55491cef5a2e7af34ce46a4e685335b9740c687",
+      "bytes": 5158
+    },
+    "jobs/iqm/pilot/submitted.qpy": {
+      "sha256": "d70069ca7a4af681bdb7efd0daee410863342cc6b1f30f415e462b7386331749",
+      "bytes": 94690
+    },
+    "jobs/iqm/pilot/timeline.json": {
+      "sha256": "f81c6867f4b3eccf77194dd681eaf771410cf90b4554abc6474dfc2c3fc955e8",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw-ame-a/counts.json": {
+      "sha256": "23321e4dd1b541a667418eb6d5f3cf698da997d19015221d73355857442fc7c6",
+      "bytes": 156456
+    },
+    "jobs/iqm/raw-ame-a/expected_analysis.json": {
+      "sha256": "378f1f958379ab6745026e90beb53047ac6de332a98538c2b52d371bedcdfbe6",
+      "bytes": 5353
+    },
+    "jobs/iqm/raw-ame-a/expected_bootstrap.npz": {
+      "sha256": "03899d2bbd757f117bd447bc24d8b65d486d1492e78a00daaf8c64f8c4242846",
+      "bytes": 239102
+    },
+    "jobs/iqm/raw-ame-a/receipt.json": {
+      "sha256": "fc693ffcd3aa16e1f52d3206b116c09df77a4b2271c0bb95304623dabd11df4c",
+      "bytes": 15964
+    },
+    "jobs/iqm/raw-ame-a/submitted.qpy": {
+      "sha256": "d104ac9ca7a51d989a2adb7733aef9bd2bfdaaa4f97e440416c72bbf3e75ca67",
+      "bytes": 745809
+    },
+    "jobs/iqm/raw-ame-a/timeline.json": {
+      "sha256": "3e6b3730dd98ec7520da3e6fb4b7a8388700cdcc738d12a4c3e0daac5d346949",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw-ame-b/counts.json": {
+      "sha256": "6d5c3c76134ad26113732ba378c42d3df6f53919a19872cc12671386c27dbfd3",
+      "bytes": 253919
+    },
+    "jobs/iqm/raw-ame-b/expected_analysis.json": {
+      "sha256": "727a052c437db79312f1f25221cd7a882f5702062c8928fb76b685fa1a4196b5",
+      "bytes": 8019
+    },
+    "jobs/iqm/raw-ame-b/expected_bootstrap.npz": {
+      "sha256": "6cc91c3f10942065087bc6729341c5aa7b7fbc4f154d20e125d976bf6229a0de",
+      "bytes": 358809
+    },
+    "jobs/iqm/raw-ame-b/receipt.json": {
+      "sha256": "af1f2a091023520d4363dccd5396748c4023f9a52333d5eddacdc195755c9344",
+      "bytes": 23183
+    },
+    "jobs/iqm/raw-ame-b/submitted.qpy": {
+      "sha256": "8497b37bba6fd6f391373809c4d529240901d8a70d22b649823ae77a3aefcd02",
+      "bytes": 1115713
+    },
+    "jobs/iqm/raw-ame-b/timeline.json": {
+      "sha256": "1726a58fcd3ca803bd480ca9b74c74f68837151b10688b174edc487503776238",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw-ame/failure.json": {
+      "sha256": "4b22c03317b9fe039e99a1886f0ce90000e5a9ceef135d2b9c802069fb49e82e",
+      "bytes": 1169
+    },
+    "jobs/iqm/raw-ame/receipt.json": {
+      "sha256": "0dd8d12eb4dac38b7816a0728133ec2c32ffbecc3c130dca85c11c134881fb3f",
+      "bytes": 30269
+    },
+    "jobs/iqm/raw-ghz/counts.json": {
+      "sha256": "07005c5e9ebbcc8c5ce3f2d1e277053f553612574b12aebbe5fc29d02e50782e",
+      "bytes": 96299
+    },
+    "jobs/iqm/raw-ghz/expected_analysis.json": {
+      "sha256": "e5a0af83f7d29fa309af1cb17b9ad6325231ab4230d3a1547e17e1bfcd24ba75",
+      "bytes": 10563
+    },
+    "jobs/iqm/raw-ghz/expected_bootstrap.npz": {
+      "sha256": "832eef10c5c781214803b275ace639c0151c224a687b9274b1ed33a0db4f57db",
+      "bytes": 476007
+    },
+    "jobs/iqm/raw-ghz/receipt.json": {
+      "sha256": "b7db70f56e01dc6bf9c0d1f04cec98bb5ba3eb6c3b95ab99d420da09fd0fd112",
+      "bytes": 25575
+    },
+    "jobs/iqm/raw-ghz/submitted.qpy": {
+      "sha256": "7ea0a4a70f392bf6def55402d8adab074d5f47af68523bc55e23c1ad5e6e0f52",
+      "bytes": 863862
+    },
+    "jobs/iqm/raw-ghz/timeline.json": {
+      "sha256": "6dbdd56bb8ef9272b5abe864fee0cd509db92915737fe8726d1d9266e7b05f0a",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw-two/counts.json": {
+      "sha256": "4bc9434506ad5eb7711d5808b20bafe4d13db950bd739bcabd09a9dcf4d3729d",
+      "bytes": 20898
+    },
+    "jobs/iqm/raw-two/expected_analysis.json": {
+      "sha256": "662e1fedc3e5fdc73955c367ef3e418f1ef9162b3deab3c2a674d17eaebde8ef",
+      "bytes": 10305
+    },
+    "jobs/iqm/raw-two/expected_bootstrap.npz": {
+      "sha256": "69d87f3c35cb067364495251eeb617d6145b49eb6b966a0f4b13df6ba21b119d",
+      "bytes": 468183
+    },
+    "jobs/iqm/raw-two/receipt.json": {
+      "sha256": "650b103dbb5f57d42268df064f165fc538ea162d2b323e1a536bc934e3d374a8",
+      "bytes": 18120
+    },
+    "jobs/iqm/raw-two/submitted.qpy": {
+      "sha256": "e56a37bbd20387c7c83385bcda36da0cb2d66fcf21fd60f430ea85478facd707",
+      "bytes": 391871
+    },
+    "jobs/iqm/raw-two/timeline.json": {
+      "sha256": "f118df0136a4414ff1a6be0a63ef8c69b880c4e30b339c48615692faafe51ec9",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-00/counts.json": {
+      "sha256": "ad57a74ec200b4013a5a25fb19304c81ca1c322ce40e49d7e60f78d7d21cee26",
+      "bytes": 3859
+    },
+    "jobs/iqm/raw5000-iqm-00/expected_analysis.json": {
+      "sha256": "31549701888bcc63e09bcf780416592e3694b421506aff52551dce6fda6bf408",
+      "bytes": 1306
+    },
+    "jobs/iqm/raw5000-iqm-00/expected_bootstrap.npz": {
+      "sha256": "e69345a253b0bb8073c18a5bda35325e2b7840177611efce6976412aed0be09b",
+      "bytes": 58046
+    },
+    "jobs/iqm/raw5000-iqm-00/receipt.json": {
+      "sha256": "f0f21da7dacc1f081c3665c7401880d8bafec5fce0962973ac2c7f63f45235c0",
+      "bytes": 3593
+    },
+    "jobs/iqm/raw5000-iqm-00/submitted.qpy": {
+      "sha256": "96fb0aac3ac8e155884b297cb4f7d032a9fb9aeda2691543b0a68d02c003cd82",
+      "bytes": 51314
+    },
+    "jobs/iqm/raw5000-iqm-00/timeline.json": {
+      "sha256": "548ca59116225c7a9d32185eac647570294f99b1684c33921d7bc2aa921462cb",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-01/counts.json": {
+      "sha256": "106c2d23b99eee837a56edd2929f65d316b592ca7f075289ebd096bb1d56eab8",
+      "bytes": 3819
+    },
+    "jobs/iqm/raw5000-iqm-01/expected_analysis.json": {
+      "sha256": "1eb56b5d9f5205d1590e7a56d82ababdd33b3def4909f49eabb8ebecdddea463",
+      "bytes": 1299
+    },
+    "jobs/iqm/raw5000-iqm-01/expected_bootstrap.npz": {
+      "sha256": "498f026310f1c97760091598884129751901cf63051001033f16d5bac9c8b175",
+      "bytes": 58231
+    },
+    "jobs/iqm/raw5000-iqm-01/receipt.json": {
+      "sha256": "0fb8b2a4de2e8cb6c92f06fa8673e5f3b1b4e9f89b3e86e3c96fa42557d32398",
+      "bytes": 3584
+    },
+    "jobs/iqm/raw5000-iqm-01/submitted.qpy": {
+      "sha256": "fa1071fee9b2338daec618c9716d20a6f4c8a5dd5090773628cddb2abd47a105",
+      "bytes": 47660
+    },
+    "jobs/iqm/raw5000-iqm-01/timeline.json": {
+      "sha256": "6aaf73d0f24e292f33727a9a7a7b76bf3f5d7992da460232096603a0eaf55478",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-02/counts.json": {
+      "sha256": "eba02b52150b655e1c2a376eb732c734d2c95078a70f28b146134cd313e31507",
+      "bytes": 3624
+    },
+    "jobs/iqm/raw5000-iqm-02/expected_analysis.json": {
+      "sha256": "12078066ad772200dfb6919f4f6247189deef371c1711be572c7726c734a8f6f",
+      "bytes": 1312
+    },
+    "jobs/iqm/raw5000-iqm-02/expected_bootstrap.npz": {
+      "sha256": "093bd8799bd64eb6f15dff8d111c0c62e05b794e0d5e504ae0d5eff52593a585",
+      "bytes": 59017
+    },
+    "jobs/iqm/raw5000-iqm-02/receipt.json": {
+      "sha256": "003aea1856db4a3226042d718563498bcbbd2963b13aa3ce4f9e9fbe46b200e8",
+      "bytes": 3638
+    },
+    "jobs/iqm/raw5000-iqm-02/submitted.qpy": {
+      "sha256": "cb63d566268944f0b474095f6ee66ba98cc72504c2abb6fed1c69ff073274737",
+      "bytes": 53057
+    },
+    "jobs/iqm/raw5000-iqm-02/timeline.json": {
+      "sha256": "a0621afe4f8ad40bcb0dbeb964e0ef78e8aa8bcf001055cee66783498a3d1ca1",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-03/counts.json": {
+      "sha256": "1f4909ce516ecb5f52e2792682d99215e93ad0061714cd6b1a804a1b3e7357c2",
+      "bytes": 3683
+    },
+    "jobs/iqm/raw5000-iqm-03/expected_analysis.json": {
+      "sha256": "5c395a67e778c6493e5b1f512e156daa405d20d6e53f3fb277348a8087b223ff",
+      "bytes": 1311
+    },
+    "jobs/iqm/raw5000-iqm-03/expected_bootstrap.npz": {
+      "sha256": "bdb63178f2ea759ebde8b39dab81056a5da979b07f944bb825fcef5f6b92749d",
+      "bytes": 59142
+    },
+    "jobs/iqm/raw5000-iqm-03/receipt.json": {
+      "sha256": "0c96cfdd445a02b02c254b0884c399ce0a0df2b15ddd322cb2b42492f7523009",
+      "bytes": 3632
+    },
+    "jobs/iqm/raw5000-iqm-03/submitted.qpy": {
+      "sha256": "0093233e9829cdcca9b3e66be7f96fc483fae479d7d17a60324d9367b162d334",
+      "bytes": 51230
+    },
+    "jobs/iqm/raw5000-iqm-03/timeline.json": {
+      "sha256": "057d5d40ad38c0ae66f265dde96d28787ff4c1dca01f61e22df01801de75f776",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-04/counts.json": {
+      "sha256": "2ea93fae9dd0e079eb0e5d8fd2719b036f1512febf2c4db79c677be04c3e095f",
+      "bytes": 3804
+    },
+    "jobs/iqm/raw5000-iqm-04/expected_analysis.json": {
+      "sha256": "d192d300f263b2fd08b4074340480cb41647264f0a2b3c841ed90e9612cf2bfa",
+      "bytes": 1313
+    },
+    "jobs/iqm/raw5000-iqm-04/expected_bootstrap.npz": {
+      "sha256": "fc904434edd8cb58080253db3922dcd49394cf1c64f188b2ce0de6c3ba88a9ad",
+      "bytes": 59156
+    },
+    "jobs/iqm/raw5000-iqm-04/receipt.json": {
+      "sha256": "93908d6a065b6f0e9f46b23b9a73e5744030c584508904ebfe1122230ffc31a8",
+      "bytes": 3638
+    },
+    "jobs/iqm/raw5000-iqm-04/submitted.qpy": {
+      "sha256": "5f6fbeffcc3e50272cbfed766e5bd37fe9b356699d0bb67bb684ba7f70ed3e99",
+      "bytes": 53057
+    },
+    "jobs/iqm/raw5000-iqm-04/timeline.json": {
+      "sha256": "77d6dd8f66346c7490d3a5065df0822ce5a9deb6ed472dde1cdd7f6d2eaec3bc",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-05/counts.json": {
+      "sha256": "eb7f646299fb5e22602ac2893272774ec5c7c54cddee6ce7fdd56dd5768229bc",
+      "bytes": 3685
+    },
+    "jobs/iqm/raw5000-iqm-05/expected_analysis.json": {
+      "sha256": "0d59694c7557c1185e7629d0a6485c25ee9fdd36c823546aa5444864beff56e7",
+      "bytes": 1308
+    },
+    "jobs/iqm/raw5000-iqm-05/expected_bootstrap.npz": {
+      "sha256": "aeeb55f1dcd75849e190e0498e7c9e782a562432201290cb5df5957fc25d4b98",
+      "bytes": 59004
+    },
+    "jobs/iqm/raw5000-iqm-05/receipt.json": {
+      "sha256": "ca29781c334c8218f394994d4c79b0f5b887b954134a1d4d07a35495a3db0c0f",
+      "bytes": 3632
+    },
+    "jobs/iqm/raw5000-iqm-05/submitted.qpy": {
+      "sha256": "8edf9011e2a7fe5c3904bbd2a44b8d6c8ea42604a82fffe8c5d018862ce7e74d",
+      "bytes": 51230
+    },
+    "jobs/iqm/raw5000-iqm-05/timeline.json": {
+      "sha256": "48b957b2f3d6a281d95303b6d05080213a2c536cf70ee024e6712b9627725ebf",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-06/counts.json": {
+      "sha256": "6eafb52684e7c405a13bed148e73795768329fd77ac158b2a109e9f0cf0359ee",
+      "bytes": 3638
+    },
+    "jobs/iqm/raw5000-iqm-06/expected_analysis.json": {
+      "sha256": "d92386628a3c2e61bf20ee6b7c4bfa9ada23c8d2d7b51caf7c9ea3d1061f016c",
+      "bytes": 1313
+    },
+    "jobs/iqm/raw5000-iqm-06/expected_bootstrap.npz": {
+      "sha256": "5c660410afbb8d9c026a6cc5d5aef83b5cba4bed366401740310905dbd49db9b",
+      "bytes": 59151
+    },
+    "jobs/iqm/raw5000-iqm-06/receipt.json": {
+      "sha256": "39502ac09b2138b669161cfd0f9f4be00caeeba960446c960e3f0890333d7a64",
+      "bytes": 3637
+    },
+    "jobs/iqm/raw5000-iqm-06/submitted.qpy": {
+      "sha256": "f44754039e71525fe95acf27dd5950eca4a372f9d9d3f640b515cb6b3850db55",
+      "bytes": 53057
+    },
+    "jobs/iqm/raw5000-iqm-06/timeline.json": {
+      "sha256": "39dda7f8f92c8f59120d8cae951d31497cb5b51918fafd0b32489c538c668e42",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-07/counts.json": {
+      "sha256": "6fb1e5b9ebccdd048484526088e2e2755341893c3300ac67062ded7ba9f5e3d3",
+      "bytes": 3703
+    },
+    "jobs/iqm/raw5000-iqm-07/expected_analysis.json": {
+      "sha256": "5b0a47c682186cb7e6bd4ef163ef97ead67c8c87b8b2875125191c915a1a5349",
+      "bytes": 1313
+    },
+    "jobs/iqm/raw5000-iqm-07/expected_bootstrap.npz": {
+      "sha256": "6cdb37a3cf88c73b6f2a6588052f285767b4143bf061e097cdc2142399fd4db8",
+      "bytes": 59059
+    },
+    "jobs/iqm/raw5000-iqm-07/receipt.json": {
+      "sha256": "c407ed6c2a7326e7e4e8e8a9e2feb6a167ae3361aa1acd5638f89362c3858c00",
+      "bytes": 3631
+    },
+    "jobs/iqm/raw5000-iqm-07/submitted.qpy": {
+      "sha256": "ecdf2ec17a385659e4651fff63b84418058086c2822609788b017867788059ff",
+      "bytes": 51230
+    },
+    "jobs/iqm/raw5000-iqm-07/timeline.json": {
+      "sha256": "de2ec83401c9cbe13539bbeba28a75b1920f08499e7ec0389ef74e1e6de213ad",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-08/counts.json": {
+      "sha256": "8d596f1d3927626c69039591645fc4bb60be4bf7cd14790a0a5f0cb9919a41d8",
+      "bytes": 17014
+    },
+    "jobs/iqm/raw5000-iqm-08/expected_analysis.json": {
+      "sha256": "c2ffa83348a28e66a3a54cb0a81ce7794346057e648f19083a016fe316b2803e",
+      "bytes": 1345
+    },
+    "jobs/iqm/raw5000-iqm-08/expected_bootstrap.npz": {
+      "sha256": "a067f822157803574c3ffafa14df13e02e45d61e7fedfd331e878d86cc2f4108",
+      "bytes": 58914
+    },
+    "jobs/iqm/raw5000-iqm-08/receipt.json": {
+      "sha256": "76f73b66a2af81a0dcc4b6cd9f47a82cad1636b32b49e9c2c18655dc62f4e74d",
+      "bytes": 4604
+    },
+    "jobs/iqm/raw5000-iqm-08/submitted.qpy": {
+      "sha256": "4e6da261a00229f22cd54fa96dbc01d2e2b65ad4a5841c526b86f27f00c1c716",
+      "bytes": 112692
+    },
+    "jobs/iqm/raw5000-iqm-08/timeline.json": {
+      "sha256": "47b204e07edd76762ed312d1ed980b3302b2e661746675a2101c8b60d89bc055",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-09/counts.json": {
+      "sha256": "66d50edce38ee13b9ecb99ebf311e59fa0875f056165459f9df419fcb32a71f9",
+      "bytes": 16810
+    },
+    "jobs/iqm/raw5000-iqm-09/expected_analysis.json": {
+      "sha256": "f98a16b6a1950af3692b961710680f7bee9e79c3123cfded60c954f6460565b4",
+      "bytes": 1342
+    },
+    "jobs/iqm/raw5000-iqm-09/expected_bootstrap.npz": {
+      "sha256": "cf53d777655d4519292abde63211327cc8b6df688613f5f8e4122fa68128c925",
+      "bytes": 58803
+    },
+    "jobs/iqm/raw5000-iqm-09/receipt.json": {
+      "sha256": "5b204053685916fdf7bc64e52b980502f7bd695b9e12b895139917562b5d91ca",
+      "bytes": 4579
+    },
+    "jobs/iqm/raw5000-iqm-09/submitted.qpy": {
+      "sha256": "3f391a0b2cbd7f0a4f4d86b113611fc89f9783e124865d7099008650093bb9aa",
+      "bytes": 102654
+    },
+    "jobs/iqm/raw5000-iqm-09/timeline.json": {
+      "sha256": "52ea4e0305422333fc6335940743865a98b8ee2e5cdaa3b1266a257a2f67a1e6",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-10/counts.json": {
+      "sha256": "c9100aa2c4f1df19e582b47f1c2547c5f3cbbaaa3204e8d700e2e06775aa9b9d",
+      "bytes": 17139
+    },
+    "jobs/iqm/raw5000-iqm-10/expected_analysis.json": {
+      "sha256": "b94216862d0aeca7638162dd612c5d9c051f6fa9b529473cfad35658e152e0f4",
+      "bytes": 1339
+    },
+    "jobs/iqm/raw5000-iqm-10/expected_bootstrap.npz": {
+      "sha256": "2621f9d3bab4e69bef19ed012b7943f1d91a4422c902f306783ddd89842db01e",
+      "bytes": 58967
+    },
+    "jobs/iqm/raw5000-iqm-10/receipt.json": {
+      "sha256": "c106d587954d15647a387d5afb0b2e2d795426f086f579f3cd83d8a325f86b30",
+      "bytes": 4657
+    },
+    "jobs/iqm/raw5000-iqm-10/submitted.qpy": {
+      "sha256": "49ec7bc8e8073a7caafc5ad17dfdb05319f70a625f1b06ac2f2b45351c6a1b9b",
+      "bytes": 114288
+    },
+    "jobs/iqm/raw5000-iqm-10/timeline.json": {
+      "sha256": "a4c96d60c3b1f1625ba3d6adcdcde6bcfddf96fd118feef25dced079658ca2b6",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-11/counts.json": {
+      "sha256": "14866f66f360dc6e031d6df91402cc4aa0ef73302f8b7a634a7672ea995d3d88",
+      "bytes": 17298
+    },
+    "jobs/iqm/raw5000-iqm-11/expected_analysis.json": {
+      "sha256": "c56c36da54824a46e6954108187f16b82450c698086ab732cea20051dbde355f",
+      "bytes": 1349
+    },
+    "jobs/iqm/raw5000-iqm-11/expected_bootstrap.npz": {
+      "sha256": "a6ba2e9bcf6df6482270a5adbd83ea46e3cda7f101b060e2df41f6bed35a0da5",
+      "bytes": 58825
+    },
+    "jobs/iqm/raw5000-iqm-11/receipt.json": {
+      "sha256": "a250cd7cca2baffa7807dccceff50e1540948fa766af338aac397267e4529b0f",
+      "bytes": 4645
+    },
+    "jobs/iqm/raw5000-iqm-11/submitted.qpy": {
+      "sha256": "9590625398a5306c6c87dfb9ae68e4d2fb5d95e6fafd357f080940302797e024",
+      "bytes": 109416
+    },
+    "jobs/iqm/raw5000-iqm-11/timeline.json": {
+      "sha256": "4aa08333417119b14c008cf38d1f2340cfa925eed92ddfc2e6c7c36662ba9d74",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-12/counts.json": {
+      "sha256": "f9700070ffae252b0fd7eb9daeb80040a31f93d0b00950a3879bf7a5ed71e86b",
+      "bytes": 17165
+    },
+    "jobs/iqm/raw5000-iqm-12/expected_analysis.json": {
+      "sha256": "832935a2746a8ab208fb3f0ea3db35b4973173c91b0d366aeabb009a947f0489",
+      "bytes": 1351
+    },
+    "jobs/iqm/raw5000-iqm-12/expected_bootstrap.npz": {
+      "sha256": "27d95b9c7d894dc5830a558027b47d98740f0a7032f7570a29edafa4883a9a17",
+      "bytes": 59099
+    },
+    "jobs/iqm/raw5000-iqm-12/receipt.json": {
+      "sha256": "3dcaa8517e76574aab42c344d4e3f47a38a8a8786096fab9b7ce0c7247d0b3d1",
+      "bytes": 4657
+    },
+    "jobs/iqm/raw5000-iqm-12/submitted.qpy": {
+      "sha256": "cac5991ab01d30a63208a1d421ad32f188e477b56320ad2524a418a581df5880",
+      "bytes": 115674
+    },
+    "jobs/iqm/raw5000-iqm-12/timeline.json": {
+      "sha256": "d376fae8a7e7fa44c10650f127cd8ca21a8635e6459e64449c75d20cbc57887d",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-13/counts.json": {
+      "sha256": "39ccfa263f96a84450dd0a29040a6b2efeaaace554a76a91a656b01029097ba7",
+      "bytes": 17476
+    },
+    "jobs/iqm/raw5000-iqm-13/expected_analysis.json": {
+      "sha256": "e19cfb26d05acaa6b468b177d6b2a2c53940c1b5822dbb996fdcacd15bf54e16",
+      "bytes": 1352
+    },
+    "jobs/iqm/raw5000-iqm-13/expected_bootstrap.npz": {
+      "sha256": "184e8cad318b3bf7374b3d7b7cc8bf99fcab4c9dd0c033e483ba73282d140dcb",
+      "bytes": 59083
+    },
+    "jobs/iqm/raw5000-iqm-13/receipt.json": {
+      "sha256": "0f242df89b7488a02b19241c4a0768bc72af8f92cc5e333f356cc3ace1e9d0ad",
+      "bytes": 4645
+    },
+    "jobs/iqm/raw5000-iqm-13/submitted.qpy": {
+      "sha256": "4074339314d81fd32272e6870e5052337e95b52b6afdab3145adf6fc634b9a11",
+      "bytes": 110802
+    },
+    "jobs/iqm/raw5000-iqm-13/timeline.json": {
+      "sha256": "9c76f1c47cd8bf0bc8a923ab11b064245c98234a3166b548fd8fb6e37e8b9356",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-14/counts.json": {
+      "sha256": "8adee9371823398857b5d6609a9c209fcc3f17527ac10a49f44c40f30db2926d",
+      "bytes": 17108
+    },
+    "jobs/iqm/raw5000-iqm-14/expected_analysis.json": {
+      "sha256": "c3ee74e0612fe582aeaa4bfdac691e1c439a71c25644add182ddc1b8c3713b81",
+      "bytes": 1351
+    },
+    "jobs/iqm/raw5000-iqm-14/expected_bootstrap.npz": {
+      "sha256": "6a68e6983fc5722d7c40163f2ebd98d2fd555acd4c5b5c325948d433d9ad29c9",
+      "bytes": 59011
+    },
+    "jobs/iqm/raw5000-iqm-14/receipt.json": {
+      "sha256": "188f7d92420c7da8e951d2064c3baf3151203fece4e3664535da75670e021a15",
+      "bytes": 4657
+    },
+    "jobs/iqm/raw5000-iqm-14/submitted.qpy": {
+      "sha256": "643928fcc5be8a90ac16f8227ef36ec5dc1bd5379d7e0a73bef2dd66cd468a72",
+      "bytes": 114288
+    },
+    "jobs/iqm/raw5000-iqm-14/timeline.json": {
+      "sha256": "3c3b9b000740823c96892bc478df12811df23a43f5b99d4651a30c44b7d591d0",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-15/counts.json": {
+      "sha256": "c6b10999097f522fe461e809ca2061a6fd0efe5b394faec913022d5732998636",
+      "bytes": 16958
+    },
+    "jobs/iqm/raw5000-iqm-15/expected_analysis.json": {
+      "sha256": "76bbcd3965de34ada67541b12e0f42d2fd807e15d476dfc993c5285bdc9d791a",
+      "bytes": 1346
+    },
+    "jobs/iqm/raw5000-iqm-15/expected_bootstrap.npz": {
+      "sha256": "440cadaf148601a3cbee79314fa6119ef0dd5d5e536b070f4bc46df516f367c3",
+      "bytes": 59003
+    },
+    "jobs/iqm/raw5000-iqm-15/receipt.json": {
+      "sha256": "05c0af2855e5375e6a598c0d3eba71bd89a6928fafd644d43aa150ea16e15f4e",
+      "bytes": 4645
+    },
+    "jobs/iqm/raw5000-iqm-15/submitted.qpy": {
+      "sha256": "2bb4bc3acacbb9212b7ce7bf836abc710f6cfb1df7f3b91919c651f93435b824",
+      "bytes": 109416
+    },
+    "jobs/iqm/raw5000-iqm-15/timeline.json": {
+      "sha256": "fdaa2ce8e79e433fd3d26722b59e9c80baaa87424d5a2650b12ba52f4311a882",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-16/counts.json": {
+      "sha256": "d0f61b81f098bc164e57230d67b1828c5d3d1891504a989449c72a9f1442d2ff",
+      "bytes": 68881
+    },
+    "jobs/iqm/raw5000-iqm-16/expected_analysis.json": {
+      "sha256": "f8a4c4d61c156cc9ea6e3103eba34bea3e353e62f08ec9557901490b7585b07c",
+      "bytes": 1361
+    },
+    "jobs/iqm/raw5000-iqm-16/expected_bootstrap.npz": {
+      "sha256": "d2e1257aba76b1a76b40285cab48b4e2b3a4a5d00efc939c55981b8924307922",
+      "bytes": 59960
+    },
+    "jobs/iqm/raw5000-iqm-16/receipt.json": {
+      "sha256": "0dd57d843a553812c25cd895e331f0e90be96bd12299967b2c4d004f5f7949d8",
+      "bytes": 5221
+    },
+    "jobs/iqm/raw5000-iqm-16/submitted.qpy": {
+      "sha256": "f8758cb46e7ba19de9727a46a85875f5f0b7fb5e94b496971b791b0a8f91466f",
+      "bytes": 196602
+    },
+    "jobs/iqm/raw5000-iqm-16/timeline.json": {
+      "sha256": "f3fd4bc2c48c0e4a73c9b58ea26652ee653d09f799dc3065a7241d0c2e613dee",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-17/counts.json": {
+      "sha256": "71da6819b5d200b04611f184bd7629cd75f14c66c421618b103704259e1eb366",
+      "bytes": 68933
+    },
+    "jobs/iqm/raw5000-iqm-17/expected_analysis.json": {
+      "sha256": "0f6ffe60ffc81ca4a8a832a355587a9b648d364819e7a6c9e2e958400d06409a",
+      "bytes": 1357
+    },
+    "jobs/iqm/raw5000-iqm-17/expected_bootstrap.npz": {
+      "sha256": "21b5ac5f139cf4a83fca40eda66528df40880874ce1b456b57296075afd7e971",
+      "bytes": 60012
+    },
+    "jobs/iqm/raw5000-iqm-17/receipt.json": {
+      "sha256": "37388dd4daadebe3d349b550f6a479842391b4a06b128665a91fdae5075021cc",
+      "bytes": 5208
+    },
+    "jobs/iqm/raw5000-iqm-17/submitted.qpy": {
+      "sha256": "44f20899ec12079b23da40ccd29d5a6fb52a01f1502414205c03736873aee5c3",
+      "bytes": 186046
+    },
+    "jobs/iqm/raw5000-iqm-17/timeline.json": {
+      "sha256": "00702e85f48ddabab4ccf75a0d83d64a330af9fbd785cb5b0585b7d269ff7cdf",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-18/counts.json": {
+      "sha256": "b364528f3371a9cfe4f05abc225470d7a7117ebf34cb4ccfbf512371bd6d0210",
+      "bytes": 70549
+    },
+    "jobs/iqm/raw5000-iqm-18/expected_analysis.json": {
+      "sha256": "92af7e22d109f667fe14447752098c847c07295d9baddfd317b448544d14705e",
+      "bytes": 1371
+    },
+    "jobs/iqm/raw5000-iqm-18/expected_bootstrap.npz": {
+      "sha256": "f7804fc2453511154724ae3d3ea904f581ab462c787e70cdb7b689afa45d08ee",
+      "bytes": 59978
+    },
+    "jobs/iqm/raw5000-iqm-18/receipt.json": {
+      "sha256": "d5b84ff27f8b317e6aa4ac5f071a1cbd5b9d2f5336f1b18ec1746f6bf1486b98",
+      "bytes": 5282
+    },
+    "jobs/iqm/raw5000-iqm-18/submitted.qpy": {
+      "sha256": "2808c8cefd96be659b4236eb1f460492873583be6046fa46b6f86f41fac87d20",
+      "bytes": 189945
+    },
+    "jobs/iqm/raw5000-iqm-18/timeline.json": {
+      "sha256": "475ba3660587350ec1db004d319db2dba5c8bc3e1e23bb231ed05dcfddec2d84",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-19/counts.json": {
+      "sha256": "9eb1d1b6b65414b2fce06cea273c76e61555311b473a7badd313afa5ca24171c",
+      "bytes": 70478
+    },
+    "jobs/iqm/raw5000-iqm-19/expected_analysis.json": {
+      "sha256": "f0cfd014938cfdac06e8c13ec1788db35404cd9be2f5fa19572b6d71550b49e0",
+      "bytes": 1367
+    },
+    "jobs/iqm/raw5000-iqm-19/expected_bootstrap.npz": {
+      "sha256": "4f8a17dd287d96d9d8a166508cde7add2ba9d63b8de31f3a60577505ae713651",
+      "bytes": 60008
+    },
+    "jobs/iqm/raw5000-iqm-19/receipt.json": {
+      "sha256": "334c2fcd0248078e57bbac1522d5d485f7d7ade878b73f3c9279957c346cf7f0",
+      "bytes": 5268
+    },
+    "jobs/iqm/raw5000-iqm-19/submitted.qpy": {
+      "sha256": "1e4509a44f7acf861a19692fdd9b04cd2136d7bb88c39d94810f9f533708301b",
+      "bytes": 184667
+    },
+    "jobs/iqm/raw5000-iqm-19/timeline.json": {
+      "sha256": "c023f58c9b9716cdbccc229f37a3803743ccf55aa614e965d9c4daae31ebc87b",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-20/counts.json": {
+      "sha256": "784e0d6190c8a7e226a78025594701e8e414c621fcf50862973cbf407b9f7c3d",
+      "bytes": 71792
+    },
+    "jobs/iqm/raw5000-iqm-20/expected_analysis.json": {
+      "sha256": "c9bee2f4835b24487355d2ed3bbda51f3c94e9da99aa9c259c292fb00d8895ab",
+      "bytes": 1367
+    },
+    "jobs/iqm/raw5000-iqm-20/expected_bootstrap.npz": {
+      "sha256": "3b1a2cf0afe8b81ad32828770b0dd2e84cbaaad20dcc156a97f8db63161849a4",
+      "bytes": 59948
+    },
+    "jobs/iqm/raw5000-iqm-20/receipt.json": {
+      "sha256": "e2e4145f9bf1634ba89fd012daf7717a142e839bb19b1fa06eddb99fe4a4b131",
+      "bytes": 5284
+    },
+    "jobs/iqm/raw5000-iqm-20/submitted.qpy": {
+      "sha256": "2fc695f1a08150e885c3692e95c63e37384e1f10de4fc2a9d5c2a2e78f034025",
+      "bytes": 189483
+    },
+    "jobs/iqm/raw5000-iqm-20/timeline.json": {
+      "sha256": "bd346f6234f0ec2acdbc329ef340bea2c7d45cdb6c3feced8a9b1a20e137a1a9",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-21/counts.json": {
+      "sha256": "1eacadd05c58e8f7ab6686241cc64fa4085b809589aeecb25137bc7526164448",
+      "bytes": 71868
+    },
+    "jobs/iqm/raw5000-iqm-21/expected_analysis.json": {
+      "sha256": "32ea9ad72c19ba9fed32c510e6c21bcfed5a9330cf7960f8ddeb902150799976",
+      "bytes": 1372
+    },
+    "jobs/iqm/raw5000-iqm-21/expected_bootstrap.npz": {
+      "sha256": "52c5e98d782eca560a2bdc51d4cdac19e1451543cc1165df7ed2cef13e9824b8",
+      "bytes": 59924
+    },
+    "jobs/iqm/raw5000-iqm-21/receipt.json": {
+      "sha256": "44976e6a7379456862d1544ac03a47adb0f9a405d00b9ee84aee1e9f2c747e0a",
+      "bytes": 5272
+    },
+    "jobs/iqm/raw5000-iqm-21/submitted.qpy": {
+      "sha256": "869196ea34defb8621eb3ec8210d81c849ed1842267ef019cc328f5f97b96742",
+      "bytes": 184205
+    },
+    "jobs/iqm/raw5000-iqm-21/timeline.json": {
+      "sha256": "188f63f2d47e75f8d04ebaefe8a591ba53fb3d07d336462a39a6008c7e64bd78",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-22/counts.json": {
+      "sha256": "8090634d76e77fb6365f2258ec402335d2f4272db22e4722b7ee107e4de52ef9",
+      "bytes": 71907
+    },
+    "jobs/iqm/raw5000-iqm-22/expected_analysis.json": {
+      "sha256": "e541f533e55cf2b8f76e4469cedd527a268afbd84bc338754a23a56dafe6abfa",
+      "bytes": 1370
+    },
+    "jobs/iqm/raw5000-iqm-22/expected_bootstrap.npz": {
+      "sha256": "89042ec192aaaff3cae2435d39c1945f45453ffa039af2c68f205f995a084345",
+      "bytes": 59925
+    },
+    "jobs/iqm/raw5000-iqm-22/receipt.json": {
+      "sha256": "7c79e921b7b17c3b2490da32f37fa655dc621e5145878450c8234e84fc7cd595",
+      "bytes": 5282
+    },
+    "jobs/iqm/raw5000-iqm-22/submitted.qpy": {
+      "sha256": "c6de4d99fa08b82f2613d96ecdd760fd78e56faedb26c87e0f13853d9662c093",
+      "bytes": 191870
+    },
+    "jobs/iqm/raw5000-iqm-22/timeline.json": {
+      "sha256": "fcfbcb0e217c25d56cc48854f16448dbc7240e41aa96366e68b2e043816b07ef",
+      "bytes": 1970
+    },
+    "jobs/iqm/raw5000-iqm-23/counts.json": {
+      "sha256": "dca9a446dc92fa2c119ac2f53430876bb9833d263bcb5fca1777a3ad5dea3efe",
+      "bytes": 71641
+    },
+    "jobs/iqm/raw5000-iqm-23/expected_analysis.json": {
+      "sha256": "99604a0588d6dd40476d6865288e588090b4749d48542bd3424241166c4920b0",
+      "bytes": 1368
+    },
+    "jobs/iqm/raw5000-iqm-23/expected_bootstrap.npz": {
+      "sha256": "18a1ea39058a3688ab4718eb39660cf1cec46f238fdcd5288684322d9e15fd82",
+      "bytes": 59957
+    },
+    "jobs/iqm/raw5000-iqm-23/receipt.json": {
+      "sha256": "81451e1e687630b533c1a871d019b8df1e6e6d77b6e2477ac0c1387412df2eb7",
+      "bytes": 5269
+    },
+    "jobs/iqm/raw5000-iqm-23/submitted.qpy": {
+      "sha256": "e263f012a569c541151b48bb4ab39b132f6511971fabd189a4c4866e43b7ff66",
+      "bytes": 186592
+    },
+    "jobs/iqm/raw5000-iqm-23/timeline.json": {
+      "sha256": "901e287ce41ca556b10ff8425aaf0af0de11110cadc063f857b314efc063fd65",
+      "bytes": 1970
+    },
+    "jobs/iqm/zne3-ame-a/counts.json": {
+      "sha256": "32eedf90f09dc91035e56978e9a927d7c1a0abd7919a762be156d85693f99888",
+      "bytes": 189513
+    },
+    "jobs/iqm/zne3-ame-a/expected_analysis.json": {
+      "sha256": "44f94ab7a10d152dad2be4fe4fc3389bb418f139a3770b13310b9c282805de79",
+      "bytes": 5400
+    },
+    "jobs/iqm/zne3-ame-a/expected_bootstrap.npz": {
+      "sha256": "e1dd4b93e5be1e26303349c34482969f34439f28149d597fc6eb4ec088f1c944",
+      "bytes": 243334
+    },
+    "jobs/iqm/zne3-ame-a/receipt.json": {
+      "sha256": "0e8276090b1cee4e372e9be1dd086f681501f41fa3848424f99e3ef7e7e59321",
+      "bytes": 15970
+    },
+    "jobs/iqm/zne3-ame-a/submitted.qpy": {
+      "sha256": "d13388c1fcbf1caa4e9a8f7847e5f9005a03eb2f479999000187192297108844",
+      "bytes": 1130165
+    },
+    "jobs/iqm/zne3-ame-a/timeline.json": {
+      "sha256": "fbd3f64d79fafdd8743266a9e91936b98860956b4fe13f077aececab0bd8b297",
+      "bytes": 1970
+    },
+    "jobs/iqm/zne3-ame-b/counts.json": {
+      "sha256": "3ac1d2c5688163c4c651619ff146306d3e464a08f7e9cc43c4632e6f97ce3b67",
+      "bytes": 305397
+    },
+    "jobs/iqm/zne3-ame-b/expected_analysis.json": {
+      "sha256": "71569bd73f248bef61b1bf78974b4a460dc772d851bce801e8a34c483c2a5ea4",
+      "bytes": 8132
+    },
+    "jobs/iqm/zne3-ame-b/expected_bootstrap.npz": {
+      "sha256": "59cb2c9f8170364d904188780a44fe70c0f82faf223df97d98a24a395518f4bc",
+      "bytes": 365502
+    },
+    "jobs/iqm/zne3-ame-b/receipt.json": {
+      "sha256": "d4c2fd35b2ac5cd4b2f44e76dcb2569f61fceffae35ae3a2c8928c1573157f1b",
+      "bytes": 23184
+    },
+    "jobs/iqm/zne3-ame-b/submitted.qpy": {
+      "sha256": "c706839167370bf63c7eb33dfacc1cba1ceced048fbd5f8611e69c7cd751aa6f",
+      "bytes": 1689601
+    },
+    "jobs/iqm/zne3-ame-b/timeline.json": {
+      "sha256": "114593e0ce66c889a8b32be14b01e75eadb8536c2c439f64dd45d789f9c362e7",
+      "bytes": 1970
+    },
+    "jobs/iqm/zne3-ghz/counts.json": {
+      "sha256": "5155f7f5df10aaf002bf5db53afdb4f143e66f8622f460625c131ec9fc5fa8e3",
+      "bytes": 105691
+    },
+    "jobs/iqm/zne3-ghz/expected_analysis.json": {
+      "sha256": "95d7c599807fe96333c2f2320dbca064af58bd12a37cefcbc8f20b9274290b47",
+      "bytes": 10592
+    },
+    "jobs/iqm/zne3-ghz/expected_bootstrap.npz": {
+      "sha256": "bacfc105dcc8d730a0643a43f57bbccfdbb2f7cba818f4a352a77d6e8d0e8d84",
+      "bytes": 481016
+    },
+    "jobs/iqm/zne3-ghz/receipt.json": {
+      "sha256": "8d2b5c87bcfe6d2a3105873dce0ee3d556068d1b1c09fcf2ce44722d8ee04bba",
+      "bytes": 25577
+    },
+    "jobs/iqm/zne3-ghz/submitted.qpy": {
+      "sha256": "7b80b606da667d1e2307247a59b28072bedd5f39a1ade175acbd5e2bfbfeed26",
+      "bytes": 1277814
+    },
+    "jobs/iqm/zne3-ghz/timeline.json": {
+      "sha256": "dba8a0d7a8bfaa59f4bde419df682df5bde6f2cbfb06a8e3a6975778b0e31bbb",
+      "bytes": 1970
+    },
+    "jobs/iqm/zne3-two/counts.json": {
+      "sha256": "78647693222470b762c6adc08e79449cda99f3ede5c5e18d572fe0812f70fc5c",
+      "bytes": 20534
+    },
+    "jobs/iqm/zne3-two/expected_analysis.json": {
+      "sha256": "f88549c19e778007d1c8eda72e0935d16b1fb786789935ea4aad4b6974172e9d",
+      "bytes": 10279
+    },
+    "jobs/iqm/zne3-two/expected_bootstrap.npz": {
+      "sha256": "9a5c2f0b2662c37ab7348ac45f7c2d764982cb7cc14f73e1dac2b0eac597233d",
+      "bytes": 474950
+    },
+    "jobs/iqm/zne3-two/receipt.json": {
+      "sha256": "49fbd8202961799c6f0d560aaf4570eeb33b369bf50a2dc60169bdbc9bc4480a",
+      "bytes": 18126
+    },
+    "jobs/iqm/zne3-two/submitted.qpy": {
+      "sha256": "f42cd3040bb76730e2ecbb33cacfbad40d008313a8ebb9828c79826856305c3a",
+      "bytes": 556805
+    },
+    "jobs/iqm/zne3-two/timeline.json": {
+      "sha256": "c8f2070bd657cbf1a3b5752a93213c2fba5dc9829ce515654a8c230a9b993ac5",
+      "bytes": 1970
+    },
+    "jobs/iqm/zne5-ame-a/counts.json": {
+      "sha256": "32b90772f00880ae4ed678b3819e473e1493ef32b315e2b4f444a603bd778212",
+      "bytes": 189803
+    },
+    "jobs/iqm/zne5-ame-a/expected_analysis.json": {
+      "sha256": "f1bbccf78f38612f1bb24704c01815f0658a87cda8104826e39a1832201a9578",
+      "bytes": 5443
+    },
+    "jobs/iqm/zne5-ame-a/expected_bootstrap.npz": {
+      "sha256": "2ec013e1bda8d3cb734569bd2f79462a7c1cd81bd4b0697c28677f927f1f1774",
+      "bytes": 245017
+    },
+    "jobs/iqm/zne5-ame-a/receipt.json": {
+      "sha256": "ee2fef3d9e6c2947d9cc4ec2590c177d1a2a6fb9c05cf6aefa49ac9ab1353237",
+      "bytes": 15970
+    },
+    "jobs/iqm/zne5-ame-a/submitted.qpy": {
+      "sha256": "21934eb78094289c79cbe26151f1a4756441c7b35ed91771c7110e81f25fb3cb",
+      "bytes": 1514521
+    },
+    "jobs/iqm/zne5-ame-a/timeline.json": {
+      "sha256": "286514ed6ecce0578612db30d00e58517a82886b17ddd6086124c8c985c0e109",
+      "bytes": 1970
+    },
+    "jobs/iqm/zne5-ame-b/counts.json": {
+      "sha256": "282c16c8f9d13e7ce73efb9c864eb2c7333a5ae7c1782872ec500acceb3ab9db",
+      "bytes": 306261
+    },
+    "jobs/iqm/zne5-ame-b/expected_analysis.json": {
+      "sha256": "4fe269dc20b95bb95f011d0627a6c02a4bbd404b128d2af024aaf82a3cfe767d",
+      "bytes": 8152
+    },
+    "jobs/iqm/zne5-ame-b/expected_bootstrap.npz": {
+      "sha256": "4dd025162940980f970859972e82cfb33246bf1245e7c720df8818f822cb2fd2",
+      "bytes": 367624
+    },
+    "jobs/iqm/zne5-ame-b/receipt.json": {
+      "sha256": "fffcb8c6e428596f90db61930dbf8adccadfaa578e3636668e135ce9a708d3b3",
+      "bytes": 23184
+    },
+    "jobs/iqm/zne5-ame-b/submitted.qpy": {
+      "sha256": "1c8f86fd200051bcce9fa070ea439386a338ea2a41fe60e978933f9dcd54032b",
+      "bytes": 2263489
+    },
+    "jobs/iqm/zne5-ame-b/timeline.json": {
+      "sha256": "0de612a420e3d38644571be43b5810badb7ea27c9a7277051405d687db22d309",
+      "bytes": 1970
+    },
+    "jobs/iqm/zne5-ghz/counts.json": {
+      "sha256": "d7c878fe54eceb14fcf01685fe3231faed727c1c8d63c1cefeb3b2d557394407",
+      "bytes": 107781
+    },
+    "jobs/iqm/zne5-ghz/expected_analysis.json": {
+      "sha256": "bb2ab13c756e57b81afc1fdab29570454f1618ef3aa772d6043e7a013a01da26",
+      "bytes": 10596
+    },
+    "jobs/iqm/zne5-ghz/expected_bootstrap.npz": {
+      "sha256": "b3ee6785e5d7d8e6de858b18042fdf8011e99d73b3e9b648718407ca74056ca4",
+      "bytes": 481046
+    },
+    "jobs/iqm/zne5-ghz/receipt.json": {
+      "sha256": "68bcf0d14271b515355989c74262ab4e0e55fe4b78c814d012d54132c2be17fc",
+      "bytes": 25577
+    },
+    "jobs/iqm/zne5-ghz/submitted.qpy": {
+      "sha256": "bedcdbae000dbac20bfce130b39a4ab2003f051554a0ad7609753550cac3067f",
+      "bytes": 1691766
+    },
+    "jobs/iqm/zne5-ghz/timeline.json": {
+      "sha256": "530ecb63db8f7e11c68ade055c711689b27f899460974a783a14d115bc06ad1e",
+      "bytes": 1970
+    },
+    "jobs/iqm/zne5-two/counts.json": {
+      "sha256": "1f0666170fa21c33980ae65c5163917a0acd56445c722e82e437b4fc656df8e1",
+      "bytes": 20777
+    },
+    "jobs/iqm/zne5-two/expected_analysis.json": {
+      "sha256": "8a8e2003e3a2d663679e82c7390f9e590262282fa29ddfc2045a29ad9275e866",
+      "bytes": 10332
+    },
+    "jobs/iqm/zne5-two/expected_bootstrap.npz": {
+      "sha256": "7c756c39a17f313df9ff44d93c1c562e07c2d6712cb5fde960f1855ad24887fa",
+      "bytes": 479436
+    },
+    "jobs/iqm/zne5-two/receipt.json": {
+      "sha256": "038ff54b8a1488c6e12589622c58cc1dadb368b43f0efea6e6cd52b669f600e9",
+      "bytes": 18120
+    },
+    "jobs/iqm/zne5-two/submitted.qpy": {
+      "sha256": "647a6109da9182c2ce1122ef2c3ee727dda7fed3f53ec98a25bf52f9a1ed0c9e",
+      "bytes": 721739
+    },
+    "jobs/iqm/zne5-two/timeline.json": {
+      "sha256": "6a59619a577cd0af2950cb3af63be4400168c5acb48106cdfef69560fbd441f0",
+      "bytes": 1970
+    }
+  },
+  "jobs": [
+    {
+      "provider": "ibm",
+      "backend": "ibm_kingston",
+      "label": "raw",
+      "job_id": "daf2e5e42tqs73avbu3g",
+      "status": "completed",
+      "shots": 1024,
+      "factor": 1,
+      "series": "original",
+      "directory": "jobs/ibm/raw",
+      "has_analysis": true
+    },
+    {
+      "provider": "ibm",
+      "backend": "ibm_fez",
+      "label": "raw-fez",
+      "job_id": "daf4uq3dd5gc73d9c730",
+      "status": "completed",
+      "shots": 1024,
+      "factor": 1,
+      "series": "original",
+      "directory": "jobs/ibm/raw-fez",
+      "has_analysis": true
+    },
+    {
+      "provider": "ibm",
+      "backend": "ibm_marrakesh",
+      "label": "raw-marrakesh",
+      "job_id": "daf4mqdnj4cs73aft2v0",
+      "status": "completed",
+      "shots": 512,
+      "factor": 1,
+      "series": "original",
+      "directory": "jobs/ibm/raw-marrakesh",
+      "has_analysis": true
+    },
+    {
+      "provider": "ibm",
+      "backend": "ibm_kingston",
+      "label": "raw-no16",
+      "job_id": "daf32fe42tqs73avchn0",
+      "status": "cancelled",
+      "shots": 1024,
+      "factor": 1,
+      "series": "original",
+      "directory": "jobs/ibm/raw-no16",
+      "has_analysis": false
+    },
+    {
+      "provider": "ibm",
+      "backend": "ibm_fez",
+      "label": "raw5000-fez",
+      "job_id": "daf8ptm42tqs73avkj50",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/ibm/raw5000-fez",
+      "has_analysis": true
+    },
+    {
+      "provider": "ibm",
+      "backend": "ibm_kingston",
+      "label": "zne3",
+      "job_id": "daf2hvbdd5gc73d98h30",
+      "status": "cancelled",
+      "shots": 1024,
+      "factor": 3,
+      "series": "original",
+      "directory": "jobs/ibm/zne3",
+      "has_analysis": false
+    },
+    {
+      "provider": "ibm",
+      "backend": "ibm_fez",
+      "label": "zne3-fez",
+      "job_id": "daf5435nj4cs73aftmr0",
+      "status": "completed",
+      "shots": 512,
+      "factor": 3,
+      "series": "original",
+      "directory": "jobs/ibm/zne3-fez",
+      "has_analysis": true
+    },
+    {
+      "provider": "ibm",
+      "backend": "ibm_kingston",
+      "label": "zne3-no16",
+      "job_id": "daf3fl5nj4cs73afqnj0",
+      "status": "cancelled",
+      "shots": 1024,
+      "factor": 3,
+      "series": "original",
+      "directory": "jobs/ibm/zne3-no16",
+      "has_analysis": false
+    },
+    {
+      "provider": "ibm",
+      "backend": "ibm_kingston",
+      "label": "zne5",
+      "job_id": "daf2ibe42tqs73avc2cg",
+      "status": "cancelled",
+      "shots": 1024,
+      "factor": 5,
+      "series": "original",
+      "directory": "jobs/ibm/zne5",
+      "has_analysis": false
+    },
+    {
+      "provider": "ibm",
+      "backend": "ibm_fez",
+      "label": "zne5-fez",
+      "job_id": "daf545l1ierc738mth90",
+      "status": "completed",
+      "shots": 512,
+      "factor": 5,
+      "series": "original",
+      "directory": "jobs/ibm/zne5-fez",
+      "has_analysis": true
+    },
+    {
+      "provider": "ibm",
+      "backend": "ibm_kingston",
+      "label": "zne5-no16",
+      "job_id": "daf3fp5nj4cs73afqnq0",
+      "status": "cancelled",
+      "shots": 1024,
+      "factor": 5,
+      "series": "original",
+      "directory": "jobs/ibm/zne5-no16",
+      "has_analysis": false
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "pilot",
+      "job_id": "01a079b5-5e3f-7c50-b6d2-95004f33ab10",
+      "status": "completed",
+      "shots": 128,
+      "factor": 1,
+      "series": "original",
+      "directory": "jobs/iqm/pilot",
+      "has_analysis": false
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw-ame",
+      "job_id": "01a079e7-4288-7050-a634-4e2821729702",
+      "status": "failed",
+      "shots": 512,
+      "factor": 1,
+      "series": "original",
+      "directory": "jobs/iqm/raw-ame",
+      "has_analysis": false
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw-ame-a",
+      "job_id": "01a079ef-c1d3-7f91-b55a-8ddfbdf4495f",
+      "status": "completed",
+      "shots": 512,
+      "factor": 1,
+      "series": "original",
+      "directory": "jobs/iqm/raw-ame-a",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw-ame-b",
+      "job_id": "01a079f0-15d9-7321-a80e-bc50068fb54a",
+      "status": "completed",
+      "shots": 512,
+      "factor": 1,
+      "series": "original",
+      "directory": "jobs/iqm/raw-ame-b",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw-ghz",
+      "job_id": "01a079e6-a749-76c2-9642-b3d066fc23e8",
+      "status": "completed",
+      "shots": 512,
+      "factor": 1,
+      "series": "original",
+      "directory": "jobs/iqm/raw-ghz",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw-two",
+      "job_id": "01a079e3-ec18-75f0-be0a-16f32165daef",
+      "status": "completed",
+      "shots": 1024,
+      "factor": 1,
+      "series": "original",
+      "directory": "jobs/iqm/raw-two",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-00",
+      "job_id": "01a07b56-990b-7b23-90ba-eb40e745537b",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-00",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-01",
+      "job_id": "01a07b56-f9bb-7b63-a48d-04b573ea50d8",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-01",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-02",
+      "job_id": "01a07b57-5aa7-7be0-ad6a-e5d49c842570",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-02",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-03",
+      "job_id": "01a07b57-b9a5-7622-b0d4-dd0db92c4c6f",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-03",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-04",
+      "job_id": "01a07b58-18d4-7182-b4cf-0e31ef50c643",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-04",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-05",
+      "job_id": "01a07b58-77ec-7850-a546-449ae2075965",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-05",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-06",
+      "job_id": "01a07b58-d819-72c0-84a9-e787568dc34e",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-06",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-07",
+      "job_id": "01a07b59-36df-7e11-9032-99df01fc0797",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-07",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-08",
+      "job_id": "01a07b59-97fd-7650-936a-adecce9017e3",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-08",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-09",
+      "job_id": "01a07b5a-0f63-7493-9209-368614950f1d",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-09",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-10",
+      "job_id": "01a07b5a-8a26-7b10-ad61-4fcf92039eee",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-10",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-11",
+      "job_id": "01a07b5b-02a8-7c42-903d-9f860f935c3e",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-11",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-12",
+      "job_id": "01a07b5b-7b20-7902-88a1-9a119fb65ca5",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-12",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-13",
+      "job_id": "01a07b5b-f4be-73f1-8018-41133ebd2cdb",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-13",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-14",
+      "job_id": "01a07b5c-6f7f-7d02-b67b-718431611fc6",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-14",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-15",
+      "job_id": "01a07b5c-e771-7d72-9049-b8d7d4d508bb",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-15",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-16",
+      "job_id": "01a07b5d-69c2-7b10-8f82-9916156470e8",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-16",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-17",
+      "job_id": "01a07b5d-e4fc-7a03-8740-b7be16e0762f",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-17",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-18",
+      "job_id": "01a07b5e-5fd8-7190-8c89-fbd9b1a7eaf2",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-18",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-19",
+      "job_id": "01a07b5e-da8b-7822-b752-15d34d3c43fa",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-19",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-20",
+      "job_id": "01a07b5f-564b-7ed2-9a96-9ee8f7e435ed",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-20",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-21",
+      "job_id": "01a07b5f-d3d0-71c1-b52c-2a402745cbf7",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-21",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-22",
+      "job_id": "01a07b60-4fb3-7300-b502-0db62879f2d2",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-22",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "raw5000-iqm-23",
+      "job_id": "01a07b60-ce42-7c10-b89f-956c8e8503a1",
+      "status": "completed",
+      "shots": 5000,
+      "factor": 1,
+      "series": "rerun5000",
+      "directory": "jobs/iqm/raw5000-iqm-23",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "zne3-ame-a",
+      "job_id": "01a079f7-edf3-7992-ae26-e1c092188989",
+      "status": "completed",
+      "shots": 512,
+      "factor": 3,
+      "series": "original",
+      "directory": "jobs/iqm/zne3-ame-a",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "zne3-ame-b",
+      "job_id": "01a079f8-3391-7e22-aea1-76c90ab4b5ea",
+      "status": "completed",
+      "shots": 512,
+      "factor": 3,
+      "series": "original",
+      "directory": "jobs/iqm/zne3-ame-b",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "zne3-ghz",
+      "job_id": "01a079f3-c28a-7b20-b873-4870e423d292",
+      "status": "completed",
+      "shots": 512,
+      "factor": 3,
+      "series": "original",
+      "directory": "jobs/iqm/zne3-ghz",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "zne3-two",
+      "job_id": "01a079ec-d0d5-77a1-ac6c-7c235370ea1a",
+      "status": "completed",
+      "shots": 512,
+      "factor": 3,
+      "series": "original",
+      "directory": "jobs/iqm/zne3-two",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "zne5-ame-a",
+      "job_id": "01a07a03-cee1-7471-9117-7b171ab49880",
+      "status": "completed",
+      "shots": 512,
+      "factor": 5,
+      "series": "original",
+      "directory": "jobs/iqm/zne5-ame-a",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "zne5-ame-b",
+      "job_id": "01a07a04-1a1d-7422-ac18-94998d7031cf",
+      "status": "completed",
+      "shots": 512,
+      "factor": 5,
+      "series": "original",
+      "directory": "jobs/iqm/zne5-ame-b",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "zne5-ghz",
+      "job_id": "01a079fd-ae76-7ae2-bbaf-b9d05582c93e",
+      "status": "completed",
+      "shots": 512,
+      "factor": 5,
+      "series": "original",
+      "directory": "jobs/iqm/zne5-ghz",
+      "has_analysis": true
+    },
+    {
+      "provider": "iqm",
+      "backend": "garnet",
+      "label": "zne5-two",
+      "job_id": "01a079f8-6eb5-7f83-a3d8-1a58c2199cac",
+      "status": "completed",
+      "shots": 512,
+      "factor": 5,
+      "series": "original",
+      "directory": "jobs/iqm/zne5-two",
+      "has_analysis": true
+    }
+  ],
+  "scope": "All original completed hardware runs plus the 5000-shot rerun; cancelled/failed receipts retained without QPY.",
+  "privacy": "Credential files, environment, logs, guard process IDs and duplicate payload copies excluded.",
+  "source_revision": "156305e8b21d78ba7e729070d86e97e7d21e734e",
+  "source_note": "Source correction and required helpers accompany this package; original scientific provenance is archived in reports."
+}

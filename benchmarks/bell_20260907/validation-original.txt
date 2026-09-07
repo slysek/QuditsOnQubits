@@ -1,0 +1,11 @@
+....................................................................     [100%]
+============================== warnings summary ===============================
+tests/test_experiment_aer_integration.py::test_real_ideal_aer_run_writes_single_reproducible_completed_result
+tests/test_experiment_aer_integration.py::test_real_ideal_aer_run_writes_single_reproducible_completed_result
+tests/test_experiment_aer_integration.py::test_real_ideal_aer_run_writes_single_reproducible_completed_result
+tests/test_experiment_aer_integration.py::test_real_ideal_aer_run_writes_single_reproducible_completed_result
+  C:\Users\szymon\QuditsOnQubits\artifacts\piastq-validation-env\Lib\site-packages\stevedore\extension.py:338: DeprecationWarning: Since backends now support running jobs that contain both fractional gates and dynamic circuit, IBMFractionalTranslationPlugin is deprecated as of qiskit-ibm-runtime 0.42.0 and will be removed no sooner than 3 months after the release date. Use IBMDynamicFractionalTranslationPlugin instead.
+    obj = plugin(*invoke_args, **invoke_kwds)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+68 passed, 4 warnings in 43.11s

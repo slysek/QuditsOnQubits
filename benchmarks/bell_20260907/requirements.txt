@@ -1,0 +1,17 @@
+-c constraints.txt
+# Python 3.12; versions used for the published hardware analysis.
+numpy==2.5.3
+scipy==1.18.1
+qiskit==2.1.2
+qiskit-aer==0.17.2
+qiskit-ibm-runtime==0.44.0
+qiskit-experiments==0.13.0
+iqm-client[qiskit]==35.0.2
+iqm-qubit-selector==1.1.2
+matplotlib==3.11.1
+pandas==3.0.5
+sympy==1.14.0
+igraph==1.0.0
+python-dotenv==1.2.3
+pytest==8.4.2
+pytest-cov==6.3.0

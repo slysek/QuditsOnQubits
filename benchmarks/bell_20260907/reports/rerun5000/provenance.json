@@ -1,0 +1,26 @@
+{
+  "sources": {
+    "artifacts\\bell_benchmark_20260907\\execute.py": "0cbeeaaee2c4dce86b7f3966c61b4bfecd043c663f6fbde4cf2c38e1cc8c0ecf",
+    "artifacts\\bell_benchmark_20260907\\rerun5000.py": "3ab677582f45e244b7004458f8cd4d7e903f5931390e61b31ffc9a09063713a0",
+    "artifacts\\bell_benchmark_20260907\\test_rerun5000.py": "b9934e91fb470d90d8eede5afb183ee233fd71eaa6d7e373cce4296f8eafea25",
+    "artifacts\\bell_benchmark_20260907\\analyze.py": "2a13ec72c6491358b850a42a47a1c735c0d9b1b3bb7aebd507aa6be7c147f055",
+    "artifacts\\bell_benchmark_20260907\\report.py": "0b484545fe0f6fd0edace3de7da35e186978b78630e294dc0e9afe162abeeb7c",
+    "artifacts\\bell_benchmark_20260907\\study.py": "8a67b3638110ba860e05a0775caed49aef14d7d83a1c940786714077c9fcb5f2",
+    "artifacts\\bell_benchmark_20260907\\hardware.py": "8f5b3429087aa506666de1b83f23c0905d4018baaa785a692a0de6837bc653ba"
+  },
+  "review_round1": "CLEAN",
+  "raw_data_root": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_benchmark_20260907\\weighted",
+  "analysis_root": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_benchmark_20260907\\weighted\\rerun5000",
+  "review_round2": "CLEAN",
+  "artifact_sha256": {
+    "RAPORT.md": "dde9d2c8167071c166a2334af2b133e608be9fec3ce8ca362b4b3e8dff500fa1",
+    "METODY.md": "7d617c221746cec1c2ee9be7251949949d6766afbc270cf8fe9070befad99c31",
+    "summary.json": "4846e9a785af14d04cc1c49b4f3e51bc93f5a89df8acebc0dd0cf99182603c22",
+    "completion_audit.json": "62c8620d5646f950dec648ca2ff7e443439dde4d9442398fe1406a2401248637",
+    "results.csv": "9ac37f8cc5067bfa424d90ff3065d280e149cc4479db1e8bca6e9616a5b61534",
+    "differences.csv": "762a136ac82afa65d671c699f8c25f884365b699c34e7bc82460fa8642540cfe",
+    "historical_comparison.csv": "1841387e804f27f36182d348f7a8ba12b3489f2d274b98451101affb8340ec01",
+    "hardware_jobs.csv": "de554db1985d84c4c2e612a8e830a1a511c9c12ab7675dd64819e25b16bc966e",
+    "bell_comparison.png": "e6ca4d240bb8a173f2c7ac4f41e4b97fb70f23a4c4326bc889bb8ca30535d87a"
+  }
+}

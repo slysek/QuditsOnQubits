@@ -1,0 +1,19 @@
+{
+  "backend": "ibm_marrakesh",
+  "purpose": "additional complete IBM comparison after extended Kingston queue",
+  "selection_source": "../selection.json",
+  "selection_frozen_before_initial_hardware": true,
+  "new_exhaustive_search_on_marrakesh": false,
+  "compile_seeds": [
+    907,
+    908,
+    909
+  ],
+  "compile_objective": "minimum calibration error_proxy; then CZ count and depth",
+  "all_24_arms_exactly_verified": true,
+  "initial_shots": 512,
+  "initial_runtime_cap_seconds": 60,
+  "independent_dataset": true,
+  "queue_evidence": "../ibm/available_queue_status.json",
+  "iqm_dataset": "unchanged copy of original completed IQM campaign"
+}

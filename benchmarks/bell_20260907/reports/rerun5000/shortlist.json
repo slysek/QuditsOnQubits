@@ -1,0 +1,20 @@
+{
+  "two_qutrit": [
+    "canonical_ez",
+    "sup023_P021_ph000",
+    "sup023_P021_ph012",
+    "sup023_P021_ph020"
+  ],
+  "ghz3": [
+    "canonical_ez",
+    "sup023_P021_ph001",
+    "sup023_P021_ph011",
+    "sup023_P021_ph021"
+  ],
+  "ame43": [
+    "canonical_ez",
+    "sup012_P210_ph002",
+    "sup023_P021_ph000",
+    "sup023_P021_ph011"
+  ]
+}
