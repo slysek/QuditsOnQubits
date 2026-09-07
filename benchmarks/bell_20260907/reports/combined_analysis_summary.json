@@ -1,0 +1,8 @@
+{
+  "raw_arms": 96,
+  "raw_differences": 624,
+  "zne_estimates": 192,
+  "noise_scale_estimates": 576,
+  "zne_differences": 240,
+  "linearity_rejected": 162
+}

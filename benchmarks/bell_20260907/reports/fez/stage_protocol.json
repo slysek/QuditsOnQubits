@@ -1,0 +1,18 @@
+{
+  "backend": "ibm_fez",
+  "purpose": "complete comparison across all three accessible IBM processors",
+  "selection_source": "../selection.json",
+  "selection_frozen_before_initial_hardware": true,
+  "new_exhaustive_search_on_fez": false,
+  "compile_seeds": [
+    907,
+    908,
+    909
+  ],
+  "compile_objective": "minimum calibration error_proxy; then CZ count and depth",
+  "all_24_arms_exactly_verified": true,
+  "initial_shots": 1024,
+  "initial_runtime_cap_seconds": 130,
+  "independent_dataset": true,
+  "iqm_dataset": "unchanged copy of original completed IQM campaign"
+}

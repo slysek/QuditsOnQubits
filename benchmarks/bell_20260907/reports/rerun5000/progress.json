@@ -1,0 +1,9 @@
+{
+  "completed": 25,
+  "total_expected": 25,
+  "status": "complete",
+  "global_seconds": {
+    "ibm": 438.0,
+    "iqm": 745.5980430000001
+  }
+}

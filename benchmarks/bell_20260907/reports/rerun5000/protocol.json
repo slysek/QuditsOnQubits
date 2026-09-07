@@ -1,0 +1,151 @@
+{
+  "shots_per_setting": 5000,
+  "factors": [
+    1
+  ],
+  "zne_omission": "User explicitly approved omission when full 5000-shot ZNE does not fit.",
+  "backends": [
+    "ibm_fez",
+    "garnet"
+  ],
+  "arms_per_provider": [
+    [
+      "two_qutrit",
+      "canonical_ez",
+      "standard"
+    ],
+    [
+      "two_qutrit",
+      "canonical_ez",
+      "optimal"
+    ],
+    [
+      "two_qutrit",
+      "sup023_P021_ph000",
+      "standard"
+    ],
+    [
+      "two_qutrit",
+      "sup023_P021_ph000",
+      "optimal"
+    ],
+    [
+      "two_qutrit",
+      "sup023_P021_ph012",
+      "standard"
+    ],
+    [
+      "two_qutrit",
+      "sup023_P021_ph012",
+      "optimal"
+    ],
+    [
+      "two_qutrit",
+      "sup023_P021_ph020",
+      "standard"
+    ],
+    [
+      "two_qutrit",
+      "sup023_P021_ph020",
+      "optimal"
+    ],
+    [
+      "ghz3",
+      "canonical_ez",
+      "standard"
+    ],
+    [
+      "ghz3",
+      "canonical_ez",
+      "optimal"
+    ],
+    [
+      "ghz3",
+      "sup023_P021_ph001",
+      "standard"
+    ],
+    [
+      "ghz3",
+      "sup023_P021_ph001",
+      "optimal"
+    ],
+    [
+      "ghz3",
+      "sup023_P021_ph011",
+      "standard"
+    ],
+    [
+      "ghz3",
+      "sup023_P021_ph011",
+      "optimal"
+    ],
+    [
+      "ghz3",
+      "sup023_P021_ph021",
+      "standard"
+    ],
+    [
+      "ghz3",
+      "sup023_P021_ph021",
+      "optimal"
+    ],
+    [
+      "ame43",
+      "canonical_ez",
+      "standard"
+    ],
+    [
+      "ame43",
+      "canonical_ez",
+      "optimal"
+    ],
+    [
+      "ame43",
+      "sup012_P210_ph002",
+      "standard"
+    ],
+    [
+      "ame43",
+      "sup012_P210_ph002",
+      "optimal"
+    ],
+    [
+      "ame43",
+      "sup023_P021_ph000",
+      "standard"
+    ],
+    [
+      "ame43",
+      "sup023_P021_ph000",
+      "optimal"
+    ],
+    [
+      "ame43",
+      "sup023_P021_ph011",
+      "standard"
+    ],
+    [
+      "ame43",
+      "sup023_P021_ph011",
+      "optimal"
+    ]
+  ],
+  "circuit_sources": {
+    "ibm": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_benchmark_20260907\\weighted\\fez\\ibm\\final",
+    "iqm": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_benchmark_20260907\\weighted\\iqm\\final"
+  },
+  "limits_seconds": {
+    "ibm": 540.0,
+    "iqm": 1000.0
+  },
+  "historical_usage_seconds": {
+    "ibm": 311,
+    "iqm": 218.937842
+  },
+  "ibm_rep_delay": 7.5e-05,
+  "ibm_randomizations": 8,
+  "ibm_shots_per_randomization": 625,
+  "iqm_partition": "One complete state/basis/F3 arm per job, with two readout calibration circuits. No duplicate baseline arms.",
+  "analysis": "Separate 5000-shot series; no pooling with historical counts; 2000 bootstrap samples.",
+  "created_at": "2026-09-07T10:02:17.895957+00:00"
+}

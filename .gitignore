@@ -15,3 +15,5 @@ docs/superpowers
 .agents/
 .worktrees/
 ROADMAP.md
+
+.venv-bell/

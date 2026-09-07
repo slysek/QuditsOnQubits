@@ -1,0 +1,5189 @@
+{
+  "two_qutrit": {
+    "selected": [
+      "sup023_P021_ph000",
+      "sup023_P021_ph012",
+      "sup023_P021_ph020"
+    ],
+    "ranking": [
+      {
+        "name": "sup023_P021_ph000",
+        "relative_error_proxy_mean": 0.927556800662153,
+        "ratios": {
+          "iqm": 0.9068678269559363,
+          "ibm": 0.9482457743683697
+        }
+      },
+      {
+        "name": "sup023_P021_ph012",
+        "relative_error_proxy_mean": 0.927556800662153,
+        "ratios": {
+          "iqm": 0.9068678269559363,
+          "ibm": 0.9482457743683697
+        }
+      },
+      {
+        "name": "sup023_P021_ph020",
+        "relative_error_proxy_mean": 0.927556800662153,
+        "ratios": {
+          "iqm": 0.9068678269559363,
+          "ibm": 0.9482457743683697
+        }
+      },
+      {
+        "name": "sup012_P210_ph000",
+        "relative_error_proxy_mean": 0.9281265947344299,
+        "ratios": {
+          "iqm": 0.9068678269559363,
+          "ibm": 0.9493853625129235
+        }
+      },
+      {
+        "name": "sup012_P210_ph010",
+        "relative_error_proxy_mean": 0.9281265947344299,
+        "ratios": {
+          "iqm": 0.9068678269559363,
+          "ibm": 0.9493853625129235
+        }
+      },
+      {
+        "name": "sup012_P210_ph020",
+        "relative_error_proxy_mean": 0.9281265947344299,
+        "ratios": {
+          "iqm": 0.9068678269559363,
+          "ibm": 0.9493853625129235
+        }
+      },
+      {
+        "name": "sup023_P021_ph001",
+        "relative_error_proxy_mean": 0.9281265947344299,
+        "ratios": {
+          "iqm": 0.9068678269559363,
+          "ibm": 0.9493853625129235
+        }
+      },
+      {
+        "name": "sup023_P021_ph010",
+        "relative_error_proxy_mean": 0.9281265947344299,
+        "ratios": {
+          "iqm": 0.9068678269559363,
+          "ibm": 0.9493853625129235
+        }
+      },
+      {
+        "name": "sup023_P021_ph021",
+        "relative_error_proxy_mean": 0.9281265947344299,
+        "ratios": {
+          "iqm": 0.9068678269559363,
+          "ibm": 0.9493853625129235
+        }
+      },
+      {
+        "name": "sup023_P021_ph022",
+        "relative_error_proxy_mean": 0.9281265947344299,
+        "ratios": {
+          "iqm": 0.9068678269559363,
+          "ibm": 0.9493853625129235
+        }
+      },
+      {
+        "name": "sup023_P021_ph011",
+        "relative_error_proxy_mean": 0.9281675410407852,
+        "ratios": {
+          "iqm": 0.9080893077132008,
+          "ibm": 0.9482457743683697
+        }
+      },
+      {
+        "name": "sup023_P021_ph002",
+        "relative_error_proxy_mean": 0.9287373351130621,
+        "ratios": {
+          "iqm": 0.9080893077132008,
+          "ibm": 0.9493853625129235
+        }
+      },
+      {
+        "name": "sup012_P210_ph002",
+        "relative_error_proxy_mean": 0.9322933451710951,
+        "ratios": {
+          "iqm": 0.9143773158055358,
+          "ibm": 0.9502093745366543
+        }
+      },
+      {
+        "name": "sup013_P120_ph000",
+        "relative_error_proxy_mean": 0.9328836123965496,
+        "ratios": {
+          "iqm": 0.9149880561841681,
+          "ibm": 0.9507791686089312
+        }
+      },
+      {
+        "name": "sup123_P012_ph000",
+        "relative_error_proxy_mean": 0.9328836123965496,
+        "ratios": {
+          "iqm": 0.9149880561841681,
+          "ibm": 0.9507791686089312
+        }
+      },
+      {
+        "name": "sup123_P012_ph011",
+        "relative_error_proxy_mean": 0.9328836123965496,
+        "ratios": {
+          "iqm": 0.9149880561841681,
+          "ibm": 0.9507791686089312
+        }
+      },
+      {
+        "name": "sup123_P012_ph022",
+        "relative_error_proxy_mean": 0.9328836123965496,
+        "ratios": {
+          "iqm": 0.9149880561841681,
+          "ibm": 0.9507791686089312
+        }
+      },
+      {
+        "name": "sup012_P210_ph001",
+        "relative_error_proxy_mean": 0.9329040855497273,
+        "ratios": {
+          "iqm": 0.9155987965628003,
+          "ibm": 0.9502093745366543
+        }
+      },
+      {
+        "name": "sup013_P120_ph010",
+        "relative_error_proxy_mean": 0.9350233297461441,
+        "ratios": {
+          "iqm": 0.9149880561841681,
+          "ibm": 0.95505860330812
+        }
+      },
+      {
+        "name": "sup013_P120_ph020",
+        "relative_error_proxy_mean": 0.9350233297461441,
+        "ratios": {
+          "iqm": 0.9149880561841681,
+          "ibm": 0.95505860330812
+        }
+      },
+      {
+        "name": "sup123_P012_ph001",
+        "relative_error_proxy_mean": 0.9350233297461441,
+        "ratios": {
+          "iqm": 0.9149880561841681,
+          "ibm": 0.95505860330812
+        }
+      },
+      {
+        "name": "sup123_P012_ph002",
+        "relative_error_proxy_mean": 0.9350233297461441,
+        "ratios": {
+          "iqm": 0.9149880561841681,
+          "ibm": 0.95505860330812
+        }
+      },
+      {
+        "name": "sup123_P012_ph010",
+        "relative_error_proxy_mean": 0.9350233297461441,
+        "ratios": {
+          "iqm": 0.9149880561841681,
+          "ibm": 0.95505860330812
+        }
+      },
+      {
+        "name": "sup123_P012_ph012",
+        "relative_error_proxy_mean": 0.9350233297461441,
+        "ratios": {
+          "iqm": 0.9149880561841681,
+          "ibm": 0.95505860330812
+        }
+      },
+      {
+        "name": "sup123_P012_ph020",
+        "relative_error_proxy_mean": 0.9350233297461441,
+        "ratios": {
+          "iqm": 0.9149880561841681,
+          "ibm": 0.95505860330812
+        }
+      },
+      {
+        "name": "sup123_P012_ph021",
+        "relative_error_proxy_mean": 0.9350233297461441,
+        "ratios": {
+          "iqm": 0.9149880561841681,
+          "ibm": 0.95505860330812
+        }
+      },
+      {
+        "name": "sup012_P120_ph000",
+        "relative_error_proxy_mean": 0.9362522375734345,
+        "ratios": {
+          "iqm": 0.9140025038592092,
+          "ibm": 0.9585019712876597
+        }
+      },
+      {
+        "name": "sup012_P120_ph010",
+        "relative_error_proxy_mean": 0.9362522375734345,
+        "ratios": {
+          "iqm": 0.9140025038592092,
+          "ibm": 0.9585019712876597
+        }
+      },
+      {
+        "name": "sup012_P120_ph020",
+        "relative_error_proxy_mean": 0.9362522375734345,
+        "ratios": {
+          "iqm": 0.9140025038592092,
+          "ibm": 0.9585019712876597
+        }
+      },
+      {
+        "name": "sup023_P012_ph000",
+        "relative_error_proxy_mean": 0.9362522375734345,
+        "ratios": {
+          "iqm": 0.9140025038592092,
+          "ibm": 0.9585019712876597
+        }
+      },
+      {
+        "name": "sup023_P012_ph001",
+        "relative_error_proxy_mean": 0.9362522375734345,
+        "ratios": {
+          "iqm": 0.9140025038592092,
+          "ibm": 0.9585019712876597
+        }
+      },
+      {
+        "name": "sup023_P012_ph002",
+        "relative_error_proxy_mean": 0.9362522375734345,
+        "ratios": {
+          "iqm": 0.9140025038592092,
+          "ibm": 0.9585019712876597
+        }
+      },
+      {
+        "name": "sup023_P012_ph010",
+        "relative_error_proxy_mean": 0.9362522375734345,
+        "ratios": {
+          "iqm": 0.9140025038592092,
+          "ibm": 0.9585019712876597
+        }
+      },
+      {
+        "name": "sup023_P012_ph011",
+        "relative_error_proxy_mean": 0.9362522375734345,
+        "ratios": {
+          "iqm": 0.9140025038592092,
+          "ibm": 0.9585019712876597
+        }
+      },
+      {
+        "name": "sup023_P012_ph012",
+        "relative_error_proxy_mean": 0.9362522375734345,
+        "ratios": {
+          "iqm": 0.9140025038592092,
+          "ibm": 0.9585019712876597
+        }
+      },
+      {
+        "name": "sup023_P012_ph020",
+        "relative_error_proxy_mean": 0.9362522375734345,
+        "ratios": {
+          "iqm": 0.9140025038592092,
+          "ibm": 0.9585019712876597
+        }
+      },
+      {
+        "name": "sup023_P012_ph021",
+        "relative_error_proxy_mean": 0.9362522375734345,
+        "ratios": {
+          "iqm": 0.9140025038592092,
+          "ibm": 0.9585019712876597
+        }
+      },
+      {
+        "name": "sup023_P012_ph022",
+        "relative_error_proxy_mean": 0.9362522375734345,
+        "ratios": {
+          "iqm": 0.9140025038592092,
+          "ibm": 0.9585019712876597
+        }
+      },
+      {
+        "name": "sup012_P120_ph001",
+        "relative_error_proxy_mean": 0.9409887820823765,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9604655714559442
+        }
+      },
+      {
+        "name": "sup012_P120_ph002",
+        "relative_error_proxy_mean": 0.9409887820823765,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9604655714559442
+        }
+      },
+      {
+        "name": "sup013_P210_ph000",
+        "relative_error_proxy_mean": 0.9409887820823765,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9604655714559442
+        }
+      },
+      {
+        "name": "sup123_P021_ph000",
+        "relative_error_proxy_mean": 0.9409887820823765,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9604655714559442
+        }
+      },
+      {
+        "name": "sup123_P021_ph011",
+        "relative_error_proxy_mean": 0.9409887820823765,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9604655714559442
+        }
+      },
+      {
+        "name": "sup123_P021_ph022",
+        "relative_error_proxy_mean": 0.9409887820823765,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9604655714559442
+        }
+      },
+      {
+        "name": "sup013_P210_ph010",
+        "relative_error_proxy_mean": 0.9431284994319707,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9647450061551328
+        }
+      },
+      {
+        "name": "sup013_P210_ph020",
+        "relative_error_proxy_mean": 0.9431284994319707,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9647450061551328
+        }
+      },
+      {
+        "name": "sup123_P021_ph001",
+        "relative_error_proxy_mean": 0.9431284994319707,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9647450061551328
+        }
+      },
+      {
+        "name": "sup123_P021_ph002",
+        "relative_error_proxy_mean": 0.9431284994319707,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9647450061551328
+        }
+      },
+      {
+        "name": "sup123_P021_ph010",
+        "relative_error_proxy_mean": 0.9431284994319707,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9647450061551328
+        }
+      },
+      {
+        "name": "sup123_P021_ph012",
+        "relative_error_proxy_mean": 0.9431284994319707,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9647450061551328
+        }
+      },
+      {
+        "name": "sup123_P021_ph020",
+        "relative_error_proxy_mean": 0.9431284994319707,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9647450061551328
+        }
+      },
+      {
+        "name": "sup123_P021_ph021",
+        "relative_error_proxy_mean": 0.9431284994319707,
+        "ratios": {
+          "iqm": 0.9215119927088087,
+          "ibm": 0.9647450061551328
+        }
+      },
+      {
+        "name": "sup012_P210_ph021",
+        "relative_error_proxy_mean": 0.9484183156267328,
+        "ratios": {
+          "iqm": 0.9297998999592652,
+          "ibm": 0.9670367312942005
+        }
+      },
+      {
+        "name": "sup012_P210_ph022",
+        "relative_error_proxy_mean": 0.9492730067351483,
+        "ratios": {
+          "iqm": 0.9297998999592652,
+          "ibm": 0.9687461135110312
+        }
+      },
+      {
+        "name": "sup012_P210_ph011",
+        "relative_error_proxy_mean": 0.9498428008074251,
+        "ratios": {
+          "iqm": 0.9297998999592652,
+          "ibm": 0.9698857016555851
+        }
+      },
+      {
+        "name": "sup012_P210_ph012",
+        "relative_error_proxy_mean": 0.9498428008074251,
+        "ratios": {
+          "iqm": 0.9297998999592652,
+          "ibm": 0.9698857016555851
+        }
+      },
+      {
+        "name": "sup013_P120_ph011",
+        "relative_error_proxy_mean": 0.9498632739606028,
+        "ratios": {
+          "iqm": 0.9304106403378974,
+          "ibm": 0.9693159075833082
+        }
+      },
+      {
+        "name": "sup013_P120_ph022",
+        "relative_error_proxy_mean": 0.9498632739606028,
+        "ratios": {
+          "iqm": 0.9304106403378974,
+          "ibm": 0.9693159075833082
+        }
+      },
+      {
+        "name": "sup013_P120_ph012",
+        "relative_error_proxy_mean": 0.9511483002017818,
+        "ratios": {
+          "iqm": 0.9304106403378974,
+          "ibm": 0.9718859600656661
+        }
+      },
+      {
+        "name": "sup013_P120_ph001",
+        "relative_error_proxy_mean": 0.9520029913101973,
+        "ratios": {
+          "iqm": 0.9304106403378974,
+          "ibm": 0.973595342282497
+        }
+      },
+      {
+        "name": "sup013_P120_ph002",
+        "relative_error_proxy_mean": 0.9520029913101973,
+        "ratios": {
+          "iqm": 0.9304106403378974,
+          "ibm": 0.973595342282497
+        }
+      },
+      {
+        "name": "sup013_P120_ph021",
+        "relative_error_proxy_mean": 0.9520029913101973,
+        "ratios": {
+          "iqm": 0.9304106403378974,
+          "ibm": 0.973595342282497
+        }
+      },
+      {
+        "name": "sup012_P120_ph021",
+        "relative_error_proxy_mean": 0.9571137525380142,
+        "ratios": {
+          "iqm": 0.9369345768625379,
+          "ibm": 0.9772929282134905
+        }
+      },
+      {
+        "name": "sup012_P120_ph011",
+        "relative_error_proxy_mean": 0.9579684436464295,
+        "ratios": {
+          "iqm": 0.9369345768625379,
+          "ibm": 0.9790023104303212
+        }
+      },
+      {
+        "name": "sup012_P120_ph012",
+        "relative_error_proxy_mean": 0.9579684436464295,
+        "ratios": {
+          "iqm": 0.9369345768625379,
+          "ibm": 0.9790023104303212
+        }
+      },
+      {
+        "name": "sup012_P120_ph022",
+        "relative_error_proxy_mean": 0.9579684436464295,
+        "ratios": {
+          "iqm": 0.9369345768625379,
+          "ibm": 0.9790023104303212
+        }
+      },
+      {
+        "name": "sup013_P210_ph011",
+        "relative_error_proxy_mean": 0.9579684436464295,
+        "ratios": {
+          "iqm": 0.9369345768625379,
+          "ibm": 0.9790023104303212
+        }
+      },
+      {
+        "name": "sup013_P210_ph022",
+        "relative_error_proxy_mean": 0.9579684436464295,
+        "ratios": {
+          "iqm": 0.9369345768625379,
+          "ibm": 0.9790023104303212
+        }
+      },
+      {
+        "name": "sup013_P210_ph012",
+        "relative_error_proxy_mean": 0.9592534698876085,
+        "ratios": {
+          "iqm": 0.9369345768625379,
+          "ibm": 0.9815723629126792
+        }
+      },
+      {
+        "name": "sup013_P210_ph001",
+        "relative_error_proxy_mean": 0.960108160996024,
+        "ratios": {
+          "iqm": 0.9369345768625379,
+          "ibm": 0.98328174512951
+        }
+      },
+      {
+        "name": "sup013_P210_ph002",
+        "relative_error_proxy_mean": 0.960108160996024,
+        "ratios": {
+          "iqm": 0.9369345768625379,
+          "ibm": 0.98328174512951
+        }
+      },
+      {
+        "name": "sup013_P210_ph021",
+        "relative_error_proxy_mean": 0.960108160996024,
+        "ratios": {
+          "iqm": 0.9369345768625379,
+          "ibm": 0.98328174512951
+        }
+      },
+      {
+        "name": "sup012_P012_ph012",
+        "relative_error_proxy_mean": 1.0,
+        "ratios": {
+          "iqm": 1.0,
+          "ibm": 1.0
+        }
+      },
+      {
+        "name": "sup012_P012_ph021",
+        "relative_error_proxy_mean": 1.0,
+        "ratios": {
+          "iqm": 1.0,
+          "ibm": 1.0
+        }
+      },
+      {
+        "name": "sup012_P021_ph000",
+        "relative_error_proxy_mean": 1.0,
+        "ratios": {
+          "iqm": 1.0,
+          "ibm": 1.0
+        }
+      },
+      {
+        "name": "sup012_P021_ph012",
+        "relative_error_proxy_mean": 1.0,
+        "ratios": {
+          "iqm": 1.0,
+          "ibm": 1.0
+        }
+      },
+      {
+        "name": "sup012_P021_ph021",
+        "relative_error_proxy_mean": 1.0,
+        "ratios": {
+          "iqm": 1.0,
+          "ibm": 1.0
+        }
+      },
+      {
+        "name": "sup023_P201_ph000",
+        "relative_error_proxy_mean": 1.0103578278771361,
+        "ratios": {
+          "iqm": 1.012168841051813,
+          "ibm": 1.0085468147024592
+        }
+      },
+      {
+        "name": "sup013_P012_ph000",
+        "relative_error_proxy_mean": 1.0123254084696007,
+        "ratios": {
+          "iqm": 0.9662299937405077,
+          "ibm": 1.0584208231986938
+        }
+      },
+      {
+        "name": "sup013_P012_ph002",
+        "relative_error_proxy_mean": 1.0123254084696007,
+        "ratios": {
+          "iqm": 0.9662299937405077,
+          "ibm": 1.0584208231986938
+        }
+      },
+      {
+        "name": "sup013_P012_ph012",
+        "relative_error_proxy_mean": 1.0123254084696007,
+        "ratios": {
+          "iqm": 0.9662299937405077,
+          "ibm": 1.0584208231986938
+        }
+      },
+      {
+        "name": "sup013_P012_ph020",
+        "relative_error_proxy_mean": 1.0123254084696007,
+        "ratios": {
+          "iqm": 0.9662299937405077,
+          "ibm": 1.0584208231986938
+        }
+      },
+      {
+        "name": "sup013_P012_ph021",
+        "relative_error_proxy_mean": 1.0123254084696007,
+        "ratios": {
+          "iqm": 0.9662299937405077,
+          "ibm": 1.0584208231986938
+        }
+      },
+      {
+        "name": "sup013_P012_ph022",
+        "relative_error_proxy_mean": 1.0123254084696007,
+        "ratios": {
+          "iqm": 0.9662299937405077,
+          "ibm": 1.0584208231986938
+        }
+      },
+      {
+        "name": "sup013_P012_ph010",
+        "relative_error_proxy_mean": 1.0132173787990302,
+        "ratios": {
+          "iqm": 0.9680139343993667,
+          "ibm": 1.0584208231986938
+        }
+      },
+      {
+        "name": "sup013_P012_ph011",
+        "relative_error_proxy_mean": 1.0132173787990302,
+        "ratios": {
+          "iqm": 0.9680139343993667,
+          "ibm": 1.0584208231986938
+        }
+      },
+      {
+        "name": "sup123_P201_ph000",
+        "relative_error_proxy_mean": 1.0134846327508469,
+        "ratios": {
+          "iqm": 0.9671219640699371,
+          "ibm": 1.0598473014317566
+        }
+      },
+      {
+        "name": "sup123_P201_ph001",
+        "relative_error_proxy_mean": 1.0134846327508469,
+        "ratios": {
+          "iqm": 0.9671219640699371,
+          "ibm": 1.0598473014317566
+        }
+      },
+      {
+        "name": "sup123_P201_ph002",
+        "relative_error_proxy_mean": 1.0134846327508469,
+        "ratios": {
+          "iqm": 0.9671219640699371,
+          "ibm": 1.0598473014317566
+        }
+      },
+      {
+        "name": "sup013_P012_ph001",
+        "relative_error_proxy_mean": 1.014643857032093,
+        "ratios": {
+          "iqm": 0.9680139343993667,
+          "ibm": 1.0612737796648195
+        }
+      },
+      {
+        "name": "sup023_P201_ph002",
+        "relative_error_proxy_mean": 1.0191629696613234,
+        "ratios": {
+          "iqm": 1.0172397653070484,
+          "ibm": 1.021086174015598
+        }
+      },
+      {
+        "name": "sup012_P012_ph001",
+        "relative_error_proxy_mean": 1.020992085491088,
+        "ratios": {
+          "iqm": 1.0208979969665781,
+          "ibm": 1.021086174015598
+        }
+      },
+      {
+        "name": "sup012_P012_ph002",
+        "relative_error_proxy_mean": 1.020992085491088,
+        "ratios": {
+          "iqm": 1.0208979969665781,
+          "ibm": 1.021086174015598
+        }
+      },
+      {
+        "name": "sup012_P012_ph010",
+        "relative_error_proxy_mean": 1.020992085491088,
+        "ratios": {
+          "iqm": 1.0208979969665781,
+          "ibm": 1.021086174015598
+        }
+      },
+      {
+        "name": "sup012_P012_ph011",
+        "relative_error_proxy_mean": 1.020992085491088,
+        "ratios": {
+          "iqm": 1.0208979969665781,
+          "ibm": 1.021086174015598
+        }
+      },
+      {
+        "name": "sup012_P012_ph020",
+        "relative_error_proxy_mean": 1.020992085491088,
+        "ratios": {
+          "iqm": 1.0208979969665781,
+          "ibm": 1.021086174015598
+        }
+      },
+      {
+        "name": "sup012_P012_ph022",
+        "relative_error_proxy_mean": 1.020992085491088,
+        "ratios": {
+          "iqm": 1.0208979969665781,
+          "ibm": 1.021086174015598
+        }
+      },
+      {
+        "name": "sup013_P021_ph002",
+        "relative_error_proxy_mean": 1.0222443634188556,
+        "ratios": {
+          "iqm": 0.9740983383981558,
+          "ibm": 1.0703903884395556
+        }
+      },
+      {
+        "name": "sup013_P021_ph010",
+        "relative_error_proxy_mean": 1.0222443634188556,
+        "ratios": {
+          "iqm": 0.9740983383981558,
+          "ibm": 1.0703903884395556
+        }
+      },
+      {
+        "name": "sup023_P102_ph000",
+        "relative_error_proxy_mean": 1.02239285924046,
+        "ratios": {
+          "iqm": 1.024556228626108,
+          "ibm": 1.0202294898548119
+        }
+      },
+      {
+        "name": "sup013_P021_ph011",
+        "relative_error_proxy_mean": 1.0224973857889825,
+        "ratios": {
+          "iqm": 0.9746043831384095,
+          "ibm": 1.0703903884395556
+        }
+      },
+      {
+        "name": "sup123_P102_ph001",
+        "relative_error_proxy_mean": 1.0224973857889825,
+        "ratios": {
+          "iqm": 0.9746043831384095,
+          "ibm": 1.0703903884395556
+        }
+      },
+      {
+        "name": "sup013_P021_ph020",
+        "relative_error_proxy_mean": 1.0226903485835706,
+        "ratios": {
+          "iqm": 0.9749903087275854,
+          "ibm": 1.0703903884395556
+        }
+      },
+      {
+        "name": "sup013_P021_ph022",
+        "relative_error_proxy_mean": 1.0226903485835706,
+        "ratios": {
+          "iqm": 0.9749903087275854,
+          "ibm": 1.0703903884395556
+        }
+      },
+      {
+        "name": "sup123_P102_ph002",
+        "relative_error_proxy_mean": 1.0226903485835706,
+        "ratios": {
+          "iqm": 0.9749903087275854,
+          "ibm": 1.0703903884395556
+        }
+      },
+      {
+        "name": "sup023_P201_ph001",
+        "relative_error_proxy_mean": 1.022821201320853,
+        "ratios": {
+          "iqm": 1.024556228626108,
+          "ibm": 1.021086174015598
+        }
+      },
+      {
+        "name": "sup013_P021_ph001",
+        "relative_error_proxy_mean": 1.0229433709536973,
+        "ratios": {
+          "iqm": 0.975496353467839,
+          "ibm": 1.0703903884395556
+        }
+      },
+      {
+        "name": "sup013_P021_ph000",
+        "relative_error_proxy_mean": 1.023941507106367,
+        "ratios": {
+          "iqm": 0.975496353467839,
+          "ibm": 1.0723866607448953
+        }
+      },
+      {
+        "name": "sup013_P021_ph012",
+        "relative_error_proxy_mean": 1.023941507106367,
+        "ratios": {
+          "iqm": 0.975496353467839,
+          "ibm": 1.0723866607448953
+        }
+      },
+      {
+        "name": "sup013_P021_ph021",
+        "relative_error_proxy_mean": 1.023941507106367,
+        "ratios": {
+          "iqm": 0.975496353467839,
+          "ibm": 1.0723866607448953
+        }
+      },
+      {
+        "name": "sup123_P102_ph000",
+        "relative_error_proxy_mean": 1.023941507106367,
+        "ratios": {
+          "iqm": 0.975496353467839,
+          "ibm": 1.0723866607448953
+        }
+      },
+      {
+        "name": "sup012_P021_ph002",
+        "relative_error_proxy_mean": 1.0305401658456599,
+        "ratios": {
+          "iqm": 1.0325909172225574,
+          "ibm": 1.0284894144687624
+        }
+      },
+      {
+        "name": "sup012_P021_ph011",
+        "relative_error_proxy_mean": 1.0305401658456599,
+        "ratios": {
+          "iqm": 1.0325909172225574,
+          "ibm": 1.0284894144687624
+        }
+      },
+      {
+        "name": "sup012_P021_ph001",
+        "relative_error_proxy_mean": 1.0308873995048176,
+        "ratios": {
+          "iqm": 1.033285384540873,
+          "ibm": 1.0284894144687624
+        }
+      },
+      {
+        "name": "sup012_P021_ph022",
+        "relative_error_proxy_mean": 1.0308873995048176,
+        "ratios": {
+          "iqm": 1.033285384540873,
+          "ibm": 1.0284894144687624
+        }
+      },
+      {
+        "name": "sup023_P102_ph002",
+        "relative_error_proxy_mean": 1.0308873995048176,
+        "ratios": {
+          "iqm": 1.033285384540873,
+          "ibm": 1.0284894144687624
+        }
+      },
+      {
+        "name": "sup012_P021_ph010",
+        "relative_error_proxy_mean": 1.0312534049621913,
+        "ratios": {
+          "iqm": 1.0325909172225574,
+          "ibm": 1.0299158927018253
+        }
+      },
+      {
+        "name": "sup023_P102_ph001",
+        "relative_error_proxy_mean": 1.0312534049621913,
+        "ratios": {
+          "iqm": 1.0325909172225574,
+          "ibm": 1.0299158927018253
+        }
+      },
+      {
+        "name": "sup012_P021_ph020",
+        "relative_error_proxy_mean": 1.0316006386213492,
+        "ratios": {
+          "iqm": 1.033285384540873,
+          "ibm": 1.0299158927018253
+        }
+      },
+      {
+        "name": "sup123_P201_ph010",
+        "relative_error_proxy_mean": 1.0522419035226718,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.0971749973319644
+        }
+      },
+      {
+        "name": "sup123_P201_ph011",
+        "relative_error_proxy_mean": 1.0522419035226718,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.0971749973319644
+        }
+      },
+      {
+        "name": "sup123_P201_ph012",
+        "relative_error_proxy_mean": 1.0522419035226718,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.0971749973319644
+        }
+      },
+      {
+        "name": "sup123_P201_ph020",
+        "relative_error_proxy_mean": 1.0522419035226718,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.0971749973319644
+        }
+      },
+      {
+        "name": "sup123_P201_ph021",
+        "relative_error_proxy_mean": 1.0522419035226718,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.0971749973319644
+        }
+      },
+      {
+        "name": "sup123_P201_ph022",
+        "relative_error_proxy_mean": 1.0522419035226718,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.0971749973319644
+        }
+      },
+      {
+        "name": "sup023_P210_ph020",
+        "relative_error_proxy_mean": 1.053096594631087,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.0988843795487953
+        }
+      },
+      {
+        "name": "sup023_P210_ph021",
+        "relative_error_proxy_mean": 1.053096594631087,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.0988843795487953
+        }
+      },
+      {
+        "name": "sup023_P210_ph022",
+        "relative_error_proxy_mean": 1.053096594631087,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.0988843795487953
+        }
+      },
+      {
+        "name": "sup012_P102_ph010",
+        "relative_error_proxy_mean": 1.0540770876994352,
+        "ratios": {
+          "iqm": 1.0064168393839494,
+          "ibm": 1.101737336014921
+        }
+      },
+      {
+        "name": "sup012_P102_ph021",
+        "relative_error_proxy_mean": 1.0540770876994352,
+        "ratios": {
+          "iqm": 1.0064168393839494,
+          "ibm": 1.101737336014921
+        }
+      },
+      {
+        "name": "sup023_P210_ph012",
+        "relative_error_proxy_mean": 1.0543816208722658,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.101454432031153
+        }
+      },
+      {
+        "name": "sup012_P102_ph020",
+        "relative_error_proxy_mean": 1.0549690580288646,
+        "ratios": {
+          "iqm": 1.0082007800428083,
+          "ibm": 1.101737336014921
+        }
+      },
+      {
+        "name": "sup023_P210_ph000",
+        "relative_error_proxy_mean": 1.0552363119806811,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.1031638142479836
+        }
+      },
+      {
+        "name": "sup023_P210_ph001",
+        "relative_error_proxy_mean": 1.0552363119806811,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.1031638142479836
+        }
+      },
+      {
+        "name": "sup023_P210_ph002",
+        "relative_error_proxy_mean": 1.0552363119806811,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.1031638142479836
+        }
+      },
+      {
+        "name": "sup023_P210_ph010",
+        "relative_error_proxy_mean": 1.0552363119806811,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.1031638142479836
+        }
+      },
+      {
+        "name": "sup023_P210_ph011",
+        "relative_error_proxy_mean": 1.0552363119806811,
+        "ratios": {
+          "iqm": 1.0073088097133789,
+          "ibm": 1.1031638142479836
+        }
+      },
+      {
+        "name": "sup012_P102_ph000",
+        "relative_error_proxy_mean": 1.055503565932498,
+        "ratios": {
+          "iqm": 1.0064168393839494,
+          "ibm": 1.1045902924810465
+        }
+      },
+      {
+        "name": "sup012_P102_ph001",
+        "relative_error_proxy_mean": 1.055503565932498,
+        "ratios": {
+          "iqm": 1.0064168393839494,
+          "ibm": 1.1045902924810465
+        }
+      },
+      {
+        "name": "sup012_P102_ph002",
+        "relative_error_proxy_mean": 1.055503565932498,
+        "ratios": {
+          "iqm": 1.0064168393839494,
+          "ibm": 1.1045902924810465
+        }
+      },
+      {
+        "name": "sup012_P102_ph011",
+        "relative_error_proxy_mean": 1.055503565932498,
+        "ratios": {
+          "iqm": 1.0064168393839494,
+          "ibm": 1.1045902924810465
+        }
+      },
+      {
+        "name": "sup012_P102_ph012",
+        "relative_error_proxy_mean": 1.055503565932498,
+        "ratios": {
+          "iqm": 1.0064168393839494,
+          "ibm": 1.1045902924810465
+        }
+      },
+      {
+        "name": "sup012_P102_ph022",
+        "relative_error_proxy_mean": 1.0563955362619275,
+        "ratios": {
+          "iqm": 1.0082007800428083,
+          "ibm": 1.1045902924810465
+        }
+      },
+      {
+        "name": "sup023_P201_ph012",
+        "relative_error_proxy_mean": 1.0564314882526034,
+        "ratios": {
+          "iqm": 1.0666286657518842,
+          "ibm": 1.0462343107533225
+        }
+      },
+      {
+        "name": "sup023_P201_ph021",
+        "relative_error_proxy_mean": 1.0580704364705045,
+        "ratios": {
+          "iqm": 1.0666286657518842,
+          "ibm": 1.049512207189125
+        }
+      },
+      {
+        "name": "sup013_P102_ph012",
+        "relative_error_proxy_mean": 1.0597954327427455,
+        "ratios": {
+          "iqm": 1.06366490141067,
+          "ibm": 1.055925964074821
+        }
+      },
+      {
+        "name": "sup013_P102_ph021",
+        "relative_error_proxy_mean": 1.0597954327427455,
+        "ratios": {
+          "iqm": 1.06366490141067,
+          "ibm": 1.055925964074821
+        }
+      },
+      {
+        "name": "sup123_P210_ph000",
+        "relative_error_proxy_mean": 1.060911309455979,
+        "ratios": {
+          "iqm": 1.0673231330702,
+          "ibm": 1.054499485841758
+        }
+      },
+      {
+        "name": "sup123_P210_ph001",
+        "relative_error_proxy_mean": 1.060911309455979,
+        "ratios": {
+          "iqm": 1.0673231330702,
+          "ibm": 1.054499485841758
+        }
+      },
+      {
+        "name": "sup123_P210_ph002",
+        "relative_error_proxy_mean": 1.060911309455979,
+        "ratios": {
+          "iqm": 1.0673231330702,
+          "ibm": 1.054499485841758
+        }
+      },
+      {
+        "name": "sup123_P102_ph011",
+        "relative_error_proxy_mean": 1.0610016341906805,
+        "ratios": {
+          "iqm": 1.0142851840415978,
+          "ibm": 1.1077180843397634
+        }
+      },
+      {
+        "name": "sup123_P102_ph012",
+        "relative_error_proxy_mean": 1.0614476193553954,
+        "ratios": {
+          "iqm": 1.0151771543710275,
+          "ibm": 1.1077180843397634
+        }
+      },
+      {
+        "name": "sup123_P102_ph021",
+        "relative_error_proxy_mean": 1.0614476193553954,
+        "ratios": {
+          "iqm": 1.0151771543710275,
+          "ibm": 1.1077180843397634
+        }
+      },
+      {
+        "name": "sup123_P102_ph022",
+        "relative_error_proxy_mean": 1.0614476193553954,
+        "ratios": {
+          "iqm": 1.0151771543710275,
+          "ibm": 1.1077180843397634
+        }
+      },
+      {
+        "name": "sup023_P120_ph020",
+        "relative_error_proxy_mean": 1.0618563252990958,
+        "ratios": {
+          "iqm": 1.0142851840415978,
+          "ibm": 1.109427466556594
+        }
+      },
+      {
+        "name": "sup023_P120_ph021",
+        "relative_error_proxy_mean": 1.0618563252990958,
+        "ratios": {
+          "iqm": 1.0142851840415978,
+          "ibm": 1.109427466556594
+        }
+      },
+      {
+        "name": "sup023_P120_ph022",
+        "relative_error_proxy_mean": 1.0623023104638107,
+        "ratios": {
+          "iqm": 1.0151771543710275,
+          "ibm": 1.109427466556594
+        }
+      },
+      {
+        "name": "sup123_P102_ph010",
+        "relative_error_proxy_mean": 1.062698777878192,
+        "ratios": {
+          "iqm": 1.015683199111281,
+          "ibm": 1.109714356645103
+        }
+      },
+      {
+        "name": "sup123_P102_ph020",
+        "relative_error_proxy_mean": 1.062698777878192,
+        "ratios": {
+          "iqm": 1.015683199111281,
+          "ibm": 1.109714356645103
+        }
+      },
+      {
+        "name": "sup013_P102_ph000",
+        "relative_error_proxy_mean": 1.0634536644022754,
+        "ratios": {
+          "iqm": 1.0709813647297295,
+          "ibm": 1.055925964074821
+        }
+      },
+      {
+        "name": "sup023_P120_ph012",
+        "relative_error_proxy_mean": 1.0635873367049897,
+        "ratios": {
+          "iqm": 1.0151771543710275,
+          "ibm": 1.1119975190389517
+        }
+      },
+      {
+        "name": "sup012_P201_ph020",
+        "relative_error_proxy_mean": 1.06399604264869,
+        "ratios": {
+          "iqm": 1.0142851840415978,
+          "ibm": 1.1137069012557823
+        }
+      },
+      {
+        "name": "sup012_P201_ph001",
+        "relative_error_proxy_mean": 1.0642490650188168,
+        "ratios": {
+          "iqm": 1.0147912287818515,
+          "ibm": 1.1137069012557823
+        }
+      },
+      {
+        "name": "sup012_P201_ph002",
+        "relative_error_proxy_mean": 1.0642490650188168,
+        "ratios": {
+          "iqm": 1.0147912287818515,
+          "ibm": 1.1137069012557823
+        }
+      },
+      {
+        "name": "sup023_P120_ph011",
+        "relative_error_proxy_mean": 1.0642490650188168,
+        "ratios": {
+          "iqm": 1.0147912287818515,
+          "ibm": 1.1137069012557823
+        }
+      },
+      {
+        "name": "sup012_P201_ph010",
+        "relative_error_proxy_mean": 1.064442027813405,
+        "ratios": {
+          "iqm": 1.0151771543710275,
+          "ibm": 1.1137069012557823
+        }
+      },
+      {
+        "name": "sup012_P201_ph021",
+        "relative_error_proxy_mean": 1.064442027813405,
+        "ratios": {
+          "iqm": 1.0151771543710275,
+          "ibm": 1.1137069012557823
+        }
+      },
+      {
+        "name": "sup012_P201_ph000",
+        "relative_error_proxy_mean": 1.0646950501835315,
+        "ratios": {
+          "iqm": 1.015683199111281,
+          "ibm": 1.1137069012557823
+        }
+      },
+      {
+        "name": "sup012_P201_ph012",
+        "relative_error_proxy_mean": 1.0646950501835315,
+        "ratios": {
+          "iqm": 1.015683199111281,
+          "ibm": 1.1137069012557823
+        }
+      },
+      {
+        "name": "sup023_P120_ph000",
+        "relative_error_proxy_mean": 1.0646950501835315,
+        "ratios": {
+          "iqm": 1.015683199111281,
+          "ibm": 1.1137069012557823
+        }
+      },
+      {
+        "name": "sup023_P120_ph010",
+        "relative_error_proxy_mean": 1.0646950501835315,
+        "ratios": {
+          "iqm": 1.015683199111281,
+          "ibm": 1.1137069012557823
+        }
+      },
+      {
+        "name": "sup023_P201_ph011",
+        "relative_error_proxy_mean": 1.065361303282829,
+        "ratios": {
+          "iqm": 1.0730885246437507,
+          "ibm": 1.0576340819219074
+        }
+      },
+      {
+        "name": "sup012_P201_ph011",
+        "relative_error_proxy_mean": 1.0656931863362016,
+        "ratios": {
+          "iqm": 1.015683199111281,
+          "ibm": 1.1157031735611223
+        }
+      },
+      {
+        "name": "sup012_P201_ph022",
+        "relative_error_proxy_mean": 1.0656931863362016,
+        "ratios": {
+          "iqm": 1.015683199111281,
+          "ibm": 1.1157031735611223
+        }
+      },
+      {
+        "name": "sup023_P120_ph001",
+        "relative_error_proxy_mean": 1.0656931863362016,
+        "ratios": {
+          "iqm": 1.015683199111281,
+          "ibm": 1.1157031735611223
+        }
+      },
+      {
+        "name": "sup023_P120_ph002",
+        "relative_error_proxy_mean": 1.0656931863362016,
+        "ratios": {
+          "iqm": 1.015683199111281,
+          "ibm": 1.1157031735611223
+        }
+      },
+      {
+        "name": "sup023_P201_ph020",
+        "relative_error_proxy_mean": 1.0675700455730073,
+        "ratios": {
+          "iqm": 1.0730885246437507,
+          "ibm": 1.0620515665022638
+        }
+      },
+      {
+        "name": "sup023_P201_ph022",
+        "relative_error_proxy_mean": 1.0675700455730073,
+        "ratios": {
+          "iqm": 1.0730885246437507,
+          "ibm": 1.0620515665022638
+        }
+      },
+      {
+        "name": "sup123_P210_ph020",
+        "relative_error_proxy_mean": 1.0678549426091457,
+        "ratios": {
+          "iqm": 1.0730885246437507,
+          "ibm": 1.0626213605745407
+        }
+      },
+      {
+        "name": "sup023_P102_ph010",
+        "relative_error_proxy_mean": 1.068591192861966,
+        "ratios": {
+          "iqm": 1.0804049879628104,
+          "ibm": 1.0567773977611215
+        }
+      },
+      {
+        "name": "sup023_P201_ph010",
+        "relative_error_proxy_mean": 1.0690195349423588,
+        "ratios": {
+          "iqm": 1.0804049879628104,
+          "ibm": 1.0576340819219074
+        }
+      },
+      {
+        "name": "sup123_P210_ph021",
+        "relative_error_proxy_mean": 1.0693044319784972,
+        "ratios": {
+          "iqm": 1.0804049879628104,
+          "ibm": 1.0582038759941843
+        }
+      },
+      {
+        "name": "sup123_P210_ph010",
+        "relative_error_proxy_mean": 1.0700636848993237,
+        "ratios": {
+          "iqm": 1.0730885246437507,
+          "ibm": 1.0670388451548967
+        }
+      },
+      {
+        "name": "sup123_P210_ph011",
+        "relative_error_proxy_mean": 1.0700636848993237,
+        "ratios": {
+          "iqm": 1.0730885246437507,
+          "ibm": 1.0670388451548967
+        }
+      },
+      {
+        "name": "sup123_P210_ph012",
+        "relative_error_proxy_mean": 1.0700636848993237,
+        "ratios": {
+          "iqm": 1.0730885246437507,
+          "ibm": 1.0670388451548967
+        }
+      },
+      {
+        "name": "sup023_P102_ph020",
+        "relative_error_proxy_mean": 1.070799935152144,
+        "ratios": {
+          "iqm": 1.0804049879628104,
+          "ibm": 1.0611948823414776
+        }
+      },
+      {
+        "name": "sup013_P102_ph001",
+        "relative_error_proxy_mean": 1.0713230066568116,
+        "ratios": {
+          "iqm": 1.0767467563032804,
+          "ibm": 1.065899257010343
+        }
+      },
+      {
+        "name": "sup013_P102_ph020",
+        "relative_error_proxy_mean": 1.0713230066568116,
+        "ratios": {
+          "iqm": 1.0767467563032804,
+          "ibm": 1.065899257010343
+        }
+      },
+      {
+        "name": "sup013_P102_ph022",
+        "relative_error_proxy_mean": 1.0713230066568116,
+        "ratios": {
+          "iqm": 1.0767467563032804,
+          "ibm": 1.065899257010343
+        }
+      },
+      {
+        "name": "sup123_P210_ph022",
+        "relative_error_proxy_mean": 1.0715131742686754,
+        "ratios": {
+          "iqm": 1.0804049879628104,
+          "ibm": 1.0626213605745407
+        }
+      },
+      {
+        "name": "sup013_P102_ph002",
+        "relative_error_proxy_mean": 1.0718928007290884,
+        "ratios": {
+          "iqm": 1.0767467563032804,
+          "ibm": 1.0670388451548967
+        }
+      },
+      {
+        "name": "sup013_P102_ph010",
+        "relative_error_proxy_mean": 1.0718928007290884,
+        "ratios": {
+          "iqm": 1.0767467563032804,
+          "ibm": 1.0670388451548967
+        }
+      },
+      {
+        "name": "sup013_P102_ph011",
+        "relative_error_proxy_mean": 1.0718928007290884,
+        "ratios": {
+          "iqm": 1.0767467563032804,
+          "ibm": 1.0670388451548967
+        }
+      },
+      {
+        "name": "sup013_P201_ph000",
+        "relative_error_proxy_mean": 1.073008677442322,
+        "ratios": {
+          "iqm": 1.0804049879628104,
+          "ibm": 1.0656123669218338
+        }
+      },
+      {
+        "name": "sup013_P201_ph010",
+        "relative_error_proxy_mean": 1.073008677442322,
+        "ratios": {
+          "iqm": 1.0804049879628104,
+          "ibm": 1.0656123669218338
+        }
+      },
+      {
+        "name": "sup013_P201_ph020",
+        "relative_error_proxy_mean": 1.073008677442322,
+        "ratios": {
+          "iqm": 1.0804049879628104,
+          "ibm": 1.0656123669218338
+        }
+      },
+      {
+        "name": "sup123_P120_ph000",
+        "relative_error_proxy_mean": 1.073008677442322,
+        "ratios": {
+          "iqm": 1.0804049879628104,
+          "ibm": 1.0656123669218338
+        }
+      },
+      {
+        "name": "sup123_P120_ph001",
+        "relative_error_proxy_mean": 1.073008677442322,
+        "ratios": {
+          "iqm": 1.0804049879628104,
+          "ibm": 1.0656123669218338
+        }
+      },
+      {
+        "name": "sup123_P120_ph002",
+        "relative_error_proxy_mean": 1.073008677442322,
+        "ratios": {
+          "iqm": 1.0804049879628104,
+          "ibm": 1.0656123669218338
+        }
+      },
+      {
+        "name": "sup023_P102_ph011",
+        "relative_error_proxy_mean": 1.0770857331263237,
+        "ratios": {
+          "iqm": 1.089134143877576,
+          "ibm": 1.0650373223750715
+        }
+      },
+      {
+        "name": "sup023_P102_ph012",
+        "relative_error_proxy_mean": 1.0777989722428551,
+        "ratios": {
+          "iqm": 1.089134143877576,
+          "ibm": 1.0664638006081344
+        }
+      },
+      {
+        "name": "sup123_P120_ph021",
+        "relative_error_proxy_mean": 1.0777989722428551,
+        "ratios": {
+          "iqm": 1.089134143877576,
+          "ibm": 1.0664638006081344
+        }
+      },
+      {
+        "name": "sup023_P102_ph021",
+        "relative_error_proxy_mean": 1.078947241757344,
+        "ratios": {
+          "iqm": 1.08843967655926,
+          "ibm": 1.069454806955428
+        }
+      },
+      {
+        "name": "sup023_P102_ph022",
+        "relative_error_proxy_mean": 1.079294475416502,
+        "ratios": {
+          "iqm": 1.089134143877576,
+          "ibm": 1.069454806955428
+        }
+      },
+      {
+        "name": "sup123_P120_ph022",
+        "relative_error_proxy_mean": 1.079294475416502,
+        "ratios": {
+          "iqm": 1.089134143877576,
+          "ibm": 1.069454806955428
+        }
+      },
+      {
+        "name": "sup123_P120_ph020",
+        "relative_error_proxy_mean": 1.0796604808738754,
+        "ratios": {
+          "iqm": 1.08843967655926,
+          "ibm": 1.0708812851884906
+        }
+      },
+      {
+        "name": "sup013_P201_ph012",
+        "relative_error_proxy_mean": 1.081155984047522,
+        "ratios": {
+          "iqm": 1.08843967655926,
+          "ibm": 1.073872291535784
+        }
+      },
+      {
+        "name": "sup123_P120_ph012",
+        "relative_error_proxy_mean": 1.081155984047522,
+        "ratios": {
+          "iqm": 1.08843967655926,
+          "ibm": 1.073872291535784
+        }
+      },
+      {
+        "name": "sup013_P201_ph011",
+        "relative_error_proxy_mean": 1.08150321770668,
+        "ratios": {
+          "iqm": 1.089134143877576,
+          "ibm": 1.073872291535784
+        }
+      },
+      {
+        "name": "sup013_P201_ph022",
+        "relative_error_proxy_mean": 1.08150321770668,
+        "ratios": {
+          "iqm": 1.089134143877576,
+          "ibm": 1.073872291535784
+        }
+      },
+      {
+        "name": "sup123_P120_ph011",
+        "relative_error_proxy_mean": 1.08150321770668,
+        "ratios": {
+          "iqm": 1.089134143877576,
+          "ibm": 1.073872291535784
+        }
+      },
+      {
+        "name": "sup013_P201_ph002",
+        "relative_error_proxy_mean": 1.0818692231640534,
+        "ratios": {
+          "iqm": 1.08843967655926,
+          "ibm": 1.0752987697688468
+        }
+      },
+      {
+        "name": "sup013_P201_ph021",
+        "relative_error_proxy_mean": 1.0818692231640534,
+        "ratios": {
+          "iqm": 1.08843967655926,
+          "ibm": 1.0752987697688468
+        }
+      },
+      {
+        "name": "sup123_P120_ph010",
+        "relative_error_proxy_mean": 1.0818692231640534,
+        "ratios": {
+          "iqm": 1.08843967655926,
+          "ibm": 1.0752987697688468
+        }
+      },
+      {
+        "name": "sup013_P201_ph001",
+        "relative_error_proxy_mean": 1.0822164568232113,
+        "ratios": {
+          "iqm": 1.089134143877576,
+          "ibm": 1.0752987697688468
+        }
+      }
+    ]
+  },
+  "ghz3": {
+    "selected": [
+      "sup023_P021_ph001",
+      "sup023_P021_ph011",
+      "sup023_P021_ph021"
+    ],
+    "ranking": [
+      {
+        "name": "sup023_P021_ph001",
+        "relative_error_proxy_mean": 0.9517853419488935,
+        "ratios": {
+          "iqm": 0.976567579436533,
+          "ibm": 0.9270031044612539
+        }
+      },
+      {
+        "name": "sup023_P021_ph011",
+        "relative_error_proxy_mean": 0.9519243378445046,
+        "ratios": {
+          "iqm": 0.9810047581115117,
+          "ibm": 0.9228439175774976
+        }
+      },
+      {
+        "name": "sup023_P021_ph021",
+        "relative_error_proxy_mean": 0.9520814462740387,
+        "ratios": {
+          "iqm": 0.976567579436533,
+          "ibm": 0.9275953131115443
+        }
+      },
+      {
+        "name": "sup023_P021_ph012",
+        "relative_error_proxy_mean": 0.952417817523119,
+        "ratios": {
+          "iqm": 0.9799609556119828,
+          "ibm": 0.9248746794342554
+        }
+      },
+      {
+        "name": "sup023_P021_ph020",
+        "relative_error_proxy_mean": 0.9526712195744371,
+        "ratios": {
+          "iqm": 0.9799609556119828,
+          "ibm": 0.9253814835368913
+        }
+      },
+      {
+        "name": "sup023_P021_ph010",
+        "relative_error_proxy_mean": 0.9534820300366184,
+        "ratios": {
+          "iqm": 0.9799609556119828,
+          "ibm": 0.9270031044612539
+        }
+      },
+      {
+        "name": "sup012_P210_ph020",
+        "relative_error_proxy_mean": 0.9540039312863828,
+        "ratios": {
+          "iqm": 0.9810047581115117,
+          "ibm": 0.9270031044612539
+        }
+      },
+      {
+        "name": "sup023_P021_ph002",
+        "relative_error_proxy_mean": 0.9542849384643994,
+        "ratios": {
+          "iqm": 0.9799609556119828,
+          "ibm": 0.9286089213168162
+        }
+      },
+      {
+        "name": "sup023_P021_ph000",
+        "relative_error_proxy_mean": 0.9550294506254684,
+        "ratios": {
+          "iqm": 0.9799609556119828,
+          "ibm": 0.9300979456389541
+        }
+      },
+      {
+        "name": "sup023_P021_ph022",
+        "relative_error_proxy_mean": 0.9554532855303417,
+        "ratios": {
+          "iqm": 0.976567579436533,
+          "ibm": 0.9343389916241504
+        }
+      },
+      {
+        "name": "sup012_P210_ph000",
+        "relative_error_proxy_mean": 0.9568965715667488,
+        "ratios": {
+          "iqm": 0.9799609556119828,
+          "ibm": 0.9338321875215146
+        }
+      },
+      {
+        "name": "sup012_P210_ph010",
+        "relative_error_proxy_mean": 0.9576158481699822,
+        "ratios": {
+          "iqm": 0.9799609556119828,
+          "ibm": 0.9352707407279817
+        }
+      },
+      {
+        "name": "sup123_P012_ph011",
+        "relative_error_proxy_mean": 0.966791082614922,
+        "ratios": {
+          "iqm": 0.9967650941778433,
+          "ibm": 0.9368170710520005
+        }
+      },
+      {
+        "name": "sup123_P012_ph022",
+        "relative_error_proxy_mean": 0.966791082614922,
+        "ratios": {
+          "iqm": 0.9967650941778433,
+          "ibm": 0.9368170710520005
+        }
+      },
+      {
+        "name": "sup123_P012_ph010",
+        "relative_error_proxy_mean": 0.967095340894497,
+        "ratios": {
+          "iqm": 0.9967650941778433,
+          "ibm": 0.9374255876111507
+        }
+      },
+      {
+        "name": "sup123_P012_ph001",
+        "relative_error_proxy_mean": 0.9678892832539359,
+        "ratios": {
+          "iqm": 0.9967650941778433,
+          "ibm": 0.9390134723300283
+        }
+      },
+      {
+        "name": "sup123_P012_ph002",
+        "relative_error_proxy_mean": 0.9678892832539359,
+        "ratios": {
+          "iqm": 0.9967650941778433,
+          "ibm": 0.9390134723300283
+        }
+      },
+      {
+        "name": "sup123_P012_ph020",
+        "relative_error_proxy_mean": 0.9681426853052537,
+        "ratios": {
+          "iqm": 0.9967650941778433,
+          "ibm": 0.9395202764326641
+        }
+      },
+      {
+        "name": "sup123_P012_ph021",
+        "relative_error_proxy_mean": 0.9681426853052537,
+        "ratios": {
+          "iqm": 0.9967650941778433,
+          "ibm": 0.9395202764326641
+        }
+      },
+      {
+        "name": "sup012_P210_ph001",
+        "relative_error_proxy_mean": 0.9681573768913487,
+        "ratios": {
+          "iqm": 0.9995055847650972,
+          "ibm": 0.9368091690176004
+        }
+      },
+      {
+        "name": "sup012_P120_ph000",
+        "relative_error_proxy_mean": 0.9692837708739839,
+        "ratios": {
+          "iqm": 0.9972739786419069,
+          "ibm": 0.9412935631060607
+        }
+      },
+      {
+        "name": "sup023_P012_ph011",
+        "relative_error_proxy_mean": 0.9693891207627292,
+        "ratios": {
+          "iqm": 0.9972739786419069,
+          "ibm": 0.9415042628835514
+        }
+      },
+      {
+        "name": "sup123_P012_ph000",
+        "relative_error_proxy_mean": 0.9704180966456499,
+        "ratios": {
+          "iqm": 0.9967650941778433,
+          "ibm": 0.9440710991134564
+        }
+      },
+      {
+        "name": "sup023_P012_ph000",
+        "relative_error_proxy_mean": 0.9706464675940465,
+        "ratios": {
+          "iqm": 0.9994925679793967,
+          "ibm": 0.9418003672086964
+        }
+      },
+      {
+        "name": "sup023_P012_ph010",
+        "relative_error_proxy_mean": 0.9706579037424259,
+        "ratios": {
+          "iqm": 0.9972739786419069,
+          "ibm": 0.9440418288429447
+        }
+      },
+      {
+        "name": "sup023_P012_ph020",
+        "relative_error_proxy_mean": 0.9706579037424259,
+        "ratios": {
+          "iqm": 0.9972739786419069,
+          "ibm": 0.9440418288429447
+        }
+      },
+      {
+        "name": "sup023_P012_ph021",
+        "relative_error_proxy_mean": 0.9706579037424259,
+        "ratios": {
+          "iqm": 0.9972739786419069,
+          "ibm": 0.9440418288429447
+        }
+      },
+      {
+        "name": "sup013_P120_ph000",
+        "relative_error_proxy_mean": 0.9706714986969678,
+        "ratios": {
+          "iqm": 0.9967650941778433,
+          "ibm": 0.9445779032160924
+        }
+      },
+      {
+        "name": "sup023_P012_ph002",
+        "relative_error_proxy_mean": 0.9708059559049984,
+        "ratios": {
+          "iqm": 0.9972739786419069,
+          "ibm": 0.9443379331680898
+        }
+      },
+      {
+        "name": "sup023_P012_ph022",
+        "relative_error_proxy_mean": 0.9708998696453646,
+        "ratios": {
+          "iqm": 0.9994925679793967,
+          "ibm": 0.9423071713113323
+        }
+      },
+      {
+        "name": "sup012_P210_ph002",
+        "relative_error_proxy_mean": 0.9714882865969315,
+        "ratios": {
+          "iqm": 0.9995055847650972,
+          "ibm": 0.9434709884287659
+        }
+      },
+      {
+        "name": "sup012_P120_ph020",
+        "relative_error_proxy_mean": 0.9717671984111707,
+        "ratios": {
+          "iqm": 0.9994925679793967,
+          "ibm": 0.9440418288429447
+        }
+      },
+      {
+        "name": "sup023_P012_ph012",
+        "relative_error_proxy_mean": 0.9717671984111707,
+        "ratios": {
+          "iqm": 0.9994925679793967,
+          "ibm": 0.9440418288429447
+        }
+      },
+      {
+        "name": "sup013_P120_ph010",
+        "relative_error_proxy_mean": 0.9717696993359819,
+        "ratios": {
+          "iqm": 0.9967650941778433,
+          "ibm": 0.9467743044941204
+        }
+      },
+      {
+        "name": "sup013_P120_ph020",
+        "relative_error_proxy_mean": 0.9717696993359819,
+        "ratios": {
+          "iqm": 0.9967650941778433,
+          "ibm": 0.9467743044941204
+        }
+      },
+      {
+        "name": "sup023_P012_ph001",
+        "relative_error_proxy_mean": 0.9719152505737432,
+        "ratios": {
+          "iqm": 0.9994925679793967,
+          "ibm": 0.9443379331680898
+        }
+      },
+      {
+        "name": "sup012_P120_ph010",
+        "relative_error_proxy_mean": 0.9721686526250612,
+        "ratios": {
+          "iqm": 0.9994925679793967,
+          "ibm": 0.9448447372707257
+        }
+      },
+      {
+        "name": "sup123_P012_ph012",
+        "relative_error_proxy_mean": 0.9722765034386178,
+        "ratios": {
+          "iqm": 0.9967650941778433,
+          "ibm": 0.9477879126993923
+        }
+      },
+      {
+        "name": "sup012_P210_ph011",
+        "relative_error_proxy_mean": 0.9807116190597538,
+        "ratios": {
+          "iqm": 1.0082988461009728,
+          "ibm": 0.9531243920185349
+        }
+      },
+      {
+        "name": "sup012_P210_ph022",
+        "relative_error_proxy_mean": 0.9813164895072807,
+        "ratios": {
+          "iqm": 1.0127360247759514,
+          "ibm": 0.94989695423861
+        }
+      },
+      {
+        "name": "sup013_P120_ph012",
+        "relative_error_proxy_mean": 0.982104706348967,
+        "ratios": {
+          "iqm": 1.0099955341886977,
+          "ibm": 0.9542138785092363
+        }
+      },
+      {
+        "name": "sup012_P210_ph021",
+        "relative_error_proxy_mean": 0.9832593234298543,
+        "ratios": {
+          "iqm": 1.007255043601444,
+          "ibm": 0.9592636032582648
+        }
+      },
+      {
+        "name": "sup012_P210_ph012",
+        "relative_error_proxy_mean": 0.9837891267140191,
+        "ratios": {
+          "iqm": 1.0082988461009728,
+          "ibm": 0.9592794073270653
+        }
+      },
+      {
+        "name": "sup123_P021_ph000",
+        "relative_error_proxy_mean": 0.9847139014930464,
+        "ratios": {
+          "iqm": 1.0157748052954914,
+          "ibm": 0.9536529976906013
+        }
+      },
+      {
+        "name": "sup012_P120_ph001",
+        "relative_error_proxy_mean": 0.9848192513817917,
+        "ratios": {
+          "iqm": 1.0157748052954914,
+          "ibm": 0.9538636974680921
+        }
+      },
+      {
+        "name": "sup123_P021_ph022",
+        "relative_error_proxy_mean": 0.9848192513817917,
+        "ratios": {
+          "iqm": 1.0157748052954914,
+          "ibm": 0.9538636974680921
+        }
+      },
+      {
+        "name": "sup013_P120_ph011",
+        "relative_error_proxy_mean": 0.9848869217919993,
+        "ratios": {
+          "iqm": 1.0099955341886977,
+          "ibm": 0.9597783093953008
+        }
+      },
+      {
+        "name": "sup013_P120_ph022",
+        "relative_error_proxy_mean": 0.9848869217919993,
+        "ratios": {
+          "iqm": 1.0099955341886977,
+          "ibm": 0.9597783093953008
+        }
+      },
+      {
+        "name": "sup123_P021_ph010",
+        "relative_error_proxy_mean": 0.9851235096613667,
+        "ratios": {
+          "iqm": 1.0157748052954914,
+          "ibm": 0.9544722140272421
+        }
+      },
+      {
+        "name": "sup123_P021_ph011",
+        "relative_error_proxy_mean": 0.9852207055956823,
+        "ratios": {
+          "iqm": 1.0157748052954914,
+          "ibm": 0.9546666058958732
+        }
+      },
+      {
+        "name": "sup013_P210_ph000",
+        "relative_error_proxy_mean": 0.9856751439992184,
+        "ratios": {
+          "iqm": 1.0179933946329807,
+          "ibm": 0.9533568933654561
+        }
+      },
+      {
+        "name": "sup123_P021_ph012",
+        "relative_error_proxy_mean": 0.9859174520208057,
+        "ratios": {
+          "iqm": 1.0157748052954914,
+          "ibm": 0.9560600987461201
+        }
+      },
+      {
+        "name": "sup123_P021_ph021",
+        "relative_error_proxy_mean": 0.9859174520208057,
+        "ratios": {
+          "iqm": 1.0157748052954914,
+          "ibm": 0.9560600987461201
+        }
+      },
+      {
+        "name": "sup013_P120_ph001",
+        "relative_error_proxy_mean": 0.9862385244823311,
+        "ratios": {
+          "iqm": 1.0099955341886977,
+          "ibm": 0.9624815147759644
+        }
+      },
+      {
+        "name": "sup013_P120_ph002",
+        "relative_error_proxy_mean": 0.9862385244823311,
+        "ratios": {
+          "iqm": 1.0099955341886977,
+          "ibm": 0.9624815147759644
+        }
+      },
+      {
+        "name": "sup013_P120_ph021",
+        "relative_error_proxy_mean": 0.9862385244823311,
+        "ratios": {
+          "iqm": 1.0099955341886977,
+          "ibm": 0.9624815147759644
+        }
+      },
+      {
+        "name": "sup012_P120_ph002",
+        "relative_error_proxy_mean": 0.9863300002644269,
+        "ratios": {
+          "iqm": 1.0179933946329807,
+          "ibm": 0.9546666058958732
+        }
+      },
+      {
+        "name": "sup013_P210_ph010",
+        "relative_error_proxy_mean": 0.9865723082860143,
+        "ratios": {
+          "iqm": 1.0157748052954914,
+          "ibm": 0.9573698112765371
+        }
+      },
+      {
+        "name": "sup123_P021_ph001",
+        "relative_error_proxy_mean": 0.9865723082860143,
+        "ratios": {
+          "iqm": 1.0157748052954914,
+          "ibm": 0.9573698112765371
+        }
+      },
+      {
+        "name": "sup123_P021_ph002",
+        "relative_error_proxy_mean": 0.9865723082860143,
+        "ratios": {
+          "iqm": 1.0157748052954914,
+          "ibm": 0.9573698112765371
+        }
+      },
+      {
+        "name": "sup123_P021_ph020",
+        "relative_error_proxy_mean": 0.9865723082860143,
+        "ratios": {
+          "iqm": 1.0157748052954914,
+          "ibm": 0.9573698112765371
+        }
+      },
+      {
+        "name": "sup013_P210_ph020",
+        "relative_error_proxy_mean": 0.9872801487408683,
+        "ratios": {
+          "iqm": 1.0179933946329807,
+          "ibm": 0.956566902848756
+        }
+      },
+      {
+        "name": "sup023_P201_ph000",
+        "relative_error_proxy_mean": 0.9951826116653815,
+        "ratios": {
+          "iqm": 1.030902006882107,
+          "ibm": 0.9594632164486557
+        }
+      },
+      {
+        "name": "sup012_P012_ph012",
+        "relative_error_proxy_mean": 0.996216932724814,
+        "ratios": {
+          "iqm": 0.9924338654496281,
+          "ibm": 1.0
+        }
+      },
+      {
+        "name": "sup012_P012_ph021",
+        "relative_error_proxy_mean": 0.996216932724814,
+        "ratios": {
+          "iqm": 0.9924338654496281,
+          "ibm": 1.0
+        }
+      },
+      {
+        "name": "sup012_P021_ph000",
+        "relative_error_proxy_mean": 0.996216932724814,
+        "ratios": {
+          "iqm": 0.9924338654496281,
+          "ibm": 1.0
+        }
+      },
+      {
+        "name": "sup012_P021_ph012",
+        "relative_error_proxy_mean": 0.996216932724814,
+        "ratios": {
+          "iqm": 0.9924338654496281,
+          "ibm": 1.0
+        }
+      },
+      {
+        "name": "sup012_P021_ph021",
+        "relative_error_proxy_mean": 0.996216932724814,
+        "ratios": {
+          "iqm": 0.9924338654496281,
+          "ibm": 1.0
+        }
+      },
+      {
+        "name": "sup013_P210_ph022",
+        "relative_error_proxy_mean": 0.9982744683228688,
+        "ratios": {
+          "iqm": 1.0290052453063456,
+          "ibm": 0.9675436913393921
+        }
+      },
+      {
+        "name": "sup013_P210_ph011",
+        "relative_error_proxy_mean": 0.9986759225367594,
+        "ratios": {
+          "iqm": 1.0290052453063456,
+          "ibm": 0.9683465997671732
+        }
+      },
+      {
+        "name": "sup012_P120_ph021",
+        "relative_error_proxy_mean": 0.9987812724255047,
+        "ratios": {
+          "iqm": 1.0290052453063456,
+          "ibm": 0.9685572995446637
+        }
+      },
+      {
+        "name": "sup012_P120_ph011",
+        "relative_error_proxy_mean": 0.9996371650429314,
+        "ratios": {
+          "iqm": 1.0312238346438352,
+          "ibm": 0.9680504954420278
+        }
+      },
+      {
+        "name": "sup012_P120_ph022",
+        "relative_error_proxy_mean": 0.9996371650429314,
+        "ratios": {
+          "iqm": 1.0312238346438352,
+          "ibm": 0.9680504954420278
+        }
+      },
+      {
+        "name": "sup012_P120_ph012",
+        "relative_error_proxy_mean": 0.9998905670942495,
+        "ratios": {
+          "iqm": 1.0312238346438352,
+          "ibm": 0.9685572995446637
+        }
+      },
+      {
+        "name": "sup013_P210_ph002",
+        "relative_error_proxy_mean": 1.000534329329727,
+        "ratios": {
+          "iqm": 1.0290052453063456,
+          "ibm": 0.9720634133531086
+        }
+      },
+      {
+        "name": "sup013_P210_ph012",
+        "relative_error_proxy_mean": 1.000534329329727,
+        "ratios": {
+          "iqm": 1.0290052453063456,
+          "ibm": 0.9720634133531086
+        }
+      },
+      {
+        "name": "sup013_P210_ph021",
+        "relative_error_proxy_mean": 1.000534329329727,
+        "ratios": {
+          "iqm": 1.0290052453063456,
+          "ibm": 0.9720634133531086
+        }
+      },
+      {
+        "name": "sup013_P210_ph001",
+        "relative_error_proxy_mean": 1.0012421697845815,
+        "ratios": {
+          "iqm": 1.0312238346438352,
+          "ibm": 0.9712605049253277
+        }
+      },
+      {
+        "name": "sup023_P201_ph002",
+        "relative_error_proxy_mean": 1.0130591971439422,
+        "ratios": {
+          "iqm": 1.0494917964843482,
+          "ibm": 0.9766265978035363
+        }
+      },
+      {
+        "name": "sup023_P201_ph001",
+        "relative_error_proxy_mean": 1.0147290496448862,
+        "ratios": {
+          "iqm": 1.052831501486236,
+          "ibm": 0.9766265978035363
+        }
+      },
+      {
+        "name": "sup012_P012_ph001",
+        "relative_error_proxy_mean": 1.0152911033055019,
+        "ratios": {
+          "iqm": 1.051161648985292,
+          "ibm": 0.9794205576257117
+        }
+      },
+      {
+        "name": "sup012_P012_ph002",
+        "relative_error_proxy_mean": 1.0152911033055019,
+        "ratios": {
+          "iqm": 1.051161648985292,
+          "ibm": 0.9794205576257117
+        }
+      },
+      {
+        "name": "sup012_P012_ph010",
+        "relative_error_proxy_mean": 1.0152911033055019,
+        "ratios": {
+          "iqm": 1.051161648985292,
+          "ibm": 0.9794205576257117
+        }
+      },
+      {
+        "name": "sup012_P012_ph011",
+        "relative_error_proxy_mean": 1.0152911033055019,
+        "ratios": {
+          "iqm": 1.051161648985292,
+          "ibm": 0.9794205576257117
+        }
+      },
+      {
+        "name": "sup012_P012_ph020",
+        "relative_error_proxy_mean": 1.0152911033055019,
+        "ratios": {
+          "iqm": 1.051161648985292,
+          "ibm": 0.9794205576257117
+        }
+      },
+      {
+        "name": "sup012_P012_ph022",
+        "relative_error_proxy_mean": 1.0152911033055019,
+        "ratios": {
+          "iqm": 1.051161648985292,
+          "ibm": 0.9794205576257117
+        }
+      },
+      {
+        "name": "sup023_P102_ph000",
+        "relative_error_proxy_mean": 1.0175071331668397,
+        "ratios": {
+          "iqm": 1.0536143533608828,
+          "ibm": 0.9813999129727967
+        }
+      },
+      {
+        "name": "sup023_P102_ph002",
+        "relative_error_proxy_mean": 1.0352332857788356,
+        "ratios": {
+          "iqm": 1.0711286426620972,
+          "ibm": 0.999337928895574
+        }
+      },
+      {
+        "name": "sup012_P021_ph002",
+        "relative_error_proxy_mean": 1.0355658840697854,
+        "ratios": {
+          "iqm": 1.0717938392439967,
+          "ibm": 0.999337928895574
+        }
+      },
+      {
+        "name": "sup012_P021_ph020",
+        "relative_error_proxy_mean": 1.0355871489514614,
+        "ratios": {
+          "iqm": 1.070479990489385,
+          "ibm": 1.0006943074135377
+        }
+      },
+      {
+        "name": "sup012_P021_ph011",
+        "relative_error_proxy_mean": 1.0356053605401168,
+        "ratios": {
+          "iqm": 1.0711286426620972,
+          "ibm": 1.0000820784181366
+        }
+      },
+      {
+        "name": "sup012_P021_ph001",
+        "relative_error_proxy_mean": 1.0358902101561416,
+        "ratios": {
+          "iqm": 1.072442491416709,
+          "ibm": 0.999337928895574
+        }
+      },
+      {
+        "name": "sup012_P021_ph022",
+        "relative_error_proxy_mean": 1.0359379588310667,
+        "ratios": {
+          "iqm": 1.0717938392439967,
+          "ibm": 1.0000820784181366
+        }
+      },
+      {
+        "name": "sup013_P102_ph021",
+        "relative_error_proxy_mean": 1.0360175499718483,
+        "ratios": {
+          "iqm": 1.0759226214740765,
+          "ibm": 0.9961124784696201
+        }
+      },
+      {
+        "name": "sup023_P201_ph021",
+        "relative_error_proxy_mean": 1.0365132454839339,
+        "ratios": {
+          "iqm": 1.0761444255184738,
+          "ibm": 0.9968820654493941
+        }
+      },
+      {
+        "name": "sup012_P021_ph010",
+        "relative_error_proxy_mean": 1.0365683994151234,
+        "ratios": {
+          "iqm": 1.072442491416709,
+          "ibm": 1.0006943074135377
+        }
+      },
+      {
+        "name": "sup023_P102_ph001",
+        "relative_error_proxy_mean": 1.0365683994151234,
+        "ratios": {
+          "iqm": 1.072442491416709,
+          "ibm": 1.0006943074135377
+        }
+      },
+      {
+        "name": "sup023_P201_ph012",
+        "relative_error_proxy_mean": 1.0381738682604165,
+        "ratios": {
+          "iqm": 1.0777101292677675,
+          "ibm": 0.9986376072530655
+        }
+      },
+      {
+        "name": "sup123_P210_ph001",
+        "relative_error_proxy_mean": 1.0382676677220635,
+        "ratios": {
+          "iqm": 1.0782411261477325,
+          "ibm": 0.9982942092963945
+        }
+      },
+      {
+        "name": "sup123_P210_ph000",
+        "relative_error_proxy_mean": 1.0410616275442388,
+        "ratios": {
+          "iqm": 1.0782411261477325,
+          "ibm": 1.003882128940745
+        }
+      },
+      {
+        "name": "sup123_P210_ph002",
+        "relative_error_proxy_mean": 1.0410616275442388,
+        "ratios": {
+          "iqm": 1.0782411261477325,
+          "ibm": 1.003882128940745
+        }
+      },
+      {
+        "name": "sup013_P102_ph012",
+        "relative_error_proxy_mean": 1.041605469616199,
+        "ratios": {
+          "iqm": 1.0759226214740765,
+          "ibm": 1.0072883177583212
+        }
+      },
+      {
+        "name": "sup013_P102_ph000",
+        "relative_error_proxy_mean": 1.043923974289855,
+        "ratios": {
+          "iqm": 1.0805596308213885,
+          "ibm": 1.0072883177583212
+        }
+      },
+      {
+        "name": "sup023_P201_ph020",
+        "relative_error_proxy_mean": 1.0557036797171062,
+        "ratios": {
+          "iqm": 1.0973619126299383,
+          "ibm": 1.014045446804274
+        }
+      },
+      {
+        "name": "sup023_P201_ph022",
+        "relative_error_proxy_mean": 1.0557036797171062,
+        "ratios": {
+          "iqm": 1.0973619126299383,
+          "ibm": 1.014045446804274
+        }
+      },
+      {
+        "name": "sup023_P201_ph010",
+        "relative_error_proxy_mean": 1.0562212300318867,
+        "ratios": {
+          "iqm": 1.100701617631826,
+          "ibm": 1.0117408424319472
+        }
+      },
+      {
+        "name": "sup123_P210_ph020",
+        "relative_error_proxy_mean": 1.0563659926758664,
+        "ratios": {
+          "iqm": 1.098144764504585,
+          "ibm": 1.0145872208471476
+        }
+      },
+      {
+        "name": "sup123_P210_ph021",
+        "relative_error_proxy_mean": 1.0568448406385627,
+        "ratios": {
+          "iqm": 1.0999187657571792,
+          "ibm": 1.0137709155199464
+        }
+      },
+      {
+        "name": "sup013_P102_ph010",
+        "relative_error_proxy_mean": 1.057878157103561,
+        "ratios": {
+          "iqm": 1.0982489132562352,
+          "ibm": 1.0175074009508869
+        }
+      },
+      {
+        "name": "sup023_P201_ph011",
+        "relative_error_proxy_mean": 1.0580894868756805,
+        "ratios": {
+          "iqm": 1.0973619126299383,
+          "ibm": 1.0188170611214227
+        }
+      },
+      {
+        "name": "sup013_P102_ph002",
+        "relative_error_proxy_mean": 1.0586610089782078,
+        "ratios": {
+          "iqm": 1.099814617005529,
+          "ibm": 1.0175074009508869
+        }
+      },
+      {
+        "name": "sup023_P102_ph010",
+        "relative_error_proxy_mean": 1.0589993135538402,
+        "ratios": {
+          "iqm": 1.101484469506473,
+          "ibm": 1.0165141576012073
+        }
+      },
+      {
+        "name": "sup123_P210_ph012",
+        "relative_error_proxy_mean": 1.0592230626388235,
+        "ratios": {
+          "iqm": 1.098144764504585,
+          "ibm": 1.020301360773062
+        }
+      },
+      {
+        "name": "sup123_P210_ph022",
+        "relative_error_proxy_mean": 1.059302803601776,
+        "ratios": {
+          "iqm": 1.0999187657571792,
+          "ibm": 1.0186868414463728
+        }
+      },
+      {
+        "name": "sup013_P102_ph001",
+        "relative_error_proxy_mean": 1.0601303428828626,
+        "ratios": {
+          "iqm": 1.0982489132562352,
+          "ibm": 1.0220117725094897
+        }
+      },
+      {
+        "name": "sup013_P102_ph020",
+        "relative_error_proxy_mean": 1.0601303428828626,
+        "ratios": {
+          "iqm": 1.0982489132562352,
+          "ibm": 1.0220117725094897
+        }
+      },
+      {
+        "name": "sup013_P102_ph022",
+        "relative_error_proxy_mean": 1.0601303428828626,
+        "ratios": {
+          "iqm": 1.0982489132562352,
+          "ibm": 1.0220117725094897
+        }
+      },
+      {
+        "name": "sup023_P102_ph020",
+        "relative_error_proxy_mean": 1.0601516157400035,
+        "ratios": {
+          "iqm": 1.101484469506473,
+          "ibm": 1.018818761973534
+        }
+      },
+      {
+        "name": "sup013_P201_ph010",
+        "relative_error_proxy_mean": 1.0602147258807855,
+        "ratios": {
+          "iqm": 1.101484469506473,
+          "ibm": 1.0189449822550982
+        }
+      },
+      {
+        "name": "sup123_P120_ph001",
+        "relative_error_proxy_mean": 1.0602147258807855,
+        "ratios": {
+          "iqm": 1.101484469506473,
+          "ibm": 1.0189449822550982
+        }
+      },
+      {
+        "name": "sup013_P102_ph011",
+        "relative_error_proxy_mean": 1.060672116925736,
+        "ratios": {
+          "iqm": 1.0982489132562352,
+          "ibm": 1.0230953205952371
+        }
+      },
+      {
+        "name": "sup123_P210_ph011",
+        "relative_error_proxy_mean": 1.061234170586352,
+        "ratios": {
+          "iqm": 1.0965790607552914,
+          "ibm": 1.0258892804174125
+        }
+      },
+      {
+        "name": "sup123_P210_ph010",
+        "relative_error_proxy_mean": 1.0620170224609988,
+        "ratios": {
+          "iqm": 1.098144764504585,
+          "ibm": 1.0258892804174125
+        }
+      },
+      {
+        "name": "sup013_P201_ph000",
+        "relative_error_proxy_mean": 1.0630086857029606,
+        "ratios": {
+          "iqm": 1.101484469506473,
+          "ibm": 1.0245329018994485
+        }
+      },
+      {
+        "name": "sup013_P201_ph020",
+        "relative_error_proxy_mean": 1.0630086857029606,
+        "ratios": {
+          "iqm": 1.101484469506473,
+          "ibm": 1.0245329018994485
+        }
+      },
+      {
+        "name": "sup123_P120_ph000",
+        "relative_error_proxy_mean": 1.0630086857029606,
+        "ratios": {
+          "iqm": 1.101484469506473,
+          "ibm": 1.0245329018994485
+        }
+      },
+      {
+        "name": "sup123_P120_ph002",
+        "relative_error_proxy_mean": 1.0630086857029606,
+        "ratios": {
+          "iqm": 1.101484469506473,
+          "ibm": 1.0245329018994485
+        }
+      },
+      {
+        "name": "sup023_P102_ph021",
+        "relative_error_proxy_mean": 1.077505693590717,
+        "ratios": {
+          "iqm": 1.1189987588076864,
+          "ibm": 1.0360126283737476
+        }
+      },
+      {
+        "name": "sup123_P120_ph022",
+        "relative_error_proxy_mean": 1.0781626179680228,
+        "ratios": {
+          "iqm": 1.1203126075622982,
+          "ibm": 1.0360126283737476
+        }
+      },
+      {
+        "name": "sup123_P120_ph020",
+        "relative_error_proxy_mean": 1.078231631524624,
+        "ratios": {
+          "iqm": 1.1183501066349744,
+          "ibm": 1.0381131564142738
+        }
+      },
+      {
+        "name": "sup013_P201_ph002",
+        "relative_error_proxy_mean": 1.078294741665406,
+        "ratios": {
+          "iqm": 1.1183501066349744,
+          "ibm": 1.0382393766958375
+        }
+      },
+      {
+        "name": "sup023_P102_ph012",
+        "relative_error_proxy_mean": 1.078432654563404,
+        "ratios": {
+          "iqm": 1.1203126075622982,
+          "ibm": 1.0365527015645097
+        }
+      },
+      {
+        "name": "sup123_P120_ph021",
+        "relative_error_proxy_mean": 1.0784804032383293,
+        "ratios": {
+          "iqm": 1.1196639553895862,
+          "ibm": 1.0372968510870721
+        }
+      },
+      {
+        "name": "sup023_P102_ph011",
+        "relative_error_proxy_mean": 1.0784986148269848,
+        "ratios": {
+          "iqm": 1.1203126075622982,
+          "ibm": 1.0366846220916714
+        }
+      },
+      {
+        "name": "sup023_P102_ph022",
+        "relative_error_proxy_mean": 1.0789067674905852,
+        "ratios": {
+          "iqm": 1.1203126075622982,
+          "ibm": 1.0375009274188725
+        }
+      },
+      {
+        "name": "sup013_P201_ph021",
+        "relative_error_proxy_mean": 1.0789516660427119,
+        "ratios": {
+          "iqm": 1.1196639553895862,
+          "ibm": 1.0382393766958375
+        }
+      },
+      {
+        "name": "sup123_P120_ph010",
+        "relative_error_proxy_mean": 1.0810409528126557,
+        "ratios": {
+          "iqm": 1.1189987588076864,
+          "ibm": 1.043083146817625
+        }
+      },
+      {
+        "name": "sup123_P120_ph011",
+        "relative_error_proxy_mean": 1.0811069130762365,
+        "ratios": {
+          "iqm": 1.1189987588076864,
+          "ibm": 1.0432150673447866
+        }
+      },
+      {
+        "name": "sup013_P201_ph012",
+        "relative_error_proxy_mean": 1.0813917626922611,
+        "ratios": {
+          "iqm": 1.1203126075622982,
+          "ibm": 1.042470917822224
+        }
+      },
+      {
+        "name": "sup013_P201_ph022",
+        "relative_error_proxy_mean": 1.0813917626922611,
+        "ratios": {
+          "iqm": 1.1203126075622982,
+          "ibm": 1.042470917822224
+        }
+      },
+      {
+        "name": "sup123_P120_ph012",
+        "relative_error_proxy_mean": 1.0813917626922611,
+        "ratios": {
+          "iqm": 1.1203126075622982,
+          "ibm": 1.042470917822224
+        }
+      },
+      {
+        "name": "sup013_P201_ph001",
+        "relative_error_proxy_mean": 1.081413027573937,
+        "ratios": {
+          "iqm": 1.1189987588076864,
+          "ibm": 1.0438272963401878
+        }
+      },
+      {
+        "name": "sup013_P201_ph011",
+        "relative_error_proxy_mean": 1.0817638374535425,
+        "ratios": {
+          "iqm": 1.1203126075622982,
+          "ibm": 1.0432150673447866
+        }
+      },
+      {
+        "name": "sup013_P012_ph000",
+        "relative_error_proxy_mean": 1.1987183371750647,
+        "ratios": {
+          "iqm": 1.254113872016358,
+          "ibm": 1.1433228023337711
+        }
+      },
+      {
+        "name": "sup013_P012_ph002",
+        "relative_error_proxy_mean": 1.1987183371750647,
+        "ratios": {
+          "iqm": 1.254113872016358,
+          "ibm": 1.1433228023337711
+        }
+      },
+      {
+        "name": "sup013_P012_ph001",
+        "relative_error_proxy_mean": 1.1995011890497116,
+        "ratios": {
+          "iqm": 1.255679575765652,
+          "ibm": 1.1433228023337711
+        }
+      },
+      {
+        "name": "sup013_P012_ph010",
+        "relative_error_proxy_mean": 1.1996278900753705,
+        "ratios": {
+          "iqm": 1.255679575765652,
+          "ibm": 1.143576204385089
+        }
+      },
+      {
+        "name": "sup123_P201_ph000",
+        "relative_error_proxy_mean": 1.2014599601090976,
+        "ratios": {
+          "iqm": 1.2590903137817884,
+          "ibm": 1.1438296064364069
+        }
+      },
+      {
+        "name": "sup123_P201_ph001",
+        "relative_error_proxy_mean": 1.2014599601090976,
+        "ratios": {
+          "iqm": 1.2590903137817884,
+          "ibm": 1.1438296064364069
+        }
+      },
+      {
+        "name": "sup123_P201_ph002",
+        "relative_error_proxy_mean": 1.2014599601090976,
+        "ratios": {
+          "iqm": 1.2590903137817884,
+          "ibm": 1.1438296064364069
+        }
+      },
+      {
+        "name": "sup013_P012_ph012",
+        "relative_error_proxy_mean": 1.2029119270658484,
+        "ratios": {
+          "iqm": 1.2625010517979254,
+          "ibm": 1.1433228023337711
+        }
+      },
+      {
+        "name": "sup013_P012_ph011",
+        "relative_error_proxy_mean": 1.2033146758635183,
+        "ratios": {
+          "iqm": 1.2640667555472191,
+          "ibm": 1.1425625961798174
+        }
+      },
+      {
+        "name": "sup013_P012_ph020",
+        "relative_error_proxy_mean": 1.203418731168484,
+        "ratios": {
+          "iqm": 1.2625010517979254,
+          "ibm": 1.1443364105390428
+        }
+      },
+      {
+        "name": "sup013_P012_ph021",
+        "relative_error_proxy_mean": 1.203418731168484,
+        "ratios": {
+          "iqm": 1.2625010517979254,
+          "ibm": 1.1443364105390428
+        }
+      },
+      {
+        "name": "sup013_P012_ph022",
+        "relative_error_proxy_mean": 1.203418731168484,
+        "ratios": {
+          "iqm": 1.2625010517979254,
+          "ibm": 1.1443364105390428
+        }
+      },
+      {
+        "name": "sup013_P021_ph010",
+        "relative_error_proxy_mean": 1.220546942140305,
+        "ratios": {
+          "iqm": 1.282782335392966,
+          "ibm": 1.158311548887644
+        }
+      },
+      {
+        "name": "sup123_P102_ph002",
+        "relative_error_proxy_mean": 1.2209383680776285,
+        "ratios": {
+          "iqm": 1.2835651872676128,
+          "ibm": 1.158311548887644
+        }
+      },
+      {
+        "name": "sup013_P021_ph020",
+        "relative_error_proxy_mean": 1.2211917701289463,
+        "ratios": {
+          "iqm": 1.2835651872676128,
+          "ibm": 1.1588183529902798
+        }
+      },
+      {
+        "name": "sup013_P021_ph022",
+        "relative_error_proxy_mean": 1.221571873205923,
+        "ratios": {
+          "iqm": 1.2835651872676128,
+          "ibm": 1.1595785591442334
+        }
+      },
+      {
+        "name": "sup013_P021_ph011",
+        "relative_error_proxy_mean": 1.2216044797753853,
+        "ratios": {
+          "iqm": 1.2836304004065373,
+          "ibm": 1.1595785591442334
+        }
+      },
+      {
+        "name": "sup123_P102_ph001",
+        "relative_error_proxy_mean": 1.2216053661369388,
+        "ratios": {
+          "iqm": 1.2836304004065373,
+          "ibm": 1.1595803318673406
+        }
+      },
+      {
+        "name": "sup013_P021_ph002",
+        "relative_error_proxy_mean": 1.2218148387584482,
+        "ratios": {
+          "iqm": 1.282782335392966,
+          "ibm": 1.1608473421239303
+        }
+      },
+      {
+        "name": "sup013_P021_ph001",
+        "relative_error_proxy_mean": 1.2223768951512395,
+        "ratios": {
+          "iqm": 1.2844132522811844,
+          "ibm": 1.1603405380212943
+        }
+      },
+      {
+        "name": "sup013_P021_ph000",
+        "relative_error_proxy_mean": 1.2241991029053092,
+        "ratios": {
+          "iqm": 1.2844132522811844,
+          "ibm": 1.1639849535294338
+        }
+      },
+      {
+        "name": "sup013_P021_ph012",
+        "relative_error_proxy_mean": 1.2241991029053092,
+        "ratios": {
+          "iqm": 1.2844132522811844,
+          "ibm": 1.1639849535294338
+        }
+      },
+      {
+        "name": "sup013_P021_ph021",
+        "relative_error_proxy_mean": 1.2241991029053092,
+        "ratios": {
+          "iqm": 1.2844132522811844,
+          "ibm": 1.1639849535294338
+        }
+      },
+      {
+        "name": "sup123_P102_ph000",
+        "relative_error_proxy_mean": 1.2241991029053092,
+        "ratios": {
+          "iqm": 1.2844132522811844,
+          "ibm": 1.1639849535294338
+        }
+      },
+      {
+        "name": "sup012_P102_ph021",
+        "relative_error_proxy_mean": 1.2390281697901888,
+        "ratios": {
+          "iqm": 1.298508669376656,
+          "ibm": 1.1795476702037215
+        }
+      },
+      {
+        "name": "sup012_P102_ph000",
+        "relative_error_proxy_mean": 1.2394082728671656,
+        "ratios": {
+          "iqm": 1.298508669376656,
+          "ibm": 1.180307876357675
+        }
+      },
+      {
+        "name": "sup012_P102_ph010",
+        "relative_error_proxy_mean": 1.2394082728671656,
+        "ratios": {
+          "iqm": 1.298508669376656,
+          "ibm": 1.180307876357675
+        }
+      },
+      {
+        "name": "sup123_P201_ph010",
+        "relative_error_proxy_mean": 1.2394455113793386,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.1754059116165905
+        }
+      },
+      {
+        "name": "sup123_P201_ph011",
+        "relative_error_proxy_mean": 1.2394455113793386,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.1754059116165905
+        }
+      },
+      {
+        "name": "sup123_P201_ph020",
+        "relative_error_proxy_mean": 1.2394455113793386,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.1754059116165905
+        }
+      },
+      {
+        "name": "sup123_P201_ph021",
+        "relative_error_proxy_mean": 1.2394455113793386,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.1754059116165905
+        }
+      },
+      {
+        "name": "sup123_P201_ph022",
+        "relative_error_proxy_mean": 1.2394455113793386,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.1754059116165905
+        }
+      },
+      {
+        "name": "sup123_P201_ph012",
+        "relative_error_proxy_mean": 1.2398256144563153,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.1761661177705443
+        }
+      },
+      {
+        "name": "sup012_P102_ph012",
+        "relative_error_proxy_mean": 1.2399150769698015,
+        "ratios": {
+          "iqm": 1.298508669376656,
+          "ibm": 1.181321484562947
+        }
+      },
+      {
+        "name": "sup023_P210_ph020",
+        "relative_error_proxy_mean": 1.2403324185589513,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.1771797259758159
+        }
+      },
+      {
+        "name": "sup023_P210_ph021",
+        "relative_error_proxy_mean": 1.2403324185589513,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.1771797259758159
+        }
+      },
+      {
+        "name": "sup023_P210_ph022",
+        "relative_error_proxy_mean": 1.2403324185589513,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.1771797259758159
+        }
+      },
+      {
+        "name": "sup012_P102_ph020",
+        "relative_error_proxy_mean": 1.2406979288444484,
+        "ratios": {
+          "iqm": 1.30007437312595,
+          "ibm": 1.181321484562947
+        }
+      },
+      {
+        "name": "sup023_P210_ph001",
+        "relative_error_proxy_mean": 1.241769792724222,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.1800544743063575
+        }
+      },
+      {
+        "name": "sup023_P210_ph010",
+        "relative_error_proxy_mean": 1.241769792724222,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.1800544743063575
+        }
+      },
+      {
+        "name": "sup023_P210_ph012",
+        "relative_error_proxy_mean": 1.241769792724222,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.1800544743063575
+        }
+      },
+      {
+        "name": "sup023_P210_ph000",
+        "relative_error_proxy_mean": 1.242149895801199,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.180814680460311
+        }
+      },
+      {
+        "name": "sup023_P210_ph002",
+        "relative_error_proxy_mean": 1.242149895801199,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.180814680460311
+        }
+      },
+      {
+        "name": "sup023_P210_ph011",
+        "relative_error_proxy_mean": 1.242149895801199,
+        "ratios": {
+          "iqm": 1.3034851111420866,
+          "ibm": 1.180814680460311
+        }
+      },
+      {
+        "name": "sup012_P102_ph002",
+        "relative_error_proxy_mean": 1.2432217596809725,
+        "ratios": {
+          "iqm": 1.3068958491582234,
+          "ibm": 1.1795476702037215
+        }
+      },
+      {
+        "name": "sup012_P102_ph001",
+        "relative_error_proxy_mean": 1.2441086668605852,
+        "ratios": {
+          "iqm": 1.3068958491582234,
+          "ibm": 1.181321484562947
+        }
+      },
+      {
+        "name": "sup012_P102_ph011",
+        "relative_error_proxy_mean": 1.2441086668605852,
+        "ratios": {
+          "iqm": 1.3068958491582234,
+          "ibm": 1.181321484562947
+        }
+      },
+      {
+        "name": "sup012_P102_ph022",
+        "relative_error_proxy_mean": 1.2443847146325961,
+        "ratios": {
+          "iqm": 1.3084615529075172,
+          "ibm": 1.180307876357675
+        }
+      },
+      {
+        "name": "sup123_P102_ph011",
+        "relative_error_proxy_mean": 1.2592926995644995,
+        "ratios": {
+          "iqm": 1.3271771327532638,
+          "ibm": 1.1914082663757353
+        }
+      },
+      {
+        "name": "sup123_P102_ph012",
+        "relative_error_proxy_mean": 1.2596841255018232,
+        "ratios": {
+          "iqm": 1.3279599846279109,
+          "ibm": 1.1914082663757353
+        }
+      },
+      {
+        "name": "sup023_P120_ph021",
+        "relative_error_proxy_mean": 1.2603071941313249,
+        "ratios": {
+          "iqm": 1.3271771327532638,
+          "ibm": 1.1934372555093862
+        }
+      },
+      {
+        "name": "sup123_P102_ph021",
+        "relative_error_proxy_mean": 1.2603185169916715,
+        "ratios": {
+          "iqm": 1.3279599846279109,
+          "ibm": 1.1926770493554324
+        }
+      },
+      {
+        "name": "sup123_P102_ph022",
+        "relative_error_proxy_mean": 1.2603185169916715,
+        "ratios": {
+          "iqm": 1.3279599846279109,
+          "ibm": 1.1926770493554324
+        }
+      },
+      {
+        "name": "sup023_P120_ph020",
+        "relative_error_proxy_mean": 1.260433895156984,
+        "ratios": {
+          "iqm": 1.3271771327532638,
+          "ibm": 1.193690657560704
+        }
+      },
+      {
+        "name": "sup023_P120_ph022",
+        "relative_error_proxy_mean": 1.2608253210943074,
+        "ratios": {
+          "iqm": 1.3279599846279109,
+          "ibm": 1.193690657560704
+        }
+      },
+      {
+        "name": "sup023_P120_ph000",
+        "relative_error_proxy_mean": 1.2616247261662479,
+        "ratios": {
+          "iqm": 1.3288080496414822,
+          "ibm": 1.1944414026910133
+        }
+      },
+      {
+        "name": "sup023_P120_ph012",
+        "relative_error_proxy_mean": 1.2616283037697298,
+        "ratios": {
+          "iqm": 1.3279599846279109,
+          "ibm": 1.195296622911549
+        }
+      },
+      {
+        "name": "sup012_P201_ph012",
+        "relative_error_proxy_mean": 1.2619256352508565,
+        "ratios": {
+          "iqm": 1.3288080496414822,
+          "ibm": 1.1950432208602308
+        }
+      },
+      {
+        "name": "sup012_P201_ph010",
+        "relative_error_proxy_mean": 1.2620084068467068,
+        "ratios": {
+          "iqm": 1.3279599846279109,
+          "ibm": 1.1960568290655025
+        }
+      },
+      {
+        "name": "sup012_P201_ph001",
+        "relative_error_proxy_mean": 1.2620410134161688,
+        "ratios": {
+          "iqm": 1.3280251977668351,
+          "ibm": 1.1960568290655025
+        }
+      },
+      {
+        "name": "sup012_P201_ph002",
+        "relative_error_proxy_mean": 1.2620410134161688,
+        "ratios": {
+          "iqm": 1.3280251977668351,
+          "ibm": 1.1960568290655025
+        }
+      },
+      {
+        "name": "sup012_P201_ph020",
+        "relative_error_proxy_mean": 1.2622513723992315,
+        "ratios": {
+          "iqm": 1.3271771327532638,
+          "ibm": 1.1973256120451992
+        }
+      },
+      {
+        "name": "sup023_P120_ph010",
+        "relative_error_proxy_mean": 1.2624324393534923,
+        "ratios": {
+          "iqm": 1.3288080496414822,
+          "ibm": 1.1960568290655025
+        }
+      },
+      {
+        "name": "sup012_P201_ph021",
+        "relative_error_proxy_mean": 1.262516097310896,
+        "ratios": {
+          "iqm": 1.3279599846279109,
+          "ibm": 1.1970722099938813
+        }
+      },
+      {
+        "name": "sup123_P102_ph010",
+        "relative_error_proxy_mean": 1.2625647572525271,
+        "ratios": {
+          "iqm": 1.3288080496414822,
+          "ibm": 1.196321464863572
+        }
+      },
+      {
+        "name": "sup123_P102_ph020",
+        "relative_error_proxy_mean": 1.2625647572525271,
+        "ratios": {
+          "iqm": 1.3288080496414822,
+          "ibm": 1.196321464863572
+        }
+      },
+      {
+        "name": "sup023_P120_ph011",
+        "relative_error_proxy_mean": 1.2626754049060172,
+        "ratios": {
+          "iqm": 1.3280251977668351,
+          "ibm": 1.1973256120451992
+        }
+      },
+      {
+        "name": "sup012_P201_ph000",
+        "relative_error_proxy_mean": 1.262940129817682,
+        "ratios": {
+          "iqm": 1.3288080496414822,
+          "ibm": 1.1970722099938813
+        }
+      },
+      {
+        "name": "sup012_P201_ph011",
+        "relative_error_proxy_mean": 1.2648890385974105,
+        "ratios": {
+          "iqm": 1.3288080496414822,
+          "ibm": 1.2009700275533388
+        }
+      },
+      {
+        "name": "sup012_P201_ph022",
+        "relative_error_proxy_mean": 1.2648890385974105,
+        "ratios": {
+          "iqm": 1.3288080496414822,
+          "ibm": 1.2009700275533388
+        }
+      },
+      {
+        "name": "sup023_P120_ph001",
+        "relative_error_proxy_mean": 1.2648890385974105,
+        "ratios": {
+          "iqm": 1.3288080496414822,
+          "ibm": 1.2009700275533388
+        }
+      },
+      {
+        "name": "sup023_P120_ph002",
+        "relative_error_proxy_mean": 1.2648890385974105,
+        "ratios": {
+          "iqm": 1.3288080496414822,
+          "ibm": 1.2009700275533388
+        }
+      }
+    ]
+  },
+  "ame43": {
+    "selected": [
+      "sup012_P210_ph002",
+      "sup023_P021_ph000",
+      "sup023_P021_ph011"
+    ],
+    "ranking": [
+      {
+        "name": "sup012_P210_ph002",
+        "relative_error_proxy_mean": 0.959958990236521,
+        "ratios": {
+          "iqm": 1.0083262499128187,
+          "ibm": 0.9115917305602232
+        }
+      },
+      {
+        "name": "sup023_P021_ph000",
+        "relative_error_proxy_mean": 0.9600916243884255,
+        "ratios": {
+          "iqm": 1.0072423064580134,
+          "ibm": 0.9129409423188377
+        }
+      },
+      {
+        "name": "sup023_P021_ph011",
+        "relative_error_proxy_mean": 0.9605683154223378,
+        "ratios": {
+          "iqm": 1.0088920170252953,
+          "ibm": 0.9122446138193803
+        }
+      },
+      {
+        "name": "sup012_P210_ph001",
+        "relative_error_proxy_mean": 0.9607922581274262,
+        "ratios": {
+          "iqm": 1.0092964571951717,
+          "ibm": 0.9122880590596807
+        }
+      },
+      {
+        "name": "sup012_P210_ph000",
+        "relative_error_proxy_mean": 0.961501514563869,
+        "ratios": {
+          "iqm": 1.006732470553607,
+          "ibm": 0.916270558574131
+        }
+      },
+      {
+        "name": "sup023_P021_ph012",
+        "relative_error_proxy_mean": 0.961619028921438,
+        "ratios": {
+          "iqm": 1.0074607814999388,
+          "ibm": 0.9157772763429373
+        }
+      },
+      {
+        "name": "sup023_P021_ph020",
+        "relative_error_proxy_mean": 0.961619028921438,
+        "ratios": {
+          "iqm": 1.0074607814999388,
+          "ibm": 0.9157772763429373
+        }
+      },
+      {
+        "name": "sup013_P120_ph000",
+        "relative_error_proxy_mean": 0.9616507379031178,
+        "ratios": {
+          "iqm": 1.008954214875044,
+          "ibm": 0.9143472609311915
+        }
+      },
+      {
+        "name": "sup123_P012_ph000",
+        "relative_error_proxy_mean": 0.9618951851053231,
+        "ratios": {
+          "iqm": 1.0091790845653745,
+          "ibm": 0.9146112856452717
+        }
+      },
+      {
+        "name": "sup123_P012_ph011",
+        "relative_error_proxy_mean": 0.9621466193819382,
+        "ratios": {
+          "iqm": 1.0092293395939573,
+          "ibm": 0.9150638991699191
+        }
+      },
+      {
+        "name": "sup123_P012_ph022",
+        "relative_error_proxy_mean": 0.9622307293886094,
+        "ratios": {
+          "iqm": 1.0093975596072997,
+          "ibm": 0.9150638991699191
+        }
+      },
+      {
+        "name": "sup023_P021_ph022",
+        "relative_error_proxy_mean": 0.9624637866118528,
+        "ratios": {
+          "iqm": 1.0076966614360372,
+          "ibm": 0.9172309117876685
+        }
+      },
+      {
+        "name": "sup013_P120_ph010",
+        "relative_error_proxy_mean": 0.9624864657680496,
+        "ratios": {
+          "iqm": 1.0088952323826645,
+          "ibm": 0.9160776991534348
+        }
+      },
+      {
+        "name": "sup013_P120_ph020",
+        "relative_error_proxy_mean": 0.9625159570142394,
+        "ratios": {
+          "iqm": 1.008954214875044,
+          "ibm": 0.9160776991534348
+        }
+      },
+      {
+        "name": "sup123_P012_ph002",
+        "relative_error_proxy_mean": 0.9626762942097737,
+        "ratios": {
+          "iqm": 1.0090108645520324,
+          "ibm": 0.916341723867515
+        }
+      },
+      {
+        "name": "sup123_P012_ph010",
+        "relative_error_proxy_mean": 0.9627855317307361,
+        "ratios": {
+          "iqm": 1.0092293395939573,
+          "ibm": 0.916341723867515
+        }
+      },
+      {
+        "name": "sup123_P012_ph001",
+        "relative_error_proxy_mean": 0.9628150229769261,
+        "ratios": {
+          "iqm": 1.0092883220863373,
+          "ibm": 0.916341723867515
+        }
+      },
+      {
+        "name": "sup123_P012_ph020",
+        "relative_error_proxy_mean": 0.9628150229769261,
+        "ratios": {
+          "iqm": 1.0092883220863373,
+          "ibm": 0.916341723867515
+        }
+      },
+      {
+        "name": "sup123_P012_ph012",
+        "relative_error_proxy_mean": 0.9628401504912176,
+        "ratios": {
+          "iqm": 1.0093385771149201,
+          "ibm": 0.916341723867515
+        }
+      },
+      {
+        "name": "sup123_P012_ph021",
+        "relative_error_proxy_mean": 0.9628401504912176,
+        "ratios": {
+          "iqm": 1.0093385771149201,
+          "ibm": 0.916341723867515
+        }
+      },
+      {
+        "name": "sup023_P021_ph001",
+        "relative_error_proxy_mean": 0.9632274499856922,
+        "ratios": {
+          "iqm": 1.0070839826590734,
+          "ibm": 0.919370917312311
+        }
+      },
+      {
+        "name": "sup012_P210_ph010",
+        "relative_error_proxy_mean": 0.9636036764603194,
+        "ratios": {
+          "iqm": 1.0074041318229505,
+          "ibm": 0.9198032210976883
+        }
+      },
+      {
+        "name": "sup023_P021_ph021",
+        "relative_error_proxy_mean": 0.9636597242420919,
+        "ratios": {
+          "iqm": 1.0072522026724153,
+          "ibm": 0.9200672458117685
+        }
+      },
+      {
+        "name": "sup012_P210_ph020",
+        "relative_error_proxy_mean": 0.9637205893289602,
+        "ratios": {
+          "iqm": 1.0076379575602321,
+          "ibm": 0.9198032210976883
+        }
+      },
+      {
+        "name": "sup023_P021_ph010",
+        "relative_error_proxy_mean": 0.9637935049020434,
+        "ratios": {
+          "iqm": 1.0075197639923184,
+          "ibm": 0.9200672458117685
+        }
+      },
+      {
+        "name": "sup023_P021_ph002",
+        "relative_error_proxy_mean": 0.9639850630539725,
+        "ratios": {
+          "iqm": 1.008599208795634,
+          "ibm": 0.919370917312311
+        }
+      },
+      {
+        "name": "sup012_P210_ph021",
+        "relative_error_proxy_mean": 0.9803662216576665,
+        "ratios": {
+          "iqm": 1.0298507971101922,
+          "ibm": 0.9308816462051409
+        }
+      },
+      {
+        "name": "sup012_P210_ph022",
+        "relative_error_proxy_mean": 0.9808135743296724,
+        "ratios": {
+          "iqm": 1.0307455024542038,
+          "ibm": 0.9308816462051409
+        }
+      },
+      {
+        "name": "sup013_P210_ph000",
+        "relative_error_proxy_mean": 0.9813311464812258,
+        "ratios": {
+          "iqm": 1.033170010509552,
+          "ibm": 0.9294922824528996
+        }
+      },
+      {
+        "name": "sup012_P120_ph000",
+        "relative_error_proxy_mean": 0.9814778409756229,
+        "ratios": {
+          "iqm": 1.0316686008799925,
+          "ibm": 0.9312870810712534
+        }
+      },
+      {
+        "name": "sup013_P120_ph012",
+        "relative_error_proxy_mean": 0.9816242835983495,
+        "ratios": {
+          "iqm": 1.0309792636813906,
+          "ibm": 0.9322693035153085
+        }
+      },
+      {
+        "name": "sup013_P120_ph011",
+        "relative_error_proxy_mean": 0.9822536013682688,
+        "ratios": {
+          "iqm": 1.030870026160428,
+          "ibm": 0.9336371765761097
+        }
+      },
+      {
+        "name": "sup013_P120_ph022",
+        "relative_error_proxy_mean": 0.9822830926144588,
+        "ratios": {
+          "iqm": 1.0309290086528078,
+          "ibm": 0.9336371765761097
+        }
+      },
+      {
+        "name": "sup012_P210_ph012",
+        "relative_error_proxy_mean": 0.9825986280145329,
+        "ratios": {
+          "iqm": 1.0300256403550938,
+          "ibm": 0.9351716156739719
+        }
+      },
+      {
+        "name": "sup012_P210_ph011",
+        "relative_error_proxy_mean": 0.9826281192607229,
+        "ratios": {
+          "iqm": 1.0300846228474738,
+          "ibm": 0.9351716156739719
+        }
+      },
+      {
+        "name": "sup123_P021_ph000",
+        "relative_error_proxy_mean": 0.9826384230437801,
+        "ratios": {
+          "iqm": 1.0335040532107507,
+          "ibm": 0.9317727928768096
+        }
+      },
+      {
+        "name": "sup023_P012_ph000",
+        "relative_error_proxy_mean": 0.9829265735458065,
+        "ratios": {
+          "iqm": 1.0322855555964496,
+          "ibm": 0.9335675914951633
+        }
+      },
+      {
+        "name": "sup013_P120_ph001",
+        "relative_error_proxy_mean": 0.9831188204793905,
+        "ratios": {
+          "iqm": 1.030870026160428,
+          "ibm": 0.935367614798353
+        }
+      },
+      {
+        "name": "sup013_P120_ph021",
+        "relative_error_proxy_mean": 0.9831483117255804,
+        "ratios": {
+          "iqm": 1.0309290086528078,
+          "ibm": 0.935367614798353
+        }
+      },
+      {
+        "name": "sup013_P120_ph002",
+        "relative_error_proxy_mean": 0.9831734392398718,
+        "ratios": {
+          "iqm": 1.0309792636813906,
+          "ibm": 0.935367614798353
+        }
+      },
+      {
+        "name": "sup012_P120_ph002",
+        "relative_error_proxy_mean": 0.9837838203139357,
+        "ratios": {
+          "iqm": 1.0333327751814931,
+          "ibm": 0.9342348654463783
+        }
+      },
+      {
+        "name": "sup123_P021_ph002",
+        "relative_error_proxy_mean": 0.9842873992081389,
+        "ratios": {
+          "iqm": 1.0337514101068526,
+          "ibm": 0.9348233883094254
+        }
+      },
+      {
+        "name": "sup123_P021_ph001",
+        "relative_error_proxy_mean": 0.9843378028849523,
+        "ratios": {
+          "iqm": 1.0335040532107507,
+          "ibm": 0.9351715525591541
+        }
+      },
+      {
+        "name": "sup023_P012_ph020",
+        "relative_error_proxy_mean": 0.9843859777457051,
+        "ratios": {
+          "iqm": 1.0323680299721472,
+          "ibm": 0.9364039255192631
+        }
+      },
+      {
+        "name": "sup023_P012_ph022",
+        "relative_error_proxy_mean": 0.9844063719539546,
+        "ratios": {
+          "iqm": 1.032256673742273,
+          "ibm": 0.9365560701656364
+        }
+      },
+      {
+        "name": "sup023_P012_ph011",
+        "relative_error_proxy_mean": 0.9845536582482826,
+        "ratios": {
+          "iqm": 1.0322030820812,
+          "ibm": 0.9369042344153651
+        }
+      },
+      {
+        "name": "sup012_P120_ph010",
+        "relative_error_proxy_mean": 0.9847459310337486,
+        "ratios": {
+          "iqm": 1.0320318040519423,
+          "ibm": 0.937460058015555
+        }
+      },
+      {
+        "name": "sup012_P120_ph001",
+        "relative_error_proxy_mean": 0.9848889457863651,
+        "ratios": {
+          "iqm": 1.0335265404165224,
+          "ibm": 0.9362513511562078
+        }
+      },
+      {
+        "name": "sup013_P210_ph010",
+        "relative_error_proxy_mean": 0.9849687209153748,
+        "ratios": {
+          "iqm": 1.033361592525575,
+          "ibm": 0.9365758493051747
+        }
+      },
+      {
+        "name": "sup023_P012_ph010",
+        "relative_error_proxy_mean": 0.985261342978333,
+        "ratios": {
+          "iqm": 1.032450438977302,
+          "ibm": 0.9380722469793641
+        }
+      },
+      {
+        "name": "sup123_P021_ph011",
+        "relative_error_proxy_mean": 0.985263825620158,
+        "ratios": {
+          "iqm": 1.0336454447082852,
+          "ibm": 0.9368822065320309
+        }
+      },
+      {
+        "name": "sup123_P021_ph022",
+        "relative_error_proxy_mean": 0.985416995314399,
+        "ratios": {
+          "iqm": 1.0339517840967671,
+          "ibm": 0.9368822065320309
+        }
+      },
+      {
+        "name": "sup023_P012_ph001",
+        "relative_error_proxy_mean": 0.9856858101988517,
+        "ratios": {
+          "iqm": 1.0319792162079675,
+          "ibm": 0.9393924041897358
+        }
+      },
+      {
+        "name": "sup123_P021_ph021",
+        "relative_error_proxy_mean": 0.9857935004479933,
+        "ratios": {
+          "iqm": 1.0334269696663598,
+          "ibm": 0.9381600312296268
+        }
+      },
+      {
+        "name": "sup023_P012_ph002",
+        "relative_error_proxy_mean": 0.9858625877393696,
+        "ratios": {
+          "iqm": 1.0319846070392746,
+          "ibm": 0.9397405684394646
+        }
+      },
+      {
+        "name": "sup123_P021_ph010",
+        "relative_error_proxy_mean": 0.9858732467227661,
+        "ratios": {
+          "iqm": 1.0335864622159054,
+          "ibm": 0.9381600312296268
+        }
+      },
+      {
+        "name": "sup012_P120_ph020",
+        "relative_error_proxy_mean": 0.9858778523367145,
+        "ratios": {
+          "iqm": 1.0322791609480446,
+          "ibm": 0.9394765437253845
+        }
+      },
+      {
+        "name": "sup123_P021_ph012",
+        "relative_error_proxy_mean": 0.9859675825728577,
+        "ratios": {
+          "iqm": 1.0334269696663598,
+          "ibm": 0.9385081954793555
+        }
+      },
+      {
+        "name": "sup023_P012_ph021",
+        "relative_error_proxy_mean": 0.9859718252603323,
+        "ratios": {
+          "iqm": 1.0322030820812,
+          "ibm": 0.9397405684394646
+        }
+      },
+      {
+        "name": "sup023_P012_ph012",
+        "relative_error_proxy_mean": 0.9859986210908688,
+        "ratios": {
+          "iqm": 1.032256673742273,
+          "ibm": 0.9397405684394646
+        }
+      },
+      {
+        "name": "sup013_P210_ph020",
+        "relative_error_proxy_mean": 0.9860123384163922,
+        "ratios": {
+          "iqm": 1.0337805060675094,
+          "ibm": 0.9382441707652751
+        }
+      },
+      {
+        "name": "sup123_P021_ph020",
+        "relative_error_proxy_mean": 0.9862299897880613,
+        "ratios": {
+          "iqm": 1.0339517840967671,
+          "ibm": 0.9385081954793555
+        }
+      },
+      {
+        "name": "sup012_P120_ph012",
+        "relative_error_proxy_mean": 1.0026915987434966,
+        "ratios": {
+          "iqm": 1.0551950593159,
+          "ibm": 0.9501881381710928
+        }
+      },
+      {
+        "name": "sup012_P120_ph021",
+        "relative_error_proxy_mean": 1.002715206589773,
+        "ratios": {
+          "iqm": 1.0548941107587246,
+          "ibm": 0.9505363024208215
+        }
+      },
+      {
+        "name": "sup013_P210_ph012",
+        "relative_error_proxy_mean": 1.0038232190998473,
+        "ratios": {
+          "iqm": 1.055227148782377,
+          "ibm": 0.9524192894173175
+        }
+      },
+      {
+        "name": "sup012_P120_ph011",
+        "relative_error_proxy_mean": 1.0044054884380729,
+        "ratios": {
+          "iqm": 1.0552861957848514,
+          "ibm": 0.9535247810912943
+        }
+      },
+      {
+        "name": "sup012_P120_ph022",
+        "relative_error_proxy_mean": 1.0045500793167474,
+        "ratios": {
+          "iqm": 1.0552272132924718,
+          "ibm": 0.9538729453410233
+        }
+      },
+      {
+        "name": "sup012_P021_ph000",
+        "relative_error_proxy_mean": 1.0048900550821922,
+        "ratios": {
+          "iqm": 1.0097801101643844,
+          "ibm": 1.0
+        }
+      },
+      {
+        "name": "sup012_P012_ph012",
+        "relative_error_proxy_mean": 1.0053123999905687,
+        "ratios": {
+          "iqm": 1.0097801101643844,
+          "ibm": 1.0008446898167531
+        }
+      },
+      {
+        "name": "sup012_P012_ph021",
+        "relative_error_proxy_mean": 1.0053123999905687,
+        "ratios": {
+          "iqm": 1.0097801101643844,
+          "ibm": 1.0008446898167531
+        }
+      },
+      {
+        "name": "sup012_P021_ph012",
+        "relative_error_proxy_mean": 1.0053123999905687,
+        "ratios": {
+          "iqm": 1.0097801101643844,
+          "ibm": 1.0008446898167531
+        }
+      },
+      {
+        "name": "sup012_P021_ph021",
+        "relative_error_proxy_mean": 1.0053123999905687,
+        "ratios": {
+          "iqm": 1.0097801101643844,
+          "ibm": 1.0008446898167531
+        }
+      },
+      {
+        "name": "sup013_P210_ph022",
+        "relative_error_proxy_mean": 1.0053708076064884,
+        "ratios": {
+          "iqm": 1.0552861312747568,
+          "ibm": 0.9554554839382199
+        }
+      },
+      {
+        "name": "sup013_P210_ph011",
+        "relative_error_proxy_mean": 1.0054944860545394,
+        "ratios": {
+          "iqm": 1.0555334881708591,
+          "ibm": 0.9554554839382199
+        }
+      },
+      {
+        "name": "sup013_P210_ph021",
+        "relative_error_proxy_mean": 1.0056996265604752,
+        "ratios": {
+          "iqm": 1.0555334881708591,
+          "ibm": 0.9558657649500911
+        }
+      },
+      {
+        "name": "sup013_P210_ph001",
+        "relative_error_proxy_mean": 1.0062628225481465,
+        "ratios": {
+          "iqm": 1.0553397229358297,
+          "ibm": 0.9571859221604633
+        }
+      },
+      {
+        "name": "sup013_P210_ph002",
+        "relative_error_proxy_mean": 1.0063597051656612,
+        "ratios": {
+          "iqm": 1.0555334881708591,
+          "ibm": 0.9571859221604633
+        }
+      },
+      {
+        "name": "sup023_P201_ph000",
+        "relative_error_proxy_mean": 1.12297956467023,
+        "ratios": {
+          "iqm": 1.1969482784587362,
+          "ibm": 1.049010850881724
+        }
+      },
+      {
+        "name": "sup023_P201_ph002",
+        "relative_error_proxy_mean": 1.1475980009361273,
+        "ratios": {
+          "iqm": 1.2281075828741794,
+          "ibm": 1.0670884189980752
+        }
+      },
+      {
+        "name": "sup012_P012_ph001",
+        "relative_error_proxy_mean": 1.1490976108668676,
+        "ratios": {
+          "iqm": 1.2300165052156644,
+          "ibm": 1.068178716518071
+        }
+      },
+      {
+        "name": "sup012_P012_ph002",
+        "relative_error_proxy_mean": 1.149175419328183,
+        "ratios": {
+          "iqm": 1.2300165052156644,
+          "ibm": 1.0683343334407014
+        }
+      },
+      {
+        "name": "sup012_P012_ph010",
+        "relative_error_proxy_mean": 1.149175419328183,
+        "ratios": {
+          "iqm": 1.2300165052156644,
+          "ibm": 1.0683343334407014
+        }
+      },
+      {
+        "name": "sup012_P012_ph011",
+        "relative_error_proxy_mean": 1.149175419328183,
+        "ratios": {
+          "iqm": 1.2300165052156644,
+          "ibm": 1.0683343334407014
+        }
+      },
+      {
+        "name": "sup012_P012_ph020",
+        "relative_error_proxy_mean": 1.149175419328183,
+        "ratios": {
+          "iqm": 1.2300165052156644,
+          "ibm": 1.0683343334407014
+        }
+      },
+      {
+        "name": "sup012_P012_ph022",
+        "relative_error_proxy_mean": 1.149175419328183,
+        "ratios": {
+          "iqm": 1.2300165052156644,
+          "ibm": 1.0683343334407014
+        }
+      },
+      {
+        "name": "sup023_P201_ph001",
+        "relative_error_proxy_mean": 1.1493104712812172,
+        "ratios": {
+          "iqm": 1.2315325235643593,
+          "ibm": 1.0670884189980752
+        }
+      },
+      {
+        "name": "sup023_P102_ph000",
+        "relative_error_proxy_mean": 1.1508522576479705,
+        "ratios": {
+          "iqm": 1.233102624863137,
+          "ibm": 1.0686018904328043
+        }
+      },
+      {
+        "name": "sup013_P102_ph021",
+        "relative_error_proxy_mean": 1.164074918972237,
+        "ratios": {
+          "iqm": 1.2514207617249047,
+          "ibm": 1.0767290762195694
+        }
+      },
+      {
+        "name": "sup023_P201_ph021",
+        "relative_error_proxy_mean": 1.16458489171595,
+        "ratios": {
+          "iqm": 1.2523367590786343,
+          "ibm": 1.076833024353266
+        }
+      },
+      {
+        "name": "sup123_P210_ph001",
+        "relative_error_proxy_mean": 1.1653576202047715,
+        "ratios": {
+          "iqm": 1.253986119082355,
+          "ibm": 1.0767291213271881
+        }
+      },
+      {
+        "name": "sup023_P201_ph012",
+        "relative_error_proxy_mean": 1.1663201901384943,
+        "ratios": {
+          "iqm": 1.2556616746414029,
+          "ibm": 1.0769787056355857
+        }
+      },
+      {
+        "name": "sup123_P210_ph000",
+        "relative_error_proxy_mean": 1.1663347394210954,
+        "ratios": {
+          "iqm": 1.253986119082355,
+          "ibm": 1.0786833597598362
+        }
+      },
+      {
+        "name": "sup013_P102_ph012",
+        "relative_error_proxy_mean": 1.1664645889431386,
+        "ratios": {
+          "iqm": 1.2513834657411587,
+          "ibm": 1.0815457121451184
+        }
+      },
+      {
+        "name": "sup123_P210_ph002",
+        "relative_error_proxy_mean": 1.1666831298753828,
+        "ratios": {
+          "iqm": 1.253986119082355,
+          "ibm": 1.079380140668411
+        }
+      },
+      {
+        "name": "sup013_P102_ph000",
+        "relative_error_proxy_mean": 1.167421490975089,
+        "ratios": {
+          "iqm": 1.2555970962851928,
+          "ibm": 1.0792458856649854
+        }
+      },
+      {
+        "name": "sup012_P021_ph002",
+        "relative_error_proxy_mean": 1.1710667042809144,
+        "ratios": {
+          "iqm": 1.2587092097496608,
+          "ibm": 1.083424198812168
+        }
+      },
+      {
+        "name": "sup012_P021_ph022",
+        "relative_error_proxy_mean": 1.1714190931168882,
+        "ratios": {
+          "iqm": 1.2590307597160983,
+          "ibm": 1.083807426517678
+        }
+      },
+      {
+        "name": "sup012_P021_ph011",
+        "relative_error_proxy_mean": 1.1715987787448916,
+        "ratios": {
+          "iqm": 1.2592849953136498,
+          "ibm": 1.0839125621761336
+        }
+      },
+      {
+        "name": "sup012_P021_ph020",
+        "relative_error_proxy_mean": 1.171703753205384,
+        "ratios": {
+          "iqm": 1.2590307597160983,
+          "ibm": 1.0843767466946697
+        }
+      },
+      {
+        "name": "sup023_P102_ph002",
+        "relative_error_proxy_mean": 1.1723189427903673,
+        "ratios": {
+          "iqm": 1.2603923260134793,
+          "ibm": 1.084245559567255
+        }
+      },
+      {
+        "name": "sup023_P102_ph001",
+        "relative_error_proxy_mean": 1.1724294662733608,
+        "ratios": {
+          "iqm": 1.2606726191996553,
+          "ibm": 1.0841863133470662
+        }
+      },
+      {
+        "name": "sup012_P021_ph001",
+        "relative_error_proxy_mean": 1.172929647330316,
+        "ratios": {
+          "iqm": 1.2615284374042293,
+          "ibm": 1.0843308572564028
+        }
+      },
+      {
+        "name": "sup012_P021_ph010",
+        "relative_error_proxy_mean": 1.1731925784591204,
+        "ratios": {
+          "iqm": 1.2612068874377917,
+          "ibm": 1.0851782694804488
+        }
+      },
+      {
+        "name": "sup023_P201_ph020",
+        "relative_error_proxy_mean": 1.1880244904780022,
+        "ratios": {
+          "iqm": 1.2823422337915478,
+          "ibm": 1.0937067471644568
+        }
+      },
+      {
+        "name": "sup023_P201_ph022",
+        "relative_error_proxy_mean": 1.1880244904780022,
+        "ratios": {
+          "iqm": 1.2823422337915478,
+          "ibm": 1.0937067471644568
+        }
+      },
+      {
+        "name": "sup123_P210_ph021",
+        "relative_error_proxy_mean": 1.1887556091252711,
+        "ratios": {
+          "iqm": 1.2840752791918533,
+          "ibm": 1.0934359390586887
+        }
+      },
+      {
+        "name": "sup023_P201_ph011",
+        "relative_error_proxy_mean": 1.188802496071042,
+        "ratios": {
+          "iqm": 1.2823422337915478,
+          "ibm": 1.095262758350536
+        }
+      },
+      {
+        "name": "sup013_P102_ph010",
+        "relative_error_proxy_mean": 1.188898644532217,
+        "ratios": {
+          "iqm": 1.2825592608431586,
+          "ibm": 1.095238028221275
+        }
+      },
+      {
+        "name": "sup023_P201_ph010",
+        "relative_error_proxy_mean": 1.189187018096666,
+        "ratios": {
+          "iqm": 1.2857298784979816,
+          "ibm": 1.0926441576953503
+        }
+      },
+      {
+        "name": "sup013_P102_ph001",
+        "relative_error_proxy_mean": 1.1893572339225016,
+        "ratios": {
+          "iqm": 1.2825592608431586,
+          "ibm": 1.0961552070018448
+        }
+      },
+      {
+        "name": "sup123_P210_ph020",
+        "relative_error_proxy_mean": 1.1895568215657828,
+        "ratios": {
+          "iqm": 1.284368158057232,
+          "ibm": 1.0947454850743337
+        }
+      },
+      {
+        "name": "sup013_P102_ph020",
+        "relative_error_proxy_mean": 1.1897230325892754,
+        "ratios": {
+          "iqm": 1.2825592608431586,
+          "ibm": 1.096886804335392
+        }
+      },
+      {
+        "name": "sup013_P102_ph022",
+        "relative_error_proxy_mean": 1.1897230325892754,
+        "ratios": {
+          "iqm": 1.2825592608431586,
+          "ibm": 1.096886804335392
+        }
+      },
+      {
+        "name": "sup013_P102_ph002",
+        "relative_error_proxy_mean": 1.1899753664369026,
+        "ratios": {
+          "iqm": 1.2858841764059263,
+          "ibm": 1.0940665564678789
+        }
+      },
+      {
+        "name": "sup123_P210_ph022",
+        "relative_error_proxy_mean": 1.1899863609310732,
+        "ratios": {
+          "iqm": 1.2840752791918533,
+          "ibm": 1.095897442670293
+        }
+      },
+      {
+        "name": "sup013_P102_ph011",
+        "relative_error_proxy_mean": 1.1902241542028276,
+        "ratios": {
+          "iqm": 1.2825592608431586,
+          "ibm": 1.0978890475624965
+        }
+      },
+      {
+        "name": "sup123_P210_ph011",
+        "relative_error_proxy_mean": 1.1905716130286552,
+        "ratios": {
+          "iqm": 1.28108053847821,
+          "ibm": 1.1000626875791004
+        }
+      },
+      {
+        "name": "sup123_P210_ph012",
+        "relative_error_proxy_mean": 1.1906210086458813,
+        "ratios": {
+          "iqm": 1.2839752540644414,
+          "ibm": 1.0972667632273212
+        }
+      },
+      {
+        "name": "sup023_P102_ph010",
+        "relative_error_proxy_mean": 1.1909067853485062,
+        "ratios": {
+          "iqm": 1.287551492292015,
+          "ibm": 1.0942620784049977
+        }
+      },
+      {
+        "name": "sup013_P201_ph010",
+        "relative_error_proxy_mean": 1.1913476298463301,
+        "ratios": {
+          "iqm": 1.287755802763666,
+          "ibm": 1.0949394569289945
+        }
+      },
+      {
+        "name": "sup123_P120_ph001",
+        "relative_error_proxy_mean": 1.1913476298463301,
+        "ratios": {
+          "iqm": 1.287755802763666,
+          "ibm": 1.0949394569289945
+        }
+      },
+      {
+        "name": "sup023_P102_ph020",
+        "relative_error_proxy_mean": 1.1914380800830595,
+        "ratios": {
+          "iqm": 1.287551492292015,
+          "ibm": 1.095324667874104
+        }
+      },
+      {
+        "name": "sup123_P210_ph010",
+        "relative_error_proxy_mean": 1.1917038169380443,
+        "ratios": {
+          "iqm": 1.2839752540644414,
+          "ibm": 1.0994323798116474
+        }
+      },
+      {
+        "name": "sup013_P201_ph000",
+        "relative_error_proxy_mean": 1.1921467681775666,
+        "ratios": {
+          "iqm": 1.28750429026841,
+          "ibm": 1.096789246086723
+        }
+      },
+      {
+        "name": "sup123_P120_ph000",
+        "relative_error_proxy_mean": 1.1921641763900528,
+        "ratios": {
+          "iqm": 1.28750429026841,
+          "ibm": 1.0968240625116958
+        }
+      },
+      {
+        "name": "sup013_P201_ph020",
+        "relative_error_proxy_mean": 1.1926731395169412,
+        "ratios": {
+          "iqm": 1.287755802763666,
+          "ibm": 1.0975904762702162
+        }
+      },
+      {
+        "name": "sup123_P120_ph002",
+        "relative_error_proxy_mean": 1.1926731395169412,
+        "ratios": {
+          "iqm": 1.287755802763666,
+          "ibm": 1.0975904762702162
+        }
+      },
+      {
+        "name": "sup123_P120_ph021",
+        "relative_error_proxy_mean": 1.2118599452751972,
+        "ratios": {
+          "iqm": 1.3134324251213703,
+          "ibm": 1.110287465429024
+        }
+      },
+      {
+        "name": "sup013_P201_ph002",
+        "relative_error_proxy_mean": 1.2119848181027228,
+        "ratios": {
+          "iqm": 1.3142469865456827,
+          "ibm": 1.109722649659763
+        }
+      },
+      {
+        "name": "sup013_P201_ph021",
+        "relative_error_proxy_mean": 1.2123247003384514,
+        "ratios": {
+          "iqm": 1.3133936308978134,
+          "ibm": 1.1112557697790892
+        }
+      },
+      {
+        "name": "sup023_P102_ph011",
+        "relative_error_proxy_mean": 1.2124611878481888,
+        "ratios": {
+          "iqm": 1.3151915240997138,
+          "ibm": 1.109730851596664
+        }
+      },
+      {
+        "name": "sup023_P102_ph021",
+        "relative_error_proxy_mean": 1.2125133797702192,
+        "ratios": {
+          "iqm": 1.3142681309806628,
+          "ibm": 1.1107586285597757
+        }
+      },
+      {
+        "name": "sup023_P102_ph012",
+        "relative_error_proxy_mean": 1.212654073900513,
+        "ratios": {
+          "iqm": 1.3145896809471003,
+          "ibm": 1.1107184668539254
+        }
+      },
+      {
+        "name": "sup023_P102_ph022",
+        "relative_error_proxy_mean": 1.2128832385763815,
+        "ratios": {
+          "iqm": 1.3145896809471003,
+          "ibm": 1.1111767962056625
+        }
+      },
+      {
+        "name": "sup123_P120_ph020",
+        "relative_error_proxy_mean": 1.2133099002401488,
+        "ratios": {
+          "iqm": 1.3147812547838191,
+          "ibm": 1.1118385456964783
+        }
+      },
+      {
+        "name": "sup123_P120_ph022",
+        "relative_error_proxy_mean": 1.2133905803415503,
+        "ratios": {
+          "iqm": 1.3159301028095012,
+          "ibm": 1.1108510578735993
+        }
+      },
+      {
+        "name": "sup123_P120_ph012",
+        "relative_error_proxy_mean": 1.213587117081408,
+        "ratios": {
+          "iqm": 1.3139381732141773,
+          "ibm": 1.113236060948639
+        }
+      },
+      {
+        "name": "sup013_P201_ph012",
+        "relative_error_proxy_mean": 1.2138184770035176,
+        "ratios": {
+          "iqm": 1.3144724414523137,
+          "ibm": 1.1131645125547216
+        }
+      },
+      {
+        "name": "sup013_P201_ph001",
+        "relative_error_proxy_mean": 1.2138847517861748,
+        "ratios": {
+          "iqm": 1.3153958345713646,
+          "ibm": 1.1123736690009849
+        }
+      },
+      {
+        "name": "sup013_P201_ph022",
+        "relative_error_proxy_mean": 1.2139266841575085,
+        "ratios": {
+          "iqm": 1.3147939914187512,
+          "ibm": 1.1130593768962658
+        }
+      },
+      {
+        "name": "sup013_P201_ph011",
+        "relative_error_proxy_mean": 1.2140451095918632,
+        "ratios": {
+          "iqm": 1.3145424789234954,
+          "ibm": 1.113547740260231
+        }
+      },
+      {
+        "name": "sup123_P120_ph010",
+        "relative_error_proxy_mean": 1.2149819721296091,
+        "ratios": {
+          "iqm": 1.315357040347808,
+          "ibm": 1.11460690391141
+        }
+      },
+      {
+        "name": "sup123_P120_ph011",
+        "relative_error_proxy_mean": 1.2151754571247144,
+        "ratios": {
+          "iqm": 1.3159301028095012,
+          "ibm": 1.1144208114399279
+        }
+      },
+      {
+        "name": "sup013_P012_ph000",
+        "relative_error_proxy_mean": 1.265727838537397,
+        "ratios": {
+          "iqm": 1.205997643381021,
+          "ibm": 1.325458033693773
+        }
+      },
+      {
+        "name": "sup013_P012_ph012",
+        "relative_error_proxy_mean": 1.2657886951570758,
+        "ratios": {
+          "iqm": 1.2062647775000892,
+          "ibm": 1.3253126128140624
+        }
+      },
+      {
+        "name": "sup013_P012_ph020",
+        "relative_error_proxy_mean": 1.265934116036786,
+        "ratios": {
+          "iqm": 1.2062647775000892,
+          "ibm": 1.3256034545734832
+        }
+      },
+      {
+        "name": "sup013_P012_ph022",
+        "relative_error_proxy_mean": 1.265934116036786,
+        "ratios": {
+          "iqm": 1.2062647775000892,
+          "ibm": 1.3256034545734832
+        }
+      },
+      {
+        "name": "sup013_P012_ph002",
+        "relative_error_proxy_mean": 1.2659766232809802,
+        "ratios": {
+          "iqm": 1.2063497919884771,
+          "ibm": 1.3256034545734832
+        }
+      },
+      {
+        "name": "sup013_P012_ph021",
+        "relative_error_proxy_mean": 1.2661023273532999,
+        "ratios": {
+          "iqm": 1.2066169261075455,
+          "ibm": 1.3255877285990543
+        }
+      },
+      {
+        "name": "sup013_P012_ph010",
+        "relative_error_proxy_mean": 1.2667571868419905,
+        "ratios": {
+          "iqm": 1.2077812242052162,
+          "ibm": 1.3257331494787645
+        }
+      },
+      {
+        "name": "sup123_P201_ph001",
+        "relative_error_proxy_mean": 1.26677891678897,
+        "ratios": {
+          "iqm": 1.207109773589706,
+          "ibm": 1.326448059988234
+        }
+      },
+      {
+        "name": "sup123_P201_ph000",
+        "relative_error_proxy_mean": 1.2667964845073674,
+        "ratios": {
+          "iqm": 1.207571159718125,
+          "ibm": 1.32602180929661
+        }
+      },
+      {
+        "name": "sup123_P201_ph002",
+        "relative_error_proxy_mean": 1.2668145761867415,
+        "ratios": {
+          "iqm": 1.2074619221971625,
+          "ibm": 1.3261672301763205
+        }
+      },
+      {
+        "name": "sup013_P012_ph011",
+        "relative_error_proxy_mean": 1.2668907539015244,
+        "ratios": {
+          "iqm": 1.2080483583242845,
+          "ibm": 1.3257331494787645
+        }
+      },
+      {
+        "name": "sup013_P012_ph001",
+        "relative_error_proxy_mean": 1.2674122558725724,
+        "ratios": {
+          "iqm": 1.2077812242052162,
+          "ibm": 1.3270432875399287
+        }
+      },
+      {
+        "name": "sup012_P102_ph021",
+        "relative_error_proxy_mean": 1.2750375622205845,
+        "ratios": {
+          "iqm": 1.2594562499463526,
+          "ibm": 1.2906188744948166
+        }
+      },
+      {
+        "name": "sup012_P102_ph010",
+        "relative_error_proxy_mean": 1.2750607937564673,
+        "ratios": {
+          "iqm": 1.2594562499463526,
+          "ibm": 1.290665337566582
+        }
+      },
+      {
+        "name": "sup023_P210_ph021",
+        "relative_error_proxy_mean": 1.2750768350329023,
+        "ratios": {
+          "iqm": 1.2608793787329757,
+          "ibm": 1.2892742913328288
+        }
+      },
+      {
+        "name": "sup023_P210_ph020",
+        "relative_error_proxy_mean": 1.2752031824448653,
+        "ratios": {
+          "iqm": 1.2614593664405802,
+          "ibm": 1.2889469984491504
+        }
+      },
+      {
+        "name": "sup023_P210_ph022",
+        "relative_error_proxy_mean": 1.275260449190624,
+        "ratios": {
+          "iqm": 1.261107217833124,
+          "ibm": 1.2894136805481244
+        }
+      },
+      {
+        "name": "sup012_P102_ph000",
+        "relative_error_proxy_mean": 1.2757408083853823,
+        "ratios": {
+          "iqm": 1.259808398553809,
+          "ibm": 1.2916732182169555
+        }
+      },
+      {
+        "name": "sup012_P102_ph011",
+        "relative_error_proxy_mean": 1.2757912272847185,
+        "ratios": {
+          "iqm": 1.259723384065421,
+          "ibm": 1.2918590705040163
+        }
+      },
+      {
+        "name": "sup023_P210_ph012",
+        "relative_error_proxy_mean": 1.2760372225247194,
+        "ratios": {
+          "iqm": 1.261107217833124,
+          "ibm": 1.2909672272163148
+        }
+      },
+      {
+        "name": "sup012_P102_ph002",
+        "relative_error_proxy_mean": 1.2760424772424304,
+        "ratios": {
+          "iqm": 1.259723384065421,
+          "ibm": 1.29236157041944
+        }
+      },
+      {
+        "name": "sup012_P102_ph012",
+        "relative_error_proxy_mean": 1.276061752950742,
+        "ratios": {
+          "iqm": 1.259808398553809,
+          "ibm": 1.2923151073476749
+        }
+      },
+      {
+        "name": "sup012_P102_ph020",
+        "relative_error_proxy_mean": 1.2760815795658051,
+        "ratios": {
+          "iqm": 1.261358432349733,
+          "ibm": 1.2908047267818774
+        }
+      },
+      {
+        "name": "sup023_P210_ph002",
+        "relative_error_proxy_mean": 1.276161056213839,
+        "ratios": {
+          "iqm": 1.2608793787329757,
+          "ibm": 1.2914427336947023
+        }
+      },
+      {
+        "name": "sup012_P102_ph001",
+        "relative_error_proxy_mean": 1.2762185515461586,
+        "ratios": {
+          "iqm": 1.260075532672877,
+          "ibm": 1.29236157041944
+        }
+      },
+      {
+        "name": "sup023_P210_ph000",
+        "relative_error_proxy_mean": 1.2764310823517588,
+        "ratios": {
+          "iqm": 1.2612315273404322,
+          "ibm": 1.2916306373630853
+        }
+      },
+      {
+        "name": "sup023_P210_ph010",
+        "relative_error_proxy_mean": 1.2764985388300676,
+        "ratios": {
+          "iqm": 1.2614593664405802,
+          "ibm": 1.291537711219555
+        }
+      },
+      {
+        "name": "sup023_P210_ph011",
+        "relative_error_proxy_mean": 1.27652177036595,
+        "ratios": {
+          "iqm": 1.2614593664405802,
+          "ibm": 1.2915841742913199
+        }
+      },
+      {
+        "name": "sup023_P210_ph001",
+        "relative_error_proxy_mean": 1.2765914649735979,
+        "ratios": {
+          "iqm": 1.2614593664405802,
+          "ibm": 1.2917235635066155
+        }
+      },
+      {
+        "name": "sup012_P102_ph022",
+        "relative_error_proxy_mean": 1.2766726238787611,
+        "ratios": {
+          "iqm": 1.2616255664688014,
+          "ibm": 1.2917196812887206
+        }
+      },
+      {
+        "name": "sup013_P021_ph010",
+        "relative_error_proxy_mean": 1.2834285413168809,
+        "ratios": {
+          "iqm": 1.224517105647658,
+          "ibm": 1.3423399769861037
+        }
+      },
+      {
+        "name": "sup013_P021_ph002",
+        "relative_error_proxy_mean": 1.2834439462025182,
+        "ratios": {
+          "iqm": 1.224517105647658,
+          "ibm": 1.3423707867573784
+        }
+      },
+      {
+        "name": "sup013_P021_ph020",
+        "relative_error_proxy_mean": 1.283966593355811,
+        "ratios": {
+          "iqm": 1.2254635148202369,
+          "ibm": 1.342469671891385
+        }
+      },
+      {
+        "name": "sup123_P102_ph002",
+        "relative_error_proxy_mean": 1.2839724416519376,
+        "ratios": {
+          "iqm": 1.2256049063177716,
+          "ibm": 1.3423399769861037
+        }
+      },
+      {
+        "name": "sup013_P021_ph022",
+        "relative_error_proxy_mean": 1.2839819982414484,
+        "ratios": {
+          "iqm": 1.2254635148202369,
+          "ibm": 1.3425004816626598
+        }
+      },
+      {
+        "name": "sup013_P021_ph011",
+        "relative_error_proxy_mean": 1.2841509867696024,
+        "ratios": {
+          "iqm": 1.2259311867818266,
+          "ibm": 1.3423707867573784
+        }
+      },
+      {
+        "name": "sup123_P102_ph001",
+        "relative_error_proxy_mean": 1.284271125085373,
+        "ratios": {
+          "iqm": 1.2260725782793613,
+          "ibm": 1.342469671891385
+        }
+      },
+      {
+        "name": "sup013_P021_ph001",
+        "relative_error_proxy_mean": 1.284624191355892,
+        "ratios": {
+          "iqm": 1.2268775959544058,
+          "ibm": 1.3423707867573784
+        }
+      },
+      {
+        "name": "sup013_P021_ph000",
+        "relative_error_proxy_mean": 1.2858999797938133,
+        "ratios": {
+          "iqm": 1.2268775959544058,
+          "ibm": 1.3449223636332208
+        }
+      },
+      {
+        "name": "sup123_P102_ph000",
+        "relative_error_proxy_mean": 1.2860355229952214,
+        "ratios": {
+          "iqm": 1.2270189874519404,
+          "ibm": 1.3450520585385022
+        }
+      },
+      {
+        "name": "sup013_P021_ph012",
+        "relative_error_proxy_mean": 1.2860888402200397,
+        "ratios": {
+          "iqm": 1.2268775959544058,
+          "ibm": 1.3453000844856735
+        }
+      },
+      {
+        "name": "sup013_P021_ph021",
+        "relative_error_proxy_mean": 1.2860888402200397,
+        "ratios": {
+          "iqm": 1.2268775959544058,
+          "ibm": 1.3453000844856735
+        }
+      },
+      {
+        "name": "sup023_P120_ph020",
+        "relative_error_proxy_mean": 1.2919125839029753,
+        "ratios": {
+          "iqm": 1.2786755426248044,
+          "ibm": 1.305149625181146
+        }
+      },
+      {
+        "name": "sup023_P120_ph021",
+        "relative_error_proxy_mean": 1.2919350679542845,
+        "ratios": {
+          "iqm": 1.278774288704549,
+          "ibm": 1.3050958472040197
+        }
+      },
+      {
+        "name": "sup023_P120_ph022",
+        "relative_error_proxy_mean": 1.2922869447863574,
+        "ratios": {
+          "iqm": 1.2792848751762729,
+          "ibm": 1.3052890143964417
+        }
+      },
+      {
+        "name": "sup012_P201_ph020",
+        "relative_error_proxy_mean": 1.292808200439631,
+        "ratios": {
+          "iqm": 1.2782231525493313,
+          "ibm": 1.3073932483299306
+        }
+      },
+      {
+        "name": "sup012_P201_ph010",
+        "relative_error_proxy_mean": 1.2929734775000696,
+        "ratios": {
+          "iqm": 1.2788324851007995,
+          "ibm": 1.3071144698993395
+        }
+      },
+      {
+        "name": "sup023_P120_ph012",
+        "relative_error_proxy_mean": 1.2930007136131234,
+        "ratios": {
+          "iqm": 1.2796114603561652,
+          "ibm": 1.3063899668700818
+        }
+      },
+      {
+        "name": "sup012_P201_ph021",
+        "relative_error_proxy_mean": 1.2930300638894376,
+        "ratios": {
+          "iqm": 1.2787081755934913,
+          "ibm": 1.3073519521853838
+        }
+      },
+      {
+        "name": "sup023_P120_ph011",
+        "relative_error_proxy_mean": 1.2934115424319619,
+        "ratios": {
+          "iqm": 1.279708614964584,
+          "ibm": 1.3071144698993395
+        }
+      },
+      {
+        "name": "sup012_P201_ph001",
+        "relative_error_proxy_mean": 1.2934275611220216,
+        "ratios": {
+          "iqm": 1.2792562248891108,
+          "ibm": 1.3075988973549322
+        }
+      },
+      {
+        "name": "sup012_P201_ph000",
+        "relative_error_proxy_mean": 1.2936280615433167,
+        "ratios": {
+          "iqm": 1.2802956722133116,
+          "ibm": 1.3069604508733217
+        }
+      },
+      {
+        "name": "sup012_P201_ph002",
+        "relative_error_proxy_mean": 1.2936350786543942,
+        "ratios": {
+          "iqm": 1.2798106491691514,
+          "ibm": 1.3074595081396367
+        }
+      },
+      {
+        "name": "sup012_P201_ph012",
+        "relative_error_proxy_mean": 1.2937795872569215,
+        "ratios": {
+          "iqm": 1.2800678331131634,
+          "ibm": 1.3074913414006795
+        }
+      },
+      {
+        "name": "sup023_P120_ph000",
+        "relative_error_proxy_mean": 1.2939276086413813,
+        "ratios": {
+          "iqm": 1.2807480622887846,
+          "ibm": 1.3071071549939781
+        }
+      },
+      {
+        "name": "sup023_P120_ph010",
+        "relative_error_proxy_mean": 1.2942798595179388,
+        "ratios": {
+          "iqm": 1.2811002108962408,
+          "ibm": 1.3074595081396367
+        }
+      },
+      {
+        "name": "sup012_P201_ph022",
+        "relative_error_proxy_mean": 1.2955277822150677,
+        "ratios": {
+          "iqm": 1.280647820820768,
+          "ibm": 1.3104077436093675
+        }
+      },
+      {
+        "name": "sup012_P201_ph011",
+        "relative_error_proxy_mean": 1.2955974768227154,
+        "ratios": {
+          "iqm": 1.280647820820768,
+          "ibm": 1.3105471328246632
+        }
+      },
+      {
+        "name": "sup023_P120_ph002",
+        "relative_error_proxy_mean": 1.2957539772528042,
+        "ratios": {
+          "iqm": 1.2811002108962408,
+          "ibm": 1.3104077436093675
+        }
+      },
+      {
+        "name": "sup023_P120_ph001",
+        "relative_error_proxy_mean": 1.295823671860452,
+        "ratios": {
+          "iqm": 1.2811002108962408,
+          "ibm": 1.3105471328246632
+        }
+      },
+      {
+        "name": "sup123_P201_ph012",
+        "relative_error_proxy_mean": 1.2980592377844653,
+        "ratios": {
+          "iqm": 1.245692415065266,
+          "ibm": 1.3504260605036646
+        }
+      },
+      {
+        "name": "sup123_P201_ph022",
+        "relative_error_proxy_mean": 1.2982899308486748,
+        "ratios": {
+          "iqm": 1.246153801193685,
+          "ibm": 1.3504260605036646
+        }
+      },
+      {
+        "name": "sup123_P201_ph020",
+        "relative_error_proxy_mean": 1.298495590382014,
+        "ratios": {
+          "iqm": 1.245692415065266,
+          "ibm": 1.351298765698762
+        }
+      },
+      {
+        "name": "sup123_P201_ph021",
+        "relative_error_proxy_mean": 1.2985312497797854,
+        "ratios": {
+          "iqm": 1.2460445636727224,
+          "ibm": 1.3510179358868486
+        }
+      },
+      {
+        "name": "sup123_P201_ph011",
+        "relative_error_proxy_mean": 1.2985604378346547,
+        "ratios": {
+          "iqm": 1.245692415065266,
+          "ibm": 1.3514284606040434
+        }
+      },
+      {
+        "name": "sup123_P201_ph010",
+        "relative_error_proxy_mean": 1.2986716646857421,
+        "ratios": {
+          "iqm": 1.2460445636727224,
+          "ibm": 1.351298765698762
+        }
+      },
+      {
+        "name": "sup123_P102_ph011",
+        "relative_error_proxy_mean": 1.3152883000097555,
+        "ratios": {
+          "iqm": 1.263241138620752,
+          "ibm": 1.367335461398759
+        }
+      },
+      {
+        "name": "sup123_P102_ph012",
+        "relative_error_proxy_mean": 1.3154007194518123,
+        "ratios": {
+          "iqm": 1.2641875477933313,
+          "ibm": 1.3666138911102932
+        }
+      },
+      {
+        "name": "sup123_P102_ph022",
+        "relative_error_proxy_mean": 1.3154007194518123,
+        "ratios": {
+          "iqm": 1.2641875477933313,
+          "ibm": 1.3666138911102932
+        }
+      },
+      {
+        "name": "sup123_P102_ph021",
+        "relative_error_proxy_mean": 1.3157615045960451,
+        "ratios": {
+          "iqm": 1.2641875477933313,
+          "ibm": 1.367335461398759
+        }
+      },
+      {
+        "name": "sup123_P102_ph020",
+        "relative_error_proxy_mean": 1.3178683465746364,
+        "ratios": {
+          "iqm": 1.2656016289274998,
+          "ibm": 1.3701350642217731
+        }
+      },
+      {
+        "name": "sup123_P102_ph010",
+        "relative_error_proxy_mean": 1.3179331940272774,
+        "ratios": {
+          "iqm": 1.2656016289274998,
+          "ibm": 1.3702647591270547
+        }
+      }
+    ]
+  }
+}

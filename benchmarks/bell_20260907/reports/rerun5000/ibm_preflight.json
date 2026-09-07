@@ -1,0 +1,8 @@
+{
+  "backend": "ibm_fez",
+  "remaining_account_seconds": 243,
+  "global_committed_seconds": 531.0,
+  "shots": 5000,
+  "circuits": 274,
+  "status": "prepared_not_submitted"
+}

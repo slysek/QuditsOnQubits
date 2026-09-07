@@ -1,0 +1,38 @@
+{
+  "complete": true,
+  "states": [
+    "two_qutrit",
+    "ghz3",
+    "ame43"
+  ],
+  "arms": 48,
+  "jobs": 25,
+  "measurement_settings": 544,
+  "shots_per_setting": 5000,
+  "measurement_shots": 2720000,
+  "calibration_shots": 250000,
+  "all_shots": 2970000,
+  "all_counts_verified": true,
+  "all_circuit_fingerprints_match_verified_sources": true,
+  "no_duplicate_measurement_setting": true,
+  "new_seconds": {
+    "ibm": 127.0,
+    "iqm": 526.660201
+  },
+  "global_seconds": {
+    "ibm": 438.0,
+    "iqm": 745.5980430000001
+  },
+  "limits_seconds": {
+    "ibm": 540.0,
+    "iqm": 1000.0
+  },
+  "zne_performed": false,
+  "historical_counts_pooled": false,
+  "quality_gate": {
+    "tests_passed": 62,
+    "review_round1": "CLEAN",
+    "review_round2": "CLEAN",
+    "status": "PASS"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "python": "3.12.13 | packaged by Anaconda, Inc. | (main, Mar 19 2026, 20:16:45) [MSC v.1942 64 bit (AMD64)]",
+  "packages": {
+    "qiskit": "2.1.2",
+    "qiskit-ibm-runtime": "0.44.0",
+    "iqm-client": "35.0.2",
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "pytest": "8.4.2",
+    "matplotlib": "3.11.1"
+  },
+  "sha256": {
+    "artifacts\\bell_benchmark_20260907\\analyze.py": "2a13ec72c6491358b850a42a47a1c735c0d9b1b3bb7aebd507aa6be7c147f055",
+    "artifacts\\bell_benchmark_20260907\\execute.py": "a0a3395013957ef271f1ce761c236758fc360709190add025471aa12993e9bec",
+    "artifacts\\bell_benchmark_20260907\\hardware.py": "8f5b3429087aa506666de1b83f23c0905d4018baaa785a692a0de6837bc653ba",
+    "artifacts\\bell_benchmark_20260907\\report.py": "0b484545fe0f6fd0edace3de7da35e186978b78630e294dc0e9afe162abeeb7c",
+    "artifacts\\bell_benchmark_20260907\\study.py": "8a67b3638110ba860e05a0775caed49aef14d7d83a1c940786714077c9fcb5f2",
+    "artifacts\\bell_benchmark_20260907\\target_screen.py": "0e845f04a38e4575cfe868f152b7aabee99ddd47d55c78e4cfa19656963b0908",
+    "artifacts\\bell_benchmark_20260907\\test_analyze.py": "8ca337d945cf27e64c5ffb63803da3485ec42c9fbc39bb51c3e30b81dae290cf",
+    "artifacts\\bell_benchmark_20260907\\test_execute.py": "72a10cb1c5cc97eafe69048cce54c2154c1d5876e51fd6ba87f8fcdea3b91ae6",
+    "artifacts\\bell_benchmark_20260907\\test_report.py": "c439f178e5dd226f8de9df6976405af640e9d30ecd9072783552e663a02a3b0a",
+    "artifacts\\bell_benchmark_20260907\\test_study.py": "2e92ebc1b78aaa82bf588106ded952e5be39ccab2d51565e2caef8015fdbd236",
+    "src\\qudits_on_qubits\\bell_measurements\\qiskit_measurements.py": "8ff44e4946f991e80ff81c992d5daa5c0d6a460b74797a43ac13fe1aa6eb1135"
+  }
+}

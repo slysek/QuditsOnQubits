@@ -1,0 +1,11 @@
+# Validation and packaging
+
+The raw archive contains 383 files (19,204,632 compressed bytes), with per-file SHA-256. Credential/environment files, execution logs, process files, and duplicate QPY copies were excluded. An exact-match scan against locally configured credential values and a scan for common credential signatures passed before publication. Credential values are never written into the package or validation logs.
+
+A fresh Python 3.12 virtual environment was installed from requirements.txt. Both quick replay and a complete 2000-sample bootstrap replay verified all 43 completed jobs and reproduced 240 aggregate rows. All 144 published primary values, standard errors and confidence intervals match within 1e-9. Postselection rejection fractions and shot metadata were independently recomputed and checked. All 192 historical ZNE estimates and curvature diagnostics match; 162 reject the linearity diagnostic. All 1176 published F3/baseline and repeat-versus-original differences, including their uncertainties, also match regenerated tables.
+
+The final benchmark/decoder/runtime/QPY test suite passed 78 tests, including an end-to-end replay with socket connections blocked. The existing clean-repository/reference smoke checks passed 20 tests. Coverage of the new replay entry point is 86% from the tests alone; the separately completed full bootstrap also exercised its expensive analysis path. Two upstream IBM plugin deprecation warnings occurred in the QPY serialization test.
+
+Independent review identified a missing postselection-metadata check in the replay utility. Four regression cases failed before the fix and passed afterwards. The first review concluded CLEAN after inspecting the fix; a fresh complete review is required before publication. No new QPU jobs were submitted during packaging.
+
+Historical report provenance is retained as evidence of the original campaign. Published Markdown links were made relative for GitHub and a second checkout. Original archive payload bytes were not rewritten; data.zip and manifest.json are the distribution integrity boundary. Static report text and images are reviewed snapshots, while reproduce.py regenerates the numerical tables.

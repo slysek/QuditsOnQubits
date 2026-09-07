@@ -1,0 +1,20 @@
+[
+  {
+    "state": "two_qutrit",
+    "classical": 5.6381557247154515,
+    "assignments": 729,
+    "ideal": 6.0
+  },
+  {
+    "state": "ghz3",
+    "classical": 5.638155724715454,
+    "assignments": 6561,
+    "ideal": 6.0
+  },
+  {
+    "state": "ame43",
+    "classical": 7.638155724715455,
+    "assignments": 59049,
+    "ideal": 8.0
+  }
+]
