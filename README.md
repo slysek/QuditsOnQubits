@@ -560,6 +560,46 @@ Export failures are reported separately in `f3_graph_export_error`.
 
 ## PiastQ managed Bell execution
 
+### Managed compilation contract and offline validation
+
+`run_experiment(spec)` uses the managed adapter when configured with
+`ExperimentSpec(backend=PiastQHardware(mode="managed", owner=...))`.
+The adapter validates bound logical `QuantumCircuit` objects and hands them to
+`PiastQSampler` in their original order. The client sends one QPY payload per
+circuit to `POST /api/runner/jobs`; the dashboard runner loads QPY and invokes
+`AQTSampler`, whose default behavior performs hardware transpilation.
+`ManagedPiastQBackend` is a transport handle, not a Qiskit compilation target.
+
+Use the default `TranspilationConfig`. Its default optimization level is a
+framework placeholder on this path, not a requested runner optimization level.
+The dashboard API does not carry local transpiler settings: non-default
+optimization levels, seeds, layouts, routing and scheduling options are rejected.
+Compilation metadata records `compilation_owner: managed_runner` and
+`circuit_representation: logical`. Physical layouts and hardware gate metrics are
+not available locally. Local readout mitigation, ZNE and workload optimization
+are rejected because they require control over physical compilation.
+
+The managed client supports Qiskit `>=1.4,<2.2`; this project selects `>=2,<2.2`.
+Use the updated `cft-piastq` source that emits QPY version 13, readable by the
+Qiskit 1.4 runner as well as the 2.1 client. Keep the direct PCSS/AQT stack in its
+separate environment. A clean installation must resolve both local projects
+together; do not bypass dependency resolution with `--no-deps`:
+
+```bash
+python -m venv artifacts/piastq-validation-env
+# Activate the new environment using the command appropriate for your shell.
+python -m pip install ".[dev]" "/path/to/cft-piastq[dev,fake]"
+python -m pip check
+python -m pytest -q tests/test_experiment_piastq_adapter.py tests/test_experiment_piastq_managed_integration.py
+```
+
+The managed integration tests use the real optional client and an HTTP
+`MockTransport`. They verify QPY circuit order, polling, counts, Bell decoding
+and the completed artifact without contacting a dashboard or consuming shots.
+They skip when `cft-piastq` is absent; a skipped run does not validate the managed
+integration. This validates the local contract, not the deployed runner version
+or hardware availability.
+
 Install `cft-piastq` separately in the environment used by this project. The
 QuditsOnQubits package metadata intentionally contains no private repository URL
 and does not install `cft-piastq`.

@@ -139,7 +139,6 @@ def test_one_scientific_spec_uses_aer_iqm_and_piastq_provider_contracts(
     tmp_path, monkeypatch
 ):
     from qudits_on_qubits.experiments.backends import IQMAdapter, PiastQAdapter
-    import qudits_on_qubits.experiments.backends.piastq as piastq_module
     from qudits_on_qubits.experiments.execution import ExecutionMode
     from qudits_on_qubits.experiments.models import (
         AerIdeal,
@@ -154,11 +153,6 @@ def test_one_scientific_spec_uses_aer_iqm_and_piastq_provider_contracts(
 
     monkeypatch.setattr(socket, "getaddrinfo", _reject_network)
     monkeypatch.setattr(socket, "create_connection", _reject_network)
-    monkeypatch.setattr(
-        piastq_module,
-        "transpile",
-        lambda circuits, *, backend, **options: list(circuits),
-    )
 
     basis = tmp_path / "basis"
     output_root = tmp_path / "runs"

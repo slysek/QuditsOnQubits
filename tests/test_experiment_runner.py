@@ -1910,12 +1910,10 @@ def test_fresh_readout_compile_fallback_matches_real_non_iqm_adapter_contracts(
         AerAdapter,
         CustomBackendAdapter,
         NoisyAerAdapter,
-        PiastQAdapter,
     )
     import qudits_on_qubits.experiments.backends.aer as aer_module
     import qudits_on_qubits.experiments.backends.custom as custom_module
-    import qudits_on_qubits.experiments.backends.piastq as piastq_module
-    from qudits_on_qubits.experiments.models import AerIdeal, PiastQHardware
+    from qudits_on_qubits.experiments.models import AerIdeal
     from qudits_on_qubits.experiments.runner import _compile_with_adapter
 
     class Backend:
@@ -1926,14 +1924,6 @@ def test_fresh_readout_compile_fallback_matches_real_non_iqm_adapter_contracts(
             return object()
 
     backend = Backend()
-
-    class Client:
-        def __init__(self, **_kwargs):
-            self.backend = backend
-
-    class Sampler:
-        def __init__(self, *_args, **_kwargs):
-            pass
 
     identity = BackendIdentity("noisy", "contract-noise")
     adapters = (
@@ -1947,12 +1937,6 @@ def test_fresh_readout_compile_fallback_matches_real_non_iqm_adapter_contracts(
             simulator=backend,
             target_backend=backend,
             identity=identity,
-        ),
-        PiastQAdapter(
-            PiastQHardware("managed", "team"),
-            client_type=Client,
-            sampler_type=Sampler,
-            env_loader=lambda _path: {},
         ),
         CustomBackendAdapter(
             CustomBackend(
@@ -1978,11 +1962,6 @@ def test_fresh_readout_compile_fallback_matches_real_non_iqm_adapter_contracts(
         "transpile",
         identity_transpile,
     )
-    monkeypatch.setattr(
-        piastq_module,
-        "transpile",
-        identity_transpile,
-    )
     source = (QuantumCircuit(20), QuantumCircuit(20))
 
     for adapter in adapters:
@@ -1996,7 +1975,7 @@ def test_fresh_readout_compile_fallback_matches_real_non_iqm_adapter_contracts(
         assert compiled.circuits == source
         assert compiled.target_identity == adapter.resolve()
 
-    assert layouts == [list(range(20))] * 4
+    assert layouts == [list(range(20))] * 3
 
 
 @pytest.mark.parametrize("restricted_attribute", ("missing", None))

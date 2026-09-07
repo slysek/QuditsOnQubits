@@ -63,6 +63,7 @@ from .models import (
     ExperimentStatus,
     IQMHardware,
     IQMQubitSelectorConfig,
+    PiastQHardware,
     RetryConfig,
     TranspilationConfig,
     _normalize_experiment_spec_dict,
@@ -2724,6 +2725,22 @@ def run_experiment(
         raise ExperimentValidationError("spec must be ExperimentSpec")
     _validate_execution_options(timeout, run_options)
     _validate_twirling_spec(spec)
+
+    if isinstance(spec.backend, PiastQHardware) and (
+        spec.mitigation.readout or spec.mitigation.zne
+        or spec.workload_optimization is not None
+    ):
+        if (
+            spec.workload_optimization is not None
+            and spec.workload_optimization.iqm_qubit_selector is not None
+        ):
+            raise ExperimentValidationError(
+                "iqm_qubit_selector requires an IQMHardware backend"
+            )
+        raise BackendCompatibilityError(
+            "PiastQ managed runner owns physical compilation; local readout "
+            "mitigation, ZNE, and workload optimization are unsupported"
+        )
 
     artifacts = load_basis_artifacts(spec.basis, spec.state, repo_root)
     prepared = prepare_measurements(artifacts)
