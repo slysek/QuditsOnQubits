@@ -155,36 +155,41 @@ def test_piast_passes_managed_mode_exactly():
     assert client_calls[0]["owner"] == "owner"
 
 
-def test_piast_compile_targets_client_backend_with_aqt_and_config_options(monkeypatch):
-    from qudits_on_qubits.experiments.backends import PiastQAdapter
-    import qudits_on_qubits.experiments.backends.piastq as module
+def test_piast_compile_preserves_logical_circuits_without_backend_target():
+    from qiskit import QuantumCircuit
 
-    adapter, backend, _, _, _ = _adapter()
-    source = (object(), object())
-    outputs = [object(), object()]
-    seen = {}
-
-    def fake_transpile(circuits, *, backend, **options):
-        seen.update(circuits=tuple(circuits), backend=backend, options=options)
-        return outputs
-
-    monkeypatch.setattr(module, "transpile", fake_transpile)
-    config = TranspilationConfig(1, 9, "dense", "sabre", None)
-    compiled = adapter.compile(source, config)
-    assert seen == {
-        "circuits": source,
-        "backend": backend,
-        "options": {
-            "optimization_level": 1,
-            "seed_transpiler": 9,
-            "layout_method": "dense",
-            "routing_method": "sabre",
-            "translation_method": "aqt",
-            "scheduling_method": "aqt",
-        },
-    }
-    assert compiled.circuits == tuple(outputs)
+    adapter, _, _, _, _ = _adapter()
+    source = (QuantumCircuit(2), QuantumCircuit(2))
+    compiled = adapter.compile(source, TranspilationConfig())
+    assert compiled.circuits == source
     assert compiled.target_identity == adapter.resolve()
+    assert compiled.metadata["transpilation"]["compilation_owner"] == "managed_runner"
+
+
+def test_piast_compile_rejects_non_circuits_before_client():
+    adapter, _, client_calls, _, _ = _adapter()
+    with pytest.raises(BackendCompatibilityError, match="QuantumCircuit"):
+        adapter.compile([object()], TranspilationConfig())
+    assert client_calls == []
+
+
+@pytest.mark.parametrize("feature", ["readout", "zne", "workload"])
+def test_managed_rejects_features_requiring_physical_compilation(feature, tmp_path):
+    from qudits_on_qubits import (
+        ExperimentSpec, MitigationConfig, PathBasis, WorkloadOptimizationConfig,
+        run_experiment,
+    )
+
+    options = (
+        {"workload_optimization": WorkloadOptimizationConfig(initial_layouts=((0, 1, 2, 3),))}
+        if feature == "workload" else {"mitigation": MitigationConfig(**{feature: True})}
+    )
+    spec = ExperimentSpec(
+        state="two_qutrit", basis=PathBasis(tmp_path / "absent"),
+        backend=PiastQHardware(), **options,
+    )
+    with pytest.raises(BackendCompatibilityError, match="managed runner"):
+        run_experiment(spec)
 
 
 def test_piast_submits_one_ordered_sampler_job_and_uses_counts_timeout_path():
@@ -354,3 +359,54 @@ def test_piast_drops_credentialed_backend_url_from_identity_and_metadata():
     backend.name = "https://user:password@example.invalid/device"
     assert adapter.resolve().name == "piast"
     assert "password@example" not in repr(adapter.metadata())
+
+
+def test_client_environment_merges_explicit_file_without_exposing_values(tmp_path, monkeypatch):
+    from qudits_on_qubits.experiments.backends.piastq import _load_client_environment
+
+    monkeypatch.setenv("PCSS_TOKEN", "process-token")
+    monkeypatch.setenv("PCSS_QAPI_TOKEN", "fallback-token")
+    monkeypatch.setenv("CFT_PIASTQ_DASHBOARD_API_URL", "https://dashboard.invalid")
+    path = tmp_path / ".env"
+    path.write_text("CFT_PIASTQ_DASHBOARD_API_KEY=file-key\nUNRELATED=value\n")
+    assert _load_client_environment(path) == {
+        "token": "process-token", "dashboard_api_url": "https://dashboard.invalid",
+        "dashboard_api_key": "file-key",
+    }
+    with pytest.raises(RuntimeError, match="does not exist"):
+        _load_client_environment(tmp_path / "missing")
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"client_type": 1}, {"sampler_type": 1}, {"env_loader": 1}, {"poll_interval": 0},
+])
+def test_piast_rejects_invalid_injected_configuration(kwargs):
+    from qudits_on_qubits.experiments.backends import PiastQAdapter
+
+    with pytest.raises(BackendCompatibilityError):
+        PiastQAdapter(PiastQHardware(), **kwargs)
+
+
+def test_piast_preflight_rejects_oversized_circuit():
+    from qiskit import QuantumCircuit
+
+    adapter, _, _, _, _ = _adapter()
+    with pytest.raises(BackendCompatibilityError, match="21 qubits"):
+        adapter.preflight([QuantumCircuit(21)], 1)
+
+
+@pytest.mark.parametrize("counts", [{"0": 7}, [{"0": 7}]])
+def test_piast_result_accepts_one_circuit_counts(counts):
+    adapter, _, _, _, _ = _adapter(job=_PiastJob(counts=counts))
+    submitted = adapter.submit([object()], 7)
+    assert adapter.result(submitted).counts == ({"0": 7},)
+
+
+def test_piast_result_retrieval_failure_preserves_safe_job_id():
+    job = _PiastJob()
+    job.result = Mock(side_effect=RuntimeError("token=private"))
+    adapter, _, _, _, _ = _adapter(job=job)
+    submitted = adapter.submit([object()], 7)
+    with pytest.raises(JobResultError, match="piast-3") as caught:
+        adapter.result(submitted)
+    _assert_sanitized(caught, "token=private")

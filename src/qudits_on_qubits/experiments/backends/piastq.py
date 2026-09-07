@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from dotenv import dotenv_values
-from qiskit import transpile
+from qiskit import QuantumCircuit
 
 from ..errors import (
     BackendCompatibilityError,
@@ -214,26 +214,29 @@ class PiastQAdapter(BaseBackendAdapter):
                 )
 
     def compile(self, circuits: Sequence[Any], config: TranspilationConfig) -> CompiledBatch:
+        """Validate logical circuits; the managed runner's AQTSampler compiles them.
+
+        The dashboard contract transports QPY, not a Qiskit backend target or
+        local transpiler options. Never silently pretend these options applied.
+        """
         batch = _validated_circuit_tuple(circuits)
         if not isinstance(config, TranspilationConfig):
             raise BackendCompatibilityError("compile requires TranspilationConfig")
-        options = {
-            key: value
-            for key, value in config.to_safe_dict().items()
-            if value is not None
-        }
-        options.setdefault("translation_method", "aqt")
-        options.setdefault("scheduling_method", "aqt")
-        try:
-            compiled = transpile(list(batch), backend=self.backend, **options)
-        except Exception as error:
-            identity = self.resolve()
+        if config != TranspilationConfig():
             raise BackendCompatibilityError(
-                f"could not compile circuits for backend {identity.kind}:{identity.name} "
-                f"({_exception_name(error)})"
-            ) from None
-        compiled_batch = tuple(compiled) if isinstance(compiled, (list, tuple)) else (compiled,)
-        return CompiledBatch(compiled_batch, self.resolve(), {"transpilation": options})
+                "PiastQ managed runner owns transpilation; local transpilation "
+                "options are unsupported (use the default TranspilationConfig)"
+            )
+        if any(not isinstance(circuit, QuantumCircuit) for circuit in batch):
+            raise BackendCompatibilityError("PiastQ compile requires QuantumCircuit inputs")
+        if any(circuit.num_parameters for circuit in batch):
+            raise BackendCompatibilityError("PiastQ circuits must have all parameters bound")
+        return CompiledBatch(batch, self.resolve(), {
+            "transpilation": {
+                "compilation_owner": "managed_runner",
+                "circuit_representation": "logical",
+            },
+        })
 
     def submit(
         self,
