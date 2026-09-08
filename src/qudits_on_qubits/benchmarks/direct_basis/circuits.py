@@ -68,6 +68,40 @@ def gate_as_circuit(gate: UnitaryGate, num_qubits: int, name: str) -> QuantumCir
     return qc
 
 
+def build_optimized_direct_basis_graph_state_circuit(
+    state_name: str,
+    basis_matrix: np.ndarray,
+    *,
+    n_qutrits: int | None = None,
+    gate_library=None,
+) -> QuantumCircuit:
+    """Default benchmark: encoded zero, <=2-CNOT F3, and synthesized CZ3.
+
+    Compose elementary gates directly so backend transpilation retains the
+    synthesized CZ3 structure instead of resynthesizing a dense 16x16 matrix.
+    Repeated graph edges intentionally reuse the same validated CZ3 block.
+    """
+    from qudits_on_qubits.benchmarks.direct_basis.optimized_gates import optimized_gate_library
+
+    state = resolve_direct_state(state_name, n_qutrits=n_qutrits)
+    gates = gate_library if gate_library is not None else optimized_gate_library(basis_matrix)
+    qc = QuantumCircuit(2 * state.num_qutrits, name=f"{state.state_id}_direct_basis_optimized")
+    encoded_zero = encoding_embedding(basis_matrix)[:, 0]
+    zero = StatePreparation(encoded_zero, label="zero_W")
+    for index in range(state.num_qutrits):
+        pair = [2 * index, 2 * index + 1]
+        qc.append(zero, pair)
+        qc.compose(gates.f3, qubits=pair, inplace=True)
+    for left, right in state.edges:
+        if left == right:
+            continue
+        left_start = 2 * (state.num_qutrits - 1 - left)
+        right_start = 2 * (state.num_qutrits - 1 - right)
+        qc.compose(gates.cz3, qubits=[left_start, left_start + 1, right_start, right_start + 1], inplace=True)
+    qc.metadata = gates.benchmark_metrics()
+    return qc
+
+
 def build_direct_basis_graph_state_circuit(
     state_name: str,
     basis_matrix: np.ndarray,

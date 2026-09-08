@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 from qiskit import QuantumCircuit, qpy, transpile
 from qiskit.circuit.library import XGate
 from qiskit.quantum_info import DensityMatrix, Statevector, state_fidelity
@@ -33,6 +34,8 @@ from qudits_on_qubits.benchmarks.direct_basis.benchmark import (
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
 from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import backend_metadata
 from qudits_on_qubits.bell_measurements import build_sampler_circuits_for_candidate
+
+pytestmark = pytest.mark.usefixtures("exact_cz3_synthesis")
 
 
 def _fake_garnet():

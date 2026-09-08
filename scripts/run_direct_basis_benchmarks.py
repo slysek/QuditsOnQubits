@@ -47,7 +47,7 @@ from qudits_on_qubits.core.project_paths import repo_path, repo_root
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run direct qutrit-basis encoding benchmarks.",
+        description="Run direct qutrit-basis benchmarks with validated optimized F3 (<=2 CNOTs) and BQSKit CZ3 gates.",
     )
     parser.add_argument("--state", required=True)
     parser.add_argument("--n-qutrits", type=int, default=None)
@@ -92,6 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--compare-optimal-f3-leakage",
         action="store_true",
         help=(
+            "Historical diagnostic only; primary gates are always optimized. "
             "For monomial encodings, compare full graph-state circuits using "
             "F3 leakage phases 0 and the analytic per-basis optimum."
         ),

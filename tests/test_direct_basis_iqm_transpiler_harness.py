@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
+import pytest
 from qiskit import QuantumCircuit, qpy
 from qiskit.quantum_info import Statevector
 
@@ -37,6 +38,9 @@ from qudits_on_qubits.benchmarks.direct_basis.phase_equivalence import (
 from qudits_on_qubits.benchmarks.direct_basis.pareto_selection import (
     analyze_iqm_trials,
 )
+
+
+pytestmark = pytest.mark.usefixtures("exact_cz3_synthesis")
 
 
 def _native_iqm_circuit() -> QuantumCircuit:

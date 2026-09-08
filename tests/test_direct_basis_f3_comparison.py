@@ -14,6 +14,7 @@ from qudits_on_qubits.benchmarks.direct_basis.math_utils import qutrit_fourier
 
 
 benchmark = importlib.import_module("qudits_on_qubits.benchmarks.direct_basis.benchmark")
+pytestmark = pytest.mark.usefixtures("exact_cz3_synthesis")
 
 
 def _compare(**overrides):
@@ -199,7 +200,7 @@ def test_default_run_does_not_analyze_or_build_comparison(monkeypatch):
     assert row["f3_graph_comparison_status"] == "not_requested"
 
 
-def test_exports_loadable_source_pairs_without_overwriting_historical_files(monkeypatch, tmp_path):
+def test_optional_comparison_exports_do_not_replace_optimized_primary_gates(monkeypatch, tmp_path):
     monkeypatch.setattr(benchmark, "_transpile_one_trial", lambda circuit, **kw: _compiled(circuit))
     row = benchmark.benchmark_direct_basis(
         state_name="two_qutrit", basis_matrix=np.eye(4, 3),
@@ -225,8 +226,8 @@ def test_exports_loadable_source_pairs_without_overwriting_historical_files(monk
         loaded[key] = circuits[0]
     assert row["success"]
     assert row["f3_graph_comparison_status"] == "ok"
-    assert Operator(loaded["f3_w_qpy"]).equiv(Operator(loaded["f3_baseline_w_qpy"]))
-    assert not Operator(loaded["f3_w_qpy"]).equiv(Operator(loaded["f3_optimal_w_qpy"]))
+    assert not Operator(loaded["f3_w_qpy"]).equiv(Operator(loaded["f3_baseline_w_qpy"]))
+    assert Operator(loaded["f3_w_qpy"]).equiv(Operator(loaded["f3_optimal_w_qpy"]))
     historical = Statevector.from_instruction(loaded["graph_state_qpy"])
     for key in ("f3_graph_baseline_qpy", "f3_graph_optimal_qpy"):
         assert historical.equiv(Statevector.from_instruction(loaded[key]))
