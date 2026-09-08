@@ -19,6 +19,7 @@ from ..errors import (
     JobSubmissionError,
 )
 from ..models import TranspilationConfig
+from ..raw_evidence import MAX_EVIDENCE_CONTAINER_ITEMS, attach_raw_evidence
 
 
 _SAFE_IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,255}\Z")
@@ -402,8 +403,10 @@ class BaseBackendAdapter(ABC):
             raise JobResultError(
                 f"could not retrieve result for job {submitted.job_id} ({_exception_name(error)})"
             ) from None
+        counts = ()
+        extracted: list[Any] = []
         try:
-            counts = _extract_counts(raw_result, submitted.circuit_count)
+            counts = _extract_counts(raw_result, submitted.circuit_count, _evidence=extracted)
             validated = tuple(_validate_counts(item) for item in counts)
             if submitted.circuit_count is not None and len(validated) != submitted.circuit_count:
                 raise JobResultError(
@@ -413,15 +416,24 @@ class BaseBackendAdapter(ABC):
                 for item in validated:
                     if sum(item.values()) != submitted.shots:
                         raise JobResultError("result counts do not sum to expected shots")
-        except JobResultError:
+        except JobResultError as error:
+            evidence_counts = counts or tuple(extracted)
+            if not counts and submitted.circuit_count is not None:
+                missing_count = max(0, min(submitted.circuit_count, MAX_EVIDENCE_CONTAINER_ITEMS) - len(extracted))
+                evidence_counts = (*extracted, *(None for _ in range(missing_count)))
+            attach_raw_evidence(error, job_id=submitted.job_id,
+                                target_identity=submitted.target_identity, counts=evidence_counts)
             raise
         except MemoryError:
             raise
         except Exception as error:
-            raise JobResultError(
+            invalid = JobResultError(
                 f"result for job {submitted.job_id} has an unsupported format "
                 f"({_exception_name(error)})"
-            ) from None
+            )
+            attach_raw_evidence(invalid, job_id=submitted.job_id,
+                                target_identity=submitted.target_identity, counts=counts)
+            raise invalid from None
         return ExecutionResult(
             counts=validated,
             job_id=submitted.job_id,
@@ -496,7 +508,8 @@ def _validate_counts(counts: Any) -> Mapping[str, int]:
     return MappingProxyType(validated)
 
 
-def _extract_counts(raw_result: Any, circuit_count: int | None) -> tuple[Mapping[str, int], ...]:
+def _extract_counts(raw_result: Any, circuit_count: int | None, *,
+                    _evidence: list[Any] | None = None) -> tuple[Mapping[str, int], ...]:
     getter = getattr(raw_result, "get_counts", None)
     if callable(getter):
         if circuit_count == 1:
@@ -506,7 +519,13 @@ def _extract_counts(raw_result: Any, circuit_count: int | None) -> tuple[Mapping
             return (value,)
         if circuit_count is not None:
             try:
-                return tuple(getter(index) for index in range(circuit_count))
+                values = []
+                for index in range(circuit_count):
+                    value = getter(index)
+                    values.append(value)
+                    if _evidence is not None:
+                        _evidence.append(value)
+                return tuple(values)
             except (TypeError, IndexError):
                 value = _call_provider_counts(getter)
                 return tuple(value) if isinstance(value, (list, tuple)) else (value,)
@@ -529,7 +548,13 @@ def _extract_counts(raw_result: Any, circuit_count: int | None) -> tuple[Mapping
         ) from None
     if not entries:
         raise JobResultError("result does not contain primitive entries")
-    return tuple(_counts_from_primitive_entry(entry) for entry in entries)
+    values = []
+    for entry in entries:
+        value = _counts_from_primitive_entry(entry)
+        values.append(value)
+        if _evidence is not None:
+            _evidence.append(value)
+    return tuple(values)
 
 
 def _counts_from_primitive_entry(entry: Any) -> Mapping[str, int]:

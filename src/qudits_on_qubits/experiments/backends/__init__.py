@@ -20,6 +20,8 @@ from .base import (
 )
 from .custom import CustomBackendAdapter
 from .iqm import IQMAdapter
+from .ibm import IBMAdapter
+from ..ibm_spec import IBMHardware
 from .piastq import PiastQAdapter
 
 
@@ -50,6 +52,7 @@ backend_registry = BackendAdapterRegistry()
 backend_registry.register(AerIdeal, AerAdapter)
 backend_registry.register(CustomBackend, CustomBackendAdapter)
 backend_registry.register(IQMHardware, IQMAdapter)
+backend_registry.register(IBMHardware, IBMAdapter)
 backend_registry.register(PiastQHardware, PiastQAdapter)
 backend_registry.register(NoisySimulator, build_noisy_adapter)
 
@@ -70,6 +73,7 @@ __all__ = [
     "CustomBackendAdapter",
     "ExecutionResult",
     "IQMAdapter",
+    "IBMAdapter",
     "NoisyAerAdapter",
     "PiastQAdapter",
     "SubmittedJob",

@@ -669,3 +669,99 @@ Run it only as an intentional manual smoke test.
 ## Reproducible Bell hardware benchmark
 
 [Full analysis and offline reproduction instructions](benchmarks/bell_20260907/README.md): IBM Kingston/Marrakesh/Fez and IQM Garnet, including the complete 5000-shot Fez/Garnet repeat. Includes hardware counts, QPY circuits, calibrations, SHA-256 manifest, pinned dependencies, and an offline replay of Bell values and bootstrap uncertainties.
+
+## Independent local Bell settings in raw blocks
+
+[The runnable notebook](notebooks/bell_randomized_raw.ipynb) prepares portable
+reference-state inputs for `two_qutrit`, `ghz3`, and `ame43` in two encodings,
+runs local Aer comparisons, and includes disabled-by-default IBM, IQM, and
+PIAST/AQT examples. Each comparison arm generates its own setting schedule.
+
+```python
+from qudits_on_qubits.experiments import (
+    AerIdeal, ExperimentSpec, PathBasis, RandomizedBlocks,
+    run_experiment, resume_experiment,
+)
+
+spec = ExperimentSpec(
+    state="ame43",
+    basis=PathBasis("path/to/basis"),
+    backend=AerIdeal(seed_simulator=17),
+    measurement=RandomizedBlocks(
+        setting_draws=64,
+        shots_per_draw=16,
+        max_setting_draws=512,
+        max_circuits_per_job=100,
+        confidence_level=0.95,
+    ),
+)
+result = run_experiment(spec)
+print(result.values["raw"], result.values["conditional"])
+restored = resume_experiment(result.artifact_dir)
+```
+
+The basis directory contains `graph_state_direct_basis.qpy` and `E.npy`; the
+notebook can create these inputs locally. The example budget demonstrates the
+API and is not a hardware-budget recommendation. `measurement=None` retains
+the existing all-settings path and its default `shots=20480`. With
+`RandomizedBlocks`, omit legacy `shots`, `uncertainty`, and `bootstrap`.
+Raw v1 rejects readout mitigation, circuit twirling, ZNE, and forced
+recalibration. Hardware examples require intentional opt-in and existing
+provider account configuration.
+
+`setting_draws` is the minimum number of blocks. Each block independently
+draws one uniform setting per party using Python `secrets`, then records
+`shots_per_draw` joint shots. System randomness is not a physical QRNG.
+Repeated settings retain distinct block IDs. Drawing continues after the
+minimum until all required Bell patterns are covered. Reaching
+`max_setting_draws` first saves `coverage_limit_reached` without submitting any
+circuits. Actual raw cost is `N_actual * shots_per_draw`; increasing shots per
+block does not increase the number of independent blocks.
+
+| Scenario | Full configurations | Required patterns | Configurations contributing to a term |
+| --- | ---: | ---: | ---: |
+| `two_qutrit` | 9 | 9 | 9 |
+| `ghz3` | 18 | 12 | 12 |
+| `ame43` | 36 | 13 | 15 |
+
+An AME identity (`None`) is a wildcard in a required pattern: that party still
+receives a setting and is measured. Its outcome is marginalized, while its
+leakage invalidates the joint shot. One block can support multiple patterns.
+Configurations with no matching term remain in raw data, total shot cost, and
+global leakage statistics.
+
+The main `raw` value gives leakage zero contribution. The additional
+`conditional` value normalizes each correlator by its own accepted shots; it
+is not the raw value divided by global acceptance. No accepted shots for a
+required correlator gives `conditional=None` with `no_accepted_shots`, while
+complete acquisition can still finish successfully. Results retain coverage,
+budgets, per-block and per-pattern leakage, and AME diagnostics per full
+measurement context.
+
+Intervals use `conditional_schedule_block_hoeffding_v1`, conditional on the
+saved setting schedule. They assume independent blocks, allow correlated
+shots within a block, and can remain wide even for constant observations or
+large shot counts. Classical-bound comparisons are diagnostic: faithful local
+observables and stable measurements are needed for a stationary Bell-value
+interpretation, with additional assumptions after postselection. This is not
+a loophole-closing test and does not produce a nonlocality p-value.
+
+Schema 4 artifacts keep the schedule, unique circuit catalogue, ordered batch
+requests, job IDs, raw counts, and derived report. Completed runs reload
+offline through `resume_experiment`; interrupted runs retrieve confirmed jobs
+and continue untouched batches. Ambiguous submissions remain
+`submission_unknown` rather than being silently repeated. Failed analysis
+preserves raw data for local reanalysis. Existing all-settings artifacts and
+the historical hardware benchmark keep their original formats.
+
+`recover_randomized_job(path, batch_index=..., job_id=..., adapter=...)`
+can attach an uncertain job only when the adapter verifies the provider's
+saved circuits, backend, shot count, and raw options. IBM supports this proof;
+the current IQM/PIAST clients do not expose enough evidence for unknown-job
+attachment. Their already confirmed job IDs remain resumable. Lost local Aer
+job handles cannot be restored; complete saved Aer counts remain usable offline.
+For a lost local handle, explicitly call
+`replay_randomized_aer_batch(path, batch_index=...)` to repeat that batch with
+the saved QPY and seed. It retains the original attempt and extra shot budget,
+rejects hardware targets and refuses to replace any existing raw data.
+No run, including a local run, silently submits an uncertain block again.

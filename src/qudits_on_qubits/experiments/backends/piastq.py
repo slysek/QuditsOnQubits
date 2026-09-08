@@ -38,6 +38,7 @@ from .base import (
     _validated_run_options,
 )
 from .iqm import _backend_availability, _backend_version, _max_circuits, _num_qubits
+from ..raw_evidence import attach_raw_evidence
 
 
 _CLIENT_ENVIRONMENT = {
@@ -289,6 +290,7 @@ class PiastQAdapter(BaseBackendAdapter):
             raise JobResultError(
                 f"could not retrieve result for job {submitted.job_id} ({_exception_name(error)})"
             ) from None
+        count_sets = ()
         try:
             if isinstance(raw_counts, Mapping):
                 count_sets = (raw_counts,)
@@ -304,15 +306,20 @@ class PiastQAdapter(BaseBackendAdapter):
                 sum(item.values()) != submitted.shots for item in validated
             ):
                 raise JobResultError("result counts do not sum to expected shots")
-        except JobResultError:
+        except JobResultError as error:
+            attach_raw_evidence(error, job_id=submitted.job_id,
+                                target_identity=submitted.target_identity, counts=count_sets)
             raise
         except MemoryError:
             raise
         except Exception as error:
-            raise JobResultError(
+            invalid = JobResultError(
                 f"result for job {submitted.job_id} has an unsupported counts format "
                 f"({_exception_name(error)})"
-            ) from None
+            )
+            attach_raw_evidence(invalid, job_id=submitted.job_id,
+                                target_identity=submitted.target_identity, counts=count_sets)
+            raise invalid from None
         return ExecutionResult(
             validated,
             submitted.job_id,

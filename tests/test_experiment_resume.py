@@ -258,7 +258,7 @@ def test_resume_accepts_explicit_supported_completed_schema_versions(
         {},
         {"schema_version": True},
         {"schema_version": False},
-        {"schema_version": 4},
+        {"schema_version": 5},
         {"schema_version": "3"},
     ],
 )

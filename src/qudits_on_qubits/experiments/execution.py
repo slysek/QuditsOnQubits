@@ -18,12 +18,14 @@ _FIXED_MODES = {
     "aer_ideal": ExecutionMode.IDEAL_SIMULATOR,
     "noisy_simulator": ExecutionMode.NOISY_SIMULATOR,
     "iqm_hardware": ExecutionMode.HARDWARE,
+    "ibm_hardware": ExecutionMode.HARDWARE,
     "piastq_hardware": ExecutionMode.HARDWARE,
 }
 _IDENTITY_KINDS = {
     "aer_ideal": "aer_ideal",
     "noisy_simulator": "noisy",
     "iqm_hardware": "iqm",
+    "ibm_hardware": "ibm",
     "piastq_hardware": "piastq",
     "custom": "custom",
 }
