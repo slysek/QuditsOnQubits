@@ -20,6 +20,8 @@ from .errors import (
     OptionalDependencyError,
 )
 from .execution import ExecutionMode
+from .ibm_spec import IBMHardware
+from .measurement import RandomizedBlocks
 from .manifest import RunManifest
 
 from .models import (
@@ -63,6 +65,7 @@ from .mitigation import (
     validate_zne_factors,
 )
 from .runner import resume_experiment, run_experiment, run_experiments
+from .block_runner import recover_randomized_job, replay_randomized_aer_batch
 from .store import ExperimentStore
 from .uncertainty import (
     BootstrapBellResults,
@@ -110,6 +113,8 @@ __all__ = [
     "ExperimentStore",
     "ExperimentValidationError",
     "IQMHardware",
+    "IBMHardware",
+    "RandomizedBlocks",
     "IQMQubitSelectorConfig",
     "JobResultError",
     "JobSubmissionError",
@@ -141,6 +146,8 @@ __all__ = [
     "fold_cz_batch",
     "linear_zne_extrapolate",
     "resume_experiment",
+    "recover_randomized_job",
+    "replay_randomized_aer_batch",
     "run_experiment",
     "run_experiments",
     "summarize_compiled_workload",

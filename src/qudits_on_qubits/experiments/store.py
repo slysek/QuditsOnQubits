@@ -1101,6 +1101,44 @@ class ExperimentStore:
             raise ExperimentPersistenceError("experiment.json must contain a mapping")
         return document
 
+    def artifact_exists(self, run: str | Path, filename: str | Path) -> bool:
+        """Check an artifact using the same containment rules as the readers."""
+        return self._artifact_path(run, filename, create_parent=False, allow_missing=True).exists()
+
+    def artifact_sha256(self, run: str | Path, filename: str | Path) -> str:
+        """Hash exact saved bytes without following symlinks or reparses."""
+        path = self._artifact_path(run, filename, create_parent=False)
+        return hashlib.sha256(self._read_bytes(path)).hexdigest()
+
+    def write_exclusive_json(self, run: str | Path, filename: str | Path, value: Any) -> bool:
+        """Durably create a submission marker once; never remove an uncertain marker.
+
+        A partial marker left by interruption still blocks a second submission.
+        False means an earlier attempt exists, not that its remote job failed.
+        """
+        data = _validated_plain_json_bytes(value)
+        path = self._artifact_path(run, filename, create_parent=True)
+        parent_identity = _directory_identity(path.parent, self.root)
+        try:
+            descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0))
+        except FileExistsError:
+            _ensure_no_symlink_or_reparse(path, self.root, allow_missing=False)
+            return False
+        except OSError as error:
+            raise ExperimentPersistenceError("could not create submission marker") from error
+        try:
+            with os.fdopen(descriptor, "wb") as handle:
+                _verify_directory_identity(path.parent, self.root, parent_identity)
+                _ensure_no_symlink_or_reparse(path, self.root, allow_missing=False)
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+            _fsync_directory(path.parent)
+            _verify_directory_identity(path.parent, self.root, parent_identity)
+        except OSError as error:
+            raise ExperimentPersistenceError("could not confirm submission marker durability") from error
+        return True
+
     def write_circuits(
         self,
         run: str | Path,
@@ -1206,12 +1244,12 @@ class ExperimentStore:
             raise ExperimentPersistenceError(f"experiment run is not a directory below root: {resolved}")
         return resolved
 
-    def _artifact_path(self, run: str | Path, filename: str | Path, *, create_parent: bool) -> Path:
+    def _artifact_path(self, run: str | Path, filename: str | Path, *, create_parent: bool, allow_missing: bool = False) -> Path:
         run_directory = self._resolve_run(run)
         relative = _safe_relative_path(filename)
         candidate = run_directory / relative
         try:
-            _ensure_no_symlink_or_reparse(candidate, self.root, allow_missing=create_parent)
+            _ensure_no_symlink_or_reparse(candidate, self.root, allow_missing=create_parent or allow_missing)
             resolved = candidate.resolve(strict=False)
         except ExperimentPersistenceError:
             raise

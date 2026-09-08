@@ -410,6 +410,7 @@ def _validate_adapter_target(
         ) from None
     name_field = {
         "iqm_hardware": "device",
+        "ibm_hardware": "device",
         "custom": "identity",
         "noisy_simulator": "identity",
     }.get(backend_kind)
@@ -2723,6 +2724,12 @@ def run_experiment(
 
     if not isinstance(spec, ExperimentSpec):
         raise ExperimentValidationError("spec must be ExperimentSpec")
+    if spec.measurement is not None:
+        if any(value is not None for value in (readout_calibration, _readout_strategy, _zne_strategy, _evaluator)) or _twirling_transform is not twirl_iqm_circuits:
+            raise ExperimentValidationError("randomized blocks reject legacy evaluator/mitigation injection")
+        from .block_runner import run_randomized_experiment
+        return run_randomized_experiment(spec, adapter=adapter, repo_root=repo_root,
+                                         timeout=timeout, run_options=run_options, _clock=_clock)
     _validate_execution_options(timeout, run_options)
     _validate_twirling_spec(spec)
 
@@ -3756,6 +3763,12 @@ def resume_experiment(
             "experiment.json must contain a mapping"
         ) from None
     schema_version = document.get("schema_version")
+    if type(schema_version) is int and schema_version == 4:
+        if any(value is not None for value in (_readout_strategy, _zne_strategy, _evaluator)):
+            raise ExperimentValidationError("randomized blocks reject legacy evaluator/mitigation injection")
+        from .block_runner import resume_randomized_experiment
+        return resume_randomized_experiment(experiment_dir, adapter=adapter, timeout=timeout,
+                                            run_options=run_options, spec=spec, _clock=_clock)
     if type(schema_version) is not int or schema_version not in {1, 2, 3}:
         raise ExperimentPersistenceError(
             "unsupported experiment schema version"

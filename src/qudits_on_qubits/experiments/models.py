@@ -13,6 +13,8 @@ from typing import Any, ClassVar, Mapping
 
 from .errors import ExperimentValidationError
 from .execution import ExecutionMode, validate_backend_execution_mode
+from .ibm_spec import IBMHardware
+from .measurement import RandomizedBlocks
 from .safety import unsafe_persisted_text, validate_persisted_strings
 
 
@@ -626,7 +628,7 @@ class RetryConfig:
 
 
 Basis = PathBasis | BenchmarkBasis
-Backend = AerIdeal | IQMHardware | PiastQHardware | CustomBackend | NoisySimulator
+Backend = AerIdeal | IQMHardware | PiastQHardware | IBMHardware | CustomBackend | NoisySimulator
 
 
 def _normalize_experiment_spec_dict(data: Mapping[str, Any]) -> dict[str, Any]:
@@ -656,9 +658,10 @@ class ExperimentSpec:
     state: str
     basis: Basis
     backend: Backend
-    shots: int = 20480
+    shots: int | None = 20480
+    measurement: RandomizedBlocks | None = field(default=None, kw_only=True)
     mitigation: MitigationConfig = field(default_factory=MitigationConfig)
-    uncertainty: BootstrapConfig = field(default_factory=BootstrapConfig)
+    uncertainty: BootstrapConfig | None = field(default_factory=BootstrapConfig)
     transpilation: TranspilationConfig = field(default_factory=TranspilationConfig)
     workload_optimization: WorkloadOptimizationConfig | None = field(
         default=None,
@@ -673,7 +676,7 @@ class ExperimentSpec:
         state: str,
         basis: Basis,
         backend: Backend,
-        shots: int = 20480,
+        shots: int | object = _UNSET,
         mitigation: MitigationConfig | object = _UNSET,
         uncertainty: BootstrapConfig | object = _UNSET,
         transpilation: TranspilationConfig | object = _UNSET,
@@ -681,9 +684,17 @@ class ExperimentSpec:
         output_root: Path | str = Path("artifacts/experiment_runs"),
         tags: Mapping[str, str] | object = _UNSET,
         *,
+        measurement: RandomizedBlocks | None = None,
         workload_optimization: WorkloadOptimizationConfig | None = None,
         bootstrap: BootstrapConfig | object = _UNSET,
     ) -> None:
+        if measurement is not None and not isinstance(measurement, RandomizedBlocks):
+            raise ExperimentValidationError("measurement must be RandomizedBlocks or None")
+        if measurement is not None:
+            if shots is not _UNSET:
+                raise ExperimentValidationError("explicit shots cannot accompany RandomizedBlocks; use measurement.shots_per_draw")
+            if uncertainty is not _UNSET or bootstrap is not _UNSET:
+                raise ExperimentValidationError("uncertainty/bootstrap cannot accompany RandomizedBlocks; use measurement.confidence_level")
         if bootstrap is not _UNSET and not isinstance(bootstrap, BootstrapConfig):
             raise ExperimentValidationError("bootstrap must be BootstrapConfig")
         if uncertainty is not _UNSET and not isinstance(uncertainty, BootstrapConfig):
@@ -701,11 +712,12 @@ class ExperimentSpec:
         elif bootstrap is not _UNSET:
             uncertainty_config = bootstrap
         else:
-            uncertainty_config = BootstrapConfig()
+            uncertainty_config = None if measurement is not None else BootstrapConfig()
         object.__setattr__(self, "state", state)
         object.__setattr__(self, "basis", basis)
         object.__setattr__(self, "backend", backend)
-        object.__setattr__(self, "shots", shots)
+        object.__setattr__(self, "shots", (None if measurement is not None else 20480) if shots is _UNSET else shots)
+        object.__setattr__(self, "measurement", measurement)
         object.__setattr__(
             self,
             "mitigation",
@@ -724,7 +736,7 @@ class ExperimentSpec:
         self.__post_init__()
 
     @property
-    def bootstrap(self) -> BootstrapConfig:
+    def bootstrap(self) -> BootstrapConfig | None:
         """Backward-compatible alias for :attr:`uncertainty`."""
 
         return self.uncertainty
@@ -734,14 +746,18 @@ class ExperimentSpec:
         if state not in _STATES:
             raise ExperimentValidationError("state must be two_qutrit, ghz3, or ame43")
         object.__setattr__(self, "state", state)
-        if isinstance(self.shots, bool) or not isinstance(self.shots, int) or self.shots <= 0:
+        if self.measurement is None and (isinstance(self.shots, bool) or not isinstance(self.shots, int) or self.shots <= 0):
             raise ExperimentValidationError("shots must be a positive integer")
         if not isinstance(self.basis, (PathBasis, BenchmarkBasis)):
             raise ExperimentValidationError("basis must be a supported basis specification")
-        if not isinstance(self.backend, (AerIdeal, IQMHardware, PiastQHardware, CustomBackend, NoisySimulator)):
+        if not isinstance(self.backend, (AerIdeal, IQMHardware, PiastQHardware, IBMHardware, CustomBackend, NoisySimulator)):
             raise ExperimentValidationError("backend must be a supported backend specification")
-        if not isinstance(self.uncertainty, BootstrapConfig):
+        if self.measurement is None and not isinstance(self.uncertainty, BootstrapConfig):
             raise ExperimentValidationError("uncertainty must be BootstrapConfig")
+        if not isinstance(self.mitigation, MitigationConfig):
+            raise ExperimentValidationError("mitigation must be MitigationConfig")
+        if self.measurement is not None and any((self.mitigation.readout, self.mitigation.zne, self.mitigation.circuit_twirling, self.mitigation.force_recalibration)):
+            raise ExperimentValidationError("RandomizedBlocks supports raw measurements only; mitigation must be disabled")
         if self.workload_optimization is not None and not isinstance(
             self.workload_optimization, WorkloadOptimizationConfig
         ):
@@ -756,7 +772,8 @@ class ExperimentSpec:
     def to_safe_dict(self) -> dict[str, Any]:
         return {
             "state": self.state, "basis": self.basis.to_safe_dict(), "backend": self.backend.to_safe_dict(),
-            "shots": self.shots, "mitigation": self.mitigation.to_safe_dict(), "uncertainty": self.uncertainty.to_safe_dict(),
+            "shots": self.shots, "mitigation": self.mitigation.to_safe_dict(), "uncertainty": self.uncertainty.to_safe_dict() if self.uncertainty is not None else None,
+            **({"measurement": self.measurement.to_safe_dict()} if self.measurement is not None else {}),
             "transpilation": self.transpilation.to_safe_dict(),
             "workload_optimization": (
                 self.workload_optimization.to_safe_dict()
@@ -770,10 +787,17 @@ class ExperimentSpec:
     @classmethod
     def from_safe_dict(cls, data: Mapping[str, Any]) -> "ExperimentSpec":
         data = _normalize_experiment_spec_dict(data)
+        measurement = (
+            RandomizedBlocks.from_safe_dict(data["measurement"])
+            if data.get("measurement") is not None else None
+        )
+        if measurement is not None and (data.get("shots") is not None or data.get("uncertainty") is not None):
+            raise ExperimentValidationError("RandomizedBlocks requires persisted shots and uncertainty to be null")
         return cls(
             state=data["state"], basis=_basis_from_safe_dict(data["basis"]), backend=_backend_from_safe_dict(data["backend"]),
-            shots=data.get("shots", 20480), mitigation=MitigationConfig.from_safe_dict(data.get("mitigation", {})),
-            uncertainty=BootstrapConfig.from_safe_dict(data.get("uncertainty", {})),
+            shots=_UNSET if measurement is not None else data.get("shots", 20480), mitigation=MitigationConfig.from_safe_dict(data.get("mitigation", {})),
+            measurement=measurement,
+            uncertainty=_UNSET if measurement is not None else BootstrapConfig.from_safe_dict(data.get("uncertainty", {})),
             transpilation=TranspilationConfig.from_safe_dict(data.get("transpilation", {})),
             workload_optimization=(
                 WorkloadOptimizationConfig.from_safe_dict(data["workload_optimization"])
@@ -796,7 +820,7 @@ def _basis_from_safe_dict(data: Mapping[str, Any]) -> Basis:
 
 def _backend_from_safe_dict(data: Mapping[str, Any]) -> Backend:
     kind = data.get("kind")
-    classes: dict[str, Any] = {"aer_ideal": AerIdeal, "iqm_hardware": IQMHardware, "piastq_hardware": PiastQHardware}
+    classes: dict[str, Any] = {"aer_ideal": AerIdeal, "iqm_hardware": IQMHardware, "piastq_hardware": PiastQHardware, "ibm_hardware": IBMHardware}
     if kind in classes:
         return classes[kind].from_safe_dict(data)
     if kind in {"custom", "noisy_simulator"}:

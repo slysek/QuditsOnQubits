@@ -171,6 +171,8 @@ def build_sampler_circuits_for_candidate(
     add_measurements: bool = True,
     classical_register_name: str | None = None,
     sort_settings: bool = True,
+    *,
+    explicit_settings: Sequence[Sequence[str]] | None = None,
 ) -> tuple[list["QuantumCircuit"], dict[str, Any]]:
     """Build Sampler-ready circuits for a supported audited Bell candidate.
 
@@ -183,6 +185,10 @@ def build_sampler_circuits_for_candidate(
     measurement observables are selected automatically from the candidate
     definition. ``powers`` in the returned metadata still do not create extra
     circuits; they are used later by ``compute_bell_value_from_counts``.
+
+    ``explicit_settings`` selects full settings, including combinations absent
+    from the Bell terms. They are validated by party and deduplicated in first
+    occurrence order, independently of ``sort_settings``.
     """
     bell_settings_data = _candidate_bell_settings_data(
         candidate,
@@ -200,12 +206,32 @@ def build_sampler_circuits_for_candidate(
         num_qutrits=num_qutrits,
     )
 
-    measurement_settings = [
-        _extract_setting(item)
-        for item in bell_settings_data["measurement_settings"]
-    ]
-    if sort_settings:
-        measurement_settings = sorted(measurement_settings, key=_setting_sort_key)
+    if explicit_settings is None:
+        measurement_settings = [
+            _extract_setting(item)
+            for item in bell_settings_data["measurement_settings"]
+        ]
+        if sort_settings:
+            measurement_settings = sorted(measurement_settings, key=_setting_sort_key)
+    else:
+        reference = get_reference_experiment(candidate)
+        local_labels = tuple(
+            {factor.setting_label for term in reference.bell_functional.terms for factor in term.factors if factor.party == party}
+            for party in reference.state.party_order
+        )
+        if isinstance(explicit_settings, (str, bytes)) or not isinstance(explicit_settings, Sequence):
+            raise ValueError("explicit_settings must be a non-empty sequence of full settings")
+        measurement_settings = []
+        for setting in explicit_settings:
+            if isinstance(setting, (str, bytes)) or not isinstance(setting, Sequence):
+                raise ValueError("explicit_settings must contain sequences of local labels")
+            labels = tuple(setting)
+            if len(labels) != num_qutrits or any(not isinstance(label, str) or label not in allowed for label, allowed in zip(labels, local_labels)):
+                raise ValueError("explicit_settings must use full valid setting labels for each party")
+            if labels not in measurement_settings:
+                measurement_settings.append(labels)
+        if not measurement_settings:
+            raise ValueError("explicit_settings must contain at least one full setting")
 
     observables_by_label = bell_settings_data["observables_by_label"]
     observable_lookup = lambda label: np.asarray(
