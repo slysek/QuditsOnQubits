@@ -549,8 +549,12 @@ and skips transpilation for that candidate; it never selects a legacy gate.
 Validated gates are cached under `artifacts/direct_basis_runs/optimized_gates/`
 by the exact encoding, synthesis settings and dependency versions, and reused
 across states, seeds and approximation thresholds. Cache loads recheck both
-errors and gate counts. BQSKit searches are serialized to avoid overlapping
-local compiler runtimes; the existing candidate jobs still handle transpilation.
+errors and gate counts. Per-encoding OS file locks coordinate independent
+benchmark processes, and complete cache directories are published by atomic
+rename. Invalid or incomplete cache entries are rebuilt. The cache format is
+versioned so older, unlocked writers cannot interfere with the new entries.
+BQSKit searches within one process remain serialized; the existing candidate
+jobs still handle transpilation.
 The first synthesis for a new basis can take substantially longer than a
 transpiler trial. BQSKit is included in the project dependencies.
 

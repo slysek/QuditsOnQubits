@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import struct
+import tempfile
 import threading
 import time
 from dataclasses import asdict, dataclass
@@ -15,7 +18,9 @@ from importlib.metadata import version
 from pathlib import Path
 
 import numpy as np
+from filelock import FileLock
 from qiskit import QuantumCircuit, qpy
+from qiskit.exceptions import QiskitError
 from qiskit.circuit.library import CXGate
 from qiskit.quantum_info import Operator
 from qiskit.synthesis import TwoQubitBasisDecomposer
@@ -35,6 +40,7 @@ SYNTHESIS_EPSILON = 1e-8
 SYNTHESIS_SEED = 0
 GATE_LIBRARY = "code_space_optimized_v1"
 _SYNTHESIS_LOCK = threading.RLock()
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -203,6 +209,55 @@ class OptimizedGateLibrary:
         }
 
 
+def _load_cached_library(directory, embedding, specification) -> OptimizedGateLibrary:
+    manifest = json.loads((directory / "synthesis.json").read_text(encoding="utf-8"))
+    if any(manifest[name] != value for name, value in specification.items()):
+        raise ValueError("Cache specification does not match the requested library.")
+    if not np.array_equal(np.load(directory / "E.npy", allow_pickle=False), embedding):
+        raise ValueError("Cached encoding does not match the requested encoding.")
+    elapsed = manifest["synthesis_seconds"]
+    if isinstance(elapsed, bool) or not isinstance(elapsed, (int, float)) or not np.isfinite(elapsed) or elapsed < 0:
+        raise ValueError("Invalid cached synthesis time.")
+    circuits = []
+    for filename, code, logical, name, tolerance, limit in (
+        ("F3_W.qpy", embedding, qutrit_fourier(), "F3", F3_TOLERANCE, 2),
+        ("CZ3_W.qpy", np.kron(embedding, embedding), qutrit_cz(), "CZ3", CZ3_TOLERANCE, None),
+    ):
+        with (directory / filename).open("rb") as handle:
+            loaded = qpy.load(handle)
+        if len(loaded) != 1:
+            raise ValueError("Expected exactly one cached gate per QPY file.")
+        circuit = loaded[0]
+        validation = validate_code_space_gate(circuit, code, logical)
+        _accept(circuit, validation, name=name, tolerance=tolerance, max_2q=limit)
+        circuit.metadata = {**manifest[name], **asdict(validation)}
+        circuits.append(circuit)
+    library = OptimizedGateLibrary(*circuits, elapsed, True)
+    library.benchmark_metrics()  # Check metadata needed by callers before accepting the hit.
+    return library
+
+
+def _publish_cached_library(directory, embedding, specification, library) -> None:
+    # Stage on the same filesystem. The per-key process lock remains held until
+    # the complete directory is renamed into place; no reader sees partial QPYs.
+    with tempfile.TemporaryDirectory(prefix=f".{directory.name}.", dir=directory.parent) as temporary:
+        staging = Path(temporary) / "ready"
+        staging.mkdir()
+        for circuit, filename in ((library.f3, "F3_W.qpy"), (library.cz3, "CZ3_W.qpy")):
+            with (staging / filename).open("wb") as handle:
+                qpy.dump(circuit, handle)
+        np.save(staging / "E.npy", embedding)
+        (staging / "synthesis.json").write_text(json.dumps({
+            **specification, "synthesis_seconds": library.synthesis_seconds,
+            "F3": library.f3.metadata, "CZ3": library.cz3.metadata,
+        }, indent=2), encoding="utf-8")
+        if directory.exists():
+            # Only an invalid cache reaches here. Move it aside under the lock;
+            # interruption before publication leaves a cache miss, not partial data.
+            directory.replace(Path(temporary) / "previous")
+        staging.replace(directory)
+
+
 def optimized_gate_library(
     encoding: np.ndarray,
     *,
@@ -212,9 +267,13 @@ def optimized_gate_library(
 
     Cache identity includes the algorithm and dependency versions. On every
     load, recompute both code-space errors and inspect elementary gate counts.
+    A per-key OS file lock covers reads, synthesis and atomic publication across
+    processes. Incomplete or invalid cached libraries are synthesized again.
     """
     embedding = np.ascontiguousarray(encoding_embedding(encoding), dtype=np.complex128)
     specification = {
+        # Isolate this layout from older processes that did not use a file lock.
+        "cache_format": 2,
         "library": GATE_LIBRARY, "bqskit": version("bqskit"), "qiskit": version("qiskit"),
         "epsilon": SYNTHESIS_EPSILON, "seed": SYNTHESIS_SEED,
         "f3_tolerance": F3_TOLERANCE, "cz3_tolerance": CZ3_TOLERANCE,
@@ -224,33 +283,20 @@ def optimized_gate_library(
         "artifacts", "direct_basis_runs", "optimized_gates",
     ))
     directory = root / key
-    with _SYNTHESIS_LOCK:
-        manifest_path = directory / "synthesis.json"
-        if manifest_path.is_file():
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            with (directory / "F3_W.qpy").open("rb") as handle:
-                f3 = qpy.load(handle)[0]
-            with (directory / "CZ3_W.qpy").open("rb") as handle:
-                cz3 = qpy.load(handle)[0]
-            for circuit, code, logical, name, tol, limit in (
-                (f3, embedding, qutrit_fourier(), "F3", F3_TOLERANCE, 2),
-                (cz3, np.kron(embedding, embedding), qutrit_cz(), "CZ3", CZ3_TOLERANCE, None),
-            ):
-                validation = validate_code_space_gate(circuit, code, logical)
-                _accept(circuit, validation, name=name, tolerance=tol, max_2q=limit)
-                circuit.metadata.update(asdict(validation))
-            return OptimizedGateLibrary(f3, cz3, manifest["synthesis_seconds"], True)
+    root.mkdir(parents=True, exist_ok=True)
+    # Keep lock files outside the directories that publication replaces. OS
+    # locks are released even if the holder process terminates unexpectedly.
+    with _SYNTHESIS_LOCK, FileLock(str(root / f"{key}.lock")):
+        if directory.exists():
+            try:
+                return _load_cached_library(directory, embedding, specification)
+            except (FileNotFoundError, ValueError, TypeError, KeyError, IndexError,
+                    EOFError, struct.error, QiskitError) as exc:
+                _LOGGER.warning("Rebuilding invalid gate cache %s: %s", directory, exc)
         started = time.perf_counter()
         f3 = synthesize_f3(embedding)
         cz3 = synthesize_cz3(embedding)
         elapsed = time.perf_counter() - started
-        directory.mkdir(parents=True, exist_ok=True)
-        for circuit, filename in ((f3, "F3_W.qpy"), (cz3, "CZ3_W.qpy")):
-            with (directory / filename).open("wb") as handle:
-                qpy.dump(circuit, handle)
-        np.save(directory / "E.npy", embedding)
-        manifest_path.write_text(json.dumps({
-            **specification, "synthesis_seconds": elapsed,
-            "F3": f3.metadata, "CZ3": cz3.metadata,
-        }, indent=2), encoding="utf-8")
-        return OptimizedGateLibrary(f3, cz3, elapsed)
+        library = OptimizedGateLibrary(f3, cz3, elapsed)
+        _publish_cached_library(directory, embedding, specification, library)
+        return library

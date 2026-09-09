@@ -9,6 +9,7 @@ ipython
 jupyterlab
 qiskit>=2,<2.2
 bqskit>=1.2.1,<1.3
+filelock>=3.16,<4
 qiskit-aer>=0.17,<0.18
 qiskit-ibm-runtime>=0.34,<0.44.1
 qiskit-experiments>=0.13,<0.14

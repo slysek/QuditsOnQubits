@@ -104,8 +104,10 @@ def test_cache_validates_reused_gates_and_does_not_alias_encodings(exact_cz3_syn
     path = next(p for p in cache.glob("*/F3_W.qpy") if json.loads((p.parent / "synthesis.json").read_text())["F3"]["synthesis_method"] == "analytic_monomial")
     with path.open("wb") as handle:
         qpy.dump(first.f3, handle)
-    with pytest.raises(gates.GateSynthesisError):
-        gates.optimized_gate_library(np.eye(3), cache_dir=cache)
+    repaired = gates.optimized_gate_library(np.eye(3), cache_dir=cache)
+    assert not repaired.cache_hit
+    assert repaired.f3.metadata["E_norm"] < 1e-10
+    assert len(exact_cz3_synthesis) == 3
 
 
 def test_benchmark_exports_and_reuses_new_gates_for_thresholds(exact_cz3_synthesis, tmp_path):
