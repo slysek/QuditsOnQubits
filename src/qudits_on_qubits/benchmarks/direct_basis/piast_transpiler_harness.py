@@ -19,8 +19,9 @@ from qudits_on_qubits.benchmarks.direct_basis.benchmark import (
     export_direct_basis_candidate_circuits,
 )
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
+from qudits_on_qubits.benchmarks.direct_basis.optimized_gates import GateSynthesisError, gate_metric_defaults
 from qudits_on_qubits.benchmarks.direct_basis.circuits import (
-    build_direct_basis_graph_state_circuit,
+    build_optimized_direct_basis_graph_state_circuit,
 )
 from qudits_on_qubits.benchmarks.direct_basis.math_utils import encoding_embedding
 from qudits_on_qubits.benchmarks.direct_basis.piast_backend import (
@@ -341,7 +342,7 @@ def _best_trial_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     best_rows: list[dict[str, Any]] = []
     for group_rows in grouped.values():
         unsupported = next(
-            (row for row in group_rows if row.get("status") == "unsupported_candidate"),
+            (row for row in group_rows if row.get("status") in {"unsupported_candidate", "build_error", "gate_validation_failed"}),
             None,
         )
         if unsupported is not None:
@@ -385,6 +386,8 @@ def _summary(
         "trial_count": len(rows),
         "successful_trial_count": sum(1 for row in rows if bool(row.get("success"))),
         "failed_trial_count": sum(1 for row in rows if row.get("status") == "failed"),
+        "gate_validation_failed_count": sum(1 for row in rows if row.get("status") == "gate_validation_failed"),
+        "build_error_count": sum(1 for row in rows if row.get("status") == "build_error"),
         "unsupported_candidate_count": sum(
             1 for row in rows if row.get("status") == "unsupported_candidate"
         ),
@@ -435,16 +438,23 @@ def run_piast_transpiler_harness(
             )
             continue
 
-        circuit = build_direct_basis_graph_state_circuit(
-            config.state_name,
-            candidate.matrix,
-            n_qutrits=config.n_qutrits,
-        )
-        artifact_paths = _export_candidate_artifacts(
-            config,
-            candidate,
-            graph_state_circuit=circuit,
-        )
+        try:
+            circuit = build_optimized_direct_basis_graph_state_circuit(
+                config.state_name, candidate.matrix, n_qutrits=config.n_qutrits,
+            )
+            candidate_metadata = {**metadata, **circuit.metadata}
+            artifact_paths = _export_candidate_artifacts(
+                config, candidate, graph_state_circuit=circuit,
+            )
+        except Exception as exc:
+            failed = _unsupported_candidate_row(candidate, config=config, metadata=metadata)
+            failed.update({
+                "status": "gate_validation_failed" if isinstance(exc, GateSynthesisError) else "build_error",
+                "error_type": type(exc).__name__, "error_message": str(exc),
+                **getattr(exc, "metrics", {}),
+            })
+            rows.append(failed)
+            continue
         for seed in range(n_transpile_runs):
             for strategy_index, strategy_name in enumerate(strategy_names, start=1):
                 trial_index += 1
@@ -469,7 +479,7 @@ def run_piast_transpiler_harness(
                     candidate,
                     result=result,
                     config=config,
-                    metadata=metadata,
+                    metadata=candidate_metadata,
                     artifact_paths=artifact_paths,
                 )
                 rows.append(row)
@@ -593,6 +603,7 @@ def _base_row(
     metadata: dict[str, Any],
 ) -> dict[str, Any]:
     return {
+        **gate_metric_defaults(),
         **metadata,
         "state_name": config.state_name,
         "n_qutrits": config.n_qutrits,

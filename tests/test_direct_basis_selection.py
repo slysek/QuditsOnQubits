@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +38,8 @@ from qudits_on_qubits.benchmarks.direct_basis.selection import (
     transpiled_qpy_filename,
 )
 from scripts.run_direct_basis_benchmarks import build_parser, _validate_cli_selection_args
+
+pytestmark = pytest.mark.usefixtures("exact_cz3_synthesis")
 
 
 class DirectBasisSelectionLabelTests(unittest.TestCase):

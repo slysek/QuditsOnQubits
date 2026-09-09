@@ -18,10 +18,10 @@ from qiskit.quantum_info import Statevector, state_fidelity
 from qudits_on_qubits.bell_measurements import build_sampler_circuits_for_candidate
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
 from qudits_on_qubits.benchmarks.direct_basis.circuits import (
-    build_direct_basis_edge_gate,
     build_direct_basis_fourier_gate,
     build_direct_basis_fourier_graph_state_circuit,
     build_direct_basis_graph_state_circuit,
+    build_optimized_direct_basis_graph_state_circuit,
     gate_as_circuit,
     resolve_direct_state,
 )
@@ -35,6 +35,11 @@ from qudits_on_qubits.benchmarks.direct_basis.math_utils import (
 from qudits_on_qubits.benchmarks.direct_basis.selection import (
     selection_label as format_selection_label,
     transpiled_qpy_filename,
+)
+from qudits_on_qubits.benchmarks.direct_basis.optimized_gates import (
+    GateSynthesisError,
+    gate_metric_defaults,
+    optimized_gate_library,
 )
 from qudits_on_qubits.benchmarks.direct_basis.state_reconstruction import (
     _bits_to_index,
@@ -487,6 +492,7 @@ def _base_row(
         "candidate_name": candidate_name,
         "basis_matrix_unitary": False,
         "basis_matrix_isometry": False,
+        **gate_metric_defaults(),
         "two_qubit_gate_count": None,
         "one_qubit_gate_count": None,
         "total_gate_count": None,
@@ -598,10 +604,13 @@ def benchmark_direct_basis(
         row["basis_matrix_unitary"] = is_unitary(basis_matrix)
         row["basis_matrix_isometry"] = is_isometry(basis_matrix)
 
-        qc = build_direct_basis_graph_state_circuit(
+        gates = optimized_gate_library(basis_matrix)
+        row.update(gates.benchmark_metrics())
+        qc = build_optimized_direct_basis_graph_state_circuit(
             state_name,
             basis_matrix,
             n_qutrits=n_qutrits,
+            gate_library=gates,
         )
         measured_circuits = None
         measured_settings = None
@@ -624,12 +633,16 @@ def benchmark_direct_basis(
                 candidate_name=candidate_name,
                 basis_matrix=basis_matrix,
                 graph_state_circuit=qc,
+                gate_library=gates,
                 selection_label=selection_label,
                 legacy_exact_transpiled_filename=legacy_exact_transpiled_filename,
             )
             row.update(paths)
-    except Exception:
+    except Exception as exc:
         row["status"] = "build_error"
+        if isinstance(exc, GateSynthesisError):
+            row["status"] = "gate_validation_failed"
+            row.update(exc.metrics)
         row["error_message"] = traceback.format_exc()
         if compare_optimal_f3_leakage:
             row["f3_graph_comparison_status"] = "analysis_error"
@@ -827,7 +840,11 @@ def benchmark_direct_basis(
         _save_qpy(best["qc"], row["graph_state_transpiled_qpy"])
 
     if compute_fidelity:
-        fidelity, fidelity_note = _safe_fidelity(qc, best["qc"], max_qubits=max_fidelity_qubits)
+        # Include synthesis error, not only the error added by transpilation.
+        reference = build_direct_basis_graph_state_circuit(
+            state_name, basis_matrix, n_qutrits=n_qutrits,
+        )
+        fidelity, fidelity_note = _safe_fidelity(reference, best["qc"], max_qubits=max_fidelity_qubits)
         if fidelity is not None:
             row["fidelity"] = round(fidelity, 12)
             row["final_error"] = round(float(1.0 - fidelity), 12)
@@ -1149,6 +1166,7 @@ def export_direct_basis_candidate_circuits(
     candidate_name: str,
     basis_matrix: np.ndarray,
     graph_state_circuit,
+    gate_library=None,
     selection_label: str = "exact",
     legacy_exact_transpiled_filename: bool = True,
 ) -> dict[str, str]:
@@ -1161,16 +1179,9 @@ def export_direct_basis_candidate_circuits(
         class_name=class_name,
         candidate_name=candidate_name,
     )
-    f3_circuit = gate_as_circuit(
-        build_direct_basis_fourier_gate(basis_matrix),
-        2,
-        "F3_W",
-    )
-    cz_circuit = gate_as_circuit(
-        build_direct_basis_edge_gate(basis_matrix),
-        4,
-        "CZ3_W",
-    )
+    gates = gate_library if gate_library is not None else optimized_gate_library(basis_matrix)
+    f3_circuit = gates.f3
+    cz_circuit = gates.cz3
     is_w_matrix = basis_matrix.shape == (3, 3)
     e_npy = os.path.join(output_dir, "E.npy")
     w_npy = os.path.join(output_dir, "W.npy") if is_w_matrix else ""
