@@ -1,0 +1,100 @@
+# IQM Bell experiments and ZNE, 9–10 September 2026
+
+The short circuit prepares the same encoded two-qutrit graph state with five
+CX gates. Its nine native measurement circuits contain 6–9 CZ gates. Exact
+statevector checks verify the preparation, measurement probabilities, qubit
+mapping, folding and Pauli twirling before hardware submission.
+
+## Reproduce offline
+
+Install with `python -m pip install -e ".[dev]" "pylatexenc>=2.10,<3"` (the
+extra package supports Qiskit's circuit drawings), select that Python
+environment in Jupyter, and run either short notebook from top to bottom:
+
+- [bell_short.ipynb](bell_short.ipynb): scales 1, 2, 3; 16 repeats, 256 shots per
+  circuit; 24 jobs and 258,048 shots.
+- [bell_short_5scales.ipynb](bell_short_5scales.ipynb): scales 1, 1.5, 2, 2.5, 3;
+  32 repeats, 128 shots per circuit; 40 jobs and 405,504 shots.
+
+Both notebooks default to `RUN_HARDWARE = False` and analyze the committed
+campaigns in `artifacts/iqm_bell_short/`. They regenerate derived JSON, CSV and
+plots; the saved counts, submissions, manifests and QPY circuits are preserved.
+No provider account is needed for offline analysis. A fresh hardware campaign
+requires opting in, configuring IQM credentials as described in the repository
+README, and choosing a new `CAMPAIGN` directory. An existing directory represents
+a frozen plan: completed jobs are reused, and uncertain submissions require
+inspection before recovery.
+
+The older [bell_randomized_mitigation.ipynb](bell_randomized_mitigation.ipynb)
+contains the initial RAW / readout mitigation / twirling + DD / ZNE experiment.
+It defaults to offline planning with cleared outputs. Set `SAVED_CAMPAIGN` to
+`WORK / "campaign_1ee8e73b3efb45ee921e8be945833fad"` to analyze its archived
+measurements. Its saved schedule determines that analysis, independently of
+the notebook's configuration for planning a new campaign. The older campaign
+did not record a calibration-set ID; it must not be treated as a controlled
+comparison with the later, calibration-selected short campaigns.
+
+## Five-scale results
+
+Theory is 6; the classical bound is approximately 5.638156. Values below are
+unconditional estimates: invalid encoded outcomes contribute zero, with no
+postselection or readout correction in the short campaigns.
+
+| Variant | Bell estimate | 95% statistical interval |
+|---|---:|---|
+| RAW | 5.434576 | [5.346342, 5.522810] |
+| DD | 5.470950 | [5.386982, 5.554917] |
+| Twirling | 5.317828 | [5.232296, 5.403361] |
+| DD + linear ZNE | 5.665400 | [5.540260, 5.789229] |
+| DD + quadratic ZNE | 6.022515 | [5.587487, 6.460036] |
+| DD + exponential ZNE | 5.694016 | [5.556848, 5.829213] |
+| DD + exponential with offset | 6.341082 | unstable: 14/2000 failed fits |
+| Twirling + linear ZNE | 5.529466 | [5.409531, 5.651113] |
+| Twirling + quadratic ZNE | 5.646239 | [5.127380, 6.122830] |
+| Twirling + exponential ZNE | 5.549823 | [5.423727, 5.679997] |
+| Twirling + exponential with offset | 5.675605 | unstable: 1/2000 failed fits |
+
+Base intervals use Student-t statistics across eight interleaved blocks, with a
+shot-noise floor. Model-comparison intervals propagate joint multivariate
+Student-t fluctuations through 2000 refits; they therefore differ slightly
+from the analytic linear intervals in `analysis.json`. No interval includes
+unknown extrapolation bias. Failed fits are counted, never silently discarded
+to produce a narrower reported interval.
+
+The quadratic value near 6 is exploratory, not validated recovery of the ideal
+answer. In the archived statistical diagnostics it fails equivalence to
+6 ± 0.1; omitting one scale moves its point estimate between 5.492 and 6.289.
+The linear DD result supports partial improvement over RAW under the stated
+block assumptions (Holm-adjusted p ≈ 0.0273). Model selection happened after
+viewing the data. An independent experiment with a model, tolerance and primary
+test fixed in advance is still needed.
+
+Folding scales CZ counts, not all sources of error. Fractional scales are
+balanced averages of partial folds over four repeats. Treating those averages
+as a nonlinear noise curve is an additional model assumption. More scales
+constrain a fit, but do not prove that its intercept at zero is unbiased.
+
+## Evidence and validation
+
+The committed campaign directories include every measured count vector,
+submitted circuit, job checkpoint, circuit manifest, available calibration
+metrics, and all fitted models. Line-ending conversion is disabled for these
+archives to preserve recorded SHA-256 hashes. The frozen gate inputs are in
+`experiment_inputs/iqm_randomized_bell/canonical_optimized_20260909/`.
+
+The five-scale folder also contains `statistical_diagnostics.md` and `.json`:
+an archived exploratory analysis with block statistics, input hashes, test
+definitions, multiplicity corrections, leave-one-scale-out results and stated
+limitations. These supplementary diagnostics are not regenerated by the
+notebooks; the notebooks regenerate the main estimates, model comparisons and
+the comparison against scales 1, 2, 3 from the same eight blocks.
+
+Run the offline regression suite from the repository root:
+
+```sh
+python -m pytest -q tests/test_iqm_bell_short.py tests/test_iqm_bell_five_scales.py tests/test_iqm_bell_zne_models.py tests/test_iqm_randomized_mitigation_notebook.py tests/test_iqm_bell_archived_results.py
+```
+
+Tests check exact ideal probabilities, native gate budgets, calibration-based
+selection, matched partial folds, hardware opt-in and checkpointing, synthetic
+curves, covariance floors, unstable fits and the archived measured estimates.

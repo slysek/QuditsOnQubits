@@ -1,0 +1,12 @@
+{
+  "name": "calibration_0",
+  "shots": 4096,
+  "dd": false,
+  "mapping": [
+    9,
+    3,
+    4,
+    10
+  ],
+  "qpy_sha256": "8a030f368dc008f2c96e1b72377e66b0817021be33fccffa640c55622cc72ac1"
+}

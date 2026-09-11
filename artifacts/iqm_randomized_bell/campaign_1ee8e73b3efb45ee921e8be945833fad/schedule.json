@@ -1,0 +1,1070 @@
+{
+  "version": 1,
+  "config": {
+    "mode": "independent_local_uniform_blocks",
+    "version": 1,
+    "setting_draws": 100,
+    "shots_per_draw": 1024,
+    "max_setting_draws": 1024,
+    "max_circuits_per_job": 100,
+    "confidence_level": 0.95
+  },
+  "state": "two_qutrit",
+  "blocks": [
+    {
+      "block_id": 0,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 1,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    },
+    {
+      "block_id": 2,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 3,
+      "settings": [
+        "A0",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        0
+      ]
+    },
+    {
+      "block_id": 4,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    },
+    {
+      "block_id": 5,
+      "settings": [
+        "A0",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        0
+      ]
+    },
+    {
+      "block_id": 6,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 7,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 8,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 9,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 10,
+      "settings": [
+        "A1",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        3
+      ]
+    },
+    {
+      "block_id": 11,
+      "settings": [
+        "A1",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        4
+      ]
+    },
+    {
+      "block_id": 12,
+      "settings": [
+        "A0",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        1
+      ]
+    },
+    {
+      "block_id": 13,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    },
+    {
+      "block_id": 14,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 15,
+      "settings": [
+        "A0",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        1
+      ]
+    },
+    {
+      "block_id": 16,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 17,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 18,
+      "settings": [
+        "A0",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        1
+      ]
+    },
+    {
+      "block_id": 19,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 20,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 21,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 22,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 23,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    },
+    {
+      "block_id": 24,
+      "settings": [
+        "A2",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        8
+      ]
+    },
+    {
+      "block_id": 25,
+      "settings": [
+        "A0",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        0
+      ]
+    },
+    {
+      "block_id": 26,
+      "settings": [
+        "A2",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        8
+      ]
+    },
+    {
+      "block_id": 27,
+      "settings": [
+        "A2",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        8
+      ]
+    },
+    {
+      "block_id": 28,
+      "settings": [
+        "A0",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        1
+      ]
+    },
+    {
+      "block_id": 29,
+      "settings": [
+        "A0",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        0
+      ]
+    },
+    {
+      "block_id": 30,
+      "settings": [
+        "A2",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        8
+      ]
+    },
+    {
+      "block_id": 31,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 32,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 33,
+      "settings": [
+        "A0",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        1
+      ]
+    },
+    {
+      "block_id": 34,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    },
+    {
+      "block_id": 35,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 36,
+      "settings": [
+        "A2",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        8
+      ]
+    },
+    {
+      "block_id": 37,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 38,
+      "settings": [
+        "A2",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        8
+      ]
+    },
+    {
+      "block_id": 39,
+      "settings": [
+        "A0",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        1
+      ]
+    },
+    {
+      "block_id": 40,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 41,
+      "settings": [
+        "A0",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        0
+      ]
+    },
+    {
+      "block_id": 42,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    },
+    {
+      "block_id": 43,
+      "settings": [
+        "A1",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        3
+      ]
+    },
+    {
+      "block_id": 44,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    },
+    {
+      "block_id": 45,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 46,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 47,
+      "settings": [
+        "A1",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        3
+      ]
+    },
+    {
+      "block_id": 48,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    },
+    {
+      "block_id": 49,
+      "settings": [
+        "A2",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        8
+      ]
+    },
+    {
+      "block_id": 50,
+      "settings": [
+        "A1",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        3
+      ]
+    },
+    {
+      "block_id": 51,
+      "settings": [
+        "A0",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        1
+      ]
+    },
+    {
+      "block_id": 52,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 53,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 54,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 55,
+      "settings": [
+        "A1",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        3
+      ]
+    },
+    {
+      "block_id": 56,
+      "settings": [
+        "A1",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        3
+      ]
+    },
+    {
+      "block_id": 57,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 58,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 59,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 60,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 61,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 62,
+      "settings": [
+        "A0",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        0
+      ]
+    },
+    {
+      "block_id": 63,
+      "settings": [
+        "A1",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        3
+      ]
+    },
+    {
+      "block_id": 64,
+      "settings": [
+        "A1",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        4
+      ]
+    },
+    {
+      "block_id": 65,
+      "settings": [
+        "A1",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        3
+      ]
+    },
+    {
+      "block_id": 66,
+      "settings": [
+        "A1",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        3
+      ]
+    },
+    {
+      "block_id": 67,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 68,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 69,
+      "settings": [
+        "A1",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        3
+      ]
+    },
+    {
+      "block_id": 70,
+      "settings": [
+        "A2",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        8
+      ]
+    },
+    {
+      "block_id": 71,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 72,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 73,
+      "settings": [
+        "A1",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        4
+      ]
+    },
+    {
+      "block_id": 74,
+      "settings": [
+        "A0",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        1
+      ]
+    },
+    {
+      "block_id": 75,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 76,
+      "settings": [
+        "A0",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        1
+      ]
+    },
+    {
+      "block_id": 77,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    },
+    {
+      "block_id": 78,
+      "settings": [
+        "A2",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        8
+      ]
+    },
+    {
+      "block_id": 79,
+      "settings": [
+        "A1",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        3
+      ]
+    },
+    {
+      "block_id": 80,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 81,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 82,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 83,
+      "settings": [
+        "A2",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        8
+      ]
+    },
+    {
+      "block_id": 84,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    },
+    {
+      "block_id": 85,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 86,
+      "settings": [
+        "A2",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        8
+      ]
+    },
+    {
+      "block_id": 87,
+      "settings": [
+        "A0",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        0
+      ]
+    },
+    {
+      "block_id": 88,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    },
+    {
+      "block_id": 89,
+      "settings": [
+        "A0",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        1
+      ]
+    },
+    {
+      "block_id": 90,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 91,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 92,
+      "settings": [
+        "A0",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        1
+      ]
+    },
+    {
+      "block_id": 93,
+      "settings": [
+        "A0",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        0
+      ]
+    },
+    {
+      "block_id": 94,
+      "settings": [
+        "A1",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        5
+      ]
+    },
+    {
+      "block_id": 95,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    },
+    {
+      "block_id": 96,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    },
+    {
+      "block_id": 97,
+      "settings": [
+        "A2",
+        "B0"
+      ],
+      "matched_pattern_indices": [
+        6
+      ]
+    },
+    {
+      "block_id": 98,
+      "settings": [
+        "A2",
+        "B1"
+      ],
+      "matched_pattern_indices": [
+        7
+      ]
+    },
+    {
+      "block_id": 99,
+      "settings": [
+        "A0",
+        "B2"
+      ],
+      "matched_pattern_indices": [
+        2
+      ]
+    }
+  ],
+  "local_settings": [
+    [
+      "A0",
+      "A1",
+      "A2"
+    ],
+    [
+      "B0",
+      "B1",
+      "B2"
+    ]
+  ],
+  "required_patterns": [
+    [
+      "A0",
+      "B0"
+    ],
+    [
+      "A0",
+      "B1"
+    ],
+    [
+      "A0",
+      "B2"
+    ],
+    [
+      "A1",
+      "B0"
+    ],
+    [
+      "A1",
+      "B1"
+    ],
+    [
+      "A1",
+      "B2"
+    ],
+    [
+      "A2",
+      "B0"
+    ],
+    [
+      "A2",
+      "B1"
+    ],
+    [
+      "A2",
+      "B2"
+    ]
+  ],
+  "missing_pattern_indices": [],
+  "complete": true,
+  "source": "system_secrets",
+  "seed": null,
+  "input_probability": 0.1111111111111111
+}
