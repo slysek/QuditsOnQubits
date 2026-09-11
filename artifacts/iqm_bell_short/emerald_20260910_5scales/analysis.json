@@ -1,0 +1,92 @@
+{
+  "rows": [
+    {
+      "variant": "RAW",
+      "bell": 5.434576009761006,
+      "standard_error": 0.03731436447127096,
+      "ci95_low": 5.346341558599467,
+      "ci95_high": 5.522810460922545,
+      "leakage": 0.03146701388888889,
+      "shots": 36864
+    },
+    {
+      "variant": "DD",
+      "bell": 5.47094994242577,
+      "standard_error": 0.03550986857609286,
+      "ci95_low": 5.386982446019869,
+      "ci95_high": 5.554917438831672,
+      "leakage": 0.032307942708333336,
+      "shots": 36864
+    },
+    {
+      "variant": "TWIRLING",
+      "bell": 5.317828471585512,
+      "standard_error": 0.03617183115786477,
+      "ci95_low": 5.2322956824051055,
+      "ci95_high": 5.403361260765919,
+      "leakage": 0.03342013888888889,
+      "shots": 36864
+    },
+    {
+      "variant": "DD + ZNE",
+      "bell": 5.665400408439497,
+      "standard_error": 0.04793198333904025,
+      "ci95_low": 5.552059278209062,
+      "ci95_high": 5.778741538669933,
+      "leakage": null,
+      "shots": 184320
+    },
+    {
+      "variant": "TWIRLING + ZNE",
+      "bell": 5.529465556327651,
+      "standard_error": 0.048310882769923735,
+      "ci95_low": 5.415228471314033,
+      "ci95_high": 5.643702641341268,
+      "leakage": null,
+      "shots": 184320
+    }
+  ],
+  "fits": {
+    "DD": {
+      "scales": [
+        1,
+        1.5,
+        2,
+        2.5,
+        3
+      ],
+      "values": [
+        5.47094994242577,
+        5.175607174071565,
+        5.159231238752293,
+        4.939949458810741,
+        4.924616990695866
+      ],
+      "curvature": 0.20406557477506915,
+      "curvature_standard_error": 0.09710217848639502,
+      "linear_model_warning": false
+    },
+    "TWIRLING": {
+      "scales": [
+        1,
+        1.5,
+        2,
+        2.5,
+        3
+      ],
+      "values": [
+        5.317828471585512,
+        5.158641934948065,
+        5.051889594048534,
+        4.941729612101272,
+        4.842633454360253
+      ],
+      "curvature": 0.0667274952829236,
+      "curvature_standard_error": 0.12698091391002067,
+      "linear_model_warning": false
+    }
+  },
+  "uncertainty": "95% Student-t intervals across interleaved blocks of 4 repeats with a shot-noise floor; excludes ZNE model bias and arbitrary drift",
+  "readout_mitigation": false,
+  "estimator": "unconditional_zero_for_invalid_codewords"
+}

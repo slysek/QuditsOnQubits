@@ -2,3 +2,6 @@ benchmarks/bell_20260907/data.zip binary
 benchmarks/bell_20260907/manifest.json linguist-generated=true
 benchmarks/bell_20260907/reports/**/*.json linguist-generated=true
 benchmarks/bell_20260907/reports/**/*.csv linguist-generated=true
+artifacts/iqm_bell_short/emerald_20260910/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol linguist-generated=true
+artifacts/iqm_bell_short/emerald_20260910_5scales/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol linguist-generated=true
+artifacts/iqm_randomized_bell/campaign_1ee8e73b3efb45ee921e8be945833fad/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol linguist-generated=true

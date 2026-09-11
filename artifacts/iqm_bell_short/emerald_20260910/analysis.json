@@ -1,0 +1,84 @@
+{
+  "rows": [
+    {
+      "variant": "RAW",
+      "bell": 5.372257853956551,
+      "standard_error": 0.035787909322648345,
+      "ci95_low": 5.2876328956584135,
+      "ci95_high": 5.456882812254689,
+      "leakage": 0.03184678819444445,
+      "shots": 36864
+    },
+    {
+      "variant": "DD",
+      "bell": 5.43479210611449,
+      "standard_error": 0.04192651777684981,
+      "ci95_low": 5.335651645394515,
+      "ci95_high": 5.533932566834466,
+      "leakage": 0.032145182291666664,
+      "shots": 36864
+    },
+    {
+      "variant": "TWIRLING",
+      "bell": 5.348621332466462,
+      "standard_error": 0.06151787921184541,
+      "ci95_low": 5.203154663375576,
+      "ci95_high": 5.494088001557348,
+      "leakage": 0.031656901041666664,
+      "shots": 36864
+    },
+    {
+      "variant": "DD + ZNE",
+      "bell": 5.689542413225696,
+      "standard_error": 0.05462761781053085,
+      "ci95_low": 5.560368623344172,
+      "ci95_high": 5.818716203107219,
+      "leakage": null,
+      "shots": 110592
+    },
+    {
+      "variant": "TWIRLING + ZNE",
+      "bell": 5.6490052109499365,
+      "standard_error": 0.11132490830667996,
+      "ci95_low": 5.385763632961618,
+      "ci95_high": 5.912246788938255,
+      "leakage": null,
+      "shots": 110592
+    }
+  ],
+  "fits": {
+    "DD": {
+      "scales": [
+        1,
+        2,
+        3
+      ],
+      "values": [
+        5.43479210611449,
+        5.126207218410283,
+        4.898374201595578
+      ],
+      "curvature": 0.08075187088950342,
+      "curvature_standard_error": 0.10315793988864638,
+      "linear_model_warning": false
+    },
+    "TWIRLING": {
+      "scales": [
+        1,
+        2,
+        3
+      ],
+      "values": [
+        5.348621332466462,
+        5.06853217049645,
+        4.758000933756243
+      ],
+      "curvature": -0.030442074770197336,
+      "curvature_standard_error": 0.1451207571387547,
+      "linear_model_warning": false
+    }
+  },
+  "uncertainty": "95% Student-t intervals across interleaved repeat pairs with a shot-noise floor; excludes ZNE model bias and arbitrary drift",
+  "readout_mitigation": false,
+  "estimator": "unconditional_zero_for_invalid_codewords"
+}
