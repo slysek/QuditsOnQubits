@@ -46,20 +46,6 @@ class IQMDependencyCompatibilityTests(unittest.TestCase):
                 self.assertIn(dependency, project_dependencies)
                 self.assertIn(dependency, requirements)
 
-        package_metadata = (
-            REPO_ROOT / "src" / "qudits_on_qubits.egg-info" / "PKG-INFO"
-        ).read_text(encoding="utf-8")
-        installed_requirements = (
-            REPO_ROOT / "src" / "qudits_on_qubits.egg-info" / "requires.txt"
-        ).read_text(encoding="utf-8").splitlines()
-        canonical_selector_requirement = "iqm-qubit-selector<2,>=1.1"
-
-        self.assertIn(
-            f"Requires-Dist: {canonical_selector_requirement}",
-            package_metadata.splitlines(),
-        )
-        self.assertIn(canonical_selector_requirement, installed_requirements)
-
     def test_iqm_qubit_selector_public_api_matches_adapter_usage(self):
         from iqm.qubit_selector.qubit_selector import (
             CostEvaluator,

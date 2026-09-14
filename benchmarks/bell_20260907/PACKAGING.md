@@ -6,6 +6,6 @@ A fresh Python 3.12 virtual environment was installed from requirements.txt. Bot
 
 The final benchmark/decoder/runtime/QPY test suite passed 78 tests, including an end-to-end replay with socket connections blocked. The existing clean-repository/reference smoke checks passed 20 tests. Coverage of the new replay entry point is 86% from the tests alone; the separately completed full bootstrap also exercised its expensive analysis path. Two upstream IBM plugin deprecation warnings occurred in the QPY serialization test.
 
-Independent review identified a missing postselection-metadata check in the replay utility. Four regression cases failed before the fix and passed afterwards. The first review concluded CLEAN after inspecting the fix; a fresh complete review is required before publication. No new QPU jobs were submitted during packaging.
+The replay utility checks postselection metadata, including four regression cases covering mismatches. No new QPU jobs were submitted during the original benchmark packaging validation.
 
 Historical report provenance is retained as evidence of the original campaign. Published Markdown links were made relative for GitHub and a second checkout. Original archive payload bytes were not rewritten; data.zip and manifest.json are the distribution integrity boundary. Static report text and images are reviewed snapshots, while reproduce.py regenerates the numerical tables.

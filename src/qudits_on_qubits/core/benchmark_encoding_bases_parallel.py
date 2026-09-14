@@ -227,11 +227,11 @@ def run_single_state_parallel_benchmark(
     filter_label = ",".join(sorted(filter_set)) if filter_set else "all"
     print("=" * 80)
     print(
-        f"  Parallel benchmark baz kodowania qutrytu  "
+        f"  Parallel qutrit encoding benchmark  "
         f"[state={state_name}]  [mode={mode}]  [class={filter_label}]"
     )
     print(
-        f"  Transpilacja: {n_transpile_runs} prob na kandydata  "
+        f"  Transpilation: {n_transpile_runs} runs per candidate  "
         f"[workers={max_workers or os.cpu_count()}]"
     )
     print("=" * 80)
@@ -240,7 +240,7 @@ def run_single_state_parallel_benchmark(
         csv_path = benchmark_state_results_path(state_name, mode)
 
     all_candidates = _generate_candidates_for_mode(mode, class_filter=filter_set)
-    print(f"\n  Razem kandydatow:            {len(all_candidates)}")
+    print(f"\n  Total candidates:            {len(all_candidates)}")
     print("-" * 80)
 
     tasks = _build_candidate_tasks(
@@ -278,7 +278,7 @@ def run_single_state_parallel_benchmark(
     results = ordered_rows
 
     elapsed = time.time() - t0
-    print(f"\nCzas benchmarku [{state_name}, parallel]: {elapsed:.1f} s")
+    print(f"\nBenchmark duration [{state_name}, parallel]: {elapsed:.1f} s")
 
     df = pd.DataFrame(results)
 
@@ -286,7 +286,7 @@ def run_single_state_parallel_benchmark(
     if csv_dir:
         os.makedirs(csv_dir, exist_ok=True)
     df.to_csv(csv_path, index=False)
-    print(f"Wyniki zapisane do: {csv_path}")
+    print(f"Results saved to: {csv_path}")
 
     _save_top3_per_class_csvs(df, csv_path, fidelity_thresholds=fidelity_thresholds)
 
@@ -319,7 +319,7 @@ def run_prepared_w_parallel_benchmark(
 
     if preselected_candidates_file is None:
         raise ValueError(
-            "Tryb 'prepared_w_then_conjugated_entanglers' wymaga podania "
+            "Mode 'prepared_w_then_conjugated_entanglers' requires "
             "--preselected-candidates-file."
         )
 
@@ -329,7 +329,7 @@ def run_prepared_w_parallel_benchmark(
     _validate_preselection_coverage(preselected_set, filtered, preselected_candidates_file)
 
     if not filtered:
-        print("  UWAGA: po preselekcji nie zostal zaden kandydat.")
+        print("  WARNING: no candidates remain after preselection.")
         return pd.DataFrame(), None
 
     tasks = _build_candidate_tasks(
@@ -366,7 +366,7 @@ def run_prepared_w_parallel_benchmark(
     results = ordered_rows
 
     elapsed = time.time() - t0
-    print(f"\nCzas benchmarku [prepared_w, {state_name}, parallel]: {elapsed:.1f} s")
+    print(f"\nBenchmark duration [prepared_w, {state_name}, parallel]: {elapsed:.1f} s")
 
     df = pd.DataFrame(results)
 
@@ -466,7 +466,7 @@ def run_parallel_benchmark(
 
     report_path = combined_report_path or multi_state_benchmark_report_path()
     write_multi_state_benchmark_report(state_frames, report_path)
-    print(f"\nRaport markdown zapisany do: {report_path}")
+    print(f"\nMarkdown report saved to: {report_path}")
     return state_frames
 
 

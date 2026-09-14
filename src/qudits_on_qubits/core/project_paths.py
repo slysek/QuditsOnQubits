@@ -1,3 +1,4 @@
+from importlib.resources import files
 from pathlib import Path
 import re
 
@@ -13,8 +14,14 @@ def repo_path(*parts):
     return str(_REPO_ROOT.joinpath(*parts))
 
 
+def quantum_circuits_resource(*parts):
+    """Return bundled, read-only QPY assets from an installed package."""
+    return files("qudits_on_qubits").joinpath("quantum_circuits", *parts)
+
+
 def quantum_circuits_path(*parts):
-    return repo_path("quantum_circuits", *parts)
+    """Return the asset path for an unpacked wheel or source installation."""
+    return str(quantum_circuits_resource(*parts))
 
 
 def data_dir(*parts):

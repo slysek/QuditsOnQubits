@@ -141,12 +141,10 @@ def resolve_graph_state(
     state_name: str,
     n_qutrits: Optional[int] = None,
 ) -> Optional[GraphStateSpec]:
-    """Zwraca :class:`GraphStateSpec` dla rozpoznanej nazwy stanu lub ``None``.
+    """Return a GraphStateSpec for a recognized state name, or None.
 
-    Funkcja celowo *nie* rzuca wyjatku dla nieznanych nazw — zwraca ``None``,
-    zeby wyzsze warstwy (CLI, runner) mogly podac wlasciwy komunikat bledu z
-    pelnym kontekstem (np. lista dostepnych stanow).
-    """
+    Unknown names return None so callers (CLI or runner) can report an error
+    with the appropriate context, such as the available state names."""
     name = str(state_name).strip()
     if not name:
         return None

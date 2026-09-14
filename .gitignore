@@ -10,10 +10,23 @@ artifacts/
 !artifacts/README.md
 !artifacts/MANIFEST.template.csv
 
-docs/
-docs/superpowers
+docs/superpowers/
 .agents/
 .worktrees/
 ROADMAP.md
 
-.venv-bell/
+*.egg-info/
+build/
+dist/
+.venv/
+.venv-*/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+Thumbs.db
+*.bak
+*.orig
+.coverage
+.coverage.*
+htmlcov/
+.vscode/

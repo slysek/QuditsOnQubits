@@ -10,7 +10,7 @@ This directory is prepared for local experiment outputs.
 - `direct_basis_runs/processed`: processed direct-basis summaries.
 - `direct_basis_runs/selected_best`: selected best direct-basis circuits/results.
 
-Historical bulk QPY/NPY dumps are intentionally not copied here during the initial cleanup.
+Locally generated experiment outputs are ignored by default. Curated reproducibility evidence may be committed intentionally; preserve its original data, manifests, and hashes. Deterministic reusable inputs belong under `experiment_inputs/`, and the published Bell benchmark is archived under `benchmarks/bell_20260907/`.
 
 ## Selected Direct-Basis Circuits
 

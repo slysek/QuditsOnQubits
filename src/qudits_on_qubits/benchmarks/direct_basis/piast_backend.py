@@ -58,8 +58,8 @@ def load_piast_backend(env_path: str | Path | None = None) -> Any:
     except ModuleNotFoundError as exc:
         if exc.name == "pcss_qapi" or "pcss_qapi" in str(exc):
             raise RuntimeError(
-                "Missing PCSS QAPI package. Activate the PiastQEnv conda "
-                "environment or install `pcss_qapi` in the active environment."
+                "Missing PCSS QAPI package. Install `pcss_qapi` in the active "
+                "Python environment before using the direct-access backend."
             ) from exc
         raise
 
