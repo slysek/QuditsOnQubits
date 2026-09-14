@@ -1,6 +1,6 @@
 # QuditsOnQubits usage guide
 
-QuditsOnQubits is a Python library for experiments with qudits encoded on qubit architectures. It provides circuit construction, direct-basis benchmarks, Bell measurements, backend adapters, durable artifacts, and local uncertainty analysis. It includes no dashboard, no web application, and no server.
+QuditsOnQubits is a Python library for experiments with qudits encoded on qubit architectures. It provides circuit construction, direct-basis benchmarks, Bell measurements, backend adapters, durable artifacts, and local uncertainty analysis.
 
 This guide covers advanced execution, compilation, artifacts, and analysis.
 For a first local run, start with the [root README](../README.md#quick-start)
