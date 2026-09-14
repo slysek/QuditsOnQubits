@@ -19,27 +19,10 @@ The committed notebook is clean: it contains no credentials, absolute user paths
 
 ## Clean installation
 
-Python 3.11 through 3.13 is supported.
-
-PowerShell:
-
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install .
-qoq-two-qutrit-bell --shots 2048 --seed 42 --output-root artifacts/vertical_slice_runs
-```
-
-Linux or macOS:
-
-```bash
-python3.12 -m venv .venv
-. .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install .
-qoq-two-qutrit-bell --shots 2048 --seed 42 --output-root artifacts/vertical_slice_runs
-```
+Follow the [root README installation instructions](../README.md#install-from-source)
+for supported Python versions and virtual-environment setup. Run the commands
+below from the repository root. For IQM dependency repair and PiastQ setup, see
+the [usage guide](usage_guide.md#setup-and-troubleshooting).
 
 Automated PowerShell verification builds a wheel, creates a new virtual environment, installs the wheel, runs the command, and validates the manifest:
 
@@ -94,7 +77,7 @@ result.json
 
 - `Python version is not supported`: use Python `3.11`, `3.12`, or `3.13`.
 - `No module named qiskit_aer`: reinstall the project without `--no-deps`, or install a compatible `qiskit-aer>=0.17,<0.18`.
-- wheel build tries to download build tools: install `setuptools>=69` and `wheel`, then use `python -m pip wheel . --no-build-isolation`.
+- wheel build tries to download build tools: install `setuptools>=77` and `wheel`, then use `python -m pip wheel . --no-build-isolation`.
 - PowerShell blocks activation: invoke the verifier directly, or allow the current process with `Set-ExecutionPolicy -Scope Process Bypass`.
 - output directory permission error: pass `--output-root` pointing to a writable directory.
 - Bell value outside tolerance: confirm `--shots 2048 --seed 42`, supported dependency versions, and an unmodified `canonical_ez` encoding.

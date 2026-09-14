@@ -2,6 +2,14 @@
 requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "qudits-on-qubits"
+version = "0.1.0"
+description = "Hardware-aware compilation and benchmarking of qudit circuits encoded on qubit quantum processors."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11,<3.14"
 authors = [
     { name = "Szymon Łysek" }
 ]
@@ -18,7 +26,6 @@ keywords = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -27,19 +34,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Physics",
 ]
 
-[project.urls]
-Homepage = "https://github.com/slysek/QuditsOnQubits"
-Repository = "https://github.com/slysek/QuditsOnQubits"
-Issues = "https://github.com/slysek/QuditsOnQubits/issues"
-
-[project]
-name = "qudits-on-qubits"
-version = "0.1.0"
-description = "Hardware-aware compilation and benchmarking of qudit circuits encoded on qubit quantum processors."
-readme = "README.md"
-license = "Apache-2.0"
-license-files = ["LICENSE"]
-requires-python = ">=3.11,<3.14"
 dependencies = [
     "numpy>=2,<3",
     "scipy",
@@ -60,6 +54,11 @@ dependencies = [
     "iqm-client[qiskit]>=35,<36",
     "iqm-qubit-selector>=1.1,<2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/slysek/QuditsOnQubits"
+Repository = "https://github.com/slysek/QuditsOnQubits"
+Issues = "https://github.com/slysek/QuditsOnQubits/issues"
 
 [project.scripts]
 qoq-two-qutrit-bell = "qudits_on_qubits.vertical_slice.cli:entrypoint"

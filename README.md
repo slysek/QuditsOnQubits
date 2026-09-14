@@ -1,775 +1,226 @@
 # QuditsOnQubits
 
-QuditsOnQubits is a Python library for experiments with qudits encoded on qubit architectures. It provides circuit construction, direct-basis benchmarks, Bell measurements, backend adapters, durable artifacts, and local uncertainty analysis. It includes no dashboard, no web application, and no server.
+**Hardware-aware compilation and benchmarking of qudit circuits encoded on qubit quantum processors.**
 
-## Install
+[![CI](https://github.com/slysek/QuditsOnQubits/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/slysek/QuditsOnQubits/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.11%E2%80%933.13-blue)](pyproject.toml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue)](LICENSE)
 
-Python 3.11--3.13 is supported. Install core library and ideal Aer backend:
+QuditsOnQubits is a Python research library for studying how higher-dimensional quantum systems can be implemented on qubit hardware. It combines qudit-to-qubit encoding search, code-space-aware gate synthesis, hardware-aware compilation, and experimental analysis.
 
-```bash
-python -m pip install -e .
-```
+The central question is not only **how to encode a qudit**, but **which encoding and circuit implementation work best for a given workload and device**.
 
-M3 readout mitigation is optional:
+The current end-to-end reference experiments focus on qutrit graph states and Bell correlations. They provide concrete workloads for developing and evaluating a broader qudit-on-qubit toolchain.
 
-```bash
-python -m pip install -e ".[mitigation]"
-```
+[Quick start](#quick-start) · [Encoding and compilation](#encoding-and-compilation) · [Hardware benchmarks](#hardware-benchmarks-and-reproducibility) · [Documentation](#documentation)
 
-PiastQ support requires the private `cft-piastq` package. Install `cft-piastq`
-separately from a source available to you. QuditsOnQubits intentionally declares
-no PiastQ package dependency and stores no private repository URL.
+## Why QuditsOnQubits?
 
-## Two-qutrit Bell vertical slice
+An encoding specifies how logical qudit states occupy a qubit register. Different encodings of the same logical experiment can lead to different gate decompositions, routing requirements, and physical circuit costs.
 
-After installation, run the public clean-room reference:
-
-```bash
-qoq-two-qutrit-bell --shots 2048 --seed 42 --output-root artifacts/vertical_slice_runs
-```
-
-The command starts from a logical two-qutrit Bell specification, applies the explicit `canonical_ez` encoding, builds and executes nine measured qubit circuits on ideal Aer, decodes the result, and writes an integrity-linked `run-manifest-v1`. Two-qutrit Bell is the reference benchmark, not the framework's functional boundary.
-
-Run [the executable notebook](notebooks/two_qutrit_bell_vertical_slice.ipynb) for an annotated walk-through of the logical qutrit specification, explicit encoding, generated qubit circuits, execution, decoded Bell result, and verified manifest.
-
-See [Two-Qutrit Bell Vertical Slice](docs/two_qutrit_bell_vertical_slice.md) for isolated installation, expected output, artifacts, verification, and troubleshooting.
-
-
-## Unified experiment runner
-
-`PathBasis` points to a directory containing an unmeasured `graph_state_direct_basis.qpy` and an isometric `(4, 3)` `E.npy` for `two_qutrit` (with state circuit widths adjusted for other states). Minimal ideal Aer run:
-
-```python
-from pathlib import Path
-
-from qudits_on_qubits import (
-    AerIdeal,
-    BootstrapConfig,
-    ExperimentSpec,
-    PathBasis,
-    run_experiment,
-)
-
-ideal = ExperimentSpec(
-    state="two_qutrit",
-    basis=PathBasis(Path("artifacts/bases/two_qutrit")),
-    backend=AerIdeal(seed_simulator=11),
-    shots=20_480,
-    uncertainty=BootstrapConfig(samples=2000, seed=7),
-)
-result = run_experiment(ideal)
-print(result.status, result.artifact_dir, result.values["raw"])
-```
-
-Use a structured `BenchmarkBasis` instead of manually locating a selected candidate:
-
-```python
-from dataclasses import replace
-from qudits_on_qubits import BenchmarkBasis
-
-selected = replace(
-    ideal,
-    basis=BenchmarkBasis(
-        run_kind="direct_basis_runs",
-        run_id="20260817-production",
-        selection="exact",
-        rank=1,
-    ),
-)
-```
-
-Backend choices keep simulation and hardware targets explicit:
-
-```python
-import os
-from qudits_on_qubits import (
-    CustomBackend,
-    ExecutionMode,
-    IQMHardware,
-    NoisySimulator,
-    PiastQHardware,
-    TranspilationConfig,
-)
-
-# Local Aer execution using current IQM Garnet calibration profile and Garnet as compile target.
-noisy_garnet = replace(
-    selected,
-    backend=NoisySimulator(source=IQMHardware(device="garnet")),
-)
-
-# Real IQM Garnet hardware with an explicit logical-to-physical layout.
-real_garnet = replace(
-    selected,
-    backend=IQMHardware(device="garnet"),
-    transpilation=TranspilationConfig(initial_layout=(16, 17, 18, 19)),
-)
-
-# PiastQ managed hardware. Credentials remain in environment/provider configuration.
-piastq_managed = replace(
-    selected,
-    backend=PiastQHardware(
-        mode="managed",
-        owner=os.environ.get("CFT_PIASTQ_OWNER"),
-    ),
-)
-
-# User-supplied backend object. Execution mode remains explicit.
-custom = replace(
-    selected,
-    backend=CustomBackend(
-        instance=my_backend,
-        identity="laboratory-backend",
-        execution_mode=ExecutionMode.HARDWARE,
-    ),
-)
-```
-
-Never put tokens, passwords, or API keys inline. Supply credentials only through environment variables or provider configuration. IQM uses its provider environment. PiastQ managed execution reads `CFT_PIASTQ_DASHBOARD_API_URL` and `CFT_PIASTQ_DASHBOARD_API_KEY`.
-
-Run a batch in order, load a completed result, or finish saved postprocessing:
-
-```python
-from qudits_on_qubits import resume_experiment, run_experiments
-
-results = run_experiments((ideal, noisy_garnet))
-loaded = resume_experiment(results[0].artifact_dir)
-```
-
-`resume_experiment` loads completed schema-v3 direct results and completed legacy schema-v1/schema-v2 experiments without an adapter or backend call. A fresh schema-v3 run also publishes a `postprocessing` checkpoint after all requested counts, job metadata, workload selection, and optional calibration are durable. If bootstrap or final persistence is interrupted, `resume_experiment(checkpoint_dir, spec=matching_spec, ...)` recomputes postprocessing from those saved counts; it never retrieves or resubmits backend work. Custom/noisy specs require the matching `spec`. Runs using injected evaluators or mitigation strategies are intentionally not resumable. Other unfinished runs, including failures before complete counts, are rejected.
-
-### IQM automatic layout selection
-
-Configure IQM's calibration-aware selector through the public experiment API:
-
-```python
-from qudits_on_qubits import (
-    IQMQubitSelectorConfig,
-    WorkloadOptimizationConfig,
-)
-
-workload_optimization = WorkloadOptimizationConfig(
-    initial_layouts=((0, 1, 2, 3, 4, 7),),
-    seed_transpilers=(3, 7, 13),
-    iqm_qubit_selector=IQMQubitSelectorConfig(
-        top_k=10,
-        num_trials=2000,
-        cost_function="cz",
-        readout_mode="none",
-    ),
-)
-```
-
-The IQM selector is a pipeline-level candidate source. With the tested `iqm-qubit-selector` 1.1.2 API, each returned value is an unordered physical routing subgraph, not an ordered logical-to-physical map. A subgraph may therefore contain more physical qubits than the logical circuit width. The pipeline sorts each subgraph, deduplicates candidates as sets, and keeps the first associated selector cost. While `iqm_qubit_selector` is enabled, explicit `initial_layouts` use the same routing-subgraph semantics; the sorted `(0, 1, 2, 3, 4, 7)` baseline above remains in the comparison. Outside selector mode, `TranspilationConfig(initial_layout=...)` remains an ordered logical-to-physical Qiskit mapping.
-
-For each routing-subgraph×seed candidate, the IQM adapter calls `iqm.qiskit_iqm.transpile_to_IQM(..., restrict_to_qubits=list(subgraph))`. IQM returns a circuit indexed locally within that restriction, so the adapter inflates it to the backend's full width and restores real provider qubit indices before ranking, transforms, persistence, or submission. The pipeline evaluates every candidate against the complete Bell measurement workload and ranks the complete candidates before submission. Active physical qubits must stay inside the selected routing subgraph; with `require_exact_physical_qubit_set=True`, their union must equal it. All selector evaluation, candidate validation, and compilation happens before submission. Candidate-specific validation or compilation failures are recorded and skipped; fatal selector errors or a candidate set with no accepted compilation stop the run before any hardware job is submitted. Aer and PiastQ specifications reject IQM automatic layout selection instead of silently ignoring it.
-
-### Direct pipeline and final artifact
-
-Fresh runs use this pipeline:
-
-1. Load the source basis and prepare all Bell measurement circuits in memory.
-2. With workload optimization enabled, compile every configured layout×seed candidate across the complete Bell measurement workload and select the best candidate by calibrated or structural metrics. Without it, compile one batch. In IQM selector mode, each candidate is compiled with the official `iqm.qiskit_iqm.transpile_to_IQM` wrapper using `restrict_to_qubits`; other IQM paths use their configured transpilation options normally.
-3. Submit the selected compiler-returned circuit objects directly through the adapter to `backend.run`. Optional readout calibration runs first; ZNE factor batches follow in order.
-4. Keep counts in memory, ordered by ZNE factor and measurement setting, then run readout mitigation, ZNE, and bootstrap postprocessing.
-5. After every requested job succeeds, atomically publish one schema-v3 `postprocessing` checkpoint. Run bootstrap, then atomically replace it with the completed `experiment.json`.
-
-Each successful run gets a distinct UTC/UUID directory containing one file. An interrupted postprocessing run uses the same path and filename with `status: "postprocessing"` until resumed:
+QuditsOnQubits makes these choices part of the experiment rather than fixing a single representation throughout the workflow:
 
 ```text
-artifacts/experiment_runs/YYYY-MM-DD/<experiment-id>/
-  experiment.json
+Logical experiment
+    → qudit-to-qubit encoding
+    → code-space-aware gate synthesis
+    → target-aware compilation and selection
+    → simulator or QPU execution
+    → logical outcomes, leakage diagnostics, and analysis
 ```
 
-Schema-v3 `experiment.json` has this shape:
+The library supports comparisons between canonical and alternative encodings, records compilation metrics, and keeps experimental results available for offline analysis. Its purpose is to investigate these trade-offs—not to assume that a smaller circuit always produces a better hardware result.
 
-```text
-experiment.json
-  schema_version: 3
-  experiment_id
-  status: "completed"
-  completed_at
-  spec
-  source
-    provenance
-    paths
-  backend
-  transpilation
-  job_ids
-  counts_by_factor
-    "1"
-      - setting
-        counts
-    "3"                         # only when requested by ZNE configuration
-      - setting
-        counts
-  calibration                   # object with readout mitigation; otherwise null
-  result
-    raw                           # legacy alias of raw_conditional
-    raw_conditional
-    raw_unconditional
-    raw_invalid_codeword_rate
-    raw_invalid_codeword_shots
-    readout_mitigated             # conditional alias; only when enabled
-    readout_mitigated_conditional
-    readout_mitigated_unconditional
-    readout_effective_invalid_codeword_weight
-    zne                           # conditional alias; only when enabled
-    zne_conditional
-    zne_unconditional
-    zne_readout_mitigated         # conditional alias; only with both
-    zne_readout_mitigated_conditional
-    zne_readout_mitigated_unconditional
-    config
-    diagnostics
-```
+## Main capabilities
 
-Fresh runs do not write separate compiled QPY files, source SHA-256 manifests, or multi-file status artifacts. The runner does not call a separate availability check or runner-level preflight before submission; adapter validation and the provider's `backend.run` boundary remain authoritative. A submit or result failure before complete counts leaves no artifact. A later postprocessing failure retains the inline checkpoint but no completed result. There is no silent fallback to ideal Aer or another target.
+- **Encoding search:** generate and compare qutrit encoding candidates, including monomial encodings and dense local basis changes.
+- **Code-space-aware synthesis:** optimize the encoded qutrit Fourier gate, $F_3$, and two-qutrit controlled-phase gate, $CZ_3$, without unnecessarily fixing their action outside the logical subspace.
+- **Hardware-aware compilation:** compare transpiler strategies, seeds, routing choices, and complete measurement workloads; use calibration-aware layout candidates on supported IQM paths.
+- **Reference experiments:** construct and analyze two-qutrit, three-qutrit GHZ-type, and four-qutrit AME Bell workloads.
+- **Experimental analysis:** report conditional and unconditional Bell estimates, invalid-codeword statistics, bootstrap uncertainty, and optional readout mitigation and zero-noise extrapolation on supported execution paths.
+- **Reproducible research:** inspect saved QPU counts, circuit files, metadata, and archived benchmark results without submitting new hardware jobs.
 
-`RunManifest` is retained only as the immutable boundary for legacy schema-v1/schema-v2 checkpoint manifests. Its `from_safe_dict()`, `to_safe_dict()`, and `load()` methods do not model fresh schema-v3 results. Use `resume_experiment()` to load completed schema-v3 results and completed historical schema-v1/schema-v2 results.
+## Quick start
 
-The active checkpoint contains complete local counts, so `resume_experiment()` never retrieves a remote job and never resubmits work. Pre-count unfinished runs remain nonresumable. Preserve provider job IDs from the JSON for external audit or provider tooling.
+### Install from source
 
-### Bootstrap uncertainty
-
-Default uncertainty is 2000 LOCAL resamples of saved counts, not 2000 backend experiments. Bootstrap never contacts a backend. Seeded runs calculate component-wise estimate, standard error, and confidence interval for every enabled conditional and unconditional result family, plus invalid-codeword evidence:
-
-- `raw_conditional`, `raw_unconditional`, `raw_invalid_codeword_rate`, and `raw_invalid_codeword_shots`
-- `readout_mitigated_conditional`, `readout_mitigated_unconditional`, and `readout_effective_invalid_codeword_weight`
-- `zne_conditional` and `zne_unconditional`
-- `zne_readout_mitigated_conditional` and `zne_readout_mitigated_unconditional`
-
-The legacy `raw`, `readout_mitigated`, `zne`, and `zne_readout_mitigated` keys remain conditional aliases. Only enabled mitigation combinations appear. Intervals reflect finite-shot sampling and optional calibration resampling. They do not model hardware drift or ZNE model bias.
-
-IQM/direct-basis simulation outputs belong under `artifacts/`, with selected best circuits copied into the relevant `selected_best/` folder. Curated hardware evidence and the Bell benchmark archive are retained for reproducibility.
-
-## Layout
-
-```text
-src/qudits_on_qubits/
-  core/              # graph-state and AME circuit helpers
-  quantum_circuits/  # bundled runtime QPY gates
-  benchmarks/        # direct-basis benchmark code
-  bell_measurements/ # qutrit Bell measurement pipeline
-  encoding_search/   # candidate generation/search helpers
-quantum_circuits/     # additional research circuit assets
-experiment_inputs/   # deterministic inputs and immutable reference bundles
-scripts/             # runnable entry points
-notebooks/working/   # active research notebooks
-artifacts/           # local result folders and manifest template
-tests/               # smoke and regression tests
-```
-
-## Setup
-
-Use Python 3.11–3.13 and a virtual environment, from the repository root:
+Use **Python 3.11, 3.12, or 3.13**. From a terminal:
 
 ```bash
+git clone https://github.com/slysek/QuditsOnQubits.git
+cd QuditsOnQubits
 python -m venv .venv
 ```
 
-Activate it with `source .venv/bin/activate` on Linux/macOS or
-`.venv\Scripts\Activate.ps1` in Windows PowerShell. Install the package and
-its dependency set from `pyproject.toml` in one resolver run:
+Activate the environment on Linux/macOS:
+
+```bash
+source .venv/bin/activate
+```
+
+Or in Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Then install the package:
 
 ```bash
 python -m pip install --upgrade pip
-python -m pip install -e .
-python -c "from iqm.qiskit_iqm import IQMProvider; print('iqm qiskit adapter ok')"
+python -m pip install .
 ```
 
-If the IQM adapter import still fails in a reused environment, remove stale IQM
-packages first and reinstall the project:
+For optional readout-mitigation dependencies, use `python -m pip install ".[mitigation]"`. See [Development](#development) for an editable installation.
+
+### Run a two-qutrit Bell experiment
 
 ```bash
-python -m pip uninstall -y qiskit-iqm cirq-iqm iqm-client
-python -m pip install --force-reinstall -e .
+qoq-two-qutrit-bell --shots 2048 --seed 42
 ```
 
-Run smoke tests:
+This command runs locally on **ideal Qiskit Aer**. It requires no provider credentials and submits no QPU jobs.
 
-```powershell
-python -m unittest discover -s tests -v
-```
+It prepares the logical two-qutrit reference in the `canonical_ez` encoding, generates nine measured four-qubit circuits, executes them, and decodes the counts into logical outcomes. The output includes conditional and unconditional Bell estimates, the leakage rate, and the path to the run manifest.
 
-## Frozen reference experiments
+For this reference and its normalization, the ideal Bell value is **6**. Finite-shot estimates fluctuate around that value; the ideal canonical run has zero code-space leakage. Results are written under `artifacts/vertical_slice_runs/` by default. Change the destination with `--output-root`.
 
-Use the frozen registry to inspect a Bell experiment without a notebook or
-provider:
+See the [step-by-step guide](docs/two_qutrit_bell_vertical_slice.md) or open the [annotated notebook](notebooks/two_qutrit_bell_vertical_slice.ipynb).
+
+### Inspect a reference from Python
 
 ```python
 from qudits_on_qubits import get_encoding, get_reference_experiment
 
-spec = get_reference_experiment("ghz3")
-statevector = spec.state.statevector()
-measurement_settings = spec.measurement_settings()
-encoding = get_encoding(spec.default_encoding_id)
+reference = get_reference_experiment("two_qutrit")
+encoding = get_encoding(reference.default_encoding_id)
 
-print(spec.experiment_id)
-print(statevector)
-print(measurement_settings)
-print(encoding.encoding_id)
-print(spec.expected.ideal_bell_value)
-print(spec.bell_functional.classical_bound)
-print(spec.leakage_policy)
-print(spec.stable_hash())
+print("Logical state shape:", reference.state.statevector().shape)
+print("Encoding matrix shape:", encoding.as_array().shape)
+print("Ideal Bell value:", reference.expected.ideal_bell_value)
+print("Classical bound:", reference.bell_functional.classical_bound)
+print("Reference hash:", reference.stable_hash())
 ```
 
-Canonical experiment IDs are `two_qutrit`, `ghz3`, and `ame43`; `2qutrit` is
-an alias for `two_qutrit`. Every reference uses the default encoding ID
-`canonical_ez`. Backend adapters normalize physical results to logical outcomes
-`0`, `1`, `2`, or leakage. Analysis reports leakage before postselection and
-both unconditional and conditional Bell values. The stable `spec.stable_hash()`
-is available for backend metadata and regression tests.
+This inspects the logical specification without executing an experiment. The state vector has shape `(9,)`, and the single-qutrit encoding matrix has shape `(4, 3)`.
 
-## Direct-Basis Top-K Selection
+## Encoding and compilation
 
-Run a full direct-basis benchmark for one Bell-supported state and copy selected circuits:
+### The encoding is an optimization variable
 
-```powershell
-python scripts/run_direct_basis_benchmarks.py `
-  --state ghz3 `
-  --candidate-set all-qutrit-u3 `
-  --n-transpile-runs 20 `
-  --jobs 4 `
-  --approximation-thresholds 0.99,0.95,0.90 `
-  --select-top-k 5
-```
+A qutrit occupies a three-dimensional subspace of a two-qubit register. The canonical encoding uses three computational basis states; alternative encodings change the representation of the logical states and gates.
 
-This runs `exact`, `fid099`, `fid095`, and `fid090`. Threshold labels pass `approximation_degree` into Qiskit transpilation; selected threshold rows must also satisfy `fidelity >= threshold`. `--jobs` runs independent candidates concurrently while keeping each candidate's exact/threshold exports serialized. Selected circuits are written under `artifacts/direct_basis_runs/selected_best/<state>/<run_id>/`.
+The direct-basis benchmarks compare candidate encodings through their compiled circuits. They support repeated transpilation, fidelity-filtered approximate variants, Top-K selection, and downstream analysis of circuit cost and state equivalence.
 
-For a fast smoke run:
-
-```powershell
-python scripts/run_direct_basis_benchmarks.py `
-  --state two_qutrit `
-  --candidate-set sanity `
-  --limit-candidates 3 `
-  --n-transpile-runs 1 `
-  --jobs 2 `
-  --local-line-coupling `
-  --approximation-thresholds 0.99,0.95,0.90 `
-  --select-top-k 2
-```
-
-Small smoke candidate sets may warn that a threshold label selected fewer than `top-k` rows; that means the measured fidelity did not pass that threshold. The `exact` label still selects the best depth-ranked circuits.
-
-Load the rank-1 transpiled circuit from a selected run:
-
-```powershell
-python scripts/load_best_circuit.py `
-  --run-kind direct_basis_runs `
-  --state two_qutrit `
-  --run-id <printed_run_id> `
-  --selection-label exact `
-  --rank 1
-```
-
-## Direct-Basis Rerun Candidate Selection
-
-Use preliminary benchmark CSVs to create per-state rerun inputs:
-
-```powershell
-python scripts/select_top_rerun_candidates.py `
-  --input-csv artifacts/iqm_runs/raw/direct_basis_iqm_garnet_two_qutrit_all_qutrit_u3_runs4_<timestamp>.csv `
-  --input-csv artifacts/iqm_runs/raw/direct_basis_iqm_garnet_ghz3_all_qutrit_u3_runs4_<timestamp>.csv `
-  --input-csv artifacts/iqm_runs/raw/direct_basis_iqm_garnet_ame43_all_qutrit_u3_runs1_<timestamp>.csv `
-  --top-k 10 `
-  --run-id stage2_20260706
-```
-
-By default this writes one CSV per `state_name` under `artifacts/iqm_runs/processed/rerun_selection/<run_id>/`. The `candidate` rows are the unique Top-K non-baseline-equivalent candidates by depth ranking. Baseline-equivalent and unresolved rows are still kept in the same file as diagnostics with `selection_role` values such as `baseline_equivalent_excluded` and `unresolved_candidate`; they are not rerun by `from-old-csv`.
-
-Rerun one state with the selected baseline plus candidates:
-
-```powershell
-python scripts/run_direct_basis_benchmarks.py `
-  --state ghz3 `
-  --candidate-set from-old-csv `
-  --old-csv artifacts/iqm_runs/processed/rerun_selection/stage2_20260706/direct_basis_ghz3_stage2_20260706_top10_rerun_candidates.csv `
-  --iqm-backend garnet `
-  --n-transpile-runs 20 `
-  --jobs 4
-```
-
-Repeat the rerun command for each generated state CSV. The rerun selector always includes the chosen baseline row, so each state is compared against its own rerun baseline.
-
-## IQM Direct-Basis Transpilation
-
-Create `.env` in the repository root:
-
-```env
-IQM_SERVER_URL=https://resonance.iqm.tech/
-IQM_TOKEN=replace-with-your-iqm-api-token
-```
-
-Run a small IQM-backed direct-basis benchmark:
-
-```powershell
-python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --jobs 4
-```
-
-The `--iqm-backend` value is the IQM quantum computer name or alias. `garnet` is only an example. When this flag is present, the script loads one IQM backend for the whole run and, by default, compiles each candidate with the same IQM strategy set used by the transpiler harness:
-
-```text
-preset_default
-preset_exact
-transpile_to_iqm_default
-transpile_to_iqm_exact
-```
-
-For each candidate and seed, the benchmark tries the selected strategies and keeps the best transpiled circuit by `(depth, two_qubit_gate_count, one_qubit_gate_count, size)`. The output CSV records the winning `iqm_transpiler_strategy` and `iqm_transpiler_seed`.
-
-Optional transpiler controls:
-
-```powershell
-python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --layout-method sabre
-python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --routing-method sabre
-python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --iqm-use-metrics
-python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --iqm-strategy preset_default
-python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --iqm-legacy-pass-manager
-```
-
-IQM output defaults to `artifacts/iqm_runs/raw`, and QPY exports default to `artifacts/iqm_runs/raw/quantum_circuits/<backend>/`.
-
-## IQM Transpiler Harness
-
-Use the harness to compare IQM-aware transpilation strategies for candidates
-selected by earlier benchmark CSVs:
-
-```powershell
-python scripts/run_iqm_transpiler_harness.py `
-  --state two_qutrit `
-  --candidate-set from-old-csv `
-  --old-csv artifacts/iqm_runs/raw/direct_basis_iqm_garnet_two_qutrit_from_old_csv_runs20_20260706_204350.csv `
-  --iqm-backend garnet `
-  --n-transpile-runs 3
-```
-
-Before transpilation, the harness deduplicates candidate matrices that differ
-only by a global phase. The representative is transpiled and the removed
-candidates remain traceable in the phase-audit CSV.
-
-The harness only transpiles circuits. It does not submit jobs to IQM hardware.
-It writes:
-
-```text
-artifacts/iqm_runs/processed/transpiler_harness/<run_id>/
-  all_trials.csv
-  best_by_candidate.csv
-  candidate_global_phase_duplicates.csv
-  strategy_statistics.csv
-  pareto_ranked.csv
-  state_equivalence_groups.csv
-  recommended_circuits.csv
-  summary.json
-  quantum_circuits/<state>/<class>__<candidate>/
-    F3_W.qpy
-    CZ3_W.qpy
-    graph_state_direct_basis.qpy
-    graph_state_direct_basis_transpiled_<strategy>_seed<seed>.qpy
-    E.npy
-    W.npy
-```
-
-Pass `--quantum-circuits-dir` to override the artifact directory, or
-`--no-export-quantum-circuits` to write only CSV/JSON outputs.
-
-Built-in strategies:
-
-```text
-preset_default
-preset_exact
-transpile_to_iqm_default
-transpile_to_iqm_exact
-```
-
-`best_by_candidate.csv` chooses the best successful trial by
-`(depth, cz_count, r_count, size)` and flags warning thresholds such as
-`depth_gt_100` and `cz_gt_50`. This is the legacy depth-first view and its
-selection order is unchanged.
-
-The statistical outputs are computed after IQM transpilation from the
-successful rows in `all_trials.csv`. Each candidate/strategy pair remains a
-separate statistical alternative across transpiler seeds. `pareto_ranked.csv`
-assigns rank 1 to the nondominated front over mean 2Q-gate count, mean depth,
-and depth standard deviation. Within each Pareto rank, `ideal_score` uses
-weights 0.50/0.30/0.20 for those objectives; the score never overrides the
-Pareto rank.
-
-`state_equivalence_groups.csv` groups alternatives that prepare the same
-compiled logical state. Physical costs are evaluated before this grouping,
-and `recommended_circuits.csv` then keeps one recommendation per
-state-equivalence group.
-
-Existing `all_trials.csv` results can be analyzed again without rerunning the
-harness:
-
-```powershell
-python scripts/analyze_iqm_transpiler_harness.py --all-trials artifacts/iqm_runs/processed/transpiler_harness/20260902_120000/all_trials.csv
-```
-
-Neither the harness CLI nor this standalone analysis CLI submits hardware
-jobs.
-
-## Optimized F3 and CZ3 in the benchmark
-
-The existing direct-basis benchmark and the IQM/PiastQ transpiler harnesses
-now use optimized F3 and CZ3 by default for every encoding. No extra flag is
-needed. Each circuit prepares encoded logical zero, applies the optimized F3
-to each qutrit, and composes the synthesized CZ3 on each graph edge.
-
-F3 uses the analytic leakage phase for monomial encodings. For other bases,
-including dense `B = B_s W`, a numerical phase solve enforces the two-CNOT
-invariant before local synthesis. Every accepted F3 must have **at most two
-CNOTs** and code-space error and leakage at most `1e-10`. The CNOT limit is
-for the isolated F3 block, before hardware routing or whole-circuit optimization.
-The numerical criterion is described by
-[Shende, Bullock and Markov](https://arxiv.org/abs/quant-ph/0308045).
-
-CZ3 follows `notebooks/CZ3_bqckit_optimalization.ipynb`: a BQSKit `StateSystem`
-maps all nine columns of `B2 = kron(B, B)` to `B2 @ CZ3_logical`, leaving the
-other seven dimensions unconstrained. It uses `U3Gate` and `CZGate`,
-`optimization_level=2`, `max_synthesis_size=4`, `synthesis_epsilon=1e-8`, and
-`seed=0`. Conversion to Qiskit reconciles the matrix bit order. The explicit
-U3/CZ circuit is composed into the graph circuit and exported as `CZ3_W.qpy`.
-`F3_W.qpy` likewise contains the validated elementary F3 decomposition.
-
-Every benchmark row records the isolated CZ3 metrics:
-
-- `E_norm = ||phase * U @ B2 - B2 @ CZ3_logical||_F`, with a **single global
-  phase shared by all nine columns**, so relative-phase errors are detected.
-- `L_norm = ||(I - B2 @ B2.conj().T) @ U @ B2||_F`.
-- `N_2q`: the number of two-qubit gates in that synthesized CZ3 block.
-
-These are the unnormalized Frobenius norms used in the notebook. Both CZ3
-norms must be at most `1e-5`. The analogous F3 fields are `f3_E_norm`,
-`f3_L_norm`, and `f3_N_2q`; phase, synthesis method, seed, epsilon, synthesis
-time, cache status, and gate-library version are also recorded. Existing
-whole-circuit gate counts keep their original meaning. Main benchmark
-`fidelity` includes synthesis error by comparing against the ideal logical
-state preparation. A failed acceptance check produces `gate_validation_failed`
-and skips transpilation for that candidate; it never selects a legacy gate.
-
-Validated gates are cached under `artifacts/direct_basis_runs/optimized_gates/`
-by the exact encoding, synthesis settings and dependency versions, and reused
-across states, seeds and approximation thresholds. Cache loads recheck both
-errors and gate counts. Per-encoding OS file locks coordinate independent
-benchmark processes, and complete cache directories are published by atomic
-rename. Invalid or incomplete cache entries are rebuilt. The cache format is
-versioned so older, unlocked writers cannot interfere with the new entries.
-BQSKit searches within one process remain serialized; the existing candidate
-jobs still handle transpilation.
-The first synthesis for a new basis can take substantially longer than a
-transpiler trial. BQSKit is included in the project dependencies.
-
-The historical `--compare-optimal-f3-leakage` diagnostic remains available for
-reproducing old phase comparisons, but its results do not supply the primary
-gates or determine ranking. The optimized library is always the primary input.
-
-## PiastQ managed Bell execution
-
-### Managed compilation contract and offline validation
-
-`run_experiment(spec)` uses the managed adapter when configured with
-`ExperimentSpec(backend=PiastQHardware(mode="managed", owner=...))`.
-The adapter validates bound logical `QuantumCircuit` objects and hands them to
-`PiastQSampler` in their original order. The client sends one QPY payload per
-circuit to `POST /api/runner/jobs`; the dashboard runner loads QPY and invokes
-`AQTSampler`, whose default behavior performs hardware transpilation.
-`ManagedPiastQBackend` is a transport handle, not a Qiskit compilation target.
-
-Use the default `TranspilationConfig`. Its default optimization level is a
-framework placeholder on this path, not a requested runner optimization level.
-The dashboard API does not carry local transpiler settings: non-default
-optimization levels, seeds, layouts, routing and scheduling options are rejected.
-Compilation metadata records `compilation_owner: managed_runner` and
-`circuit_representation: logical`. Physical layouts and hardware gate metrics are
-not available locally. Local readout mitigation, ZNE and workload optimization
-are rejected because they require control over physical compilation.
-
-The managed client supports Qiskit `>=1.4,<2.2`; this project selects `>=2,<2.2`.
-Use the updated `cft-piastq` source that emits QPY version 13, readable by the
-Qiskit 1.4 runner as well as the 2.1 client. Keep the direct PCSS/AQT stack in its
-separate environment. A clean installation must resolve both local projects
-together; do not bypass dependency resolution with `--no-deps`:
+Explore the available benchmark options with:
 
 ```bash
-python -m venv artifacts/piastq-validation-env
-# Activate the new environment using the command appropriate for your shell.
-python -m pip install ".[dev]" "/path/to/cft-piastq[dev,fake]"
-python -m pip check
-python -m pytest -q tests/test_experiment_piastq_adapter.py tests/test_experiment_piastq_managed_integration.py
+python scripts/run_direct_basis_benchmarks.py --help
 ```
 
-The managed integration tests use the real optional client and an HTTP
-`MockTransport`. They verify QPY circuit order, polling, counts, Bell decoding
-and the completed artifact without contacting a dashboard or consuming shots.
-They skip when `cft-piastq` is absent; a skipped run does not validate the managed
-integration. This validates the local contract, not the deployed runner version
-or hardware availability.
+The [IQM transpiler harness](scripts/run_iqm_transpiler_harness.py) compares compilation strategies and produces per-trial metrics, Pareto rankings, and circuit recommendations. The harness compiles circuits; it does not submit QPU jobs. Loading a hardware target or calibration data may still require provider access.
 
-Install `cft-piastq` separately in the environment used by this project. The
-QuditsOnQubits package metadata intentionally contains no private repository URL
-and does not install `cft-piastq`.
+### Optimize the logical action, not an arbitrary full-space extension
 
-The QuditsOnQubits integration is managed-only. `PiastQHardware` accepts
-`mode="managed"`; `auto` and `direct` are rejected before any provider import or
-network action. Configure `CFT_PIASTQ_DASHBOARD_API_URL`,
-`CFT_PIASTQ_DASHBOARD_API_KEY`, and optionally `CFT_PIASTQ_OWNER` through the
-environment. Do not place dashboard credentials in notebooks or source files.
+Encoding a logical gate does not uniquely determine its action on the unused part of the qubit Hilbert space. Fixing that action to the identity can impose an unnecessary synthesis constraint.
 
-Direct PCSS/AQT experiments require a separate environment and are not installed
-by QuditsOnQubits.
+The [optimized gate library](src/qudits_on_qubits/benchmarks/direct_basis/optimized_gates.py) uses this freedom explicitly:
 
-This explicit smoke example prepares the zero state in the two-qutrit encoding,
-builds every Bell-setting circuit required by the existing pipeline, and
-submits one PiastQ job containing every generated circuit:
+**$F_3$:** the optimizer chooses the phase on the unused one-dimensional subspace. It uses an analytic phase for monomial encodings and a numerical invariant-based solve for other supported bases. Accepted isolated $F_3$ blocks contain at most **two CNOTs**, before hardware routing or whole-circuit optimization.
 
-```python
-import os
+**$CZ_3$:** BQSKit synthesis constrains the action on the nine-dimensional two-qutrit code space while leaving the seven-dimensional orthogonal complement unconstrained.
 
-from qiskit import QuantumCircuit
+Synthesized gates are checked for logical-action error and leakage out of the code space. Validation uses a single global phase across all logical basis states, so it does not discard relative-phase errors. Accepted gates are cached for reuse across benchmark runs.
 
-from cft_piastq import PiastQClient
-from qudits_on_qubits.bell_measurements import (
-    build_sampler_circuits_for_candidate,
-    canonical_Ez,
-    compute_bell_value_from_counts_aqt,
-)
+These checks are numerical acceptance criteria, not a guarantee of globally optimal gate counts. In particular, the $CZ_3$ synthesis is a numerical search, and synthesizing a new encoding may be expensive.
 
-state_circuit = QuantumCircuit(4)
-sampler_circuits, metadata = build_sampler_circuits_for_candidate(
-    candidate="two_qutrit",
-    state_circuit=state_circuit,
-    E=canonical_Ez(),
-    qutrit_qubits=((0, 1), (2, 3)),
-)
+## Reference workloads
 
-client = PiastQClient(
-    mode="managed",
-    owner=os.environ["CFT_PIASTQ_OWNER"],
-    dashboard_api_url=os.environ["CFT_PIASTQ_DASHBOARD_API_URL"],
-    dashboard_api_key=os.environ["CFT_PIASTQ_DASHBOARD_API_KEY"],
-)
+| Reference ID | Logical system | Qubits for the encoding | Purpose |
+| --- | --- | ---: | --- |
+| `two_qutrit` | Two qutrits | 4 | Minimal end-to-end Bell reference |
+| `ghz3` | Three-qutrit GHZ-type graph state | 6 | Multipartite Bell workload |
+| `ame43` | Four-qutrit AME graph state | 8 | Higher-order entanglement and Bell workload |
 
-bell_value, execution = compute_bell_value_from_counts_aqt(
-    sampler_circuits,
-    metadata,
-    backend=client.backend,
-    shots=20_480,
-    sampler_options={"cft_job_name": "two-qutrit-bell-smoke"},
-    timeout=900.0,
-    poll_interval=5.0,
-)
+The register sizes above describe the logical encoding, not the width of a circuit represented on a full hardware backend. Reference specifications define the state, measurement settings, Bell functional, expected ideal value, and leakage policy.
 
-print("Bell value:", bell_value)
-print("PiastQ job:", execution["job"].job_id())
+The [randomized-settings notebook](notebooks/bell_randomized_raw.ipynb) also demonstrates independently sampled local measurement settings and block-based acquisition. Its hardware examples are disabled by default.
+
+## Execution backends
+
+| Backend or path | Scope |
+| --- | --- |
+| **Qiskit Aer** | Local ideal execution and supported noise-model simulations |
+| **IQM** | Hardware execution, target-aware compilation, and calibration-aware layout selection on supported paths |
+| **IBM Quantum** | Raw `SamplerV2` execution through the IBM adapter, randomized-block workflows, and archived hardware benchmarks |
+| **PiastQ** | Managed execution through the separately installed `cft-piastq` client |
+| **Custom backends** | User-provided backend objects with an explicit execution mode |
+
+Backend capabilities are not interchangeable. For example, IQM automatic layout selection is IQM-specific, and PiastQ managed execution delegates compilation to its runner rather than exposing local physical-layout control. Mitigation and resumption support also depend on the execution path.
+
+Configure credentials through environment variables or provider tooling, never in committed source files or notebook outputs. Real hardware examples require an intentional opt-in and an appropriate shot budget.
+
+## Hardware benchmarks and reproducibility
+
+The repository includes an [archived IBM/IQM Bell benchmark](benchmarks/bell_20260907/README.md), including a Fez/Garnet repeat with **5,000 shots per setting**. The archive contains measured counts, submitted QPY circuits, calibration information, reports, and a SHA-256 integrity manifest.
+
+Check archive integrity from the repository root:
+
+```bash
+python benchmarks/bell_20260907/reproduce.py --verify-only
 ```
 
-`job.result()` remains available in `execution["result"]` as a Qiskit
-`SamplerResult`. Bell postprocessing uses the estimated integer dictionaries
-returned by `PiastQJob.counts()`; this project does not independently multiply
-or round the quasi probabilities.
+This check requires only the Python standard library. For numerical replay and bootstrap recomputation, follow the [benchmark's installation and reproduction instructions](benchmarks/bell_20260907/README.md), including its dedicated dependency environment. After installation, replay uses saved data and requires no IBM/IQM credentials or QPU credits.
 
-The example contacts the managed dashboard and can consume real hardware shots.
-Run it only as an intentional manual smoke test.
+Additional IQM Bell and ZNE experiments are documented in the [IQM experiment guide](notebooks/working/iqm/README_bell_zne.md).
 
-## Reproducible Bell hardware benchmark
+Reproducing an archived analysis is different from reproducing a hardware outcome: a new experiment uses new samples and device calibrations. The archive retains weak results as well as stronger ones; it is not a claim of uniform improvement across devices.
 
-[Full analysis and offline reproduction instructions](benchmarks/bell_20260907/README.md): IBM Kingston/Marrakesh/Fez and IQM Garnet, including the complete 5000-shot Fez/Garnet repeat. Includes hardware counts, QPY circuits, calibrations, SHA-256 manifest, pinned dependencies, and an offline replay of Bell values and bootstrap uncertainties.
+### Interpreting results
 
-## Independent local Bell settings in raw blocks
+In the encoding and synthesis workflow, *code-space leakage* means population outside the chosen logical subspace within the qubit register. It should not be confused with physical device leakage into levels outside a qubit's computational Hilbert space.
 
-[The runnable notebook](notebooks/bell_randomized_raw.ipynb) prepares portable
-reference-state inputs for `two_qutrit`, `ghz3`, and `ame43` in two encodings,
-runs local Aer comparisons, and includes disabled-by-default IBM, IQM, and
-PIAST/AQT examples. Each comparison arm generates its own setting schedule.
+Conditional estimates use postselected data and must be interpreted alongside unconditional estimates and rejected-shot statistics. Bootstrap intervals quantify sampling uncertainty under their stated assumptions; they do not account for all hardware drift or ZNE model bias. The randomized-block path uses its own block-based concentration bounds rather than the same bootstrap procedure.
 
-```python
-from qudits_on_qubits.experiments import (
-    AerIdeal, ExperimentSpec, PathBasis, RandomizedBlocks,
-    run_experiment, resume_experiment,
-)
+These experiments are research benchmarks, **not loophole-free Bell tests**. Neither a postselected violation nor a mitigated estimate alone establishes device-independent nonlocality.
 
-spec = ExperimentSpec(
-    state="ame43",
-    basis=PathBasis("path/to/basis"),
-    backend=AerIdeal(seed_simulator=17),
-    measurement=RandomizedBlocks(
-        setting_draws=64,
-        shots_per_draw=16,
-        max_setting_draws=512,
-        max_circuits_per_job=100,
-        confidence_level=0.95,
-    ),
-)
-result = run_experiment(spec)
-print(result.values["raw"], result.values["conditional"])
-restored = resume_experiment(result.artifact_dir)
+## Documentation
+
+| Start here | Contents |
+| --- | --- |
+| [Usage guide](docs/usage_guide.md) | Experiment runner, artifacts and resume, IQM layouts, Top-K benchmarks, optimized gates, PiastQ, randomized blocks, and mitigation |
+| [Two-qutrit guide](docs/two_qutrit_bell_vertical_slice.md) | Expected results, artifacts, clean-install verification, and troubleshooting |
+| [Annotated example](notebooks/two_qutrit_bell_vertical_slice.ipynb) | Logical specification → encoding → execution → analysis |
+| [Randomized local settings](notebooks/bell_randomized_raw.ipynb) | Block-based acquisition and reference comparisons |
+| [Hardware benchmark](benchmarks/bell_20260907/README.md) | Archived data, methods, limitations, and offline replay |
+| [IQM Bell/ZNE experiments](notebooks/working/iqm/README_bell_zne.md) | Additional hardware campaigns and their analysis |
+
+Deterministic circuit inputs live in [`experiment_inputs/`](experiment_inputs/README.md). The [`artifacts/` guide](artifacts/README.md) describes result storage. Notebooks under `notebooks/working/` are research workflows rather than a uniform beginner tutorial collection.
+
+## Project status
+
+QuditsOnQubits is **early-stage research software**. The current end-to-end reference workloads and optimized gate pipeline center on qutrits. Generalizing the toolchain to broader qudit circuits and dimensions is a development direction, not a claim that every dimension or circuit is already supported.
+
+Public APIs and artifact formats may evolve. Record the exact release or commit, dependency versions, encoding, compilation settings, and backend configuration used in a study.
+
+## Development
+
+From the repository root, install an editable development environment and run the tests:
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest -q
+git diff --check
 ```
 
-The basis directory contains `graph_state_direct_basis.qpy` and `E.npy`; the
-notebook can create these inputs locally. The example budget demonstrates the
-API and is not a hardware-budget recommendation. `measurement=None` retains
-the existing all-settings path and its default `shots=20480`. With
-`RandomizedBlocks`, omit legacy `shots`, `uncertainty`, and `bootstrap`.
-Raw v1 rejects readout mitigation, circuit twirling, ZNE, and forced
-recalibration. Hardware examples require intentional opt-in and existing
-provider account configuration.
+Some optional integration tests require additional dependencies. A skipped integration test does not validate that integration. Use the [clean-install guide](docs/two_qutrit_bell_vertical_slice.md) when checking distribution builds rather than relying only on an editable installation.
 
-`setting_draws` is the minimum number of blocks. Each block independently
-draws one uniform setting per party using Python `secrets`, then records
-`shots_per_draw` joint shots. System randomness is not a physical QRNG.
-Repeated settings retain distinct block IDs. Drawing continues after the
-minimum until all required Bell patterns are covered. Reaching
-`max_setting_draws` first saves `coverage_limit_reached` without submitting any
-circuits. Actual raw cost is `N_actual * shots_per_draw`; increasing shots per
-block does not increase the number of independent blocks.
+Bug reports, reproducible examples, documentation improvements, and new benchmark workloads are welcome through [GitHub issues](https://github.com/slysek/QuditsOnQubits/issues) and pull requests. For numerical or hardware issues, include the software versions, encoding, experiment configuration, and sanitized diagnostics.
 
-| Scenario | Full configurations | Required patterns | Configurations contributing to a term |
-| --- | ---: | ---: | ---: |
-| `two_qutrit` | 9 | 9 | 9 |
-| `ghz3` | 18 | 12 | 12 |
-| `ame43` | 36 | 13 | 15 |
+## Citing the project
 
-An AME identity (`None`) is a wildcard in a required pattern: that party still
-receives a setting and is measured. Its outcome is marginalized, while its
-leakage invalidates the joint shot. One block can support multiple patterns.
-Configurations with no matching term remain in raw data, total shot cost, and
-global leakage statistics.
+When using QuditsOnQubits in research, cite the [repository](https://github.com/slysek/QuditsOnQubits) and the exact release or commit used. For archived experiments, also identify the benchmark and its documented methodology.
 
-The main `raw` value gives leakage zero contribution. The additional
-`conditional` value normalizes each correlator by its own accepted shots; it
-is not the raw value divided by global acceptance. No accepted shots for a
-required correlator gives `conditional=None` with `no_accepted_shots`, while
-complete acquisition can still finish successfully. Results retain coverage,
-budgets, per-block and per-pattern leakage, and AME diagnostics per full
-measurement context.
+## License
 
-Intervals use `conditional_schedule_block_hoeffding_v1`, conditional on the
-saved setting schedule. They assume independent blocks, allow correlated
-shots within a block, and can remain wide even for constant observations or
-large shot counts. Classical-bound comparisons are diagnostic: faithful local
-observables and stable measurements are needed for a stationary Bell-value
-interpretation, with additional assumptions after postselection. This is not
-a loophole-closing test and does not produce a nonlocality p-value.
-
-Schema 4 artifacts keep the schedule, unique circuit catalogue, ordered batch
-requests, job IDs, raw counts, and derived report. Completed runs reload
-offline through `resume_experiment`; interrupted runs retrieve confirmed jobs
-and continue untouched batches. Ambiguous submissions remain
-`submission_unknown` rather than being silently repeated. Failed analysis
-preserves raw data for local reanalysis. Existing all-settings artifacts and
-the historical hardware benchmark keep their original formats.
-
-`recover_randomized_job(path, batch_index=..., job_id=..., adapter=...)`
-can attach an uncertain job only when the adapter verifies the provider's
-saved circuits, backend, shot count, and raw options. IBM supports this proof;
-the current IQM/PIAST clients do not expose enough evidence for unknown-job
-attachment. Their already confirmed job IDs remain resumable. Lost local Aer
-job handles cannot be restored; complete saved Aer counts remain usable offline.
-For a lost local handle, explicitly call
-`replay_randomized_aer_batch(path, batch_index=...)` to repeat that batch with
-the saved QPY and seed. It retains the original attempt and extra shot budget,
-rejects hardware targets and refuses to replace any existing raw data.
-No run, including a local run, silently submits an uncertain block again.
+QuditsOnQubits is licensed under the **Apache License 2.0**. See [LICENSE](LICENSE).

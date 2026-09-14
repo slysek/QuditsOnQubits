@@ -265,9 +265,9 @@ assert 'cft_piastq' not in sys.modules
     assert completed.returncode == 0, completed.stderr
 
 
-def test_readme_documents_library_runner_contracts() -> None:
-    readme_source = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    readme = readme_source.lower()
+def test_usage_guide_documents_library_runner_contracts() -> None:
+    guide_source = (REPO_ROOT / "docs" / "usage_guide.md").read_text(encoding="utf-8")
+    guide = guide_source.lower()
 
     required = (
         "python library",
@@ -298,11 +298,11 @@ def test_readme_documents_library_runner_contracts() -> None:
         "drift",
         "model bias",
     )
-    assert all(statement in readme for statement in required)
-    assert "uncertainty=BootstrapConfig(" in readme_source
-    assert "ExecutionMode" in readme_source
-    assert "RunManifest" in readme_source
-    assert "legacy schema-v1/schema-v2" in readme_source
-    assert "resume_experiment(results[0].artifact_dir)" in readme_source
-    assert "execution_mode=ExecutionMode.HARDWARE" in readme_source
-    assert "bootstrap=BootstrapConfig(" not in readme_source
+    assert all(statement in guide for statement in required)
+    assert "uncertainty=BootstrapConfig(" in guide_source
+    assert "ExecutionMode" in guide_source
+    assert "RunManifest" in guide_source
+    assert "legacy schema-v1/schema-v2" in guide_source
+    assert "resume_experiment(results[0].artifact_dir)" in guide_source
+    assert "execution_mode=ExecutionMode.HARDWARE" in guide_source
+    assert "bootstrap=BootstrapConfig(" not in guide_source
