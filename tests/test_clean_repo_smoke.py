@@ -51,21 +51,32 @@ class CleanRepoSmokeTests(unittest.TestCase):
         self.assertIn('repo_root / "artifacts"', source)
         self.assertIn("qudits_on_qubits", source)
 
-    def test_readme_documents_piastq_managed_bell_execution(self):
+    def test_readme_links_to_detailed_usage_guide(self):
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn("## PiastQ managed Bell execution", readme)
-        self.assertIn('mode="managed"', readme)
-        self.assertIn("CFT_PIASTQ_DASHBOARD_API_URL", readme)
-        self.assertIn("CFT_PIASTQ_DASHBOARD_API_KEY", readme)
-        self.assertNotIn("CFT_PIASTQ_MODE", readme)
-        self.assertNotIn("PCSS_TOKEN", readme)
-        self.assertNotIn("PCSS_QAPI_TOKEN", readme)
-        self.assertNotIn("git+https://", readme.casefold())
-        self.assertIn("Install `cft-piastq` separately", readme)
-        self.assertIn("backend=client.backend", readme)
-        self.assertIn("compute_bell_value_from_counts_aqt", readme)
-        self.assertIn("one PiastQ job containing every generated circuit", readme)
+        self.assertRegex(readme, r"\[[^\]]+\]\(docs/usage_guide\.md\)")
+        self.assertTrue((REPO_ROOT / "docs" / "usage_guide.md").is_file())
+
+    def test_usage_guide_documents_piastq_managed_bell_execution(self):
+        guide = (REPO_ROOT / "docs" / "usage_guide.md").read_text(encoding="utf-8")
+
+        self.assertIn("## PiastQ managed Bell execution", guide)
+        self.assertIn('mode="managed"', guide)
+        self.assertIn("CFT_PIASTQ_DASHBOARD_API_URL", guide)
+        self.assertIn("CFT_PIASTQ_DASHBOARD_API_KEY", guide)
+        self.assertIn("Install `cft-piastq` separately", guide)
+        self.assertIn("backend=client.backend", guide)
+        self.assertIn("compute_bell_value_from_counts_aqt", guide)
+        self.assertIn("one PiastQ job containing every generated circuit", guide)
+
+    def test_public_usage_docs_exclude_private_urls_and_legacy_credentials(self):
+        for relative_path in ("README.md", "docs/usage_guide.md"):
+            with self.subTest(path=relative_path):
+                source = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+                self.assertNotIn("CFT_PIASTQ_MODE", source)
+                self.assertNotIn("PCSS_TOKEN", source)
+                self.assertNotIn("PCSS_QAPI_TOKEN", source)
+                self.assertNotIn("git+https://", source.casefold())
 
 
 if __name__ == "__main__":
