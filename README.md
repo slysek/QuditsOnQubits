@@ -240,16 +240,19 @@ Default uncertainty is 2000 LOCAL resamples of saved counts, not 2000 backend ex
 
 The legacy `raw`, `readout_mitigated`, `zne`, and `zne_readout_mitigated` keys remain conditional aliases. Only enabled mitigation combinations appear. Intervals reflect finite-shot sampling and optional calibration resampling. They do not model hardware drift or ZNE model bias.
 
-This repo intentionally starts without historical bulk benchmark dumps. The previous repository should be kept locally as `QuditsOnQubits_legacy` for archival lookup. Future IQM/direct-basis simulation outputs should go under `artifacts/`, with selected best circuits copied into the relevant `selected_best/` folder.
+IQM/direct-basis simulation outputs belong under `artifacts/`, with selected best circuits copied into the relevant `selected_best/` folder. Curated hardware evidence and the Bell benchmark archive are retained for reproducibility.
 
 ## Layout
 
 ```text
 src/qudits_on_qubits/
   core/              # graph-state and AME circuit helpers
+  quantum_circuits/  # bundled runtime QPY gates
   benchmarks/        # direct-basis benchmark code
   bell_measurements/ # qutrit Bell measurement pipeline
   encoding_search/   # candidate generation/search helpers
+quantum_circuits/     # additional research circuit assets
+experiment_inputs/   # deterministic inputs and immutable reference bundles
 scripts/             # runnable entry points
 notebooks/working/   # active research notebooks
 artifacts/           # local result folders and manifest template
@@ -258,14 +261,15 @@ tests/               # smoke and regression tests
 
 ## Setup
 
-```powershell
-conda activate qudityD3_laptop
-pip install -r requirements.txt
-pip install -e .
+Use Python 3.11–3.13 and a virtual environment, from the repository root:
+
+```bash
+python -m venv .venv
 ```
 
-For a fresh Codespace or virtual environment, prefer installing the package and
-its pinned dependency set in one resolver run:
+Activate it with `source .venv/bin/activate` on Linux/macOS or
+`.venv\Scripts\Activate.ps1` in Windows PowerShell. Install the package and
+its dependency set from `pyproject.toml` in one resolver run:
 
 ```bash
 python -m pip install --upgrade pip

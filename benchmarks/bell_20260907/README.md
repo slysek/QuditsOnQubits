@@ -1,20 +1,16 @@
-# Benchmark Bella: odtworzenie na drugim komputerze
+# Bell benchmark: offline reproduction
 
-Pakiet zawiera **pełną wcześniejszą analizę oraz powtórzenie Fez/Garnet po 5000 shotów**. Można ponownie obliczyć wartości Bella, bootstrap SE/95% CI, różnice F3/baseline i historyczne ZNE wyłącznie z zapisanych wyników prawdziwych QPU. Odtworzenie analizy nie wymaga poświadczeń IBM/IQM i nie zużywa kredytów.
+This bundle contains **the complete earlier analysis and the Fez/Garnet repeat with 5000 shots per setting**. Bell values, bootstrap SE/95% CI, F3/baseline differences, and historical ZNE can be recomputed from saved real-QPU results. Replaying the analysis requires no IBM/IQM credentials and consumes no QPU credits.
 
-- [Raport: 5000 shotów, Fez + IQM](reports/rerun5000/RAPORT.md)
-- [Pełny pierwszy benchmark: Kingston, Marrakesh, Fez, IQM i ZNE](reports/RAPORT_KONCOWY.md)
-- [Metody i ograniczenia powtórzenia](reports/rerun5000/METODY.md)
-- [Macierze kodowań](reports/coding_bases.json)
-- [Manifest danych i sumy SHA-256](manifest.json)
+- [5000-shot report: Fez + IQM](reports/rerun5000/RAPORT.md)
+- [First benchmark: Kingston, Marrakesh, Fez, IQM, and ZNE](reports/RAPORT_KONCOWY.md)
+- [Repeat methodology and limitations](reports/rerun5000/METODY.md)
+- [Encoding matrices](reports/coding_bases.json)
+- [Data manifest and SHA-256 hashes](manifest.json)
 
-## Instalacja — Python 3.12
+## Installation — Python 3.12
 
-W katalogu głównym sklonowanego repo wybierz gałąź PR:
-
-```text
-git checkout codex/bell-benchmark-repro
-```
+Run these commands from the root of a normal repository checkout, such as `main` or the `v0.1.0` tag once available. The historical reports retain their original language.
 
 Windows PowerShell:
 
@@ -34,52 +30,52 @@ python3.12 -m venv .venv-bell
 .venv-bell/bin/python benchmarks/bell_20260907/reproduce.py --bootstrap
 ```
 
-Instalacja pobiera biblioteki; późniejszy replay działa offline. `requirements.txt` przypina wersje bibliotek obliczeniowych i SDK użytych w pomiarach. Transytywne zależności przetestowanej instalacji przypina dodatkowo `constraints.txt`. Jest to środowisko benchmarku, a nie instalacja wszystkich opcjonalnych funkcji repo. Pełny bootstrap może potrwać kilkanaście minut, zależnie od CPU. Wyniki trafiają do `artifacts/reproduced-bell-20260907/`. Skrypt odmawia nadpisania istniejącego katalogu; przy następnym uruchomieniu podaj nowy `--output`.
+Installation downloads dependencies; subsequent replay works offline. `requirements.txt` pins the scientific libraries and SDKs used for the measurements. `constraints.txt` additionally pins transitive dependencies from the validated environment. This is the benchmark environment, not an installation of every optional repository feature. Full bootstrap replay can take several minutes, depending on the CPU. Outputs go to `artifacts/reproduced-bell-20260907/`. The script refuses to overwrite an existing directory; use a new `--output` for subsequent runs.
 
-## Tryby odtworzenia
+## Replay modes
 
-Poniższe komendy zakładają aktywne środowisko i `python` z tego środowiska:
+These commands assume an active environment and its `python` interpreter:
 
 ```bash
-# Tylko integralność archiwum; wystarczy standardowa biblioteka Pythona.
+# Archive integrity only; requires only the Python standard library.
 python benchmarks/bell_20260907/reproduce.py --verify-only
 
-# Wszystkie wartości Bella z counts; SE/CI z zapisanych replik bootstrapu.
+# All Bell values from counts; SE/CI from saved bootstrap replicas.
 python benchmarks/bell_20260907/reproduce.py --output artifacts/bell-quick
 
-# Wszystkie wartości, 2000 replik bootstrapu i kontrola zgodności SE/CI.
+# All values, 2000 bootstrap replicas, and SE/CI agreement checks.
 python benchmarks/bell_20260907/reproduce.py --bootstrap --output artifacts/bell-full
 
-# Tylko nowa seria 5000 shotów.
+# Only the 5000-shot repeat.
 python benchmarks/bell_20260907/reproduce.py --series rerun5000 --bootstrap --output artifacts/bell-5000
 ```
 
-Zalecany do pełnego odtworzenia jest `--bootstrap`. Tryb szybki jawnie zapisuje `bootstrap_recomputed: false`; nie przedstawia historycznych replik jako nowych obliczeń. Pełny tryb porównuje wartości, SE i granice CI każdego joba z publikacją z tolerancją `1e-9`. Sprawdza też wszystkie 144 opublikowane podstawowe wyniki: 96 z wcześniejszej kampanii i 48 z powtórzenia. Założenia bootstrapu opisano w raportach; numeryczna zgodność nie usuwa błędów systematycznych urządzeń.
+Use `--bootstrap` for full reproduction. Quick mode explicitly records `bootstrap_recomputed: false`; it does not present historical replicas as new calculations. Full mode compares each job's values, SE, and CI endpoints with the publication at tolerance `1e-9`. It also checks all 144 published primary results: 96 from the earlier campaign and 48 from the repeat. Bootstrap assumptions are documented in the reports; numerical agreement does not remove device systematic errors.
 
-## Pliki wyjściowe
+## Output files
 
-- `verification.json`: liczba zweryfikowanych zadań, zakres i wynik kontroli zgodności.
-- `results.csv`: 240 zagregowanych wierszy dla wszystkich serii i skal; cztery estymatory, SE, CI, liczba shotów i odsetek odrzuceń postselekcji. Serie i backendy mają osobne klucze.
-- `differences.csv`: F3 opt − standard, kandydat − baseline z tym samym F3, kandydat opt − baseline standard oraz nowa seria − poprzednia.
-- `zne.csv`: wyłącznie poprzednia seria z kompletem skal 1/3/5; intercept liniowy oraz diagnostyka krzywizny. W serii 5000 shotów ZNE pominięto.
-- `data/`: rozpakowane oryginalne counts, potwierdzenia, QPY, kalibracje i wartości referencyjne. Pełny bootstrap dopisuje przeliczone analizy przy odpowiednich jobach.
+- `verification.json`: verified job count, scope, and agreement-check results.
+- `results.csv`: 240 aggregate rows across all series and scales; four estimators, SE, CI, shot counts, and postselection rejection fractions. Series and backends have separate keys.
+- `differences.csv`: optimized F3 − standard, candidate − baseline with the same F3, optimized candidate − standard baseline, and repeat − earlier series.
+- `zne.csv`: only the earlier series with complete scales 1/3/5; linear intercepts and curvature diagnostics. ZNE was omitted from the 5000-shot repeat.
+- `data/`: extracted original counts, receipts, QPY circuits, calibrations, and reference values. Full bootstrap adds recomputed analyses beside the corresponding jobs.
 
-Statyczne raporty, wykresy i oryginalne CSV są już dostępne w `reports/`; nie trzeba uruchamiać kodu, aby je przeczytać. Nazwy kolumn i zestawienie wierszy nowego eksportera mogą różnić się od układu historycznych raportów; wyniki są identyfikowane przez serię, backend, stan, kodowanie, F3 i skalę.
+Static reports, plots, and original CSVs are already available in `reports/`; reading them requires no execution. Column names and row organization in the replay export may differ from historical reports; results are identified by series, backend, state, encoding, F3, and scale.
 
-## Zawartość i pochodzenie
+## Contents and provenance
 
-`data.zip` ma około 19 MB i 383 pliki. Manifest obejmuje 49 jobów: 43 ukończone (w tym pilot), 5 anulowanych i 1 nieudany. Pilot nie wchodzi do porównania baz. Oryginalne counts, QPY i repliki bootstrapu zachowano bajtowo; każdy plik ma SHA-256. Potwierdzenia nieudanych/anulowanych jobów pozostają w ewidencji, lecz ich niewykonane QPY pominięto. Nie dołączono `.env`, poświadczeń, logów ani plików procesów lokalnych.
+`data.zip` is approximately 19 MB and contains 383 files. The manifest covers 49 jobs: 43 completed (including a pilot), 5 cancelled, and 1 failed. The pilot is excluded from encoding comparisons. Original counts, QPY circuits, and bootstrap replicas are preserved byte for byte, with SHA-256 for each file. Receipts for failed/cancelled jobs remain in the record; their unexecuted QPY circuits are omitted. No `.env`, credentials, logs, or local process files are included.
 
-Źródłem był commit `156305e8b21d78ba7e729070d86e97e7d21e734e` i lokalna poprawka dekodera nieaktywnego uczestnika AME dla podpór monomialnych. Ta poprawka oraz jej testy są częścią PR. Dołączono też wymagane pomocnicze moduły normalizacji indeksów Qiskit/QPY i odczytu konfiguracji IBM. Inne niezwiązane zmiany z komputera autora nie są częścią pakietu.
+The source was commit `156305e8b21d78ba7e729070d86e97e7d21e734e` plus the decoder correction for an inactive AME participant with monomial supports. That correction and its tests are included in the repository, along with the required Qiskit/QPY bit-index normalization and IBM configuration helpers.
 
-Pliki `reports/*provenance*.json` są historycznymi zapisami środowiska i mogą zawierać stare ścieżki autora. Nie są wykonywane. Odnośniki w raportach są przenośne. Wiążący manifest dystrybucji to `manifest.json`; historyczne hashe raportów sprzed zmiany odnośników nie opisują opublikowanej kopii.
+Historical provenance files, `reports/rerun5000/protocol.json`, and `validation-original.txt` may contain original absolute paths. They are preserved records, not executable configuration. Report links are portable. The binding distribution manifest is `manifest.json`; historical report hashes recorded before link adjustments do not describe the published copies.
 
-`study.py`, `hardware.py`, `target_screen.py`, `execute.py`, `rerun5000.py` zachowują kod projektowania i wykonania historycznej kampanii. `report.py` jest pierwotnym generatorem raportu pierwszego etapu. Obsługiwanym punktem wejścia do odtworzenia publikacji jest **`reproduce.py`**. Historyczne skrypty sprzętowe oczekują dawnego układu `weighted/` i nie służą jako gotowy launcher nowej kampanii.
+`study.py`, `hardware.py`, `target_screen.py`, `execute.py`, and `rerun5000.py` retain the design and execution code for the historical campaign. `report.py` is the original first-stage report generator. The supported entry point for reproducing the publication is **`reproduce.py`**. Historical hardware scripts expect the former `weighted/` layout and are not ready-to-use launchers for a new campaign.
 
-## Ponowne wykonanie na QPU
+## New QPU execution
 
-Powtórzenie analizy zapisanych counts może odtworzyć liczby. Nowy eksperyment na IBM/IQM będzie miał nowe losowe wyniki, inne kalibracje i może mieć inną jakość. Pakiet nie wysyła nowych zadań automatycznie.
+Replaying saved counts can reproduce the published numbers. A new IBM/IQM experiment will have new random outcomes, different calibrations, and potentially different quality. The bundle does not submit new jobs automatically.
 
-Po rozpakowaniu dokładne wysłane obwody są w `data/jobs/<provider>/<label>/submitted.qpy`; mapowanie ustawień, backend, shoty i opcje są w `receipt.json`. Można je odczytać przez `qiskit.qpy.load`. Przed nowym pomiarem trzeba ustawić własne poświadczenia poza repo, sprawdzić aktualną dostępność/topologię backendu, zgodność ISA, ceny i odrębny budżet. Nie należy ponownie używać historycznych identyfikatorów jobów ani traktować historycznego limitu kampanii jako salda własnego konta.
+After extraction, the exact submitted circuits are in `data/jobs/<provider>/<label>/submitted.qpy`; settings, backend, shots, and options are in `receipt.json`. Circuits can be loaded with `qiskit.qpy.load`. Before any new measurement, configure your own credentials outside the repository and check backend availability/topology, ISA compatibility, pricing, and a separate budget. Do not reuse historical job IDs or treat the historical campaign limit as your account balance.
 
-Seria 5000 shotów: Fez `rep_delay=75e-6`, reset włączony, DD XY4, twirling 8 × 625; IQM Garnet po jednym pełnym wariancie i dwóch kalibracjach na job. Każde ustawienie ma 5000 shotów **przed** postselekcją. Wyniki po postselekcji/korekcji nie stanowią bezlukowego testu Bella. Szczególnie słabe wyniki IQM z powtórzenia pozostawiono w danych; ich przyczyna nie została ustalona.
+The 5000-shot repeat used Fez `rep_delay=75e-6`, reset enabled, XY4 DD, and twirling 8 × 625; IQM Garnet used one complete variant and two calibrations per job. Each setting has 5000 shots **before** postselection. Postselected/corrected results do not constitute a loophole-free Bell test. The particularly weak IQM repeat results remain in the data; their cause has not been established.

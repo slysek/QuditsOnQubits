@@ -69,12 +69,12 @@ def test_notebook_exists():
     assert NOTEBOOK_PATH.is_file()
 
 
-def test_notebook_uses_project_kernelspec():
+def test_notebook_uses_portable_python_kernelspec():
     kernelspec = load_notebook()["metadata"]["kernelspec"]
     assert kernelspec == {
-        "display_name": "QuditsOnQubitsEnv",
+        "display_name": "Python 3",
         "language": "python",
-        "name": "quditsonqubitsenv",
+        "name": "python3",
     }
 
 

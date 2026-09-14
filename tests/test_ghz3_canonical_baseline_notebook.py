@@ -130,9 +130,9 @@ def test_notebook_has_aer_and_opt_in_iqm_runs_and_clean_cells():
     notebook = load_notebook()
     cells = code_cells(notebook)
     assert notebook["metadata"]["kernelspec"] == {
-        "display_name": "QuditsOnQubitsEnv",
+        "display_name": "Python 3",
         "language": "python",
-        "name": "quditsonqubitsenv",
+        "name": "python3",
     }
     assert notebook["metadata"]["language_info"] == {"name": "python"}
     run_cells = [cell for cell in cells if named_calls(source(cell), "run_experiment")]

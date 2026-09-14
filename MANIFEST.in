@@ -1,0 +1,15 @@
+include README.md
+include LICENSE
+include requirements.txt
+recursive-include tests *.py
+recursive-include scripts *.py *.ps1
+include docs/*.md
+recursive-include notebooks *.ipynb *.py *.md
+recursive-include experiment_inputs *.npy *.qpy *.json *.md
+recursive-include quantum_circuits *.qpy
+recursive-include benchmarks/bell_20260907 *.py *.md *.txt *.json *.csv *.png *.zip
+include artifacts/README.md artifacts/MANIFEST.template.csv
+recursive-include artifacts .gitkeep
+recursive-include artifacts/iqm_bell_short/emerald_20260910 *.json *.npy *.qpy *.png *.md *.csv
+recursive-include artifacts/iqm_bell_short/emerald_20260910_5scales *.json *.npy *.qpy *.png *.md *.csv
+recursive-include artifacts/iqm_randomized_bell/campaign_1ee8e73b3efb45ee921e8be945833fad *.json *.npy *.qpy *.png *.md *.csv

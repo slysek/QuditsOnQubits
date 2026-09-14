@@ -5,7 +5,7 @@ from qiskit import qpy
 from igraph import Graph
 from qiskit.synthesis import TwoQubitWeylDecomposition
 
-from qudits_on_qubits.core.project_paths import quantum_circuits_path
+from qudits_on_qubits.core.project_paths import quantum_circuits_resource
 
 
 VALID_ENCODING_STRATEGIES = ("append_w", "prepared_w_then_conjugated_entanglers")
@@ -14,36 +14,30 @@ VALID_ENCODING_STRATEGIES = ("append_w", "prepared_w_then_conjugated_entanglers"
 def create_ame_circuit(n=None, dim=3, graph_type="star", graph=None,
                        basis=None, E_new=None,
                        encoding_strategy="append_w"):
-    """
-    Tworzy obwod AME z grafu.
+    """Construct an AME graph-state circuit.
 
-    Parametry
-    ---------
-    E_new : np.ndarray, shape (4,3), optional
-        Nowa mapa kodowania qutrytu (izometria C^3 -> C^4).
-        Jesli podana, obwod jest budowany w bazowym kodowaniu, a na koncu
-        kazdego qutrytu dodawana jest bramka zmiany kodowania W.
-        Dziala tylko dla dim=3.
-
+    Parameters
+    ----------
+    E_new : np.ndarray, shape (4, 3), optional
+        New qutrit encoding isometry C^3 -> C^4, supported only for dim=3.
+        With append_w, build in the base encoding and append an encoding-change
+        gate W to each qutrit.
     encoding_strategy : str
-        Strategia budowy obwodu z kodowaniem W:
-        - "append_w": standardowy obwod + lokalne W na koncu (domyslnie)
-        - "prepared_w_then_conjugated_entanglers":
-          lokalnie przygotowuje W|+> z |00> (StatePreparation),
-          a entanglery sa budowane jako (W ⊗ W) CZ (W† ⊗ W†)
-    """
+        "append_w" (default): standard circuit followed by local W gates.
+        "prepared_w_then_conjugated_entanglers": prepare W|+> from |00>
+        locally using StatePreparation, with entanglers (W ⊗ W) CZ (W† ⊗ W†)."""
 
     if encoding_strategy not in VALID_ENCODING_STRATEGIES:
         raise ValueError(
-            f"Nieznana encoding_strategy: {encoding_strategy!r}. "
-            f"Dozwolone: {VALID_ENCODING_STRATEGIES}"
+            f"Unknown encoding_strategy: {encoding_strategy!r}. "
+            f"Allowed: {VALID_ENCODING_STRATEGIES}"
         )
 
     if graph is None and n is None:
-        raise ValueError("Nalezy podac albo `graph`, albo liczbe wierzcholkow `n`.")
+        raise ValueError("Provide either `graph` or the vertex count `n`.")
 
     if E_new is not None and dim != 3:
-        raise ValueError("Zmiana kodowania (E_new) jest obslugiwana tylko dla dim=3.")
+        raise ValueError("Encoding changes (E_new) are supported only for dim=3.")
 
     if graph is None:
         if graph_type == "star":
@@ -52,8 +46,8 @@ def create_ame_circuit(n=None, dim=3, graph_type="star", graph=None,
             edges = [[i, i + 1] for i in range(n - 1)]
         else:
             raise ValueError(
-                f"Nieznany typ grafu: {graph_type}. "
-                "Dozwolone wartosci to 'star' lub 'line'."
+                f"Unknown graph type: {graph_type}. "
+                "Allowed values are 'star' or 'line'."
             )
         graph = Graph(n, edges=edges)
 
@@ -75,12 +69,12 @@ def create_ame_circuit(n=None, dim=3, graph_type="star", graph=None,
 
 
 def _load_qpy_gate(filename):
-    with open(quantum_circuits_path(filename), "rb") as fd:
+    with quantum_circuits_resource(filename).open("rb") as fd:
         return qpy.load(fd)[0]
 
 
 def _build_circuit_append_w(graph, dim, E_new=None):
-    """Tryb 'append_w': F na kazdym qutrycie, CZ na krawedziach, W na koncu."""
+    """Apply F to each qutrit, CZ on graph edges, and local W gates last."""
     Fgate, CZgate = _load_gates_for_dim(dim)
 
     W_qc = None
@@ -107,13 +101,11 @@ def _build_circuit_append_w(graph, dim, E_new=None):
 
 
 def _build_circuit_prepared_w_then_conjugated_entanglers(graph, dim, E_new=None):
-    """Tryb 'prepared_w_then_conjugated_entanglers':
-    1. Lokalne przygotowanie W|+> z |00> (StatePreparation) na kazdym qutrycie
-    2. Entanglery budowane jako (W ⊗ W) CZ (W† ⊗ W†) na kazdej krawedzi
-    """
+    """Prepare W|+> from |00> on each qutrit using StatePreparation.
+    Apply (W ⊗ W) CZ (W† ⊗ W†) on each graph edge."""
     if dim != 3:
         raise ValueError(
-            "Strategia 'prepared_w_then_conjugated_entanglers' wymaga dim=3."
+            "Strategy 'prepared_w_then_conjugated_entanglers' requires dim=3."
         )
 
     _, CZgate = _load_gates_for_dim(dim)
@@ -150,7 +142,7 @@ def _load_gates_for_dim(dim):
         return _load_qpy_gate("Fgate3.qpy"), _load_qpy_gate("CZgate3.qpy")
     if dim == 4:
         return _load_qpy_gate("Fgate4.qpy"), _load_qpy_gate("CZgate4cor.qpy")
-    raise ValueError(f"Nieobslugiwany wymiar: {dim}")
+    raise ValueError(f"Unsupported dimension: {dim}")
 
 
 def _build_edge_list(graph, qubit_list):
@@ -200,10 +192,10 @@ def _build_conjugated_cz_block(W_qc, Wdag_qc, CZgate):
 
 def _build_encoding_change_circuits(E_new):
     """Build W together with unitary gate blocks for W and Wdag."""
-    from encoding_change_unitary import build_encoding_change_unitary
+    from .encoding_change_unitary import build_encoding_change_unitary
 
     W = build_encoding_change_unitary(E_new)
-    assert W.shape == (4, 4), f"W ma wymiar {W.shape}, oczekiwano (4, 4)"
+    assert W.shape == (4, 4), f"W has shape {W.shape}; expected (4, 4)"
 
     W_qc = UnitaryGate(W, label="W")
     Wdag_qc = UnitaryGate(W.conj().T, label="Wdag")
@@ -228,4 +220,4 @@ def change_basis(mtx, dim):
         T = pi_new @ pi_old.conjugate().transpose()
         return T
 
-    raise ValueError("Podana macierz nie jest unitarna", mtx)
+    raise ValueError("The supplied matrix is not unitary", mtx)

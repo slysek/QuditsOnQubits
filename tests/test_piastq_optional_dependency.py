@@ -30,15 +30,17 @@ class PiastQOptionalDependencyTests(unittest.TestCase):
         self.assertNotIn("pcss-qapi", dependencies)
         self.assertNotIn("qiskit-aqt-provider", dependencies)
 
-    def test_tracked_metadata_does_not_reference_private_managed_client(self):
-        metadata_paths = (
-            REPO_ROOT / "src" / "qudits_on_qubits.egg-info" / "PKG-INFO",
-            REPO_ROOT / "src" / "qudits_on_qubits.egg-info" / "requires.txt",
+    def test_declared_dependencies_do_not_reference_private_managed_client(self):
+        pyproject = tomllib.loads(
+            (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
         )
+        dependencies = list(pyproject["project"]["dependencies"])
+        for group in pyproject["project"]["optional-dependencies"].values():
+            dependencies.extend(group)
+        for dependency in dependencies:
+            with self.subTest(dependency=dependency):
+                self.assertNotIn("cft-piastq", dependency.casefold())
+                self.assertNotIn("git+https://", dependency.casefold())
 
-        for metadata_path in metadata_paths:
-            metadata = metadata_path.read_text(encoding="utf-8").casefold()
-            self.assertNotIn("cft-piastq", metadata)
-            self.assertNotIn("git+https://", metadata)
 
 if __name__ == "__main__":    unittest.main()

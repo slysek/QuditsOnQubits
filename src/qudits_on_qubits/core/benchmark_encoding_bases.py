@@ -1,24 +1,19 @@
-"""
-benchmark_encoding_bases.py
+"""Benchmark qutrit encoding bases (C³ to C⁴) by circuit depth after transpilation.
 
-Automatyczny benchmark różnych baz kodowania qutrytu (C³→C⁴)
-pod kątem głębokości obwodu po transpilacji na konkretną topologię.
+Base-code-space families (E_new = E_old @ S):
+  1. baseline: E_old
+  2. monomial: E_old @ D @ P (permutation and phases)
+  3. fourier_like: E_old @ D1 @ F3 @ D2
+  4. householder_random: E_old @ Haar-random 3×3 unitary
+  5. clifford_wh: E_old @ X3^a Z3^b F3^c
 
-Klasy testowanych baz — STARE (E_new = E_old @ S, w starej code space):
-  1. baseline              – klasyczne E_old
-  2. monomial              – E_old @ D @ P  (permutacja + fazy)
-  3. fourier_like          – E_old @ D1 @ F3 @ D2
-  4. householder_random    – E_old @ losowa unitarna 3×3 (Haar)
-  5. clifford_wh           – E_old @ X3^a Z3^b F3^c
+General 4×3 isometries in the full C⁴ space:
+  6. haar_random_isometry: Haar-random 4×3 isometry
+  7. perturbed_isometry: E_old plus a small perturbation, reorthonormalized
+  8. entangling_isometry: W_random(4×4) @ E_old
+  9. structured_entangling: local rotations and an entangling gate
 
-Klasy testowanych baz — NOWE (ogólne izometrie 4×3, pełna C⁴):
-  6. haar_random_isometry       – losowa izometria 4×3 (Haar)
-  7. perturbed_isometry         – E_old + mała perturbacja → reortonormalizacja
-  8. entangling_isometry        – W_random(4×4) @ E_old
-  9. structured_entangling      – W z lokalnych rotacji + bramka splątująca
-
-Wyniki zapisywane do CSV i wypisywane w terminalu.
-"""
+Results are saved to CSV and printed to the terminal."""
 
 import os
 import numpy as np
@@ -251,7 +246,7 @@ def qutrit_fourier():
 
 
 def get_E_old():
-    """Zwraca bazowe kodowanie E_old (4×3)."""
+    """Return the base encoding E_old (4×3)."""
     return E_OLD.copy()
 
 
@@ -285,7 +280,7 @@ def _perm_matrix(perm):
 
 
 def _phase_diag(phases):
-    """Diagonalna macierz faz z listy/krotki 3 wartości."""
+    """Build a diagonal phase matrix from a list or tuple of three values."""
     return np.diag(np.array(phases, dtype=complex))
 
 
@@ -410,12 +405,8 @@ def _single_qubit_product_grid(angle_grid=None):
 
 
 def _codeword_entanglement(col):
-    """
-    Entropia splątania (von Neumann) 2-qubitowego stanu czystego |ψ⟩.
-
-    col : ndarray, shape (4,) — znormalizowany wektor stanu
-    Zwraca float ∈ [0, 1] (w bitach).
-    """
+    """Return the von Neumann entanglement entropy of a pure two-qubit state.
+    col is a normalized statevector of shape (4,). The result is in [0, 1] bits."""
     # Reshape do 2×2 (qubit_A ⊗ qubit_B)
     psi = col.reshape(2, 2)
     # Zredukowana macierz gęstości ρ_A = Tr_B(|ψ⟩⟨ψ|)
@@ -429,17 +420,12 @@ def _codeword_entanglement(col):
 
 
 def compute_encoding_metadata(E_new):
-    """
-    Oblicza dodatkowe metryki charakteryzujące mapę kodowania.
+    """Compute additional encoding-map metrics.
 
-    Zwraca dict:
-      uses_old_codespace_only : bool
-          True jeśli E_new mieści się w span{|00>,|01>,|10>}
-      avg_codeword_entanglement : float
-          Średnia entropia splątania (bity) trzech codewordów
-      overlap_with_old_codespace : float
-          ||P_old @ E_new||_F² / 3  ∈ [0, 1]
-    """
+    Return a dict with:
+      uses_old_codespace_only: whether E_new lies in span{|00>, |01>, |10>};
+      avg_codeword_entanglement: mean entanglement entropy of three codewords, in bits;
+      overlap_with_old_codespace: ||P_old @ E_new||_F² / 3, in [0, 1]."""
     if E_new is None:
         return {
             "uses_old_codespace_only": True,
@@ -495,7 +481,7 @@ def _save_benchmark_circuit(qc, class_name, candidate_name, output_root=None, su
 def _build_encoding_change_circuit(E_new):
     """Build a standalone 2-qubit circuit containing only the encoding-change W gate."""
     W = build_encoding_change_unitary(E_new)
-    assert W.shape == (4, 4), f"W ma wymiar {W.shape}, oczekiwano (4, 4)"
+    assert W.shape == (4, 4), f"W has shape {W.shape}; expected (4, 4)"
 
     W_gate = UnitaryGate(W, label="W")
     W_gate.name = "W"
@@ -674,12 +660,10 @@ def generate_monomial_bases(max_candidates=500):
 
 
 def generate_monomial_full_bases(max_candidates=500):
-    """
-    Pełna klasa monomialnych embeddingów qutrytu w 2 qubity.
+    """Generate all monomial qutrit embeddings into two qubits.
 
-    Wybiera dowolny support 3 z 4 stanów bazowych |00>, |01>, |10>, |11>,
-    a następnie stosuje tę samą konwencję D @ P co w starej code space.
-    """
+    Choose any three of |00>, |01>, |10>, |11>, then apply the same D @ P
+    convention used for the base code space."""
     computational_basis = np.eye(4, dtype=complex)
     candidates = []
 
@@ -725,10 +709,8 @@ def generate_fourier_like_bases(max_candidates=80):
 
 
 def generate_householder_bases(n_samples=20, seed=42):
-    """
-    Klasa 3: E_new = E_old @ losowa_unitarna_3x3
-    Małe losowe próbkowanie z U(3).  Zostaje w starej code space.
-    """
+    """Class 3: E_new = E_old @ Haar-random 3×3 unitary.
+    Sample a small set from U(3), retaining the base code space."""
     rng = np.random.default_rng(seed)
     candidates = []
     for i in range(n_samples):
@@ -757,11 +739,8 @@ def generate_clifford_wh_bases():
 # ════════════ GENERATORY BAZ — OGÓLNE IZOMETRIE 4×3 ═════════
 
 def generate_haar_random_isometries(n_samples=20, seed=100):
-    """
-    Klasa 5: Losowa izometria 4×3 (Haar).
-    Bierzemy pierwsze 3 kolumny losowej macierzy unitarnej 4×4.
-    Pełna C⁴ — nie ograniczona do starej code space.
-    """
+    """Class 5: Haar-random 4×3 isometries.
+    Take the first three columns of a random 4×4 unitary; use the full C⁴ space."""
     rng = np.random.default_rng(seed)
     candidates = []
     for i in range(n_samples):
@@ -772,10 +751,8 @@ def generate_haar_random_isometries(n_samples=20, seed=100):
 
 
 def generate_perturbed_isometries(n_samples_per_eps=8, seed=200):
-    """
-    Klasa 6: E_old + mała perturbacja → reortonormalizacja (polar/QR).
-    Testuje kodowania „blisko" klasycznego, z różnym poziomem perturbacji.
-    """
+    """Class 6: perturb E_old and reorthonormalize using polar/QR decomposition.
+    Explore encodings near the base encoding at several perturbation strengths."""
     rng = np.random.default_rng(seed)
     candidates = []
     epsilons = [0.01, 0.05, 0.1, 0.3]
@@ -795,10 +772,8 @@ def generate_perturbed_isometries(n_samples_per_eps=8, seed=200):
 
 
 def generate_entangling_isometries(n_samples=20, seed=300):
-    """
-    Klasa 7: E_new = W @ E_old   gdzie W jest losową unitarną 4×4.
-    Codewordy mogą mieć amplitudę na |11⟩ — ogólna zmiana code space.
-    """
+    """Class 7: E_new = W @ E_old for a random 4×4 unitary W.
+    Codewords may have amplitude on |11>, allowing a general code-space change."""
     rng = np.random.default_rng(seed)
     candidates = []
     for i in range(n_samples):
@@ -809,11 +784,8 @@ def generate_entangling_isometries(n_samples=20, seed=300):
 
 
 def generate_structured_entangling_isometries():
-    """
-    Klasa 8: W = (Ry(θ)⊗Ry(φ)) @ CZ @ (Rx(α)⊗I)  → E_new = W @ E_old
-    Prosta parametryczna rodzina z 1 bramką splątującą (CZ) i lokalnymi rotacjami.
-    Mały grid parametrów.
-    """
+    """Class 8: W = (Ry(θ)⊗Ry(φ)) @ CZ @ (Rx(α)⊗I), E_new = W @ E_old.
+    A small parameter grid with one entangling CZ gate and local rotations."""
     from qiskit.circuit.library import CZGate
     from qiskit.quantum_info import Operator as QOp
 
@@ -853,14 +825,11 @@ def generate_product_bases(
     include_grid=False,
     angle_grid=None,
 ):
-    """
-    Klasa "product": E_new = (U ⊗ V) @ E_base, gdzie U i V są lokalne 1-qubit unitary.
+    """Generate E_new = (U ⊗ V) @ E_base with local one-qubit unitaries U and V.
 
-    mode="discrete" używa małej, skończonej biblioteki bramek 1-qubitowych.
-    mode="grid" używa prostego gridu parametrów SU(2) w postaci Rz-Rx-Rz.
-    Jeśli include_grid=True przy mode="discrete", kandydaci gridowi są dopinani
-    po skończonej bibliotece dyskretnej.
-    """
+    mode="discrete" uses a small finite gate library; mode="grid" uses an SU(2)
+    parameter grid in Rz-Rx-Rz form. With include_grid=True and mode="discrete",
+    append grid candidates after the finite discrete library."""
     if mode not in {"discrete", "grid"}:
         raise ValueError("mode must be either 'discrete' or 'grid'.")
 
@@ -893,11 +862,8 @@ def generate_product_bases(
 
 
 def generate_local_ry_only(n_grid=10):
-    """
-    Klasa 10: W = Ry(θ) ⊗ Ry(φ) — wyłącznie rotacje lokalne.
-    ZERO dodatkowych bramek 2-qubitowych z samego W.
-    Gęsty grid kątów.
-    """
+    """Class 10: W = Ry(θ) ⊗ Ry(φ), using a dense angle grid.
+    Local rotations add no two-qubit gates from W itself."""
     def _ry(theta):
         c, s = np.cos(theta / 2), np.sin(theta / 2)
         return np.array([[c, -s], [s, c]], dtype=complex)
@@ -932,10 +898,8 @@ def generate_local_general_su2(n_samples=30, seed=600):
 
 
 def generate_real_orthogonal_isometries(n_samples=20, seed=400):
-    """
-    Klasa 12: Losowa realna ortogonalna izometria 4×3.
-    Macierze czysto rzeczywiste mogą dawać prostsze dekompozycje.
-    """
+    """Class 12: random real orthogonal 4×3 isometries.
+    Purely real matrices may allow simpler decompositions."""
     rng = np.random.default_rng(seed)
     candidates = []
     for i in range(n_samples):
@@ -949,10 +913,8 @@ def generate_real_orthogonal_isometries(n_samples=20, seed=400):
 
 
 def generate_near_identity_isometries(n_samples_per_eps=10, seed=500):
-    """
-    Klasa 13: W = expm(i·ε·H) dla małego ε i losowej macierzy hermitowskiej H.
-    Bardzo blisko macierzy identyczności — minimalny overhead.
-    """
+    """Class 13: W = expm(i·ε·H), with small ε and random Hermitian H.
+    Explore matrices near identity, with minimal overhead."""
     from scipy.linalg import expm
 
     rng = np.random.default_rng(seed)
@@ -972,11 +934,8 @@ def generate_near_identity_isometries(n_samples_per_eps=10, seed=500):
 
 
 def generate_finer_structured_grid():
-    """
-    Klasa 14: Dokładniejszy grid wokół najlepszych parametrów
-    z klasy structured_entangling.
-    Najlepsze wyniki były przy θ≈0, φ≈π/2…π, α≈0.5…1.2.
-    """
+    """Class 14: refine the grid near the best structured_entangling parameters.
+    Earlier best results were near θ≈0, φ≈π/2…π, and α≈0.5…1.2."""
     from qiskit.circuit.library import CZGate
     from qiskit.quantum_info import Operator as QOp
 
@@ -1008,11 +967,8 @@ def generate_finer_structured_grid():
 
 
 def generate_two_cz_ansatz(n_samples=50, seed=700):
-    """
-    Klasa 15: W = (Ry(θ₂)⊗Ry(φ₂)) @ CZ @ (Ry(θ₁)⊗Ry(φ₁)) @ CZ @ (Rx(α)⊗I)
-    Dwie warstwy splątujące CZ — większa ekspresywność.
-    Losowe próbkowanie 5 parametrów.
-    """
+    """Class 15: W = (Ry(θ₂)⊗Ry(φ₂)) @ CZ @ (Ry(θ₁)⊗Ry(φ₁)) @ CZ @ (Rx(α)⊗I).
+    Two entangling CZ layers allow greater expressivity; sample five parameters."""
     from qiskit.circuit.library import CZGate
     from qiskit.quantum_info import Operator as QOp
 
@@ -1052,12 +1008,8 @@ def benchmark_basis(E_new, class_name, candidate_name,
                     fidelity_thresholds=DEFAULT_FIDELITY_THRESHOLDS,
                     approximation_seed=0,
                     encoding_strategy="append_w"):
-    """
-    Buduje obwód, transpiluje n_transpile_runs razy.
-    Zbiera pełne statystyki: best, mean, std.
-
-    Zwraca dict z wynikami.
-    """
+    """Build a circuit and transpile it n_transpile_runs times.
+    Return a result dict with best, mean, and standard-deviation statistics."""
     if coupling_map is None:
         coupling_map = COUPLING_MAP
     if basis_gates is None:
@@ -1431,7 +1383,7 @@ def _save_top3_fidelity_circuits(fidelity_circuits, output_root):
                     pass
 
     if saved:
-        print(f"  Zapisano {saved} obwodów fidelity → {output_root}")
+        print(f"  Saved {saved} fidelity circuits → {output_root}")
 
 
 # ══════════════════════ TOP-3 PER CLASS CSV ═══════════════════
@@ -1524,7 +1476,7 @@ def _write_topk_tables_to_output_dir(df, output_dir, file_prefix,
     os.makedirs(output_dir, exist_ok=True)
     csv_path = os.path.join(output_dir, f"{file_prefix}_results.csv")
     df.to_csv(csv_path, index=False)
-    print(f"  Wyniki → {csv_path}")
+    print(f"  Results → {csv_path}")
     _save_top3_per_class_csvs(df, csv_path, fidelity_thresholds=fidelity_thresholds)
 
 
@@ -1539,7 +1491,7 @@ def _load_preselected_candidates(csv_path):
     """
     if not os.path.isfile(csv_path):
         raise FileNotFoundError(
-            f"Plik z preselekcja kandydatow nie istnieje: {csv_path}"
+            f"Candidate preselection file does not exist: {csv_path}"
         )
 
     df = pd.read_csv(csv_path)
@@ -1548,8 +1500,8 @@ def _load_preselected_candidates(csv_path):
     for required_col in ("class_name", "candidate_name"):
         if required_col not in df.columns:
             raise ValueError(
-                f"Plik preselekcji {csv_path!r} nie zawiera kolumny "
-                f"'{required_col}'. Dostepne kolumny: {list(df.columns)}"
+                f"Preselection file {csv_path!r} is missing column "
+                f"'{required_col}'. Available columns: {list(df.columns)}"
             )
 
     df["class_name"] = df["class_name"].astype(str).str.strip()
@@ -1576,14 +1528,14 @@ def _validate_preselection_coverage(preselected_set, filtered_candidates, csv_pa
     if missing:
         import warnings
         msg = (
-            f"Nastepujace kandydaty z pliku preselekcji ({csv_path}) "
-            f"nie zostaly znalezione w aktualnym generatorze:\n"
+            f"The following candidates from preselection file ({csv_path}) "
+            f"were not found in the current generator:\n"
         )
         for cls, name in sorted(missing):
             msg += f"  - class_name={cls!r}, candidate_name={name!r}\n"
         msg += (
-            "Upewnij sie, ze plik preselekcji odpowiada temu samemu "
-            "stanowi / eksperymentowi i trybowi generowania kandydatow."
+            "Ensure the preselection file matches the same "
+            "state/experiment and candidate-generation mode."
         )
         warnings.warn(msg, stacklevel=2)
 
@@ -1617,13 +1569,13 @@ def _run_prepared_w_benchmark(
 
     if preselected_candidates_file is None:
         raise ValueError(
-            "Tryb 'prepared_w_then_conjugated_entanglers' wymaga podania "
-            "--preselected-candidates-file z wynikami pierwszego etapu (append_w)."
+            "Mode 'prepared_w_then_conjugated_entanglers' requires "
+            "--preselected-candidates-file with first-stage (append_w) results."
         )
 
     preselected_set = _load_preselected_candidates(preselected_candidates_file)
-    print(f"  Zaladowano {len(preselected_set)} preselekcjonowanych kandydatow "
-          f"z: {preselected_candidates_file}")
+    print(f"  Loaded {len(preselected_set)} preselected candidates "
+          f"from: {preselected_candidates_file}")
 
     filter_set = None
     if class_filter is not None:
@@ -1636,7 +1588,7 @@ def _run_prepared_w_benchmark(
     print("=" * 80)
     print(f"  Benchmark [prepared_w_then_conjugated_entanglers]  "
           f"[state={state_name}]  [mode={mode}]  [class={filter_label}]")
-    print(f"  Transpilacja: {n_transpile_runs} prób na kandydata (best + mean ± std)")
+    print(f"  Transpilation: {n_transpile_runs} runs per candidate (best + mean ± std)")
     print("=" * 80)
 
     all_candidates = []
@@ -1668,12 +1620,12 @@ def _run_prepared_w_benchmark(
     _validate_preselection_coverage(preselected_set, filtered, preselected_candidates_file)
 
     if not filtered:
-        print("  UWAGA: Zaden kandydat z preselekcji nie zostal znaleziony "
-              "w aktualnym generatorze. Przerywam.")
+        print("  WARNING: no preselected candidates were found "
+              "in the current generator. Stopping.")
         return pd.DataFrame(), None
 
-    print(f"\n  Kandydaci (wygenerowani):     {len(all_candidates)}")
-    print(f"  Kandydaci (po preselekcji):   {len(filtered)}")
+    print(f"\n  Candidates (generated):     {len(all_candidates)}")
+    print(f"  Candidates (preselected):   {len(filtered)}")
     print("-" * 80)
 
     results = []
@@ -1729,7 +1681,7 @@ def _run_prepared_w_benchmark(
         results.append(row)
 
     elapsed = time.time() - t0
-    print(f"\nCzas benchmarku [prepared_w, {state_name}]: {elapsed:.1f} s")
+    print(f"\nBenchmark duration [prepared_w, {state_name}]: {elapsed:.1f} s")
 
     df = pd.DataFrame(results)
 
@@ -1759,11 +1711,11 @@ def _run_prepared_w_benchmark(
 def _print_single_state_summary(df, state_name):
     """Print terminal summary for a single-state benchmark run."""
     if df.empty or "status" not in df.columns:
-        print("\nBrak wyników do wyświetlenia.")
+        print("\nNo results to display.")
         return
     df_ok = df[df["status"] == "ok"].copy()
     if df_ok.empty:
-        print("\nŻaden przypadek nie zakończył się sukcesem.")
+        print("\nNo cases completed successfully.")
         return
 
     df_ok = df_ok.sort_values(
@@ -1772,7 +1724,7 @@ def _print_single_state_summary(df, state_name):
     )
 
     print("\n" + "=" * 80)
-    print(f"  TOP 15 [{state_name}] (najniższa best_depth)")
+    print(f"  TOP 15 [{state_name}] (lowest best_depth)")
     print("=" * 80)
     top = df_ok.head(15)
     for i, (_, r) in enumerate(top.iterrows()):
@@ -1788,7 +1740,7 @@ def _print_single_state_summary(df, state_name):
         )
 
     print("\n" + "=" * 80)
-    print(f"  Statystyki wg klasy [{state_name}] (best_depth)")
+    print(f"  Statistics by class [{state_name}] (best_depth)")
     print("=" * 80)
     stats = df_ok.groupby("class_name")["best_depth"].agg(
         ["count", "min", "mean", "max"]
@@ -1796,13 +1748,13 @@ def _print_single_state_summary(df, state_name):
     print(stats.to_string())
 
     print("\n" + "=" * 80)
-    print(f"  Porównanie [{state_name}]: stara code space vs ogólne izometrie")
+    print(f"  Comparison [{state_name}]: base code space vs general isometries")
     print("=" * 80)
     for label, mask in [("OLD codespace", df_ok["uses_old_codespace_only"] == True),
                         ("NEW (general)", df_ok["uses_old_codespace_only"] == False)]:
         sub = df_ok[mask]
         if sub.empty:
-            print(f"  {label:18s}  brak wyników")
+            print(f"  {label:18s}  no results")
         else:
             print(
                 f"  {label:18s}  n={len(sub):4d}  "
@@ -1864,8 +1816,8 @@ def _run_single_state_benchmark(
 
     filter_label = ",".join(sorted(filter_set)) if filter_set else "all"
     print("=" * 80)
-    print(f"  Benchmark baz kodowania qutrytu  [state={state_name}]  [mode={mode}]  [class={filter_label}]")
-    print(f"  Transpilacja: {n_transpile_runs} prób na kandydata (best + mean ± std)")
+    print(f"  Qutrit encoding benchmark  [state={state_name}]  [mode={mode}]  [class={filter_label}]")
+    print(f"  Transpilation: {n_transpile_runs} runs per candidate (best + mean ± std)")
     print("=" * 80)
 
     if csv_path is None:
@@ -1901,11 +1853,11 @@ def _run_single_state_benchmark(
     if filter_set:
         all_candidates = [(cls, n, e) for cls, n, e in all_candidates if cls in filter_set]
 
-    print(f"\n  Kandydaci (oryginalne):     {n_orig}")
-    print(f"  Kandydaci (rozszerzone):    {n_ext}")
+    print(f"\n  Candidates (original):     {n_orig}")
+    print(f"  Candidates (extended):    {n_ext}")
     if filter_set:
-        print(f"  Po filtrze ({filter_label}): {len(all_candidates)}")
-    print(f"  Razem:                      {len(all_candidates)}")
+        print(f"  After filter ({filter_label}): {len(all_candidates)}")
+    print(f"  Total:                      {len(all_candidates)}")
     print("-" * 80)
 
     results = []
@@ -1961,7 +1913,7 @@ def _run_single_state_benchmark(
         results.append(row)
 
     elapsed = time.time() - t0
-    print(f"\nCzas benchmarku [{state_name}]: {elapsed:.1f} s")
+    print(f"\nBenchmark duration [{state_name}]: {elapsed:.1f} s")
 
     df = pd.DataFrame(results)
 
@@ -1969,7 +1921,7 @@ def _run_single_state_benchmark(
     if csv_dir:
         os.makedirs(csv_dir, exist_ok=True)
     df.to_csv(csv_path, index=False)
-    print(f"Wyniki zapisane do: {csv_path}")
+    print(f"Results saved to: {csv_path}")
 
     _save_top3_per_class_csvs(df, csv_path, fidelity_thresholds=fidelity_thresholds)
 
@@ -1996,44 +1948,30 @@ def run_benchmark(n_qutrits=None, n_transpile_runs=20,
                    encoding_strategy="append_w",
                    preselected_candidates_file=None,
                    output_dir=None):
-    """
-    Uruchamia benchmark i zapisuje wyniki do CSV.
+    """Run the benchmark and save CSV results.
 
-    mode:
-        "full"      — wszystkie generatory (oryginalne + rozszerzone)
-        "original"  — tylko oryginalne generatory (klasy 0–9)
-        "extended"  — tylko nowe rozszerzone generatory (klasy 10–15)
+    mode: "full" includes all generators; "original" includes classes 0–9;
+    "extended" includes classes 10–15.
 
     state_name:
-        "ghz3"       — 3-qutrytowy stan GHZ (star graph)
-        "ghz_star"   — GHZ/star graph dla n_qutrits qutrytow
-        "ghz_star_N" — to samo z N zakodowanym w nazwie wynikow
-        "two_qutrit" — 2-qutrytowy stan (star graph, n=2)
-        "ame43"      — stan AME(4,3) (specjalny graf z wielokrawędziami)
-        "all"        — uruchom benchmark dla wszystkich trzech stanów
-                       i wygeneruj wspólny raport markdown
+        "ghz3": three-qutrit GHZ/star graph.
+        "ghz_star": GHZ/star graph for n_qutrits parties.
+        "ghz_star_N": the same, with N encoded in result names.
+        "two_qutrit": two-qutrit star graph.
+        "ame43": AME(4,3) with its special multiedge graph.
+        "all": run all three reference states and generate a joint Markdown report.
 
     encoding_strategy:
-        "append_w"  — standardowy obwod + lokalne W na koncu (domyslnie)
-        "prepared_w_then_conjugated_entanglers"
-                    — W|+> local preparation + (W⊗W)CZ(W†⊗W†) entanglery;
-                      wymaga preselected_candidates_file
+        "append_w": standard circuit followed by local W gates (default).
+        "prepared_w_then_conjugated_entanglers": local W|+> preparation and
+        (W⊗W)CZ(W†⊗W†) entanglers; requires preselected_candidates_file.
 
-    preselected_candidates_file : str or None
-        Sciezka do CSV z preselekcjonowanymi kandydatami z pierwszego etapu.
-        Wymagana dla encoding_strategy="prepared_w_then_conjugated_entanglers".
-        UWAGA: plik musi odpowiadac temu samemu state_name / eksperymentowi.
-
-    output_dir : str or None
-        Katalog wyjsciowy dla drugiego etapu. Jesli None, uzyty zostanie
-        domyslny folder prepared_w_then_conjugated_entanglers_results/.
-
-    class_filter:
-        None         — wszystkie klasy kandydatów
-        str          — jedna klasa lub wiele oddzielonych przecinkiem,
-                       np. "monomial_full" lub
-                       "monomial_old_codespace,baseline"
-    """
+    preselected_candidates_file is a first-stage CSV for the SAME state/experiment.
+    It is required for "prepared_w_then_conjugated_entanglers".
+    output_dir selects the second-stage output directory; None uses
+    prepared_w_then_conjugated_entanglers_results/.
+    class_filter is None for all classes, or a comma-separated string such as
+    "monomial_full" or "monomial_old_codespace,baseline"."""
     if encoding_strategy == "prepared_w_then_conjugated_entanglers":
         df, csv = _run_prepared_w_benchmark(
             state_name=state_name,
@@ -2107,7 +2045,7 @@ def run_benchmark(n_qutrits=None, n_transpile_runs=20,
 
     report_path = combined_report_path or multi_state_benchmark_report_path()
     write_multi_state_benchmark_report(state_frames, report_path)
-    print(f"\nRaport markdown zapisany do: {report_path}")
+    print(f"\nMarkdown report saved to: {report_path}")
 
     return state_frames
 

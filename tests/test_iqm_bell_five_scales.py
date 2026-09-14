@@ -95,6 +95,8 @@ def test_offset_rate_is_not_identifiable_for_constant_data():
 
 
 def test_five_scales_constrain_quadratic_without_interpolation():
+    import matplotlib
+    matplotlib.use("Agg")
     samples, weights = synthetic_samples()
     result = models.compare_models(samples, weights, draws=100, scales=SCALES)
     quad = next(r for r in result['rows'] if r['model'] == 'quadratic')
