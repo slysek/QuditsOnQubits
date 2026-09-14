@@ -1,0 +1,211 @@
+{
+  "reference_digest": "eb8196226c255cff6ebd55c52baafac1c1302dc2b4618c97b748e16ec8330f2d",
+  "source_manifest_sha256": "14d818499d095d29620e3442482467101221395237be4b319fdfc39105debd47",
+  "settings": [
+    [
+      "A0",
+      "B0"
+    ],
+    [
+      "A0",
+      "B1"
+    ],
+    [
+      "A0",
+      "B2"
+    ],
+    [
+      "A1",
+      "B0"
+    ],
+    [
+      "A1",
+      "B1"
+    ],
+    [
+      "A1",
+      "B2"
+    ],
+    [
+      "A2",
+      "B0"
+    ],
+    [
+      "A2",
+      "B1"
+    ],
+    [
+      "A2",
+      "B2"
+    ]
+  ],
+  "preparation_ops": {
+    "r": 6,
+    "cz": 3
+  },
+  "blocks": {
+    "A0": {
+      "phi": 2.967059728390363,
+      "phase_residual": 1.4516227567156376e-16,
+      "exact_synthesis_error": 2.564501038037133e-15,
+      "native_ops": {
+        "r": 6,
+        "cz": 2
+      }
+    },
+    "B0": {
+      "phi": 0.0,
+      "phase_residual": 0.0,
+      "exact_synthesis_error": 0.0,
+      "native_ops": {}
+    },
+    "B1": {
+      "phi": 3.665191429188093,
+      "phase_residual": 1.6085896386393045e-16,
+      "exact_synthesis_error": 3.6771686055379495e-15,
+      "native_ops": {
+        "r": 6,
+        "cz": 2
+      }
+    },
+    "B2": {
+      "phi": 4.71238898038469,
+      "phase_residual": 1.9626155733547196e-16,
+      "exact_synthesis_error": 2.456368441983159e-15,
+      "native_ops": {
+        "r": 6,
+        "cz": 2
+      }
+    },
+    "A1": {
+      "phi": 5.061454830783563,
+      "phase_residual": 2.7283243807152203e-16,
+      "exact_synthesis_error": 1.1280652674976942e-14,
+      "native_ops": {
+        "r": 6,
+        "cz": 2
+      }
+    },
+    "A2": {
+      "phi": 5.061454830783549,
+      "phase_residual": 3.1830451108344084e-16,
+      "exact_synthesis_error": 9.176146095644398e-16,
+      "native_ops": {
+        "r": 6,
+        "cz": 2
+      }
+    }
+  },
+  "max_probability_error": 8.604228440844963e-16,
+  "ideal_bell_baseline": 6.000000000000005,
+  "ideal_bell_optimized": 6.000000000000001,
+  "classical_bound": 5.638155724715451,
+  "classical_bit_to_logical_qubit": [
+    2,
+    3,
+    0,
+    1
+  ],
+  "physical_layout_reference_only": [
+    21,
+    29,
+    20,
+    28
+  ],
+  "costs": {
+    "baseline": [
+      {
+        "r": 14,
+        "cz": 6,
+        "measure": 4
+      },
+      {
+        "r": 22,
+        "cz": 9,
+        "measure": 4
+      },
+      {
+        "r": 22,
+        "cz": 9,
+        "measure": 4
+      },
+      {
+        "r": 14,
+        "cz": 6,
+        "measure": 4
+      },
+      {
+        "r": 22,
+        "cz": 9,
+        "measure": 4
+      },
+      {
+        "r": 22,
+        "cz": 9,
+        "measure": 4
+      },
+      {
+        "r": 14,
+        "cz": 6,
+        "measure": 4
+      },
+      {
+        "r": 22,
+        "cz": 9,
+        "measure": 4
+      },
+      {
+        "r": 22,
+        "cz": 9,
+        "measure": 4
+      }
+    ],
+    "optimized": [
+      {
+        "r": 12,
+        "cz": 5,
+        "measure": 4
+      },
+      {
+        "r": 18,
+        "cz": 7,
+        "measure": 4
+      },
+      {
+        "r": 18,
+        "cz": 7,
+        "measure": 4
+      },
+      {
+        "r": 12,
+        "cz": 5,
+        "measure": 4
+      },
+      {
+        "r": 18,
+        "cz": 7,
+        "measure": 4
+      },
+      {
+        "r": 18,
+        "cz": 7,
+        "measure": 4
+      },
+      {
+        "r": 12,
+        "cz": 5,
+        "measure": 4
+      },
+      {
+        "r": 18,
+        "cz": 7,
+        "measure": 4
+      },
+      {
+        "r": 18,
+        "cz": 7,
+        "measure": 4
+      }
+    ]
+  }
+}

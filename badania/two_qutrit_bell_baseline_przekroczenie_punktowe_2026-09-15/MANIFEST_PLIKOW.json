@@ -1,0 +1,303 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-14T22:44:18.927343+00:00",
+  "source_directory": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_interleaved_dd_zne_50x1000_20260915",
+  "copied_source_files": 56,
+  "files": [
+    {
+      "path": "eksperyment/analysis/analysis.json",
+      "size": 25856,
+      "sha256": "ed421218dcffb761ee7714d996ffbf40f304c3cb83da34c45aa4161391114e77"
+    },
+    {
+      "path": "eksperyment/analysis/bootstrap.npz",
+      "size": 10105442,
+      "sha256": "a4db5cc600e4dff9ed0953756244913c192ce5bd01dab84bfd580ee27bfa8fb3"
+    },
+    {
+      "path": "eksperyment/analysis/report.md",
+      "size": 5475,
+      "sha256": "273eae7d5db899705687a1ee7984c1caeada4c7af9a502c43323b35c1d722098"
+    },
+    {
+      "path": "eksperyment/analysis/zne_comparison.pdf",
+      "size": 25398,
+      "sha256": "78b30d34b71876ce71acbffcb7ef83df834a49b235167403e40af155e77e4903"
+    },
+    {
+      "path": "eksperyment/analysis/zne_comparison.png",
+      "size": 116739,
+      "sha256": "92440db4d66252a31a1ed4b733140dcc0b54ece0a051f94e9ebd39f1d7552906"
+    },
+    {
+      "path": "eksperyment/batch_00.qpy",
+      "size": 282390,
+      "sha256": "7ce1e1cc1d0e7094a5f885a6b812fc2bc1f836ca92a07f3216d47d9268369fa2"
+    },
+    {
+      "path": "eksperyment/batch_01.qpy",
+      "size": 296530,
+      "sha256": "1407a88e1dd8a00162bc1b0b1f4d45973b9437cdfbcd6c3606a45ba54f32f1ed"
+    },
+    {
+      "path": "eksperyment/batch_02.qpy",
+      "size": 282390,
+      "sha256": "c3be308786c6a6825b96a66d597957edfd8f7854edaf9d4bee347404d50c3986"
+    },
+    {
+      "path": "eksperyment/batch_03.qpy",
+      "size": 282390,
+      "sha256": "19d368c375563cae17aeb46d9423db12418010a6b561246af7f5c7965b3f2e25"
+    },
+    {
+      "path": "eksperyment/batch_04.qpy",
+      "size": 296530,
+      "sha256": "537b51cbef6558ae41d95719adc46e3724e176fb319e2acd8d87c0709eedc6f8"
+    },
+    {
+      "path": "eksperyment/batch_05.qpy",
+      "size": 268250,
+      "sha256": "13e658bf45daaa16fb383bd1231f3fef8b5b0ba41d708248bfc2b307ce8c3845"
+    },
+    {
+      "path": "eksperyment/batch_06.qpy",
+      "size": 282390,
+      "sha256": "5f570aff8a3bea74550f20006442443df61f64081238cef619ffde81702f49e1"
+    },
+    {
+      "path": "eksperyment/batch_07.qpy",
+      "size": 282390,
+      "sha256": "caa5e53be1521680c93c7c6c6c57c441e8fe4a213825dddf255dcdc52739c44e"
+    },
+    {
+      "path": "eksperyment/batch_08.qpy",
+      "size": 296530,
+      "sha256": "c57ff157ef97cc24ef0d722d4281525a7fa5af394516cbae0ee61759417b0f8a"
+    },
+    {
+      "path": "eksperyment/batch_09.qpy",
+      "size": 310670,
+      "sha256": "0b423e146166eef9b25adaf28ed8d60f8de044a492d6cb5909c1ea233ebf6375"
+    },
+    {
+      "path": "eksperyment/batches.json",
+      "size": 495675,
+      "sha256": "fd516933149599764407498d6ecc30bd8d5e1960b6dc025fa2ddb88de9834c2a"
+    },
+    {
+      "path": "eksperyment/bell_weights.npy",
+      "size": 1280,
+      "sha256": "5659ec6279e156f62562f7460b994b02c7031c585103bee5a9957050a958cddc"
+    },
+    {
+      "path": "eksperyment/completion_audit.json",
+      "size": 6097,
+      "sha256": "8ecada91a21ee7e529918d71f6a5ce780d1136da43958efb264eb430d74ad278"
+    },
+    {
+      "path": "eksperyment/hardware/job_000.counts.json",
+      "size": 25774,
+      "sha256": "efc0a7f3e2fd13b306084f5b55518fb000c7de72a4527d7174f3dbd442be7c58"
+    },
+    {
+      "path": "eksperyment/hardware/job_000.request.json",
+      "size": 37566,
+      "sha256": "37a51ed5dfa7bb4cf55007c586d293208e5321b014492c8cf5d9f42cd0e488a5"
+    },
+    {
+      "path": "eksperyment/hardware/job_000.submission.json",
+      "size": 137,
+      "sha256": "92928a170480eb952f454c03a2f743086ef8e0f81b3ebe0a535a575eef6e3ff9"
+    },
+    {
+      "path": "eksperyment/hardware/job_001.counts.json",
+      "size": 26087,
+      "sha256": "dbb9240951190c7f3b6e29e4e77fe1c3cee42bb2a6add57c65da7a4b82f20a28"
+    },
+    {
+      "path": "eksperyment/hardware/job_001.request.json",
+      "size": 38169,
+      "sha256": "69510037a49c6a01acd3833992f573bfb58181a6a90a0a139d958649dde094eb"
+    },
+    {
+      "path": "eksperyment/hardware/job_001.submission.json",
+      "size": 137,
+      "sha256": "835a41fe965528f6217a6badb4d52b74169fda77933bfb9ae69c0d5a431b76bb"
+    },
+    {
+      "path": "eksperyment/hardware/job_002.counts.json",
+      "size": 25810,
+      "sha256": "d60c6de646e53a538e821ef274c2ecd1b1355af0c768881016cdecb78f31f1a4"
+    },
+    {
+      "path": "eksperyment/hardware/job_002.request.json",
+      "size": 37666,
+      "sha256": "f9a80d2094548dfdc717ff509491a0ac801c5ca64082bd173e7a6d30cc3d431f"
+    },
+    {
+      "path": "eksperyment/hardware/job_002.submission.json",
+      "size": 137,
+      "sha256": "a1e5e7de34938a76e80a6e480c940d312e8a88d1b68f3720aad4dfdad5f72297"
+    },
+    {
+      "path": "eksperyment/hardware/job_003.counts.json",
+      "size": 26004,
+      "sha256": "01d61d216c65d1a500c066603855a884ca2b8088719235bdbce4f104811fd9f4"
+    },
+    {
+      "path": "eksperyment/hardware/job_003.request.json",
+      "size": 37666,
+      "sha256": "552c1a103ac9cd4dddd16cf3e0621a433618eb766206a129f779151ac4c8db86"
+    },
+    {
+      "path": "eksperyment/hardware/job_003.submission.json",
+      "size": 137,
+      "sha256": "ca1a69a1ae69c7143d2187fbc577cf9651262745d7736a0f90672a6dac47a954"
+    },
+    {
+      "path": "eksperyment/hardware/job_004.counts.json",
+      "size": 25801,
+      "sha256": "b7bf6b69a29f21821eeebe1f406db15b10127c1c6ad9f91011dcedb239b37769"
+    },
+    {
+      "path": "eksperyment/hardware/job_004.request.json",
+      "size": 38269,
+      "sha256": "bc1bab33c4935a8745cc277ea8340f164e077f1fd2ca48d70b11ef6880ce5ee2"
+    },
+    {
+      "path": "eksperyment/hardware/job_004.submission.json",
+      "size": 137,
+      "sha256": "c9f38fa900c18ae81658e370d912e56a0706bf9746067ca5eae4df8593015acf"
+    },
+    {
+      "path": "eksperyment/hardware/job_005.counts.json",
+      "size": 26020,
+      "sha256": "541e061bd067ebbc5d99dc3ebbdb96c44bdac64d249501ffd1a3abaa832ba0dc"
+    },
+    {
+      "path": "eksperyment/hardware/job_005.request.json",
+      "size": 37063,
+      "sha256": "f0c694c61131553293c6fc012ee0918b693060b0e9602bcec7f9443e868462b3"
+    },
+    {
+      "path": "eksperyment/hardware/job_005.submission.json",
+      "size": 137,
+      "sha256": "dbeb0841700d1fbca8bb4556108bab683512fbb66386d21de5567ae8ce940736"
+    },
+    {
+      "path": "eksperyment/hardware/job_006.counts.json",
+      "size": 25824,
+      "sha256": "751d3e3798c95f78fba6e14456d95d9af9cf5892392fddf8deff839e8c6d6423"
+    },
+    {
+      "path": "eksperyment/hardware/job_006.request.json",
+      "size": 37666,
+      "sha256": "2bf8db42cd13eca7ad4c8db445d2d3b21569008f82afb48c50b63673cf2ef196"
+    },
+    {
+      "path": "eksperyment/hardware/job_006.submission.json",
+      "size": 137,
+      "sha256": "140e2c228f8cba034d5c6c08c2ef1874245ebd341ca144b9934f223ea57f697f"
+    },
+    {
+      "path": "eksperyment/hardware/job_007.counts.json",
+      "size": 26052,
+      "sha256": "b11c9165295b3489db294e73b2f31b356721e63b0e223add4119666034ab0828"
+    },
+    {
+      "path": "eksperyment/hardware/job_007.request.json",
+      "size": 37666,
+      "sha256": "ed85a8376ace794871a3480cb7fedd97559451bf21382be0d526b910224b302c"
+    },
+    {
+      "path": "eksperyment/hardware/job_007.submission.json",
+      "size": 137,
+      "sha256": "475632a9a6a2dc09e963caafdbc5d58c11df26acb24bc5dc2f6a1bbe1a2f0bbd"
+    },
+    {
+      "path": "eksperyment/hardware/job_008.counts.json",
+      "size": 26625,
+      "sha256": "5e5fea04f90c32dedbe87f7c8740d0c8040afe78e87e33d8f35453811fa6fc42"
+    },
+    {
+      "path": "eksperyment/hardware/job_008.request.json",
+      "size": 38269,
+      "sha256": "fc70e7c2a7228630e3ec681150878d1f64a949e0a13fe076c646b2a92ba94060"
+    },
+    {
+      "path": "eksperyment/hardware/job_008.submission.json",
+      "size": 137,
+      "sha256": "496b705f3dfbe66129cb384d4e1fd14ce503bbf9ddffd438458202205da25e9b"
+    },
+    {
+      "path": "eksperyment/hardware/job_009.counts.json",
+      "size": 26172,
+      "sha256": "6a79056a0dee26ac125c3c7c8260c6aefa2fc8a881c4c989b049e80d7e5a4d7a"
+    },
+    {
+      "path": "eksperyment/hardware/job_009.request.json",
+      "size": 38872,
+      "sha256": "458be3a8127cf0f67fe68d9cdd3d5c5b7deb13dcba0da82f072047c95006abe1"
+    },
+    {
+      "path": "eksperyment/hardware/job_009.submission.json",
+      "size": 137,
+      "sha256": "e612ce69ea44ee3b36d2ebff21a2903dd7eadbef853e59574046532632277625"
+    },
+    {
+      "path": "eksperyment/independent_decoder_check.json",
+      "size": 1258,
+      "sha256": "5c7b24d9ac8966e1bf712f8a59a2dc77a4b4f8b06e6e2ea6e64ecc47ff2b8ef0"
+    },
+    {
+      "path": "eksperyment/local_pipeline_check.json",
+      "size": 826,
+      "sha256": "1502f2eed8617505b176842389a7db6118be1b506798359162e67545a6ccaa0d"
+    },
+    {
+      "path": "eksperyment/parents.qpy",
+      "size": 21668,
+      "sha256": "7760085564df74f370e50818ed301abe71d319bb1a14602db77ea0320eb06173"
+    },
+    {
+      "path": "eksperyment/protocol.json",
+      "size": 6859,
+      "sha256": "b84394e76acd652b408b25146124dcfdf3607d5cb21ad9efe176dac7ae7f2b52"
+    },
+    {
+      "path": "eksperyment/protocol.sha256",
+      "size": 64,
+      "sha256": "43b3434d4c1baa672e90e0cc96448f0ad43d471650732a340fcbe58b609aa0c8"
+    },
+    {
+      "path": "eksperyment/schedule.json",
+      "size": 8666,
+      "sha256": "ea0688d3d6286adf418864103313bb233bb62356bae5df1191f247461cdff1f5"
+    },
+    {
+      "path": "eksperyment/source_evidence.json",
+      "size": 1348,
+      "sha256": "047781f94abb65e7391ad55f1b7585982905468e3d8b6420b01938e82df24550"
+    },
+    {
+      "path": "eksperyment/validation.json",
+      "size": 829,
+      "sha256": "0fc7ac72197da5ac4e930e872abc807f3957b6a716916619274f4a2e6cbef5e4"
+    },
+    {
+      "path": "README.md",
+      "size": 3585,
+      "sha256": "da7a1d2a3860fd18e18326479d53d647377dc813e4264f6f419646c29fe70a8b"
+    },
+    {
+      "path": "WYNIK.json",
+      "size": 2673,
+      "sha256": "cb5b4f50f5d63bcb3c895de8781a1515162af1913503873a135b582877b62606"
+    },
+    {
+      "path": "WYNIKI.csv",
+      "size": 980,
+      "sha256": "9bf302d001ac6f13487aaf5dbe3bce1b3a05ebe22a52c4c4a4e94bb995ca5b19"
+    }
+  ]
+}

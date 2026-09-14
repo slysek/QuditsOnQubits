@@ -1,0 +1,1010 @@
+{
+  "name": "TWIRL_DD_3_200",
+  "shots": 125,
+  "dd": true,
+  "arm": "TWIRL_DD",
+  "factor": 3,
+  "records": [
+    {
+      "block_id": 25,
+      "instance": 0,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 25,
+      "instance": 1,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 25,
+      "instance": 2,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 25,
+      "instance": 3,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 25,
+      "instance": 4,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 25,
+      "instance": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 25,
+      "instance": 6,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 25,
+      "instance": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 26,
+      "instance": 0,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 26,
+      "instance": 1,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 26,
+      "instance": 2,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 26,
+      "instance": 3,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 26,
+      "instance": 4,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 26,
+      "instance": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 26,
+      "instance": 6,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 26,
+      "instance": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 27,
+      "instance": 0,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 27,
+      "instance": 1,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 27,
+      "instance": 2,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 27,
+      "instance": 3,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 27,
+      "instance": 4,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 27,
+      "instance": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 27,
+      "instance": 6,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 27,
+      "instance": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 28,
+      "instance": 0,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 28,
+      "instance": 1,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 28,
+      "instance": 2,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 28,
+      "instance": 3,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 28,
+      "instance": 4,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 28,
+      "instance": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 28,
+      "instance": 6,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 28,
+      "instance": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 29,
+      "instance": 0,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 29,
+      "instance": 1,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 29,
+      "instance": 2,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 29,
+      "instance": 3,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 29,
+      "instance": 4,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 29,
+      "instance": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 29,
+      "instance": 6,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 29,
+      "instance": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 30,
+      "instance": 0,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 30,
+      "instance": 1,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 30,
+      "instance": 2,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 30,
+      "instance": 3,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 30,
+      "instance": 4,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 30,
+      "instance": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 30,
+      "instance": 6,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 30,
+      "instance": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 31,
+      "instance": 0,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 31,
+      "instance": 1,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 31,
+      "instance": 2,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 31,
+      "instance": 3,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 31,
+      "instance": 4,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 31,
+      "instance": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 31,
+      "instance": 6,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 31,
+      "instance": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 32,
+      "instance": 0,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 32,
+      "instance": 1,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 32,
+      "instance": 2,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 32,
+      "instance": 3,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 32,
+      "instance": 4,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 32,
+      "instance": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 32,
+      "instance": 6,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 32,
+      "instance": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 33,
+      "instance": 0,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 33,
+      "instance": 1,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 33,
+      "instance": 2,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 33,
+      "instance": 3,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 33,
+      "instance": 4,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 33,
+      "instance": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 33,
+      "instance": 6,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 33,
+      "instance": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 34,
+      "instance": 0,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 34,
+      "instance": 1,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 34,
+      "instance": 2,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 34,
+      "instance": 3,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 34,
+      "instance": 4,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 34,
+      "instance": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 34,
+      "instance": 6,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 34,
+      "instance": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 35,
+      "instance": 0,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 35,
+      "instance": 1,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 35,
+      "instance": 2,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 35,
+      "instance": 3,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 35,
+      "instance": 4,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 35,
+      "instance": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 35,
+      "instance": 6,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 35,
+      "instance": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 36,
+      "instance": 0,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 36,
+      "instance": 1,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 36,
+      "instance": 2,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 36,
+      "instance": 3,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 36,
+      "instance": 4,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 36,
+      "instance": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 36,
+      "instance": 6,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 36,
+      "instance": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 37,
+      "instance": 0,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 37,
+      "instance": 1,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 37,
+      "instance": 2,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 37,
+      "instance": 3,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    }
+  ],
+  "qpy_sha256": "07f6ae612843903a4ebf5c9a9925694f8b62eef9f2ac111db0384644f6b9ec37"
+}

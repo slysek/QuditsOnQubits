@@ -1,0 +1,2393 @@
+{
+  "index": 4,
+  "shots": 250,
+  "dd": {
+    "mode": "enabled",
+    "strategy": {
+      "merge_contiguous_waits": true,
+      "target_qubits": null,
+      "skip_leading_wait": true,
+      "skip_trailing_wait": true,
+      "gate_sequences": [
+        [
+          9,
+          "XYXYYXYX",
+          "asap"
+        ],
+        [
+          5,
+          "YXYX",
+          "asap"
+        ],
+        [
+          2,
+          "XX",
+          "center"
+        ]
+      ]
+    }
+  },
+  "records": [
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 3.0,
+      "instance": 3,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 3.0,
+      "instance": 0,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 1.5,
+      "instance": 0,
+      "actual_scale": 1.4,
+      "cz_repetitions": [
+        1,
+        1,
+        3,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 1.5,
+      "instance": 2,
+      "actual_scale": 1.5714285714285714,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        3
+      ],
+      "native_cz": 11,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 5.0,
+      "instance": 2,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 3.0,
+      "instance": 1,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 5.0,
+      "instance": 1,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 2.0,
+      "instance": 1,
+      "actual_scale": 1.8571428571428572,
+      "cz_repetitions": [
+        3,
+        1,
+        1,
+        1,
+        3,
+        3,
+        1
+      ],
+      "native_cz": 13,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 5.0,
+      "instance": 3,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 25,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 2.0,
+      "instance": 3,
+      "actual_scale": 1.8571428571428572,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        3,
+        3,
+        3,
+        1
+      ],
+      "native_cz": 13,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 5.0,
+      "instance": 3,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 5.0,
+      "instance": 0,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 25,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 1.5,
+      "instance": 3,
+      "actual_scale": 1.4,
+      "cz_repetitions": [
+        1,
+        3,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 1.0,
+      "instance": 1,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 3.0,
+      "instance": 0,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 1.0,
+      "instance": 2,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 5.0,
+      "instance": 3,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 1.5,
+      "instance": 2,
+      "actual_scale": 1.5714285714285714,
+      "cz_repetitions": [
+        3,
+        3,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 11,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 5.0,
+      "instance": 1,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 3.0,
+      "instance": 0,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 1.0,
+      "instance": 3,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 1.5,
+      "instance": 1,
+      "actual_scale": 1.5714285714285714,
+      "cz_repetitions": [
+        1,
+        3,
+        1,
+        1,
+        3,
+        1,
+        1
+      ],
+      "native_cz": 11,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 1.5,
+      "instance": 3,
+      "actual_scale": 1.5714285714285714,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        3,
+        1,
+        3,
+        1
+      ],
+      "native_cz": 11,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 5.0,
+      "instance": 2,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 1.5,
+      "instance": 0,
+      "actual_scale": 1.5714285714285714,
+      "cz_repetitions": [
+        1,
+        1,
+        3,
+        1,
+        1,
+        1,
+        3
+      ],
+      "native_cz": 11,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 3.0,
+      "instance": 2,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 15,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 2.0,
+      "instance": 3,
+      "actual_scale": 2.142857142857143,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        1,
+        1,
+        1,
+        3
+      ],
+      "native_cz": 15,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 2.0,
+      "instance": 0,
+      "actual_scale": 1.8,
+      "cz_repetitions": [
+        3,
+        1,
+        1,
+        1,
+        3
+      ],
+      "native_cz": 9,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 3.0,
+      "instance": 0,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 15,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 2.0,
+      "instance": 2,
+      "actual_scale": 1.8571428571428572,
+      "cz_repetitions": [
+        1,
+        3,
+        3,
+        1,
+        1,
+        3,
+        1
+      ],
+      "native_cz": 13,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 1.0,
+      "instance": 0,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 2.0,
+      "instance": 0,
+      "actual_scale": 1.8571428571428572,
+      "cz_repetitions": [
+        3,
+        3,
+        1,
+        3,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 13,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 1.5,
+      "instance": 0,
+      "actual_scale": 1.5714285714285714,
+      "cz_repetitions": [
+        3,
+        1,
+        1,
+        3,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 11,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 1.0,
+      "instance": 0,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 2.0,
+      "instance": 1,
+      "actual_scale": 2.2,
+      "cz_repetitions": [
+        3,
+        1,
+        3,
+        3,
+        1
+      ],
+      "native_cz": 11,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 2.0,
+      "instance": 0,
+      "actual_scale": 2.142857142857143,
+      "cz_repetitions": [
+        3,
+        1,
+        1,
+        3,
+        3,
+        1,
+        3
+      ],
+      "native_cz": 15,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 2.0,
+      "instance": 0,
+      "actual_scale": 2.142857142857143,
+      "cz_repetitions": [
+        3,
+        3,
+        1,
+        1,
+        1,
+        3,
+        3
+      ],
+      "native_cz": 15,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 5.0,
+      "instance": 2,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 2.0,
+      "instance": 2,
+      "actual_scale": 1.8571428571428572,
+      "cz_repetitions": [
+        1,
+        1,
+        3,
+        3,
+        3,
+        1,
+        1
+      ],
+      "native_cz": 13,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 1.5,
+      "instance": 1,
+      "actual_scale": 1.5714285714285714,
+      "cz_repetitions": [
+        1,
+        3,
+        1,
+        1,
+        3,
+        1,
+        1
+      ],
+      "native_cz": 11,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 5.0,
+      "instance": 0,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 5.0,
+      "instance": 1,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 5.0,
+      "instance": 0,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 5.0,
+      "instance": 3,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 3.0,
+      "instance": 2,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 1.0,
+      "instance": 0,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 1.5,
+      "instance": 1,
+      "actual_scale": 1.2857142857142858,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        3,
+        1,
+        1
+      ],
+      "native_cz": 9,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 1.5,
+      "instance": 2,
+      "actual_scale": 1.4,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        3
+      ],
+      "native_cz": 7,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 1.0,
+      "instance": 2,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 3.0,
+      "instance": 0,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 3.0,
+      "instance": 2,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 1.0,
+      "instance": 0,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 1.5,
+      "instance": 1,
+      "actual_scale": 1.8,
+      "cz_repetitions": [
+        3,
+        1,
+        1,
+        3,
+        1
+      ],
+      "native_cz": 9,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 1.0,
+      "instance": 3,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 2.0,
+      "instance": 2,
+      "actual_scale": 2.2,
+      "cz_repetitions": [
+        1,
+        3,
+        3,
+        3,
+        1
+      ],
+      "native_cz": 11,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 1.0,
+      "instance": 1,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 5,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 1.5,
+      "instance": 2,
+      "actual_scale": 1.2857142857142858,
+      "cz_repetitions": [
+        3,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 9,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 5.0,
+      "instance": 3,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 1.0,
+      "instance": 3,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 5,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 5.0,
+      "instance": 0,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 2.0,
+      "instance": 2,
+      "actual_scale": 2.142857142857143,
+      "cz_repetitions": [
+        1,
+        1,
+        3,
+        1,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 15,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 1.0,
+      "instance": 0,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 5,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 3.0,
+      "instance": 2,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 3.0,
+      "instance": 3,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 2.0,
+      "instance": 1,
+      "actual_scale": 2.142857142857143,
+      "cz_repetitions": [
+        3,
+        1,
+        3,
+        1,
+        1,
+        3,
+        3
+      ],
+      "native_cz": 15,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 1.5,
+      "instance": 3,
+      "actual_scale": 1.5714285714285714,
+      "cz_repetitions": [
+        1,
+        1,
+        3,
+        1,
+        1,
+        1,
+        3
+      ],
+      "native_cz": 11,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 1.0,
+      "instance": 1,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 1.0,
+      "instance": 3,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 1.0,
+      "instance": 2,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 1.0,
+      "instance": 1,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 3.0,
+      "instance": 3,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 15,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 1.5,
+      "instance": 0,
+      "actual_scale": 1.5714285714285714,
+      "cz_repetitions": [
+        1,
+        1,
+        3,
+        3,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 11,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 2.0,
+      "instance": 3,
+      "actual_scale": 2.142857142857143,
+      "cz_repetitions": [
+        1,
+        3,
+        3,
+        3,
+        1,
+        1,
+        3
+      ],
+      "native_cz": 15,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 3.0,
+      "instance": 2,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 3.0,
+      "instance": 1,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 15,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 2.0,
+      "instance": 2,
+      "actual_scale": 1.8571428571428572,
+      "cz_repetitions": [
+        3,
+        3,
+        1,
+        1,
+        1,
+        3,
+        1
+      ],
+      "native_cz": 13,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 5.0,
+      "instance": 1,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 25,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 1.5,
+      "instance": 3,
+      "actual_scale": 1.5714285714285714,
+      "cz_repetitions": [
+        3,
+        1,
+        1,
+        1,
+        3,
+        1,
+        1
+      ],
+      "native_cz": 11,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 2.0,
+      "instance": 1,
+      "actual_scale": 2.142857142857143,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        1,
+        1,
+        1,
+        3
+      ],
+      "native_cz": 15,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 3.0,
+      "instance": 1,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 3.0,
+      "instance": 3,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 3.0,
+      "instance": 1,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 3.0,
+      "instance": 3,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 2.0,
+      "instance": 1,
+      "actual_scale": 1.8571428571428572,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        3,
+        3,
+        3,
+        1
+      ],
+      "native_cz": 13,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 2.0,
+      "instance": 0,
+      "actual_scale": 2.142857142857143,
+      "cz_repetitions": [
+        1,
+        1,
+        3,
+        3,
+        3,
+        1,
+        3
+      ],
+      "native_cz": 15,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 1.5,
+      "instance": 1,
+      "actual_scale": 1.5714285714285714,
+      "cz_repetitions": [
+        1,
+        3,
+        1,
+        1,
+        1,
+        1,
+        3
+      ],
+      "native_cz": 11,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 1.0,
+      "instance": 2,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 3.0,
+      "instance": 1,
+      "actual_scale": 3.0,
+      "cz_repetitions": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "native_cz": 21,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 5.0,
+      "instance": 0,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 5.0,
+      "instance": 1,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 20,
+      "setting": 7,
+      "scale": 1.5,
+      "instance": 2,
+      "actual_scale": 1.2857142857142858,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        1
+      ],
+      "native_cz": 9,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 1.0,
+      "instance": 2,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 5,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 1.5,
+      "instance": 0,
+      "actual_scale": 1.5714285714285714,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        3,
+        1,
+        3,
+        1
+      ],
+      "native_cz": 11,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 5.0,
+      "instance": 2,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 25,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 22,
+      "setting": 1,
+      "scale": 1.0,
+      "instance": 3,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 1.0,
+      "instance": 1,
+      "actual_scale": 1.0,
+      "cz_repetitions": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 7,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 2.0,
+      "instance": 3,
+      "actual_scale": 1.8571428571428572,
+      "cz_repetitions": [
+        1,
+        3,
+        1,
+        3,
+        3,
+        1,
+        1
+      ],
+      "native_cz": 13,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 23,
+      "setting": 0,
+      "scale": 2.0,
+      "instance": 3,
+      "actual_scale": 1.8,
+      "cz_repetitions": [
+        1,
+        3,
+        1,
+        1,
+        3
+      ],
+      "native_cz": 9,
+      "parent_cz": 5,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 24,
+      "setting": 5,
+      "scale": 1.5,
+      "instance": 3,
+      "actual_scale": 1.2857142857142858,
+      "cz_repetitions": [
+        1,
+        1,
+        3,
+        1,
+        1,
+        1,
+        1
+      ],
+      "native_cz": 9,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    {
+      "block_id": 21,
+      "setting": 5,
+      "scale": 5.0,
+      "instance": 2,
+      "actual_scale": 5.0,
+      "cz_repetitions": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "native_cz": 35,
+      "parent_cz": 7,
+      "mapping": [
+        19,
+        20,
+        27,
+        28
+      ]
+    }
+  ],
+  "qpy_sha256": "537b51cbef6558ae41d95719adc46e3724e176fb319e2acd8d87c0709eedc6f8"
+}

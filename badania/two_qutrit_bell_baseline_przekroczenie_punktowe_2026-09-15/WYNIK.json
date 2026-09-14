@@ -1,0 +1,86 @@
+{
+  "title": "Two-qutrit Bell — baseline: punktowe przekroczenie granicy klasycznej po liniowym ZNE",
+  "study_date": "2026-09-15",
+  "label": "baseline",
+  "backend": "IQM Emerald",
+  "statement": "Dla baseline uzyskałem punktowe przekroczenie granicy klasycznej two-qutrit Bell po liniowej ekstrapolacji ZNE. Przekroczenie nie jest statystycznie istotne przy obecnej niepewności.",
+  "estimator": "DD + linear ZNE; unconditional Bell estimator, no postselection",
+  "point_estimate_above_classical_bound": true,
+  "statistically_significant_violation_at_95_percent": false,
+  "classical_bound": 5.638155724715451,
+  "linear_zne_value": 5.666470402404844,
+  "shot_standard_error": 0.031158148642071087,
+  "shot_ci95": [
+    5.605401553241439,
+    5.727539251568249
+  ],
+  "delta_from_classical": 0.02831467768939344,
+  "global_bell_linear_gof_p": 0.16634517175726762,
+  "dd_scale_one_value": 5.463578075658238,
+  "quadratic_actual_moments_value": 5.5242848185359525,
+  "quadratic_shot_ci95": [
+    5.377423593685469,
+    5.671146043386436
+  ],
+  "scales": [
+    1.0,
+    1.5,
+    2.0,
+    3.0,
+    5.0
+  ],
+  "draws": 50,
+  "shots_per_draw_per_scale": 1000,
+  "total_shots": 250000,
+  "interleaving": true,
+  "dd": {
+    "mode": "enabled",
+    "strategy": {
+      "merge_contiguous_waits": true,
+      "target_qubits": null,
+      "skip_leading_wait": true,
+      "skip_trailing_wait": true,
+      "gate_sequences": [
+        [
+          9,
+          "XYXYYXYX",
+          "asap"
+        ],
+        [
+          5,
+          "YXYX",
+          "asap"
+        ],
+        [
+          2,
+          "XX",
+          "center"
+        ]
+      ]
+    }
+  },
+  "twirling": false,
+  "readout_mitigation": false,
+  "physical_qubits": [
+    "QB28",
+    "QB29",
+    "QB20",
+    "QB21"
+  ],
+  "calibration_set_id": "86eefe25-9e43-4376-ad98-39b63cc0ebbc",
+  "job_ids": [
+    "01a0a20c-e859-7743-bb74-0da22bad520a",
+    "01a0a20d-25e7-7aa1-8f9e-d680a882dbc9",
+    "01a0a20d-6a4d-7dc2-bc9c-0cda07cafd56",
+    "01a0a20d-a91a-7a70-b529-f521b5ce1949",
+    "01a0a20d-e58c-7dc2-8ca1-b9ef2b0f219a",
+    "01a0a20e-2370-7142-b5f3-38182c0547da",
+    "01a0a20e-5d28-7521-89ad-d8f66f5c12a2",
+    "01a0a20e-a014-74f1-814d-dd339c4d176a",
+    "01a0a20e-d868-79a1-bd3e-2b9d836b0627",
+    "01a0a20f-1779-7861-8b72-22571d9eaf65"
+  ],
+  "source_directory": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_interleaved_dd_zne_50x1000_20260915",
+  "source_analysis_sha256": "ed421218dcffb761ee7714d996ffbf40f304c3cb83da34c45aa4161391114e77",
+  "archived_at": "2026-09-14T22:44:18.923592+00:00"
+}

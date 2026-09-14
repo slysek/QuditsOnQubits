@@ -1,0 +1,325 @@
+{
+  "bell": 5.453833197540008,
+  "standard_error": 0.025386606226970095,
+  "ci95_low": 5.404076363645446,
+  "ci95_high": 5.50359003143457,
+  "classical_bound": 5.638155724715451,
+  "delta_from_classical": -0.18432252717544273,
+  "point_estimate_above_classical": false,
+  "ci95_entirely_above_classical": false,
+  "mean_invalid_code_probability": 0.022325303819444444,
+  "total_shots": 73728,
+  "settings": [
+    {
+      "setting": [
+        "A0",
+        "B0"
+      ],
+      "setting_index": 0,
+      "shots": 8192,
+      "bell": 0.6146927048821846,
+      "variance": 7.100841004045436e-05,
+      "standard_error": 0.008426648802486926,
+      "invalid_code_probability": 0.0220947265625
+    },
+    {
+      "setting": [
+        "A0",
+        "B1"
+      ],
+      "setting_index": 1,
+      "shots": 8192,
+      "bell": 0.5778209259083364,
+      "variance": 7.323536295863716e-05,
+      "standard_error": 0.008557766236503376,
+      "invalid_code_probability": 0.022705078125
+    },
+    {
+      "setting": [
+        "A0",
+        "B2"
+      ],
+      "setting_index": 2,
+      "shots": 8192,
+      "bell": 0.6588176607536371,
+      "variance": 6.747806649448458e-05,
+      "standard_error": 0.0082145034234873,
+      "invalid_code_probability": 0.026123046875
+    },
+    {
+      "setting": [
+        "A1",
+        "B0"
+      ],
+      "setting_index": 3,
+      "shots": 8192,
+      "bell": 0.5891687228521427,
+      "variance": 7.273042113515396e-05,
+      "standard_error": 0.008528213244000995,
+      "invalid_code_probability": 0.0174560546875
+    },
+    {
+      "setting": [
+        "A1",
+        "B1"
+      ],
+      "setting_index": 4,
+      "shots": 8192,
+      "bell": 0.6210839285696907,
+      "variance": 7.048712507318964e-05,
+      "standard_error": 0.00839566108613191,
+      "invalid_code_probability": 0.0220947265625
+    },
+    {
+      "setting": [
+        "A1",
+        "B2"
+      ],
+      "setting_index": 5,
+      "shots": 8192,
+      "bell": 0.588417040600751,
+      "variance": 7.31743733413422e-05,
+      "standard_error": 0.008554202086772454,
+      "invalid_code_probability": 0.02392578125
+    },
+    {
+      "setting": [
+        "A2",
+        "B0"
+      ],
+      "setting_index": 6,
+      "shots": 8192,
+      "bell": 0.6069940144873492,
+      "variance": 7.150465408696414e-05,
+      "standard_error": 0.008456042460097048,
+      "invalid_code_probability": 0.02197265625
+    },
+    {
+      "setting": [
+        "A2",
+        "B1"
+      ],
+      "setting_index": 7,
+      "shots": 8192,
+      "bell": 0.6090919660457872,
+      "variance": 7.155355521229241e-05,
+      "standard_error": 0.00845893345595604,
+      "invalid_code_probability": 0.02099609375
+    },
+    {
+      "setting": [
+        "A2",
+        "B2"
+      ],
+      "setting_index": 8,
+      "shots": 8192,
+      "bell": 0.587746233440129,
+      "variance": 7.330780738071835e-05,
+      "standard_error": 0.008561997861522645,
+      "invalid_code_probability": 0.0235595703125
+    }
+  ],
+  "uncertainty": "Approximate normal 95% interval: independent multinomial counting noise only; excludes drift and calibration/systematic errors. No repeated blocks.",
+  "selection": {
+    "layout": [
+      27,
+      28,
+      19,
+      20
+    ],
+    "score": 0.0619078133225878,
+    "candidates": 248,
+    "calibration_set_id": "86eefe25-9e43-4376-ad98-39b63cc0ebbc",
+    "backend": "emerald",
+    "metrics": [
+      {
+        "gate": "r",
+        "qubits": [
+          27
+        ],
+        "error": 0.00024259401150517057,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "r",
+        "qubits": [
+          28
+        ],
+        "error": 0.0003232582880011714,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          27,
+          28
+        ],
+        "error": 0.0012918696029453614,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "r",
+        "qubits": [
+          19
+        ],
+        "error": 0.00026353177227356195,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          27,
+          19
+        ],
+        "error": 0.0023265776490095647,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "r",
+        "qubits": [
+          20
+        ],
+        "error": 0.0002954364097660367,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          20,
+          28
+        ],
+        "error": 0.0031995633984176486,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          19,
+          20
+        ],
+        "error": 0.0033562198073243676,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          19
+        ],
+        "error": 0.014499999999999957,
+        "duration_seconds": 3.6e-07
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          20
+        ],
+        "error": 0.009499999999999953,
+        "duration_seconds": 3.6e-07
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          27
+        ],
+        "error": 0.010249999999999981,
+        "duration_seconds": 3.6e-07
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          28
+        ],
+        "error": 0.007650000000000046,
+        "duration_seconds": 3.6e-07
+      }
+    ],
+    "qubit_names_logical_order": [
+      "QB28",
+      "QB29",
+      "QB20",
+      "QB21"
+    ],
+    "measurement_map_c0_to_c3": [
+      19,
+      20,
+      27,
+      28
+    ]
+  },
+  "historical_raw": [
+    {
+      "series": "high_20260911",
+      "bell": 5.301703827343012,
+      "standard_error": 0.0254962818507091,
+      "delta_new_minus_old": 0.15212937019699613,
+      "source": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\iqm_bell_by_setting\\high_shots_20260911",
+      "counts_sha256": {
+        "job_000.counts.json": "46673ab855ef6db62d598b69477229cff61c898c2bb51dc89c5c1423e0ffb7c1",
+        "job_001.counts.json": "20240399510a3caff49e12dd312e67f77ec5b4ee5310d816d0c75f257faeae9b",
+        "job_002.counts.json": "de404edf685fd11ef3da96eac2e878742764b3eb3fde4fbaf710002b2be7dd7c",
+        "job_003.counts.json": "f15e3bde01ac217fc586f225268dfc2004fa4e3f51da899fa78811024b836afb",
+        "job_004.counts.json": "08ef81aeb8766bed5f0a805b941f8fd6162e603890736a2e79de7048e8b33c9c",
+        "job_005.counts.json": "1f7d4290f6dc6322d2c1bf4ba9acce234846244246eab9657b7a869592429185",
+        "job_006.counts.json": "878d316add8a0ec6fdfe584490ea8f8e582040ddc6ef071fd0d31705cb86c51f",
+        "job_007.counts.json": "495ecd2dd4ac7945446ba5f304f80d0ce632e0330a7228b91dd84419e6742402",
+        "job_008.counts.json": "a151c330d6b4d62ae1c7d97b8a156aed1ec82288bb1df7f006194ca051dcca52",
+        "job_009.counts.json": "f0af57fa41de46928d5efd6ab99fe51357b881c710f9816430e44a772b15bfec",
+        "job_010.counts.json": "353379d4e4222bd5b6cb4ace687bb7bd807482b0c1cd83734191ae7b20329af7",
+        "job_011.counts.json": "7d18a5493b116b07c3027064fefd4d657716f9113396d25fa327f2ca1e7958d5",
+        "job_012.counts.json": "f428dfb7e405f9bea57d92f063e18ce56f0e75d950c94df2aa5fbe3da68e841c",
+        "job_013.counts.json": "7e47092cb4d1d51b9c7e0f7d8a08449bf1f0ee0aa8abdd31610e4d11b6d65e8a",
+        "job_014.counts.json": "55f5dac7c2509c79cbc098e7a7b2bddfbab8400a2cfe4c4204dbb2187c9e0cc3",
+        "job_015.counts.json": "023f2dc70dd2f8980d93f6d00b8a417be9ed51e4ef96e583d1d8cdbfab033888",
+        "job_016.counts.json": "4869740195db26771d465cac190892f14aee885d1c58f41c06fc534097c845ee",
+        "job_017.counts.json": "26a28e7fbbb1f4f0b5f3ce160fe4321ccc91892523fa9147eb0563612dee2370"
+      }
+    },
+    {
+      "series": "readout_20260911",
+      "bell": 5.26158870236851,
+      "standard_error": 0.025506355680388976,
+      "delta_new_minus_old": 0.1922444951714981,
+      "source": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\iqm_bell_readout\\emerald_20260911",
+      "counts_sha256": {
+        "job_000.counts.json": "901517e4e4722a548d9c508c21909b037397db99c07678c5bf3656fda31c919e",
+        "job_001.counts.json": "5b3006b029fe2ab135f55bdf9cdc4e80933d8097b133b31173e56434a68874dd",
+        "job_002.counts.json": "b9d6fbaf09f099e5b9f6e729a37166a9f8c4d5f20d167d5044f96985b9cb2241"
+      }
+    }
+  ],
+  "input_sha256": {
+    "bell_weights.npy": "5659ec6279e156f62562f7460b994b02c7031c585103bee5a9957050a958cddc",
+    "circuit_evidence.json": "d66c4955e7c1f491d46ce006f165bb4a0b535ed16366b79e59734063629cf1d2",
+    "ideal_probabilities.npy": "77c1f7552f6f7046e6f23c60066d830a23f46dadb0153c407961b71e4228e19a",
+    "job_000.counts.json": "9fbd22b2807f1d26fdfd76835b125627b098391adf9cf1601d937e34c0ffd98b",
+    "job_000.qpy": "b1d107760baac13764e837e61cc7859acdd32339f01e10daee9af3124d42f6fc",
+    "job_000.submission.json": "57cb6a14b1107f4546ecf5280d91915b77e574d70c01a09f977c79d0bfb207bf",
+    "job_001.counts.json": "b5ca22bfc9f25f5c2c58ef306c1fa84c61b07a5d49d94b006e2062f3f934d930",
+    "job_001.qpy": "28d11d1d3c8f76308f5a59c42e6bf2eb2d268c7893b8129f8266cc4e24b04502",
+    "job_001.submission.json": "fab81d3de237f0104bfebe33168e485812ebae1029c39c5318ced81ab7d465a5",
+    "job_002.counts.json": "bbb5f533afb8c9c27c0c983c07f74051271199304a80efdd112a6d1d93b0dd46",
+    "job_002.qpy": "44840f96869cb2079b4dcfa2bacdee5196d8b821d74c726f8aa64b51c997c7ab",
+    "job_002.submission.json": "595b3d65c5297871dbd76898f4e920c4b0697b45e993d952542d3810e263bdb5",
+    "job_003.counts.json": "5f30fa52fd30c8b1977b4ef6df56596b56cc53edf706281d32fe5710e325b773",
+    "job_003.qpy": "0834d307495f6500d52b0a4b15ac49267ba8e9d73b5761440f95d5940c95d523",
+    "job_003.submission.json": "0a95ac33e3094bc6123a4d23150ea5fe3cf0acffc20d20b86bf417a3547efc79",
+    "job_004.counts.json": "6f6deb19060439c968ef49505490f967ed24e2e76c8fd64718f39ae89ea6b757",
+    "job_004.qpy": "7929ae67c561406d8d1c63c118ac8f844c7bd077eac37349ee9686fbff965e29",
+    "job_004.submission.json": "863dc3db830b7669696d2065ed95f9a36a7d2823bb414a1c1596b09459c758f6",
+    "job_005.counts.json": "78bdb21b502183f8b842eed48ec15b4a3ebae5900d536dae1195e9ac0cb58a6a",
+    "job_005.qpy": "64b4d6526e2fa594b49e400f8840b58110a7588860208cead5e7750806e0b280",
+    "job_005.submission.json": "89cfaf816db03e8dc3013e5eb909840a82f62b061d90f361a0455a3e76301695",
+    "job_006.counts.json": "9bbc4d542876672e172c453ed012acf5e32cd16843d473185dce5c8ec9ef30aa",
+    "job_006.qpy": "eabe9bb818a67b5211eb7e4bddb576a52914bb3dc110a6ccf802d27eabdccd93",
+    "job_006.submission.json": "23d943aa2abe8414b428ed1a0bc28cd1ebb20dfe5d99c5c5e603ce535a861494",
+    "job_007.counts.json": "6beee4d9178e2c0c0fe44687349347d0e4edf9fbcbc6bb7d126838a0378efe65",
+    "job_007.qpy": "02cd6679688d254c840f28b237b98c971f2c3a42f1e274bdc0278fce74208d53",
+    "job_007.submission.json": "1281fc4f974790736642049ea2b1ab3c8ff06d19ac5f9eb714b212b7b6a5244d",
+    "job_008.counts.json": "a3e1829b55c92f192800f4ed50f19cfaabb9e0e27ec655aafe742cd4944bd0e2",
+    "job_008.qpy": "2d5580b715e64111782edb908888bf4ea16f72550ca3ca7d09bb8d9426bf8dda",
+    "job_008.submission.json": "4cde6d48ae5f198a76d31a64d7007b7fc3662774bd4fa0be144c013f35fa1ec3",
+    "manifest.json": "c2cbc33a0f43f1c49a4d5e849c9e0fdc62a6166334e2b4709471f5891728b7c1",
+    "parents.qpy": "7760085564df74f370e50818ed301abe71d319bb1a14602db77ea0320eb06173",
+    "protocol.json": "5cf30ac2a0678529bdd401f81dc2586954e45e77050858e5f3cdc3468e22564e"
+  }
+}

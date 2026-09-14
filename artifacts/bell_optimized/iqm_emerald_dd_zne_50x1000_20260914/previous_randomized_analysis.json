@@ -1,0 +1,3258 @@
+{
+  "rows": [
+    {
+      "variant": "RAW",
+      "factor": 1,
+      "real": 5.4413365863654795,
+      "imag": -5.176414852314792e-15,
+      "delta_from_classical": -0.1968191383499711,
+      "point_above_classical": false
+    },
+    {
+      "variant": "TWIRL_DD",
+      "factor": 1,
+      "real": 5.366634967484502,
+      "imag": -5.2735593669694936e-15,
+      "delta_from_classical": -0.2715207572309488,
+      "point_above_classical": false
+    },
+    {
+      "variant": "TWIRL_DD",
+      "factor": 3,
+      "real": 4.746687391624295,
+      "imag": -4.496403249731884e-15,
+      "delta_from_classical": -0.8914683330911553,
+      "point_above_classical": false
+    },
+    {
+      "variant": "TWIRL_DD",
+      "factor": 5,
+      "real": 4.392546048385317,
+      "imag": -4.211908599671688e-15,
+      "delta_from_classical": -1.2456096763301332,
+      "point_above_classical": false
+    },
+    {
+      "variant": "TWIRL_DD_ZNE",
+      "factor": 0,
+      "real": 5.5658561584890975,
+      "imag": -5.4568618142643814e-15,
+      "delta_from_classical": -0.07229956622635303,
+      "point_above_classical": false
+    }
+  ],
+  "raw_block_analysis": {
+    "schema_version": "independent-local-bell-analysis-v1",
+    "state": "two_qutrit",
+    "estimator": "sum_of_matched_block_correlators_v1",
+    "raw": {
+      "real": 5.441336586365479,
+      "imag": -5.15039400017514e-15
+    },
+    "conditional": {
+      "real": 5.565272826637542,
+      "imag": -5.263408524129598e-15
+    },
+    "raw_reason": null,
+    "conditional_reason": null,
+    "quality_flags": [],
+    "terms": [
+      {
+        "term_index": 0,
+        "pattern_index": 0,
+        "settings": [
+          "A0",
+          "B0"
+        ],
+        "powers": [
+          1,
+          1
+        ],
+        "coefficient": {
+          "real": 0.568579021301629,
+          "imag": 0.10025582212028983
+        },
+        "scheduled_blocks": 4,
+        "missing_block_ids": [],
+        "matched_blocks": 4,
+        "block_ids": [
+          1,
+          11,
+          13,
+          23
+        ],
+        "total_shots": 4000,
+        "accepted_shots": 3910,
+        "invalid_shots": 90,
+        "leakage_rate": 0.0225,
+        "acceptance_fraction": 0.9775,
+        "raw": {
+          "real": 0.29895563974705675,
+          "imag": -0.00021516682217855368
+        },
+        "conditional": {
+          "real": 0.3058369716082422,
+          "imag": -0.00022011951118010607
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A0",
+              "B0"
+            ],
+            "scheduled_blocks": 4,
+            "missing_block_ids": [],
+            "matched_blocks": 4,
+            "block_ids": [
+              1,
+              11,
+              13,
+              23
+            ],
+            "total_shots": 4000,
+            "accepted_shots": 3910,
+            "invalid_shots": 90,
+            "leakage_rate": 0.0225,
+            "acceptance_fraction": 0.9775,
+            "raw": {
+              "real": 0.29895563974705675,
+              "imag": -0.00021516682217855368
+            },
+            "conditional": {
+              "real": 0.3058369716082422,
+              "imag": -0.00022011951118010607
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 1,
+        "pattern_index": 3,
+        "settings": [
+          "A1",
+          "B0"
+        ],
+        "powers": [
+          1,
+          1
+        ],
+        "coefficient": {
+          "real": 0.5685790213016289,
+          "imag": 0.1002558221202897
+        },
+        "scheduled_blocks": 7,
+        "missing_block_ids": [],
+        "matched_blocks": 7,
+        "block_ids": [
+          0,
+          15,
+          26,
+          28,
+          33,
+          36,
+          41
+        ],
+        "total_shots": 7000,
+        "accepted_shots": 6860,
+        "invalid_shots": 140,
+        "leakage_rate": 0.02,
+        "acceptance_fraction": 0.98,
+        "raw": {
+          "real": 0.2881335218804491,
+          "imag": -0.011570492204619951
+        },
+        "conditional": {
+          "real": 0.29401379783719295,
+          "imag": -0.011806624698591787
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A1",
+              "B0"
+            ],
+            "scheduled_blocks": 7,
+            "missing_block_ids": [],
+            "matched_blocks": 7,
+            "block_ids": [
+              0,
+              15,
+              26,
+              28,
+              33,
+              36,
+              41
+            ],
+            "total_shots": 7000,
+            "accepted_shots": 6860,
+            "invalid_shots": 140,
+            "leakage_rate": 0.02,
+            "acceptance_fraction": 0.98,
+            "raw": {
+              "real": 0.2881335218804491,
+              "imag": -0.011570492204619951
+            },
+            "conditional": {
+              "real": 0.29401379783719295,
+              "imag": -0.011806624698591787
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 2,
+        "pattern_index": 6,
+        "settings": [
+          "A2",
+          "B0"
+        ],
+        "powers": [
+          1,
+          1
+        ],
+        "coefficient": {
+          "real": 0.5685790213016287,
+          "imag": 0.10025582212028969
+        },
+        "scheduled_blocks": 5,
+        "missing_block_ids": [],
+        "matched_blocks": 5,
+        "block_ids": [
+          7,
+          19,
+          25,
+          30,
+          35
+        ],
+        "total_shots": 5000,
+        "accepted_shots": 4908,
+        "invalid_shots": 92,
+        "leakage_rate": 0.0184,
+        "acceptance_fraction": 0.9816,
+        "raw": {
+          "real": 0.30085996713227064,
+          "imag": -0.009602092332869376
+        },
+        "conditional": {
+          "real": 0.30649955901820564,
+          "imag": -0.009782082653697408
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A2",
+              "B0"
+            ],
+            "scheduled_blocks": 5,
+            "missing_block_ids": [],
+            "matched_blocks": 5,
+            "block_ids": [
+              7,
+              19,
+              25,
+              30,
+              35
+            ],
+            "total_shots": 5000,
+            "accepted_shots": 4908,
+            "invalid_shots": 92,
+            "leakage_rate": 0.0184,
+            "acceptance_fraction": 0.9816,
+            "raw": {
+              "real": 0.30085996713227064,
+              "imag": -0.009602092332869376
+            },
+            "conditional": {
+              "real": 0.30649955901820564,
+              "imag": -0.009782082653697408
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 3,
+        "pattern_index": 1,
+        "settings": [
+          "A0",
+          "B1"
+        ],
+        "powers": [
+          1,
+          1
+        ],
+        "coefficient": {
+          "real": -0.3711135994842795,
+          "imag": 0.44227596544595904
+        },
+        "scheduled_blocks": 4,
+        "missing_block_ids": [],
+        "matched_blocks": 4,
+        "block_ids": [
+          5,
+          14,
+          22,
+          38
+        ],
+        "total_shots": 4000,
+        "accepted_shots": 3909,
+        "invalid_shots": 91,
+        "leakage_rate": 0.02275,
+        "acceptance_fraction": 0.97725,
+        "raw": {
+          "real": 0.2996663635236838,
+          "imag": -8.98470445282254e-05
+        },
+        "conditional": {
+          "real": 0.3066424799423728,
+          "imag": -9.193864878815594e-05
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A0",
+              "B1"
+            ],
+            "scheduled_blocks": 4,
+            "missing_block_ids": [],
+            "matched_blocks": 4,
+            "block_ids": [
+              5,
+              14,
+              22,
+              38
+            ],
+            "total_shots": 4000,
+            "accepted_shots": 3909,
+            "invalid_shots": 91,
+            "leakage_rate": 0.02275,
+            "acceptance_fraction": 0.97725,
+            "raw": {
+              "real": 0.2996663635236838,
+              "imag": -8.98470445282254e-05
+            },
+            "conditional": {
+              "real": 0.3066424799423728,
+              "imag": -9.193864878815594e-05
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 4,
+        "pattern_index": 4,
+        "settings": [
+          "A1",
+          "B1"
+        ],
+        "powers": [
+          1,
+          1
+        ],
+        "coefficient": {
+          "real": 0.5685790213016289,
+          "imag": 0.10025582212029009
+        },
+        "scheduled_blocks": 2,
+        "missing_block_ids": [],
+        "matched_blocks": 2,
+        "block_ids": [
+          32,
+          37
+        ],
+        "total_shots": 2000,
+        "accepted_shots": 1951,
+        "invalid_shots": 49,
+        "leakage_rate": 0.0245,
+        "acceptance_fraction": 0.9755,
+        "raw": {
+          "real": 0.3035690106293063,
+          "imag": -0.004351909796566002
+        },
+        "conditional": {
+          "real": 0.31119324513511665,
+          "imag": -0.00446120942754075
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A1",
+              "B1"
+            ],
+            "scheduled_blocks": 2,
+            "missing_block_ids": [],
+            "matched_blocks": 2,
+            "block_ids": [
+              32,
+              37
+            ],
+            "total_shots": 2000,
+            "accepted_shots": 1951,
+            "invalid_shots": 49,
+            "leakage_rate": 0.0245,
+            "acceptance_fraction": 0.9755,
+            "raw": {
+              "real": 0.3035690106293063,
+              "imag": -0.004351909796566002
+            },
+            "conditional": {
+              "real": 0.31119324513511665,
+              "imag": -0.00446120942754075
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 5,
+        "pattern_index": 7,
+        "settings": [
+          "A2",
+          "B1"
+        ],
+        "powers": [
+          1,
+          1
+        ],
+        "coefficient": {
+          "real": -0.19746542181734922,
+          "imag": -0.542531787566249
+        },
+        "scheduled_blocks": 9,
+        "missing_block_ids": [],
+        "matched_blocks": 9,
+        "block_ids": [
+          4,
+          8,
+          10,
+          17,
+          20,
+          31,
+          42,
+          45,
+          47
+        ],
+        "total_shots": 9000,
+        "accepted_shots": 8794,
+        "invalid_shots": 206,
+        "leakage_rate": 0.02288888888888889,
+        "acceptance_fraction": 0.9771111111111112,
+        "raw": {
+          "real": 0.3087759341643501,
+          "imag": 0.009710344674113533
+        },
+        "conditional": {
+          "real": 0.31600902973381295,
+          "imag": 0.00993781010541526
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A2",
+              "B1"
+            ],
+            "scheduled_blocks": 9,
+            "missing_block_ids": [],
+            "matched_blocks": 9,
+            "block_ids": [
+              4,
+              8,
+              10,
+              17,
+              20,
+              31,
+              42,
+              45,
+              47
+            ],
+            "total_shots": 9000,
+            "accepted_shots": 8794,
+            "invalid_shots": 206,
+            "leakage_rate": 0.02288888888888889,
+            "acceptance_fraction": 0.9771111111111112,
+            "raw": {
+              "real": 0.3087759341643501,
+              "imag": 0.009710344674113533
+            },
+            "conditional": {
+              "real": 0.31600902973381295,
+              "imag": 0.00993781010541526
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 6,
+        "pattern_index": 2,
+        "settings": [
+          "A0",
+          "B2"
+        ],
+        "powers": [
+          1,
+          1
+        ],
+        "coefficient": {
+          "real": 0.5685790213016291,
+          "imag": 0.10025582212028987
+        },
+        "scheduled_blocks": 6,
+        "missing_block_ids": [],
+        "matched_blocks": 6,
+        "block_ids": [
+          9,
+          27,
+          39,
+          40,
+          44,
+          49
+        ],
+        "total_shots": 6000,
+        "accepted_shots": 5839,
+        "invalid_shots": 161,
+        "leakage_rate": 0.026833333333333334,
+        "acceptance_fraction": 0.9731666666666666,
+        "raw": {
+          "real": 0.3307749911757206,
+          "imag": 0.013138071258968107
+        },
+        "conditional": {
+          "real": 0.3398955209889234,
+          "imag": 0.013500330117110574
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A0",
+              "B2"
+            ],
+            "scheduled_blocks": 6,
+            "missing_block_ids": [],
+            "matched_blocks": 6,
+            "block_ids": [
+              9,
+              27,
+              39,
+              40,
+              44,
+              49
+            ],
+            "total_shots": 6000,
+            "accepted_shots": 5839,
+            "invalid_shots": 161,
+            "leakage_rate": 0.026833333333333334,
+            "acceptance_fraction": 0.9731666666666666,
+            "raw": {
+              "real": 0.3307749911757206,
+              "imag": 0.013138071258968107
+            },
+            "conditional": {
+              "real": 0.3398955209889234,
+              "imag": 0.013500330117110574
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 7,
+        "pattern_index": 5,
+        "settings": [
+          "A1",
+          "B2"
+        ],
+        "powers": [
+          1,
+          1
+        ],
+        "coefficient": {
+          "real": -0.3711135994842794,
+          "imag": 0.44227596544595926
+        },
+        "scheduled_blocks": 9,
+        "missing_block_ids": [],
+        "matched_blocks": 9,
+        "block_ids": [
+          2,
+          3,
+          6,
+          16,
+          21,
+          24,
+          29,
+          46,
+          48
+        ],
+        "total_shots": 9000,
+        "accepted_shots": 8798,
+        "invalid_shots": 202,
+        "leakage_rate": 0.022444444444444444,
+        "acceptance_fraction": 0.9775555555555555,
+        "raw": {
+          "real": 0.28661588167932767,
+          "imag": -0.009428469651197993
+        },
+        "conditional": {
+          "real": 0.29319651456171275,
+          "imag": -0.009644945085335524
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A1",
+              "B2"
+            ],
+            "scheduled_blocks": 9,
+            "missing_block_ids": [],
+            "matched_blocks": 9,
+            "block_ids": [
+              2,
+              3,
+              6,
+              16,
+              21,
+              24,
+              29,
+              46,
+              48
+            ],
+            "total_shots": 9000,
+            "accepted_shots": 8798,
+            "invalid_shots": 202,
+            "leakage_rate": 0.022444444444444444,
+            "acceptance_fraction": 0.9775555555555555,
+            "raw": {
+              "real": 0.28661588167932767,
+              "imag": -0.009428469651197993
+            },
+            "conditional": {
+              "real": 0.29319651456171275,
+              "imag": -0.009644945085335524
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 8,
+        "pattern_index": 8,
+        "settings": [
+          "A2",
+          "B2"
+        ],
+        "powers": [
+          1,
+          1
+        ],
+        "coefficient": {
+          "real": -0.1974654218173493,
+          "imag": -0.5425317875662492
+        },
+        "scheduled_blocks": 4,
+        "missing_block_ids": [],
+        "matched_blocks": 4,
+        "block_ids": [
+          12,
+          18,
+          34,
+          43
+        ],
+        "total_shots": 4000,
+        "accepted_shots": 3922,
+        "invalid_shots": 78,
+        "leakage_rate": 0.0195,
+        "acceptance_fraction": 0.9805,
+        "raw": {
+          "real": 0.3033169832505742,
+          "imag": 0.003727063871772164
+        },
+        "conditional": {
+          "real": 0.30934929449319143,
+          "imag": 0.003801187018635557
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A2",
+              "B2"
+            ],
+            "scheduled_blocks": 4,
+            "missing_block_ids": [],
+            "matched_blocks": 4,
+            "block_ids": [
+              12,
+              18,
+              34,
+              43
+            ],
+            "total_shots": 4000,
+            "accepted_shots": 3922,
+            "invalid_shots": 78,
+            "leakage_rate": 0.0195,
+            "acceptance_fraction": 0.9805,
+            "raw": {
+              "real": 0.3033169832505742,
+              "imag": 0.003727063871772164
+            },
+            "conditional": {
+              "real": 0.30934929449319143,
+              "imag": 0.003801187018635557
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 9,
+        "pattern_index": 0,
+        "settings": [
+          "A0",
+          "B0"
+        ],
+        "powers": [
+          2,
+          2
+        ],
+        "coefficient": {
+          "real": 0.5685790213016287,
+          "imag": -0.10025582212029104
+        },
+        "scheduled_blocks": 4,
+        "missing_block_ids": [],
+        "matched_blocks": 4,
+        "block_ids": [
+          1,
+          11,
+          13,
+          23
+        ],
+        "total_shots": 4000,
+        "accepted_shots": 3910,
+        "invalid_shots": 90,
+        "leakage_rate": 0.0225,
+        "acceptance_fraction": 0.9775,
+        "raw": {
+          "real": 0.29895563974705675,
+          "imag": 0.00021516682217797428
+        },
+        "conditional": {
+          "real": 0.3058369716082422,
+          "imag": 0.00022011951117951333
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A0",
+              "B0"
+            ],
+            "scheduled_blocks": 4,
+            "missing_block_ids": [],
+            "matched_blocks": 4,
+            "block_ids": [
+              1,
+              11,
+              13,
+              23
+            ],
+            "total_shots": 4000,
+            "accepted_shots": 3910,
+            "invalid_shots": 90,
+            "leakage_rate": 0.0225,
+            "acceptance_fraction": 0.9775,
+            "raw": {
+              "real": 0.29895563974705675,
+              "imag": 0.00021516682217797428
+            },
+            "conditional": {
+              "real": 0.3058369716082422,
+              "imag": 0.00022011951117951333
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 10,
+        "pattern_index": 3,
+        "settings": [
+          "A1",
+          "B0"
+        ],
+        "powers": [
+          2,
+          2
+        ],
+        "coefficient": {
+          "real": 0.5685790213016286,
+          "imag": -0.10025582212029129
+        },
+        "scheduled_blocks": 7,
+        "missing_block_ids": [],
+        "matched_blocks": 7,
+        "block_ids": [
+          0,
+          15,
+          26,
+          28,
+          33,
+          36,
+          41
+        ],
+        "total_shots": 7000,
+        "accepted_shots": 6860,
+        "invalid_shots": 140,
+        "leakage_rate": 0.02,
+        "acceptance_fraction": 0.98,
+        "raw": {
+          "real": 0.2881335218804492,
+          "imag": 0.01157049220461921
+        },
+        "conditional": {
+          "real": 0.29401379783719306,
+          "imag": 0.01180662469859103
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A1",
+              "B0"
+            ],
+            "scheduled_blocks": 7,
+            "missing_block_ids": [],
+            "matched_blocks": 7,
+            "block_ids": [
+              0,
+              15,
+              26,
+              28,
+              33,
+              36,
+              41
+            ],
+            "total_shots": 7000,
+            "accepted_shots": 6860,
+            "invalid_shots": 140,
+            "leakage_rate": 0.02,
+            "acceptance_fraction": 0.98,
+            "raw": {
+              "real": 0.2881335218804492,
+              "imag": 0.01157049220461921
+            },
+            "conditional": {
+              "real": 0.29401379783719306,
+              "imag": 0.01180662469859103
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 11,
+        "pattern_index": 6,
+        "settings": [
+          "A2",
+          "B0"
+        ],
+        "powers": [
+          2,
+          2
+        ],
+        "coefficient": {
+          "real": 0.5685790213016283,
+          "imag": -0.10025582212029147
+        },
+        "scheduled_blocks": 5,
+        "missing_block_ids": [],
+        "matched_blocks": 5,
+        "block_ids": [
+          7,
+          19,
+          25,
+          30,
+          35
+        ],
+        "total_shots": 5000,
+        "accepted_shots": 4908,
+        "invalid_shots": 92,
+        "leakage_rate": 0.0184,
+        "acceptance_fraction": 0.9816,
+        "raw": {
+          "real": 0.3008599671322707,
+          "imag": 0.009602092332868468
+        },
+        "conditional": {
+          "real": 0.30649955901820564,
+          "imag": 0.009782082653696483
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A2",
+              "B0"
+            ],
+            "scheduled_blocks": 5,
+            "missing_block_ids": [],
+            "matched_blocks": 5,
+            "block_ids": [
+              7,
+              19,
+              25,
+              30,
+              35
+            ],
+            "total_shots": 5000,
+            "accepted_shots": 4908,
+            "invalid_shots": 92,
+            "leakage_rate": 0.0184,
+            "acceptance_fraction": 0.9816,
+            "raw": {
+              "real": 0.3008599671322707,
+              "imag": 0.009602092332868468
+            },
+            "conditional": {
+              "real": 0.30649955901820564,
+              "imag": 0.009782082653696483
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 12,
+        "pattern_index": 1,
+        "settings": [
+          "A0",
+          "B1"
+        ],
+        "powers": [
+          2,
+          2
+        ],
+        "coefficient": {
+          "real": -0.3711135994842799,
+          "imag": -0.4422759654459588
+        },
+        "scheduled_blocks": 4,
+        "missing_block_ids": [],
+        "matched_blocks": 4,
+        "block_ids": [
+          5,
+          14,
+          22,
+          38
+        ],
+        "total_shots": 4000,
+        "accepted_shots": 3909,
+        "invalid_shots": 91,
+        "leakage_rate": 0.02275,
+        "acceptance_fraction": 0.97725,
+        "raw": {
+          "real": 0.29966636352368387,
+          "imag": 8.98470445277813e-05
+        },
+        "conditional": {
+          "real": 0.30664247994237287,
+          "imag": 9.193864878770151e-05
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A0",
+              "B1"
+            ],
+            "scheduled_blocks": 4,
+            "missing_block_ids": [],
+            "matched_blocks": 4,
+            "block_ids": [
+              5,
+              14,
+              22,
+              38
+            ],
+            "total_shots": 4000,
+            "accepted_shots": 3909,
+            "invalid_shots": 91,
+            "leakage_rate": 0.02275,
+            "acceptance_fraction": 0.97725,
+            "raw": {
+              "real": 0.29966636352368387,
+              "imag": 8.98470445277813e-05
+            },
+            "conditional": {
+              "real": 0.30664247994237287,
+              "imag": 9.193864878770151e-05
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 13,
+        "pattern_index": 4,
+        "settings": [
+          "A1",
+          "B1"
+        ],
+        "powers": [
+          2,
+          2
+        ],
+        "coefficient": {
+          "real": 0.5685790213016289,
+          "imag": -0.1002558221202906
+        },
+        "scheduled_blocks": 2,
+        "missing_block_ids": [],
+        "matched_blocks": 2,
+        "block_ids": [
+          32,
+          37
+        ],
+        "total_shots": 2000,
+        "accepted_shots": 1951,
+        "invalid_shots": 49,
+        "leakage_rate": 0.0245,
+        "acceptance_fraction": 0.9755,
+        "raw": {
+          "real": 0.3035690106293064,
+          "imag": 0.00435190979656579
+        },
+        "conditional": {
+          "real": 0.31119324513511676,
+          "imag": 0.004461209427540533
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A1",
+              "B1"
+            ],
+            "scheduled_blocks": 2,
+            "missing_block_ids": [],
+            "matched_blocks": 2,
+            "block_ids": [
+              32,
+              37
+            ],
+            "total_shots": 2000,
+            "accepted_shots": 1951,
+            "invalid_shots": 49,
+            "leakage_rate": 0.0245,
+            "acceptance_fraction": 0.9755,
+            "raw": {
+              "real": 0.3035690106293064,
+              "imag": 0.00435190979656579
+            },
+            "conditional": {
+              "real": 0.31119324513511676,
+              "imag": 0.004461209427540533
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 14,
+        "pattern_index": 7,
+        "settings": [
+          "A2",
+          "B1"
+        ],
+        "powers": [
+          2,
+          2
+        ],
+        "coefficient": {
+          "real": -0.19746542181734877,
+          "imag": 0.5425317875662492
+        },
+        "scheduled_blocks": 9,
+        "missing_block_ids": [],
+        "matched_blocks": 9,
+        "block_ids": [
+          4,
+          8,
+          10,
+          17,
+          20,
+          31,
+          42,
+          45,
+          47
+        ],
+        "total_shots": 9000,
+        "accepted_shots": 8794,
+        "invalid_shots": 206,
+        "leakage_rate": 0.02288888888888889,
+        "acceptance_fraction": 0.9771111111111112,
+        "raw": {
+          "real": 0.30877593416435006,
+          "imag": -0.009710344674114028
+        },
+        "conditional": {
+          "real": 0.3160090297338129,
+          "imag": -0.009937810105415765
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A2",
+              "B1"
+            ],
+            "scheduled_blocks": 9,
+            "missing_block_ids": [],
+            "matched_blocks": 9,
+            "block_ids": [
+              4,
+              8,
+              10,
+              17,
+              20,
+              31,
+              42,
+              45,
+              47
+            ],
+            "total_shots": 9000,
+            "accepted_shots": 8794,
+            "invalid_shots": 206,
+            "leakage_rate": 0.02288888888888889,
+            "acceptance_fraction": 0.9771111111111112,
+            "raw": {
+              "real": 0.30877593416435006,
+              "imag": -0.009710344674114028
+            },
+            "conditional": {
+              "real": 0.3160090297338129,
+              "imag": -0.009937810105415765
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 15,
+        "pattern_index": 2,
+        "settings": [
+          "A0",
+          "B2"
+        ],
+        "powers": [
+          2,
+          2
+        ],
+        "coefficient": {
+          "real": 0.5685790213016287,
+          "imag": -0.10025582212029101
+        },
+        "scheduled_blocks": 6,
+        "missing_block_ids": [],
+        "matched_blocks": 6,
+        "block_ids": [
+          9,
+          27,
+          39,
+          40,
+          44,
+          49
+        ],
+        "total_shots": 6000,
+        "accepted_shots": 5839,
+        "invalid_shots": 161,
+        "leakage_rate": 0.026833333333333334,
+        "acceptance_fraction": 0.9731666666666666,
+        "raw": {
+          "real": 0.3307749911757205,
+          "imag": -0.013138071258968728
+        },
+        "conditional": {
+          "real": 0.3398955209889233,
+          "imag": -0.013500330117111211
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A0",
+              "B2"
+            ],
+            "scheduled_blocks": 6,
+            "missing_block_ids": [],
+            "matched_blocks": 6,
+            "block_ids": [
+              9,
+              27,
+              39,
+              40,
+              44,
+              49
+            ],
+            "total_shots": 6000,
+            "accepted_shots": 5839,
+            "invalid_shots": 161,
+            "leakage_rate": 0.026833333333333334,
+            "acceptance_fraction": 0.9731666666666666,
+            "raw": {
+              "real": 0.3307749911757205,
+              "imag": -0.013138071258968728
+            },
+            "conditional": {
+              "real": 0.3398955209889233,
+              "imag": -0.013500330117111211
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 16,
+        "pattern_index": 5,
+        "settings": [
+          "A1",
+          "B2"
+        ],
+        "powers": [
+          2,
+          2
+        ],
+        "coefficient": {
+          "real": -0.37111359948428013,
+          "imag": -0.44227596544595865
+        },
+        "scheduled_blocks": 9,
+        "missing_block_ids": [],
+        "matched_blocks": 9,
+        "block_ids": [
+          2,
+          3,
+          6,
+          16,
+          21,
+          24,
+          29,
+          46,
+          48
+        ],
+        "total_shots": 9000,
+        "accepted_shots": 8798,
+        "invalid_shots": 202,
+        "leakage_rate": 0.022444444444444444,
+        "acceptance_fraction": 0.9775555555555555,
+        "raw": {
+          "real": 0.2866158816793277,
+          "imag": 0.009428469651197313
+        },
+        "conditional": {
+          "real": 0.2931965145617128,
+          "imag": 0.009644945085334828
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A1",
+              "B2"
+            ],
+            "scheduled_blocks": 9,
+            "missing_block_ids": [],
+            "matched_blocks": 9,
+            "block_ids": [
+              2,
+              3,
+              6,
+              16,
+              21,
+              24,
+              29,
+              46,
+              48
+            ],
+            "total_shots": 9000,
+            "accepted_shots": 8798,
+            "invalid_shots": 202,
+            "leakage_rate": 0.022444444444444444,
+            "acceptance_fraction": 0.9775555555555555,
+            "raw": {
+              "real": 0.2866158816793277,
+              "imag": 0.009428469651197313
+            },
+            "conditional": {
+              "real": 0.2931965145617128,
+              "imag": 0.009644945085334828
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      },
+      {
+        "term_index": 17,
+        "pattern_index": 8,
+        "settings": [
+          "A2",
+          "B2"
+        ],
+        "powers": [
+          2,
+          2
+        ],
+        "coefficient": {
+          "real": -0.19746542181734877,
+          "imag": 0.5425317875662491
+        },
+        "scheduled_blocks": 4,
+        "missing_block_ids": [],
+        "matched_blocks": 4,
+        "block_ids": [
+          12,
+          18,
+          34,
+          43
+        ],
+        "total_shots": 4000,
+        "accepted_shots": 3922,
+        "invalid_shots": 78,
+        "leakage_rate": 0.0195,
+        "acceptance_fraction": 0.9805,
+        "raw": {
+          "real": 0.30331698325057393,
+          "imag": -0.003727063871772636
+        },
+        "conditional": {
+          "real": 0.30934929449319115,
+          "imag": -0.0038011870186360386
+        },
+        "raw_reason": null,
+        "conditional_reason": null,
+        "contexts": [
+          {
+            "settings": [
+              "A2",
+              "B2"
+            ],
+            "scheduled_blocks": 4,
+            "missing_block_ids": [],
+            "matched_blocks": 4,
+            "block_ids": [
+              12,
+              18,
+              34,
+              43
+            ],
+            "total_shots": 4000,
+            "accepted_shots": 3922,
+            "invalid_shots": 78,
+            "leakage_rate": 0.0195,
+            "acceptance_fraction": 0.9805,
+            "raw": {
+              "real": 0.30331698325057393,
+              "imag": -0.003727063871772636
+            },
+            "conditional": {
+              "real": 0.30934929449319115,
+              "imag": -0.0038011870186360386
+            },
+            "raw_reason": null,
+            "conditional_reason": null
+          }
+        ]
+      }
+    ],
+    "leakage": {
+      "global": {
+        "total_shots": 50000,
+        "accepted_shots": 48891,
+        "invalid_shots": 1109,
+        "leakage_rate": 0.02218
+      },
+      "blocks": [
+        {
+          "block_id": 0,
+          "settings": [
+            "A1",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 986,
+          "invalid_shots": 14,
+          "leakage_rate": 0.014
+        },
+        {
+          "block_id": 1,
+          "settings": [
+            "A0",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 979,
+          "invalid_shots": 21,
+          "leakage_rate": 0.021
+        },
+        {
+          "block_id": 2,
+          "settings": [
+            "A1",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 985,
+          "invalid_shots": 15,
+          "leakage_rate": 0.015
+        },
+        {
+          "block_id": 3,
+          "settings": [
+            "A1",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 989,
+          "invalid_shots": 11,
+          "leakage_rate": 0.011
+        },
+        {
+          "block_id": 4,
+          "settings": [
+            "A2",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 971,
+          "invalid_shots": 29,
+          "leakage_rate": 0.029
+        },
+        {
+          "block_id": 5,
+          "settings": [
+            "A0",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 968,
+          "invalid_shots": 32,
+          "leakage_rate": 0.032
+        },
+        {
+          "block_id": 6,
+          "settings": [
+            "A1",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 969,
+          "invalid_shots": 31,
+          "leakage_rate": 0.031
+        },
+        {
+          "block_id": 7,
+          "settings": [
+            "A2",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 982,
+          "invalid_shots": 18,
+          "leakage_rate": 0.018
+        },
+        {
+          "block_id": 8,
+          "settings": [
+            "A2",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 970,
+          "invalid_shots": 30,
+          "leakage_rate": 0.03
+        },
+        {
+          "block_id": 9,
+          "settings": [
+            "A0",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 980,
+          "invalid_shots": 20,
+          "leakage_rate": 0.02
+        },
+        {
+          "block_id": 10,
+          "settings": [
+            "A2",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 973,
+          "invalid_shots": 27,
+          "leakage_rate": 0.027
+        },
+        {
+          "block_id": 11,
+          "settings": [
+            "A0",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 980,
+          "invalid_shots": 20,
+          "leakage_rate": 0.02
+        },
+        {
+          "block_id": 12,
+          "settings": [
+            "A2",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 978,
+          "invalid_shots": 22,
+          "leakage_rate": 0.022
+        },
+        {
+          "block_id": 13,
+          "settings": [
+            "A0",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 980,
+          "invalid_shots": 20,
+          "leakage_rate": 0.02
+        },
+        {
+          "block_id": 14,
+          "settings": [
+            "A0",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 983,
+          "invalid_shots": 17,
+          "leakage_rate": 0.017
+        },
+        {
+          "block_id": 15,
+          "settings": [
+            "A1",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 970,
+          "invalid_shots": 30,
+          "leakage_rate": 0.03
+        },
+        {
+          "block_id": 16,
+          "settings": [
+            "A1",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 976,
+          "invalid_shots": 24,
+          "leakage_rate": 0.024
+        },
+        {
+          "block_id": 17,
+          "settings": [
+            "A2",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 982,
+          "invalid_shots": 18,
+          "leakage_rate": 0.018
+        },
+        {
+          "block_id": 18,
+          "settings": [
+            "A2",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 974,
+          "invalid_shots": 26,
+          "leakage_rate": 0.026
+        },
+        {
+          "block_id": 19,
+          "settings": [
+            "A2",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 982,
+          "invalid_shots": 18,
+          "leakage_rate": 0.018
+        },
+        {
+          "block_id": 20,
+          "settings": [
+            "A2",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 982,
+          "invalid_shots": 18,
+          "leakage_rate": 0.018
+        },
+        {
+          "block_id": 21,
+          "settings": [
+            "A1",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 978,
+          "invalid_shots": 22,
+          "leakage_rate": 0.022
+        },
+        {
+          "block_id": 22,
+          "settings": [
+            "A0",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 986,
+          "invalid_shots": 14,
+          "leakage_rate": 0.014
+        },
+        {
+          "block_id": 23,
+          "settings": [
+            "A0",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 971,
+          "invalid_shots": 29,
+          "leakage_rate": 0.029
+        },
+        {
+          "block_id": 24,
+          "settings": [
+            "A1",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 965,
+          "invalid_shots": 35,
+          "leakage_rate": 0.035
+        },
+        {
+          "block_id": 25,
+          "settings": [
+            "A2",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 982,
+          "invalid_shots": 18,
+          "leakage_rate": 0.018
+        },
+        {
+          "block_id": 26,
+          "settings": [
+            "A1",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 978,
+          "invalid_shots": 22,
+          "leakage_rate": 0.022
+        },
+        {
+          "block_id": 27,
+          "settings": [
+            "A0",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 961,
+          "invalid_shots": 39,
+          "leakage_rate": 0.039
+        },
+        {
+          "block_id": 28,
+          "settings": [
+            "A1",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 979,
+          "invalid_shots": 21,
+          "leakage_rate": 0.021
+        },
+        {
+          "block_id": 29,
+          "settings": [
+            "A1",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 978,
+          "invalid_shots": 22,
+          "leakage_rate": 0.022
+        },
+        {
+          "block_id": 30,
+          "settings": [
+            "A2",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 980,
+          "invalid_shots": 20,
+          "leakage_rate": 0.02
+        },
+        {
+          "block_id": 31,
+          "settings": [
+            "A2",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 974,
+          "invalid_shots": 26,
+          "leakage_rate": 0.026
+        },
+        {
+          "block_id": 32,
+          "settings": [
+            "A1",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 978,
+          "invalid_shots": 22,
+          "leakage_rate": 0.022
+        },
+        {
+          "block_id": 33,
+          "settings": [
+            "A1",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 981,
+          "invalid_shots": 19,
+          "leakage_rate": 0.019
+        },
+        {
+          "block_id": 34,
+          "settings": [
+            "A2",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 980,
+          "invalid_shots": 20,
+          "leakage_rate": 0.02
+        },
+        {
+          "block_id": 35,
+          "settings": [
+            "A2",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 982,
+          "invalid_shots": 18,
+          "leakage_rate": 0.018
+        },
+        {
+          "block_id": 36,
+          "settings": [
+            "A1",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 986,
+          "invalid_shots": 14,
+          "leakage_rate": 0.014
+        },
+        {
+          "block_id": 37,
+          "settings": [
+            "A1",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 973,
+          "invalid_shots": 27,
+          "leakage_rate": 0.027
+        },
+        {
+          "block_id": 38,
+          "settings": [
+            "A0",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 972,
+          "invalid_shots": 28,
+          "leakage_rate": 0.028
+        },
+        {
+          "block_id": 39,
+          "settings": [
+            "A0",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 976,
+          "invalid_shots": 24,
+          "leakage_rate": 0.024
+        },
+        {
+          "block_id": 40,
+          "settings": [
+            "A0",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 969,
+          "invalid_shots": 31,
+          "leakage_rate": 0.031
+        },
+        {
+          "block_id": 41,
+          "settings": [
+            "A1",
+            "B0"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 980,
+          "invalid_shots": 20,
+          "leakage_rate": 0.02
+        },
+        {
+          "block_id": 42,
+          "settings": [
+            "A2",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 984,
+          "invalid_shots": 16,
+          "leakage_rate": 0.016
+        },
+        {
+          "block_id": 43,
+          "settings": [
+            "A2",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 990,
+          "invalid_shots": 10,
+          "leakage_rate": 0.01
+        },
+        {
+          "block_id": 44,
+          "settings": [
+            "A0",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 977,
+          "invalid_shots": 23,
+          "leakage_rate": 0.023
+        },
+        {
+          "block_id": 45,
+          "settings": [
+            "A2",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 977,
+          "invalid_shots": 23,
+          "leakage_rate": 0.023
+        },
+        {
+          "block_id": 46,
+          "settings": [
+            "A1",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 975,
+          "invalid_shots": 25,
+          "leakage_rate": 0.025
+        },
+        {
+          "block_id": 47,
+          "settings": [
+            "A2",
+            "B1"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 981,
+          "invalid_shots": 19,
+          "leakage_rate": 0.019
+        },
+        {
+          "block_id": 48,
+          "settings": [
+            "A1",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 983,
+          "invalid_shots": 17,
+          "leakage_rate": 0.017
+        },
+        {
+          "block_id": 49,
+          "settings": [
+            "A0",
+            "B2"
+          ],
+          "status": "completed",
+          "total_shots": 1000,
+          "accepted_shots": 976,
+          "invalid_shots": 24,
+          "leakage_rate": 0.024
+        }
+      ],
+      "patterns": [
+        {
+          "pattern_index": 0,
+          "settings": [
+            "A0",
+            "B0"
+          ],
+          "scheduled_blocks": 4,
+          "matched_blocks": 4,
+          "total_shots": 4000,
+          "accepted_shots": 3910,
+          "invalid_shots": 90,
+          "leakage_rate": 0.0225
+        },
+        {
+          "pattern_index": 1,
+          "settings": [
+            "A0",
+            "B1"
+          ],
+          "scheduled_blocks": 4,
+          "matched_blocks": 4,
+          "total_shots": 4000,
+          "accepted_shots": 3909,
+          "invalid_shots": 91,
+          "leakage_rate": 0.02275
+        },
+        {
+          "pattern_index": 2,
+          "settings": [
+            "A0",
+            "B2"
+          ],
+          "scheduled_blocks": 6,
+          "matched_blocks": 6,
+          "total_shots": 6000,
+          "accepted_shots": 5839,
+          "invalid_shots": 161,
+          "leakage_rate": 0.026833333333333334
+        },
+        {
+          "pattern_index": 3,
+          "settings": [
+            "A1",
+            "B0"
+          ],
+          "scheduled_blocks": 7,
+          "matched_blocks": 7,
+          "total_shots": 7000,
+          "accepted_shots": 6860,
+          "invalid_shots": 140,
+          "leakage_rate": 0.02
+        },
+        {
+          "pattern_index": 4,
+          "settings": [
+            "A1",
+            "B1"
+          ],
+          "scheduled_blocks": 2,
+          "matched_blocks": 2,
+          "total_shots": 2000,
+          "accepted_shots": 1951,
+          "invalid_shots": 49,
+          "leakage_rate": 0.0245
+        },
+        {
+          "pattern_index": 5,
+          "settings": [
+            "A1",
+            "B2"
+          ],
+          "scheduled_blocks": 9,
+          "matched_blocks": 9,
+          "total_shots": 9000,
+          "accepted_shots": 8798,
+          "invalid_shots": 202,
+          "leakage_rate": 0.022444444444444444
+        },
+        {
+          "pattern_index": 6,
+          "settings": [
+            "A2",
+            "B0"
+          ],
+          "scheduled_blocks": 5,
+          "matched_blocks": 5,
+          "total_shots": 5000,
+          "accepted_shots": 4908,
+          "invalid_shots": 92,
+          "leakage_rate": 0.0184
+        },
+        {
+          "pattern_index": 7,
+          "settings": [
+            "A2",
+            "B1"
+          ],
+          "scheduled_blocks": 9,
+          "matched_blocks": 9,
+          "total_shots": 9000,
+          "accepted_shots": 8794,
+          "invalid_shots": 206,
+          "leakage_rate": 0.02288888888888889
+        },
+        {
+          "pattern_index": 8,
+          "settings": [
+            "A2",
+            "B2"
+          ],
+          "scheduled_blocks": 4,
+          "matched_blocks": 4,
+          "total_shots": 4000,
+          "accepted_shots": 3922,
+          "invalid_shots": 78,
+          "leakage_rate": 0.0195
+        }
+      ],
+      "counting_note": "pattern and term shot totals overlap and are not hardware cost"
+    },
+    "budget": {
+      "setting_draws": 50,
+      "max_setting_draws": 50,
+      "shots_per_draw": 1000,
+      "scheduled_blocks": 50,
+      "completed_blocks": 50,
+      "minimum_shots": 50000,
+      "maximum_shots": 50000,
+      "scheduled_shots": 50000,
+      "completed_shots": 50000
+    },
+    "coverage": {
+      "schedule_complete": true,
+      "required_pattern_count": 9,
+      "scheduled_covered_patterns": 9,
+      "completed_covered_patterns": 9,
+      "missing_scheduled_pattern_indices": [],
+      "missing_pattern_indices": [],
+      "missing_block_ids": []
+    },
+    "reference_comparison": {
+      "status": "diagnostic",
+      "functional_id": "two_qutrit_bell_v1",
+      "normalization": "two_qutrit_pdf_v1",
+      "classical_bound": 5.638155724715451,
+      "classical_bound_source": "analytic",
+      "scope": "saved schedule and observed full-setting contexts",
+      "note": "Interpretation requires faithful local measurements; postselection adds measurement assumptions."
+    },
+    "uncertainty": {
+      "method": "conditional_schedule_block_hoeffding_v1",
+      "confidence_level": 0.95,
+      "alpha": 0.050000000000000044,
+      "term_count": 18,
+      "log_factor": 7.677863500678209,
+      "sampling_unit": "block",
+      "scope": "expected means over the saved schedule and measured contexts",
+      "assumptions": [
+        "outcomes of different blocks are independent conditional on the saved schedule",
+        "arbitrary dependence between shots within each block is allowed",
+        "no independence between algebraic terms is required by the union bound"
+      ],
+      "interpretation": "A stationary Bell-functional interpretation additionally requires stable measurements and faithful local observables. These intervals do not cover arbitrary memory between blocks or device communication and are not a loophole-closing test. The conditional point estimate is a ratio estimate; no unbiasedness claim is made.",
+      "raw": {
+        "real": {
+          "lower": -9.887955824182155,
+          "upper": 10.392304845413264,
+          "width": 20.28026066959542
+        },
+        "imag": {
+          "lower": -10.392304845413264,
+          "upper": 10.392304845413264,
+          "width": 20.784609690826528
+        }
+      },
+      "conditional": {
+        "real": {
+          "lower": -10.392304845413264,
+          "upper": 10.392304845413264,
+          "width": 20.784609690826528
+        },
+        "imag": {
+          "lower": -10.392304845413264,
+          "upper": 10.392304845413264,
+          "width": 20.784609690826528
+        }
+      },
+      "terms": [
+        {
+          "term_index": 0,
+          "matched_blocks": 4,
+          "coefficient_magnitude": 0.5773502691896258,
+          "numerator": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "acceptance": {
+            "lower": 0.0,
+            "upper": 1.0,
+            "width": 1.0
+          },
+          "raw": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          }
+        },
+        {
+          "term_index": 1,
+          "matched_blocks": 7,
+          "coefficient_magnitude": 0.5773502691896257,
+          "numerator": {
+            "real": {
+              "lower": -0.5669834849102511,
+              "upper": 0.5773502691896257,
+              "width": 1.1443337540998768
+            },
+            "imag": {
+              "lower": -0.5773502691896257,
+              "upper": 0.5773502691896257,
+              "width": 1.1547005383792515
+            }
+          },
+          "acceptance": {
+            "lower": 0.23944694891114315,
+            "upper": 1.0,
+            "width": 0.7605530510888568
+          },
+          "raw": {
+            "real": {
+              "lower": -0.5669834849102511,
+              "upper": 0.5773502691896257,
+              "width": 1.1443337540998768
+            },
+            "imag": {
+              "lower": -0.5773502691896257,
+              "upper": 0.5773502691896257,
+              "width": 1.1547005383792515
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896257,
+              "upper": 0.5773502691896257,
+              "width": 1.1547005383792515
+            },
+            "imag": {
+              "lower": -0.5773502691896257,
+              "upper": 0.5773502691896257,
+              "width": 1.1547005383792515
+            }
+          }
+        },
+        {
+          "term_index": 2,
+          "matched_blocks": 5,
+          "coefficient_magnitude": 0.5773502691896256,
+          "numerator": {
+            "real": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            },
+            "imag": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            }
+          },
+          "acceptance": {
+            "lower": 0.10536581322809546,
+            "upper": 1.0,
+            "width": 0.8946341867719045
+          },
+          "raw": {
+            "real": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            },
+            "imag": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            },
+            "imag": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            }
+          }
+        },
+        {
+          "term_index": 3,
+          "matched_blocks": 4,
+          "coefficient_magnitude": 0.5773502691896258,
+          "numerator": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "acceptance": {
+            "lower": 0.0,
+            "upper": 1.0,
+            "width": 1.0
+          },
+          "raw": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          }
+        },
+        {
+          "term_index": 4,
+          "matched_blocks": 2,
+          "coefficient_magnitude": 0.5773502691896258,
+          "numerator": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "acceptance": {
+            "lower": 0.0,
+            "upper": 1.0,
+            "width": 1.0
+          },
+          "raw": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          }
+        },
+        {
+          "term_index": 5,
+          "matched_blocks": 9,
+          "coefficient_magnitude": 0.5773502691896256,
+          "numerator": {
+            "real": {
+              "lower": -0.4453663797790244,
+              "upper": 0.5773502691896256,
+              "width": 1.0227166489686499
+            },
+            "imag": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            }
+          },
+          "acceptance": {
+            "lower": 0.32400470916736923,
+            "upper": 1.0,
+            "width": 0.6759952908326308
+          },
+          "raw": {
+            "real": {
+              "lower": -0.4453663797790244,
+              "upper": 0.5773502691896256,
+              "width": 1.0227166489686499
+            },
+            "imag": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            },
+            "imag": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            }
+          }
+        },
+        {
+          "term_index": 6,
+          "matched_blocks": 6,
+          "coefficient_magnitude": 0.577350269189626,
+          "numerator": {
+            "real": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            },
+            "imag": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            }
+          },
+          "acceptance": {
+            "lower": 0.17327795041305505,
+            "upper": 1.0,
+            "width": 0.826722049586945
+          },
+          "raw": {
+            "real": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            },
+            "imag": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            },
+            "imag": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            }
+          }
+        },
+        {
+          "term_index": 7,
+          "matched_blocks": 9,
+          "coefficient_magnitude": 0.577350269189626,
+          "numerator": {
+            "real": {
+              "lower": -0.4675264322640473,
+              "upper": 0.577350269189626,
+              "width": 1.0448767014536733
+            },
+            "imag": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            }
+          },
+          "acceptance": {
+            "lower": 0.3244491536118136,
+            "upper": 1.0,
+            "width": 0.6755508463881864
+          },
+          "raw": {
+            "real": {
+              "lower": -0.4675264322640473,
+              "upper": 0.577350269189626,
+              "width": 1.0448767014536733
+            },
+            "imag": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            },
+            "imag": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            }
+          }
+        },
+        {
+          "term_index": 8,
+          "matched_blocks": 4,
+          "coefficient_magnitude": 0.5773502691896258,
+          "numerator": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "acceptance": {
+            "lower": 0.0008403970843872122,
+            "upper": 1.0,
+            "width": 0.9991596029156128
+          },
+          "raw": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          }
+        },
+        {
+          "term_index": 9,
+          "matched_blocks": 4,
+          "coefficient_magnitude": 0.5773502691896258,
+          "numerator": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "acceptance": {
+            "lower": 0.0,
+            "upper": 1.0,
+            "width": 1.0
+          },
+          "raw": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          }
+        },
+        {
+          "term_index": 10,
+          "matched_blocks": 7,
+          "coefficient_magnitude": 0.5773502691896257,
+          "numerator": {
+            "real": {
+              "lower": -0.5669834849102511,
+              "upper": 0.5773502691896257,
+              "width": 1.1443337540998768
+            },
+            "imag": {
+              "lower": -0.5773502691896257,
+              "upper": 0.5773502691896257,
+              "width": 1.1547005383792515
+            }
+          },
+          "acceptance": {
+            "lower": 0.23944694891114315,
+            "upper": 1.0,
+            "width": 0.7605530510888568
+          },
+          "raw": {
+            "real": {
+              "lower": -0.5669834849102511,
+              "upper": 0.5773502691896257,
+              "width": 1.1443337540998768
+            },
+            "imag": {
+              "lower": -0.5773502691896257,
+              "upper": 0.5773502691896257,
+              "width": 1.1547005383792515
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896257,
+              "upper": 0.5773502691896257,
+              "width": 1.1547005383792515
+            },
+            "imag": {
+              "lower": -0.5773502691896257,
+              "upper": 0.5773502691896257,
+              "width": 1.1547005383792515
+            }
+          }
+        },
+        {
+          "term_index": 11,
+          "matched_blocks": 5,
+          "coefficient_magnitude": 0.5773502691896255,
+          "numerator": {
+            "real": {
+              "lower": -0.5773502691896255,
+              "upper": 0.5773502691896255,
+              "width": 1.154700538379251
+            },
+            "imag": {
+              "lower": -0.5773502691896255,
+              "upper": 0.5773502691896255,
+              "width": 1.154700538379251
+            }
+          },
+          "acceptance": {
+            "lower": 0.10536581322809546,
+            "upper": 1.0,
+            "width": 0.8946341867719045
+          },
+          "raw": {
+            "real": {
+              "lower": -0.5773502691896255,
+              "upper": 0.5773502691896255,
+              "width": 1.154700538379251
+            },
+            "imag": {
+              "lower": -0.5773502691896255,
+              "upper": 0.5773502691896255,
+              "width": 1.154700538379251
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896255,
+              "upper": 0.5773502691896255,
+              "width": 1.154700538379251
+            },
+            "imag": {
+              "lower": -0.5773502691896255,
+              "upper": 0.5773502691896255,
+              "width": 1.154700538379251
+            }
+          }
+        },
+        {
+          "term_index": 12,
+          "matched_blocks": 4,
+          "coefficient_magnitude": 0.5773502691896258,
+          "numerator": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "acceptance": {
+            "lower": 0.0,
+            "upper": 1.0,
+            "width": 1.0
+          },
+          "raw": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          }
+        },
+        {
+          "term_index": 13,
+          "matched_blocks": 2,
+          "coefficient_magnitude": 0.5773502691896258,
+          "numerator": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "acceptance": {
+            "lower": 0.0,
+            "upper": 1.0,
+            "width": 1.0
+          },
+          "raw": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          }
+        },
+        {
+          "term_index": 14,
+          "matched_blocks": 9,
+          "coefficient_magnitude": 0.5773502691896257,
+          "numerator": {
+            "real": {
+              "lower": -0.44536637977902455,
+              "upper": 0.5773502691896257,
+              "width": 1.0227166489686503
+            },
+            "imag": {
+              "lower": -0.5773502691896257,
+              "upper": 0.5773502691896257,
+              "width": 1.1547005383792515
+            }
+          },
+          "acceptance": {
+            "lower": 0.32400470916736923,
+            "upper": 1.0,
+            "width": 0.6759952908326308
+          },
+          "raw": {
+            "real": {
+              "lower": -0.44536637977902455,
+              "upper": 0.5773502691896257,
+              "width": 1.0227166489686503
+            },
+            "imag": {
+              "lower": -0.5773502691896257,
+              "upper": 0.5773502691896257,
+              "width": 1.1547005383792515
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896257,
+              "upper": 0.5773502691896257,
+              "width": 1.1547005383792515
+            },
+            "imag": {
+              "lower": -0.5773502691896257,
+              "upper": 0.5773502691896257,
+              "width": 1.1547005383792515
+            }
+          }
+        },
+        {
+          "term_index": 15,
+          "matched_blocks": 6,
+          "coefficient_magnitude": 0.5773502691896258,
+          "numerator": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "acceptance": {
+            "lower": 0.17327795041305505,
+            "upper": 1.0,
+            "width": 0.826722049586945
+          },
+          "raw": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            },
+            "imag": {
+              "lower": -0.5773502691896258,
+              "upper": 0.5773502691896258,
+              "width": 1.1547005383792517
+            }
+          }
+        },
+        {
+          "term_index": 16,
+          "matched_blocks": 9,
+          "coefficient_magnitude": 0.577350269189626,
+          "numerator": {
+            "real": {
+              "lower": -0.4675264322640472,
+              "upper": 0.577350269189626,
+              "width": 1.0448767014536733
+            },
+            "imag": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            }
+          },
+          "acceptance": {
+            "lower": 0.3244491536118136,
+            "upper": 1.0,
+            "width": 0.6755508463881864
+          },
+          "raw": {
+            "real": {
+              "lower": -0.4675264322640472,
+              "upper": 0.577350269189626,
+              "width": 1.0448767014536733
+            },
+            "imag": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            },
+            "imag": {
+              "lower": -0.577350269189626,
+              "upper": 0.577350269189626,
+              "width": 1.154700538379252
+            }
+          }
+        },
+        {
+          "term_index": 17,
+          "matched_blocks": 4,
+          "coefficient_magnitude": 0.5773502691896256,
+          "numerator": {
+            "real": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            },
+            "imag": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            }
+          },
+          "acceptance": {
+            "lower": 0.0008403970843872122,
+            "upper": 1.0,
+            "width": 0.9991596029156128
+          },
+          "raw": {
+            "real": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            },
+            "imag": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            }
+          },
+          "conditional": {
+            "real": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            },
+            "imag": {
+              "lower": -0.5773502691896256,
+              "upper": 0.5773502691896256,
+              "width": 1.1547005383792512
+            }
+          }
+        }
+      ]
+    }
+  },
+  "zne_fit": {
+    "factors": [
+      1,
+      3,
+      5
+    ],
+    "values": [
+      {
+        "real": 5.366634967484502,
+        "imag": -5.2735593669694936e-15
+      },
+      {
+        "real": 4.746687391624295,
+        "imag": -4.496403249731884e-15
+      },
+      {
+        "real": 4.392546048385317,
+        "imag": -4.211908599671688e-15
+      }
+    ],
+    "real_coefficients": [
+      -0.24352222977479696,
+      5.5658561584890975
+    ],
+    "imag_coefficients": [
+      2.654126918244524e-16,
+      -5.4568618142643814e-15
+    ],
+    "residuals": [
+      {
+        "real": 0.044301038770201195,
+        "imag": -8.21102445295644e-17
+      },
+      {
+        "real": -0.08860207754041127,
+        "imag": 1.6422048905913984e-16
+      },
+      {
+        "real": 0.04430103877020475,
+        "imag": -8.211024452956834e-17
+      }
+    ]
+  },
+  "mitigated_uncertainty": null,
+  "estimator": "unconditional_zero_for_leakage",
+  "classical_bound": 5.638155724715451,
+  "protocol": {
+    "schema_version": 1,
+    "parent_directory": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_sequential_20260914",
+    "selection": {
+      "layout": [
+        27,
+        28,
+        19,
+        20
+      ],
+      "score": 0.0619078133225878,
+      "candidates": 248,
+      "calibration_set_id": "86eefe25-9e43-4376-ad98-39b63cc0ebbc",
+      "backend": "emerald",
+      "metrics": [
+        {
+          "gate": "r",
+          "qubits": [
+            27
+          ],
+          "error": 0.00024259401150517057,
+          "duration_seconds": 2.4e-08
+        },
+        {
+          "gate": "r",
+          "qubits": [
+            28
+          ],
+          "error": 0.0003232582880011714,
+          "duration_seconds": 2.4e-08
+        },
+        {
+          "gate": "cz",
+          "qubits": [
+            27,
+            28
+          ],
+          "error": 0.0012918696029453614,
+          "duration_seconds": 4e-08
+        },
+        {
+          "gate": "r",
+          "qubits": [
+            19
+          ],
+          "error": 0.00026353177227356195,
+          "duration_seconds": 2.4e-08
+        },
+        {
+          "gate": "cz",
+          "qubits": [
+            27,
+            19
+          ],
+          "error": 0.0023265776490095647,
+          "duration_seconds": 4e-08
+        },
+        {
+          "gate": "r",
+          "qubits": [
+            20
+          ],
+          "error": 0.0002954364097660367,
+          "duration_seconds": 2.4e-08
+        },
+        {
+          "gate": "cz",
+          "qubits": [
+            20,
+            28
+          ],
+          "error": 0.0031995633984176486,
+          "duration_seconds": 4e-08
+        },
+        {
+          "gate": "cz",
+          "qubits": [
+            19,
+            20
+          ],
+          "error": 0.0033562198073243676,
+          "duration_seconds": 4e-08
+        },
+        {
+          "gate": "measure",
+          "qubits": [
+            19
+          ],
+          "error": 0.014499999999999957,
+          "duration_seconds": 3.6e-07
+        },
+        {
+          "gate": "measure",
+          "qubits": [
+            20
+          ],
+          "error": 0.009499999999999953,
+          "duration_seconds": 3.6e-07
+        },
+        {
+          "gate": "measure",
+          "qubits": [
+            27
+          ],
+          "error": 0.010249999999999981,
+          "duration_seconds": 3.6e-07
+        },
+        {
+          "gate": "measure",
+          "qubits": [
+            28
+          ],
+          "error": 0.007650000000000046,
+          "duration_seconds": 3.6e-07
+        }
+      ],
+      "qubit_names_logical_order": [
+        "QB28",
+        "QB29",
+        "QB20",
+        "QB21"
+      ],
+      "measurement_map_c0_to_c3": [
+        19,
+        20,
+        27,
+        28
+      ]
+    },
+    "draws": 50,
+    "shots_per_draw": 1000,
+    "instances": 8,
+    "twirling_seed": 20260914,
+    "zne_factors": [
+      1,
+      3,
+      5
+    ],
+    "readout_mitigation": false,
+    "total_shots": 200000,
+    "setting_frequencies": {
+      "A1,B0": 7,
+      "A0,B0": 4,
+      "A1,B2": 9,
+      "A2,B1": 9,
+      "A0,B1": 4,
+      "A2,B0": 5,
+      "A0,B2": 6,
+      "A2,B2": 4,
+      "A1,B1": 2
+    },
+    "versions": {
+      "qiskit": "2.1.2",
+      "iqm-client": "35.0.2",
+      "numpy": "2.5.3",
+      "scipy": "1.18.1"
+    },
+    "input_sha256": {
+      "batches.json": "c4ecb11d4e473eb2695336de2b14b22c0d766a5be547884fccbffb70c5f4ee7f",
+      "batch_00.qpy": "fcdcf58983a112f63c75ca522fe53407801cc6af1c2960e8486eb8913312bdf4",
+      "batch_01.qpy": "b150d4b2491f1f6a4bcbed05600b250c3a808dbe112bc5b57fd9cf0800766e42",
+      "batch_02.qpy": "5fc26836fbd2eafb71593aecbb81539161fe5082e2cf4190333df866d7136cc2",
+      "batch_03.qpy": "4c70217b7022d01dabf7e181479f5190ab2827f45a364d369adecb2bb6d80415",
+      "bell_weights.npy": "5659ec6279e156f62562f7460b994b02c7031c585103bee5a9957050a958cddc",
+      "evidence.json": "09abbcf245222cd3007bdfea2f2f426a52e761c597a94237e8f3c0d9140c9039",
+      "parents.qpy": "7760085564df74f370e50818ed301abe71d319bb1a14602db77ea0320eb06173",
+      "parent_protocol.json": "5cf30ac2a0678529bdd401f81dc2586954e45e77050858e5f3cdc3468e22564e",
+      "schedule.json": "ea0688d3d6286adf418864103313bb233bb62356bae5df1191f247461cdff1f5"
+    }
+  }
+}

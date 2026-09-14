@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "variant": "DD_ZNE_INTERLEAVED",
+  "selection": {
+    "layout": [
+      27,
+      28,
+      19,
+      20
+    ],
+    "score": 0.0619078133225878,
+    "candidates": 248,
+    "calibration_set_id": "86eefe25-9e43-4376-ad98-39b63cc0ebbc",
+    "backend": "emerald",
+    "metrics": [
+      {
+        "gate": "r",
+        "qubits": [
+          27
+        ],
+        "error": 0.00024259401150517057,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "r",
+        "qubits": [
+          28
+        ],
+        "error": 0.0003232582880011714,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          27,
+          28
+        ],
+        "error": 0.0012918696029453614,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "r",
+        "qubits": [
+          19
+        ],
+        "error": 0.00026353177227356195,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          27,
+          19
+        ],
+        "error": 0.0023265776490095647,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "r",
+        "qubits": [
+          20
+        ],
+        "error": 0.0002954364097660367,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          20,
+          28
+        ],
+        "error": 0.0031995633984176486,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          19,
+          20
+        ],
+        "error": 0.0033562198073243676,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          19
+        ],
+        "error": 0.014499999999999957,
+        "duration_seconds": 3.6e-07
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          20
+        ],
+        "error": 0.009499999999999953,
+        "duration_seconds": 3.6e-07
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          27
+        ],
+        "error": 0.010249999999999981,
+        "duration_seconds": 3.6e-07
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          28
+        ],
+        "error": 0.007650000000000046,
+        "duration_seconds": 3.6e-07
+      }
+    ],
+    "qubit_names_logical_order": [
+      "QB28",
+      "QB29",
+      "QB20",
+      "QB21"
+    ],
+    "measurement_map_c0_to_c3": [
+      19,
+      20,
+      27,
+      28
+    ],
+    "layout_selection_calibration_set_id": "86eefe25-9e43-4376-ad98-39b63cc0ebbc"
+  },
+  "scales": [
+    1.0,
+    1.5,
+    2.0,
+    3.0,
+    5.0
+  ],
+  "draws": 50,
+  "shots_per_draw_per_scale": 1000,
+  "instances": 4,
+  "shots_per_instance": 250,
+  "total_shots": 250000,
+  "jobs": 10,
+  "max_circuits_per_job": 100,
+  "dd": {
+    "mode": "enabled",
+    "strategy": {
+      "merge_contiguous_waits": true,
+      "target_qubits": null,
+      "skip_leading_wait": true,
+      "skip_trailing_wait": true,
+      "gate_sequences": [
+        [
+          9,
+          "XYXYYXYX",
+          "asap"
+        ],
+        [
+          5,
+          "YXYX",
+          "asap"
+        ],
+        [
+          2,
+          "XX",
+          "center"
+        ]
+      ]
+    }
+  },
+  "twirling": false,
+  "readout_mitigation": false,
+  "seed": 20260915,
+  "created_at": "2026-09-14T22:26:40.000778+00:00",
+  "interleaving": "all five scales for five saved blocks in each job; shuffled circuits",
+  "fractional_folding": "each native CZ has exact requested mean repetition count across four equally weighted variants",
+  "estimator": "unconditional sum of nine within-setting block means; zero leakage weight",
+  "model_protocol": "primary unweighted linear across all five scales; quadratic sensitivity uses actual scale moments per setting",
+  "source_evidence": {
+    "source_directory": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_randomized_50x1000_20260914",
+    "source_protocol_sha256": "1e315df8f496c934e183474394af518166df9345e3363b53f6aea0186e7b3511",
+    "source_input_sha256": {
+      "batches.json": "c4ecb11d4e473eb2695336de2b14b22c0d766a5be547884fccbffb70c5f4ee7f",
+      "batch_00.qpy": "fcdcf58983a112f63c75ca522fe53407801cc6af1c2960e8486eb8913312bdf4",
+      "batch_01.qpy": "b150d4b2491f1f6a4bcbed05600b250c3a808dbe112bc5b57fd9cf0800766e42",
+      "batch_02.qpy": "5fc26836fbd2eafb71593aecbb81539161fe5082e2cf4190333df866d7136cc2",
+      "batch_03.qpy": "4c70217b7022d01dabf7e181479f5190ab2827f45a364d369adecb2bb6d80415",
+      "bell_weights.npy": "5659ec6279e156f62562f7460b994b02c7031c585103bee5a9957050a958cddc",
+      "evidence.json": "09abbcf245222cd3007bdfea2f2f426a52e761c597a94237e8f3c0d9140c9039",
+      "parents.qpy": "7760085564df74f370e50818ed301abe71d319bb1a14602db77ea0320eb06173",
+      "parent_protocol.json": "5cf30ac2a0678529bdd401f81dc2586954e45e77050858e5f3cdc3468e22564e",
+      "schedule.json": "ea0688d3d6286adf418864103313bb233bb62356bae5df1191f247461cdff1f5"
+    },
+    "ideal_bell": 6.000000000000002,
+    "ideal_probabilities_preserved": true,
+    "serialized_circuits": 1000,
+    "previous_calibration_set_id": "86eefe25-9e43-4376-ad98-39b63cc0ebbc"
+  },
+  "versions": {
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "qiskit": "2.1.2",
+    "iqm-client": "35.0.2"
+  },
+  "input_sha256": {
+    "batches.json": "fd516933149599764407498d6ecc30bd8d5e1960b6dc025fa2ddb88de9834c2a",
+    "batch_00.qpy": "7ce1e1cc1d0e7094a5f885a6b812fc2bc1f836ca92a07f3216d47d9268369fa2",
+    "batch_01.qpy": "1407a88e1dd8a00162bc1b0b1f4d45973b9437cdfbcd6c3606a45ba54f32f1ed",
+    "batch_02.qpy": "c3be308786c6a6825b96a66d597957edfd8f7854edaf9d4bee347404d50c3986",
+    "batch_03.qpy": "19d368c375563cae17aeb46d9423db12418010a6b561246af7f5c7965b3f2e25",
+    "batch_04.qpy": "537b51cbef6558ae41d95719adc46e3724e176fb319e2acd8d87c0709eedc6f8",
+    "batch_05.qpy": "13e658bf45daaa16fb383bd1231f3fef8b5b0ba41d708248bfc2b307ce8c3845",
+    "batch_06.qpy": "5f570aff8a3bea74550f20006442443df61f64081238cef619ffde81702f49e1",
+    "batch_07.qpy": "caa5e53be1521680c93c7c6c6c57c441e8fe4a213825dddf255dcdc52739c44e",
+    "batch_08.qpy": "c57ff157ef97cc24ef0d722d4281525a7fa5af394516cbae0ee61759417b0f8a",
+    "batch_09.qpy": "0b423e146166eef9b25adaf28ed8d60f8de044a492d6cb5909c1ea233ebf6375",
+    "bell_weights.npy": "5659ec6279e156f62562f7460b994b02c7031c585103bee5a9957050a958cddc",
+    "parents.qpy": "7760085564df74f370e50818ed301abe71d319bb1a14602db77ea0320eb06173",
+    "schedule.json": "ea0688d3d6286adf418864103313bb233bb62356bae5df1191f247461cdff1f5",
+    "source_evidence.json": "047781f94abb65e7391ad55f1b7585982905468e3d8b6420b01938e82df24550"
+  }
+}

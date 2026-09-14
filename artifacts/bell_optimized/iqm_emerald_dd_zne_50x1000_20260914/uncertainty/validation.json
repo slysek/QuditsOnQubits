@@ -1,0 +1,18 @@
+{
+  "status": "complete",
+  "new_hardware_jobs": 0,
+  "source_hashes_verified": 37,
+  "tests_passed": 15,
+  "new_module_coverage_percent": 85,
+  "independent_review": "CLEAN",
+  "review_rounds": 1,
+  "independent_weighted_residual_chi_square": 6.070974371918112,
+  "artifacts_sha256": {
+    "analysis.json": "dc10cde50772d3b9f6af0df35b48f672dcd30762368cbb0268835563cebbda5f",
+    "bootstrap.npz": "ae86fbd28c30b124ecc4949cd1f9efdd48cad76680bd90295107cbc6b3b34541",
+    "report.md": "d13c1e1c52aa289440867fdd07916c1ac93592df41c7746d9d03364dcf566a08",
+    "zne_uncertainty.pdf": "c4c2dc113f1246c16d9eb0699b71b62289e974a98121293e608cac6e7d6b3105",
+    "zne_uncertainty.png": "a3e31017b450891cf12ea33e78c22a984f90844615ace5c5f3ee6fdb8ea68099"
+  },
+  "test_script_sha256": "67c01e57153deba53846dbfead312e56ef35e4937a2dbb8709c1158aa3403ccc"
+}

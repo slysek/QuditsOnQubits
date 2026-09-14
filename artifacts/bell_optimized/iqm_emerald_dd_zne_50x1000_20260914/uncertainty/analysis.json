@@ -1,0 +1,504 @@
+{
+  "schema_version": 1,
+  "scales": [
+    1.0,
+    3.0,
+    5.0
+  ],
+  "classical_bound": 5.638155724715451,
+  "ideal_bell": 6.000000000000002,
+  "setting_frequencies": [
+    4,
+    4,
+    6,
+    7,
+    2,
+    9,
+    5,
+    9,
+    4
+  ],
+  "scale_statistics": [
+    {
+      "scale": 1.0,
+      "value": 5.541927650303155,
+      "weights": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "shot": {
+        "se": 0.03397307514220792,
+        "ci95": [
+          5.475341646580354,
+          5.6085136540259555
+        ],
+        "bootstrap_se": 0.034035034340360946,
+        "bootstrap_percentile_ci95": [
+          5.4757066150306395,
+          5.609347582593769
+        ]
+      },
+      "block": {
+        "se": 0.028122991593422367,
+        "welch_df": 17.070207936465597,
+        "ci95": [
+          5.48261190881673,
+          5.60124339178958
+        ],
+        "bootstrap_se": 0.024649109740999358,
+        "bootstrap_percentile_ci95": [
+          5.493695113002569,
+          5.590500523860224
+        ]
+      },
+      "independent_block_hoeffding_ci95": [
+        1.948804978017173,
+        9.135050322589137
+      ]
+    },
+    {
+      "scale": 3.0,
+      "value": 5.242990503374912,
+      "weights": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "shot": {
+        "se": 0.03438677250353901,
+        "ci95": [
+          5.175593667723404,
+          5.310387339026421
+        ],
+        "bootstrap_se": 0.03456728984937416,
+        "bootstrap_percentile_ci95": [
+          5.175403930498777,
+          5.309973474601974
+        ]
+      },
+      "block": {
+        "se": 0.0367705460307497,
+        "welch_df": 12.13762014644112,
+        "ci95": [
+          5.1629749980204185,
+          5.323006008729406
+        ],
+        "bootstrap_se": 0.03182066562093751,
+        "bootstrap_percentile_ci95": [
+          5.181409823605515,
+          5.306191924150376
+        ]
+      },
+      "independent_block_hoeffding_ci95": [
+        1.6498678310889305,
+        8.836113175660895
+      ]
+    },
+    {
+      "scale": 5.0,
+      "value": 4.7363568151637425,
+      "weights": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "shot": {
+        "se": 0.03495167265102513,
+        "ci95": [
+          4.6678527955683,
+          4.804860834759185
+        ],
+        "bootstrap_se": 0.03492686066617285,
+        "bootstrap_percentile_ci95": [
+          4.6673098630533305,
+          4.805153792834504
+        ]
+      },
+      "block": {
+        "se": 0.026406310607975245,
+        "welch_df": 20.525662898057124,
+        "ci95": [
+          4.68136451076889,
+          4.791349119558595
+        ],
+        "bootstrap_se": 0.02352904277882524,
+        "bootstrap_percentile_ci95": [
+          4.6899281808019095,
+          4.782261776786899
+        ]
+      },
+      "independent_block_hoeffding_ci95": [
+        1.1432341428777608,
+        8.329479487449724
+      ]
+    }
+  ],
+  "models": [
+    {
+      "value": 5.777936449301828,
+      "weights": [
+        1.0833333333333333,
+        0.3333333333333333,
+        -0.4166666666666667
+      ],
+      "shot": {
+        "se": 0.04120699690699726,
+        "ci95": [
+          5.69717221945306,
+          5.858700679150596
+        ],
+        "bootstrap_se": 0.04126051826468414,
+        "bootstrap_percentile_ci95": [
+          5.697612979100484,
+          5.8592595791090405
+        ],
+        "signed_distance_from_bound_se": 3.3921599504535056
+      },
+      "block": {
+        "se": 0.034633803411168534,
+        "welch_df": 27.123636711443265,
+        "ci95": [
+          5.706888908135506,
+          5.848983990468151
+        ],
+        "bootstrap_se": 0.030352627155013356,
+        "bootstrap_percentile_ci95": [
+          5.7187782095089625,
+          5.837926713357203
+        ]
+      },
+      "independent_block_hoeffding_ci95": [
+        1.438828587687567,
+        10.11704431091609
+      ],
+      "model": "linear",
+      "residual_dof": 1,
+      "delta_from_classical": 0.13978072458637758,
+      "error_vs_ideal": -0.22206355069817363,
+      "interpretation": "conditional on model; statistical interval excludes extrapolation bias"
+    },
+    {
+      "value": 5.613510020786179,
+      "weights": [
+        1.875,
+        -1.25,
+        0.375
+      ],
+      "shot": {
+        "se": 0.07795509523718087,
+        "ci95": [
+          5.4607208417099145,
+          5.766299199862443
+        ],
+        "bootstrap_se": 0.07833594806829394,
+        "bootstrap_percentile_ci95": [
+          5.460167055143678,
+          5.767543318987102
+        ],
+        "signed_distance_from_bound_se": -0.31615257289195076
+      },
+      "block": {
+        "se": 0.07064834153397836,
+        "welch_df": 30.34010531469774,
+        "ci95": [
+          5.469294650944692,
+          5.757725390627666
+        ],
+        "bootstrap_se": 0.06156093764156426,
+        "bootstrap_percentile_ci95": [
+          5.493833903154745,
+          5.734888271345007
+        ]
+      },
+      "independent_block_hoeffding_ci95": [
+        -2.594829107544604,
+        13.82184914911696
+      ],
+      "model": "quadratic",
+      "residual_dof": 0,
+      "delta_from_classical": -0.02464570392927179,
+      "error_vs_ideal": -0.386489979213823,
+      "interpretation": "conditional on model; statistical interval excludes extrapolation bias"
+    },
+    {
+      "value": 5.691396223767276,
+      "weights": [
+        1.5,
+        -0.5,
+        0.0
+      ],
+      "shot": {
+        "se": 0.0537819175810353,
+        "ci95": [
+          5.585985602288945,
+          5.796806845245607
+        ],
+        "bootstrap_se": 0.0539382644348016,
+        "bootstrap_percentile_ci95": [
+          5.5860586751057975,
+          5.797993182244996
+        ],
+        "signed_distance_from_bound_se": 0.9899330750266732
+      },
+      "block": {
+        "se": 0.04601683648642318,
+        "welch_df": 23.00373292273711,
+        "ci95": [
+          5.596203999520512,
+          5.78658844801404
+        ],
+        "bootstrap_se": 0.040178227902564596,
+        "bootstrap_percentile_ci95": [
+          5.613001689747816,
+          5.7709857575356835
+        ]
+      },
+      "independent_block_hoeffding_ci95": [
+        0.010170445360041747,
+        11.37262200217451
+      ],
+      "model": "linear_1_3",
+      "residual_dof": 0,
+      "delta_from_classical": 0.053240499051825374,
+      "error_vs_ideal": -0.30860377623272583,
+      "interpretation": "conditional on model; statistical interval excludes extrapolation bias"
+    },
+    {
+      "value": 5.743320359088008,
+      "weights": [
+        1.25,
+        0.0,
+        -0.25
+      ],
+      "shot": {
+        "se": 0.04335598667323598,
+        "ci95": [
+          5.658344186694267,
+          5.828296531481749
+        ],
+        "bootstrap_se": 0.04341319952739282,
+        "bootstrap_percentile_ci95": [
+          5.659028749913758,
+          5.8292163911579715
+        ],
+        "signed_distance_from_bound_se": 2.4256081441568584
+      },
+      "block": {
+        "se": 0.035768229306901586,
+        "welch_df": 18.276519621147624,
+        "ci95": [
+          5.668255510705223,
+          5.818385207470793
+        ],
+        "bootstrap_se": 0.03131605744860068,
+        "bootstrap_percentile_ci95": [
+          5.682159801836947,
+          5.804920102206495
+        ]
+      },
+      "independent_block_hoeffding_ci95": [
+        1.1629697039082894,
+        10.323671014267727
+      ],
+      "model": "linear_1_5",
+      "residual_dof": 0,
+      "delta_from_classical": 0.10516463437255741,
+      "error_vs_ideal": -0.2566796409119938,
+      "interpretation": "conditional on model; statistical interval excludes extrapolation bias"
+    },
+    {
+      "value": 6.002941035691666,
+      "weights": [
+        0.0,
+        2.5,
+        -1.5
+      ],
+      "shot": {
+        "se": 0.10069238783318409,
+        "ci95": [
+          5.805587582021286,
+          6.200294489362046
+        ],
+        "bootstrap_se": 0.10140741047772081,
+        "bootstrap_percentile_ci95": [
+          5.80185683607062,
+          6.199959260898629
+        ],
+        "signed_distance_from_bound_se": 3.622769494557537
+      },
+      "block": {
+        "se": 0.10009678509361684,
+        "welch_df": 16.722084588375882,
+        "ci95": [
+          5.791487596432002,
+          6.214394474951331
+        ],
+        "bootstrap_se": 0.08725400040078996,
+        "bootstrap_percentile_ci95": [
+          5.832985276632737,
+          6.174561875819807
+        ]
+      },
+      "independent_block_hoeffding_ci95": [
+        -4.47272169149711,
+        16.478603762880443
+      ],
+      "model": "linear_3_5",
+      "residual_dof": 0,
+      "delta_from_classical": 0.3647853109762158,
+      "error_vs_ideal": 0.0029410356916645952,
+      "interpretation": "conditional on model; statistical interval excludes extrapolation bias"
+    }
+  ],
+  "linearity": {
+    "contrast": {
+      "value": -0.20769654128292725,
+      "weights": [
+        1.0,
+        -2.0,
+        1.0
+      ],
+      "shot": {
+        "se": 0.08429466026127105,
+        "ci95": [
+          -0.37291103948405824,
+          -0.04248204308179629
+        ],
+        "bootstrap_se": 0.08492164040418611,
+        "bootstrap_percentile_ci95": [
+          -0.3724648044369488,
+          -0.04027013482127066
+        ]
+      },
+      "block": {
+        "se": 0.08304509689130661,
+        "welch_df": 19.254404453977596,
+        "ci95": [
+          -0.381356617853854,
+          -0.0340364647120005
+        ],
+        "bootstrap_se": 0.07229767298476969,
+        "bootstrap_percentile_ci95": [
+          -0.3504266455859451,
+          -0.06660030665499701
+        ]
+      },
+      "independent_block_hoeffding_ci95": [
+        -9.009013671609122,
+        8.593620589043269
+      ]
+    },
+    "quadratic_coefficient": -0.025962067660365906,
+    "quadratic_coefficient_ci95": [
+      -0.04661387993550728,
+      -0.005310255385224536
+    ],
+    "shot_chi_square": 6.070974371918113,
+    "residual_dof": 1,
+    "shot_chi_square_p": 0.01374211320990865,
+    "block_welch_p": 0.021560029599549998
+  },
+  "model_sensitivity": {
+    "linear_minus_quadratic": {
+      "value": 0.16442642851564981,
+      "weights": [
+        -0.7916666666666667,
+        1.5833333333333333,
+        -0.7916666666666667
+      ],
+      "shot": {
+        "se": 0.0667332727068396,
+        "ci95": [
+          0.03363161743975443,
+          0.2952212395915452
+        ],
+        "bootstrap_se": 0.06722963198664733,
+        "bootstrap_percentile_ci95": [
+          0.03188052340017117,
+          0.29486797017924965
+        ]
+      },
+      "block": {
+        "se": 0.06574403503895107,
+        "welch_df": 19.254404453977607,
+        "ci95": [
+          0.026945534563666163,
+          0.30190732246763347
+        ],
+        "bootstrap_se": 0.05723565777960934,
+        "bootstrap_percentile_ci95": [
+          0.052725242768537954,
+          0.2774210944222052
+        ]
+      },
+      "independent_block_hoeffding_ci95": [
+        -6.80328296632592,
+        7.1321358233572205
+      ]
+    },
+    "bias_identified": false,
+    "explanation": "Model spread is sensitivity, not a bias bound or an independent error bar. Adding c*(x-1)*(x-3)*(x-5) preserves data and changes the zero intercept by -15*c."
+  },
+  "assumptions": [
+    "Condition on the saved setting schedule; sum nine within-setting block means; keep leakage in the denominator.",
+    "Shot intervals assume independent shots within each block and independent blocks/scales; no serial drift coverage.",
+    "Block intervals instead assume independent exchangeable blocks within each setting/scale; small strata limit accuracy.",
+    "The two variance estimates are alternatives and are not added; empirical block variance can fall below shot variance.",
+    "Percentile block bootstrap is exploratory and has finite-sample downward variance bias, severe for settings with two blocks.",
+    "Welch intervals approximate normal block scores with estimated stratum variances; zero empirical variance is not certainty.",
+    "Intervals are individual 95% statistical intervals, not simultaneous intervals and not confidence statements about an unvalidated noiseless intercept.",
+    "Three scale jobs were sequential: scale dependence is confounded with drift; no inferred paired cross-scale covariance.",
+    "CZ folding does not scale all R/readout errors; the zero-fold extrapolation need not remove those errors.",
+    "Quadratic has three parameters at three points and no residual degrees of freedom for validation.",
+    "Error relative to ideal B=6 combines remaining hardware and mitigation errors; it does not isolate model bias."
+  ],
+  "bootstrap": {
+    "draws": 20000,
+    "method": "per-block multinomial; independent setting-stratified block percentile bootstrap",
+    "seed": 20260914
+  },
+  "provenance": {
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\completion_audit.json": "21deeb99903ea314f05861c6acdfa318b0fbff7cd92aa7685f0547054b3b1b81",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\protocol.json": "ce6556c209d290b84e57becd04f89200f989d2878a513c02388f7064592c380f",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_randomized_50x1000_20260914\\protocol.json": "1e315df8f496c934e183474394af518166df9345e3363b53f6aea0186e7b3511",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\analysis.json": "7402dcee2efd48890a9f96790fdc19ca4f7109718a724c31b6a912ed869e27f4",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\batches.json": "e5cfe0d4821209526d748e5d6145b5828a6134c8a2c4e8b7a47c84736a284bad",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\dd_scale_1.qpy": "fcdcf58983a112f63c75ca522fe53407801cc6af1c2960e8486eb8913312bdf4",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\dd_scale_3.qpy": "f9f3aa4d8445974f4c905656c6d6bdd869186cbc6a6f6ed2f857c7fa30ca5bdb",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\dd_scale_5.qpy": "14a954b7c74a9b919f885f1377f57ded925eb14d18b2ceefa65b519e17598dc4",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\evidence.json": "09abbcf245222cd3007bdfea2f2f426a52e761c597a94237e8f3c0d9140c9039",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\preflight.json": "0780feca22a9922603f0dc11b1616fc6d1111fc059747b02278d96649e91faaa",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\previous_dd_only_analysis.json": "6f1b6cbdcd5c82a17afa3d4dbee06edc949a7094ff59e1a5352a0a10f80b477e",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\previous_randomized_analysis.json": "1b5590cf098193a6826f123329255b360f2d4730e57bfca7baf77f5126438c7e",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\previous_twirling_only_analysis.json": "bd3f173d7e18a44c87a41fd45f3c8b961301194db7838a92e3a1177b9c48d786",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\schedule.json": "ea0688d3d6286adf418864103313bb233bb62356bae5df1191f247461cdff1f5",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\backend.json": "d88d6d87bc3c6bc6289af84d6c65078b0ed98c8b993810b85d1750a3dae53bc0",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_1_0.counts.json": "8ccacadc41797f81fe145f912d9e842e43bca9981d862311524a7a994cdb3d4c",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_1_0.qpy": "fcdcf58983a112f63c75ca522fe53407801cc6af1c2960e8486eb8913312bdf4",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_1_0.request.json": "58db18f2216bd7d0a25161f4915d96dbe10bde970e41aca3c6241c0fa3655c0e",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_1_0.result.json": "669773a3d6722677246091104ac394b71da077c052be49187041d10af12624b6",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_1_0.submission.json": "dc4cb7b7d22db68c94fdf776b7b0584750a7bb72ebeaa0b9e447d236aa61e2e1",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_3_0.counts.json": "b7f96345238650136e5be6ad071d4a663a0870d33d9319c90720f394dcbfdeda",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_3_0.qpy": "f9f3aa4d8445974f4c905656c6d6bdd869186cbc6a6f6ed2f857c7fa30ca5bdb",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_3_0.request.json": "c5c38a027c891f90ecfbb161ed5446f065cd1e3d5454a5b7907d8bb2f053575f",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_3_0.result.json": "9df0fc9960fc4230a2851c784aedbfd86b63aa71bbe0cf063a5e4d5e5eaa8905",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_3_0.submission.json": "a429a3fdb95a83c1788eebbef3df71582d6bb878f00dc57c1aec3f0addf849a6",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_5_0.counts.json": "0272e4366ea8f97c585cd6416e186883031b575251785963237932534fb0c192",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_5_0.qpy": "14a954b7c74a9b919f885f1377f57ded925eb14d18b2ceefa65b519e17598dc4",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_5_0.request.json": "546a9edade66baf3f4765bd7dec7a2ed433698f72c3091eb0bb5087c5b1c6959",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_5_0.result.json": "96363e8ed9a30ff56bbf6ce125818623244904ec7d35d534034014551335821a",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\DD_5_0.submission.json": "13dc4387ed6365cd30f61c9dacfac493e4b9ef940fa86f84c7afa1d3fe09c555",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\gates.json": "09abbcf245222cd3007bdfea2f2f426a52e761c597a94237e8f3c0d9140c9039",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\index.json": "7cf53ef7afa11b00382730c7eae01e5b74a71692c2acc7938ec083b806b86f33",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_dd_zne_50x1000_20260914\\hardware\\schedule.json": "ea0688d3d6286adf418864103313bb233bb62356bae5df1191f247461cdff1f5",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_randomized_50x1000_20260914\\bell_weights.npy": "5659ec6279e156f62562f7460b994b02c7031c585103bee5a9957050a958cddc",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_randomized_50x1000_20260914\\schedule.json": "ea0688d3d6286adf418864103313bb233bb62356bae5df1191f247461cdff1f5",
+    "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_randomized_50x1000_20260914\\evidence.json": "09abbcf245222cd3007bdfea2f2f426a52e761c597a94237e8f3c0d9140c9039",
+    "C:\\Users\\szymon\\QuditsOnQubits\\scripts\\iqm_bell_randomized_uncertainty.py": "02590ae9d1a6c8aa5b2d08ae53de67b3bc8415daed71fe0b000e78fea39a2540"
+  },
+  "versions": {
+    "numpy": "2.5.3",
+    "scipy": "1.18.1"
+  }
+}

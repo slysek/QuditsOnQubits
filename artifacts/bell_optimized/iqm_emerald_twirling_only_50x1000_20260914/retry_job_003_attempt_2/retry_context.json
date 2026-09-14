@@ -1,0 +1,11 @@
+{
+  "original_job_index": 3,
+  "previous_failed_job_id": "01a0a1b3-9f79-7210-b965-27b8f8bead19",
+  "requested_shots": 12500,
+  "source_qpy_sha256": "4830ab7eeec47464726a927219ecddc71b077b6a50fcb77588d768e728084cce",
+  "dd_mode": "disabled",
+  "dd_strategy": null,
+  "calibration_set_id": "86eefe25-9e43-4376-ad98-39b63cc0ebbc",
+  "started_at": "2026-09-14T21:01:29.985488+00:00",
+  "credentials_reloaded": true
+}

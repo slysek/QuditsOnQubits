@@ -1,0 +1,109 @@
+{
+  "scales": [
+    {
+      "factor": 1,
+      "circuits": 50,
+      "shots": 50000,
+      "cz_counts": [
+        5,
+        7
+      ],
+      "r_counts": [
+        12,
+        18
+      ],
+      "max_ideal_probability_error": 0.0,
+      "serialized_cz_counts_verified": true
+    },
+    {
+      "factor": 3,
+      "circuits": 50,
+      "shots": 50000,
+      "cz_counts": [
+        15,
+        21
+      ],
+      "r_counts": [
+        12,
+        18
+      ],
+      "max_ideal_probability_error": 0.0,
+      "serialized_cz_counts_verified": true
+    },
+    {
+      "factor": 5,
+      "circuits": 50,
+      "shots": 50000,
+      "cz_counts": [
+        25,
+        35
+      ],
+      "r_counts": [
+        12,
+        18
+      ],
+      "max_ideal_probability_error": 0.0,
+      "serialized_cz_counts_verified": true
+    }
+  ],
+  "parent_hashes": [
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "2c33c86c7268c24f77d31346b7ddd3f039c2c3bb5741b61a3c185a469b482e40",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "1ea2bf771cb47d61af4335b695fce42ae7d6ffdf1b14bf6e7054d3e86a7246da",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "2c33c86c7268c24f77d31346b7ddd3f039c2c3bb5741b61a3c185a469b482e40",
+    "db9d05f674722c1b07c6d39d2c0ab95f7c4ba8118f6d50c670c07ce0847d9de1",
+    "2c33c86c7268c24f77d31346b7ddd3f039c2c3bb5741b61a3c185a469b482e40",
+    "1ea2bf771cb47d61af4335b695fce42ae7d6ffdf1b14bf6e7054d3e86a7246da",
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "db9d05f674722c1b07c6d39d2c0ab95f7c4ba8118f6d50c670c07ce0847d9de1",
+    "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "1ea2bf771cb47d61af4335b695fce42ae7d6ffdf1b14bf6e7054d3e86a7246da",
+    "2c33c86c7268c24f77d31346b7ddd3f039c2c3bb5741b61a3c185a469b482e40",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "3d54e28cc5adf7ce43469903a3b2d265258a2dc85853f2dd9b0f9118405416bf",
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "db9d05f674722c1b07c6d39d2c0ab95f7c4ba8118f6d50c670c07ce0847d9de1",
+    "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "3d54e28cc5adf7ce43469903a3b2d265258a2dc85853f2dd9b0f9118405416bf",
+    "1ea2bf771cb47d61af4335b695fce42ae7d6ffdf1b14bf6e7054d3e86a7246da",
+    "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+    "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "db9d05f674722c1b07c6d39d2c0ab95f7c4ba8118f6d50c670c07ce0847d9de1",
+    "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461"
+  ],
+  "factors": [
+    1,
+    3,
+    5
+  ],
+  "twirling": false,
+  "compiler_path": "Native IQM R/CZ; no retranspilation after folding",
+  "ideal_bell": 6.000000000000002
+}

@@ -1,0 +1,20 @@
+{
+  "source_directory": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_randomized_50x1000_20260914",
+  "source_protocol_sha256": "1e315df8f496c934e183474394af518166df9345e3363b53f6aea0186e7b3511",
+  "source_input_sha256": {
+    "batches.json": "c4ecb11d4e473eb2695336de2b14b22c0d766a5be547884fccbffb70c5f4ee7f",
+    "batch_00.qpy": "fcdcf58983a112f63c75ca522fe53407801cc6af1c2960e8486eb8913312bdf4",
+    "batch_01.qpy": "b150d4b2491f1f6a4bcbed05600b250c3a808dbe112bc5b57fd9cf0800766e42",
+    "batch_02.qpy": "5fc26836fbd2eafb71593aecbb81539161fe5082e2cf4190333df866d7136cc2",
+    "batch_03.qpy": "4c70217b7022d01dabf7e181479f5190ab2827f45a364d369adecb2bb6d80415",
+    "bell_weights.npy": "5659ec6279e156f62562f7460b994b02c7031c585103bee5a9957050a958cddc",
+    "evidence.json": "09abbcf245222cd3007bdfea2f2f426a52e761c597a94237e8f3c0d9140c9039",
+    "parents.qpy": "7760085564df74f370e50818ed301abe71d319bb1a14602db77ea0320eb06173",
+    "parent_protocol.json": "5cf30ac2a0678529bdd401f81dc2586954e45e77050858e5f3cdc3468e22564e",
+    "schedule.json": "ea0688d3d6286adf418864103313bb233bb62356bae5df1191f247461cdff1f5"
+  },
+  "ideal_bell": 6.000000000000002,
+  "ideal_probabilities_preserved": true,
+  "serialized_circuits": 1000,
+  "previous_calibration_set_id": "86eefe25-9e43-4376-ad98-39b63cc0ebbc"
+}

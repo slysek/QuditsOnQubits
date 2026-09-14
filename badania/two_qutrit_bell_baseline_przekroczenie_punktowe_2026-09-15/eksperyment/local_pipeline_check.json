@@ -1,0 +1,34 @@
+{
+  "kind": "LOCAL_SIMULATION_ONLY_NOT_HARDWARE",
+  "shots": 250000,
+  "source_protocol_sha256": "b84394e76acd652b408b25146124dcfdf3607d5cb21ad9efe176dac7ae7f2b52",
+  "unique_native_circuits": 294,
+  "ideal_bell": 6.000000000000001,
+  "scale_values": [
+    6.01861048471144,
+    6.006083303394462,
+    5.9459936620817375,
+    5.977356422631883,
+    5.978529307739436
+  ],
+  "models": [
+    {
+      "model": "linear",
+      "value": 6.003313231321281,
+      "shot_se": 0.030135722584610534,
+      "shot_ci95": [
+        5.944248300407354,
+        6.062378162235207
+      ]
+    },
+    {
+      "model": "quadratic_actual_moments",
+      "value": 6.071820032822648,
+      "shot_se": 0.07241858366720873,
+      "shot_ci95": [
+        5.929882217023518,
+        6.213757848621778
+      ]
+    }
+  ]
+}

@@ -1,0 +1,274 @@
+{
+  "selection": {
+    "layout": [
+      27,
+      28,
+      19,
+      20
+    ],
+    "score": 0.0619078133225878,
+    "candidates": 248,
+    "calibration_set_id": "86eefe25-9e43-4376-ad98-39b63cc0ebbc",
+    "backend": "emerald",
+    "metrics": [
+      {
+        "gate": "r",
+        "qubits": [
+          27
+        ],
+        "error": 0.00024259401150517057,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "r",
+        "qubits": [
+          28
+        ],
+        "error": 0.0003232582880011714,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          27,
+          28
+        ],
+        "error": 0.0012918696029453614,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "r",
+        "qubits": [
+          19
+        ],
+        "error": 0.00026353177227356195,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          27,
+          19
+        ],
+        "error": 0.0023265776490095647,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "r",
+        "qubits": [
+          20
+        ],
+        "error": 0.0002954364097660367,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          20,
+          28
+        ],
+        "error": 0.0031995633984176486,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          19,
+          20
+        ],
+        "error": 0.0033562198073243676,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          19
+        ],
+        "error": 0.014499999999999957,
+        "duration_seconds": 3.6e-07
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          20
+        ],
+        "error": 0.009499999999999953,
+        "duration_seconds": 3.6e-07
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          27
+        ],
+        "error": 0.010249999999999981,
+        "duration_seconds": 3.6e-07
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          28
+        ],
+        "error": 0.007650000000000046,
+        "duration_seconds": 3.6e-07
+      }
+    ],
+    "qubit_names_logical_order": [
+      "QB28",
+      "QB29",
+      "QB20",
+      "QB21"
+    ],
+    "measurement_map_c0_to_c3": [
+      19,
+      20,
+      27,
+      28
+    ]
+  },
+  "jobs": [
+    {
+      "arm": "RAW",
+      "dd": false,
+      "shots": 8192,
+      "records": [
+        {
+          "setting": 0,
+          "repeat": 0,
+          "scale": 1,
+          "actual_scale": 1.0
+        }
+      ],
+      "circuit_hashes": [
+        "2c33c86c7268c24f77d31346b7ddd3f039c2c3bb5741b61a3c185a469b482e40"
+      ]
+    },
+    {
+      "arm": "RAW",
+      "dd": false,
+      "shots": 8192,
+      "records": [
+        {
+          "setting": 1,
+          "repeat": 0,
+          "scale": 1,
+          "actual_scale": 1.0
+        }
+      ],
+      "circuit_hashes": [
+        "1ea2bf771cb47d61af4335b695fce42ae7d6ffdf1b14bf6e7054d3e86a7246da"
+      ]
+    },
+    {
+      "arm": "RAW",
+      "dd": false,
+      "shots": 8192,
+      "records": [
+        {
+          "setting": 2,
+          "repeat": 0,
+          "scale": 1,
+          "actual_scale": 1.0
+        }
+      ],
+      "circuit_hashes": [
+        "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461"
+      ]
+    },
+    {
+      "arm": "RAW",
+      "dd": false,
+      "shots": 8192,
+      "records": [
+        {
+          "setting": 3,
+          "repeat": 0,
+          "scale": 1,
+          "actual_scale": 1.0
+        }
+      ],
+      "circuit_hashes": [
+        "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58"
+      ]
+    },
+    {
+      "arm": "RAW",
+      "dd": false,
+      "shots": 8192,
+      "records": [
+        {
+          "setting": 4,
+          "repeat": 0,
+          "scale": 1,
+          "actual_scale": 1.0
+        }
+      ],
+      "circuit_hashes": [
+        "3d54e28cc5adf7ce43469903a3b2d265258a2dc85853f2dd9b0f9118405416bf"
+      ]
+    },
+    {
+      "arm": "RAW",
+      "dd": false,
+      "shots": 8192,
+      "records": [
+        {
+          "setting": 5,
+          "repeat": 0,
+          "scale": 1,
+          "actual_scale": 1.0
+        }
+      ],
+      "circuit_hashes": [
+        "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1"
+      ]
+    },
+    {
+      "arm": "RAW",
+      "dd": false,
+      "shots": 8192,
+      "records": [
+        {
+          "setting": 6,
+          "repeat": 0,
+          "scale": 1,
+          "actual_scale": 1.0
+        }
+      ],
+      "circuit_hashes": [
+        "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca"
+      ]
+    },
+    {
+      "arm": "RAW",
+      "dd": false,
+      "shots": 8192,
+      "records": [
+        {
+          "setting": 7,
+          "repeat": 0,
+          "scale": 1,
+          "actual_scale": 1.0
+        }
+      ],
+      "circuit_hashes": [
+        "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997"
+      ]
+    },
+    {
+      "arm": "RAW",
+      "dd": false,
+      "shots": 8192,
+      "records": [
+        {
+          "setting": 8,
+          "repeat": 0,
+          "scale": 1,
+          "actual_scale": 1.0
+        }
+      ],
+      "circuit_hashes": [
+        "db9d05f674722c1b07c6d39d2c0ab95f7c4ba8118f6d50c670c07ce0847d9de1"
+      ]
+    }
+  ]
+}

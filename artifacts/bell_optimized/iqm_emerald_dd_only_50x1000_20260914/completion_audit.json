@@ -1,0 +1,19 @@
+{
+  "completed_jobs": 1,
+  "job_id": "01a0a1a3-4813-7d62-981c-e920e56674f2",
+  "total_shots": 50000,
+  "calibration_set_id": "86eefe25-9e43-4376-ad98-39b63cc0ebbc",
+  "offline_replay_identical": true,
+  "hardware_sha256": {
+    "backend.json": "d88d6d87bc3c6bc6289af84d6c65078b0ed98c8b993810b85d1750a3dae53bc0",
+    "DD_1_0.counts.json": "61b0086f82c056c3c4cf2150a55df50e357284ec6a2c40521567d5ce9705271f",
+    "DD_1_0.qpy": "fcdcf58983a112f63c75ca522fe53407801cc6af1c2960e8486eb8913312bdf4",
+    "DD_1_0.request.json": "58db18f2216bd7d0a25161f4915d96dbe10bde970e41aca3c6241c0fa3655c0e",
+    "DD_1_0.result.json": "8c4f393fb42a8d79b0805b14598fa86a5f0262ca62df02ff0a163fb84c6ba75e",
+    "DD_1_0.submission.json": "53ea6d7893250ef1c1fda952e98eee25245cebcd7b23c6452ccac0c32e8a0b12",
+    "gates.json": "09abbcf245222cd3007bdfea2f2f426a52e761c597a94237e8f3c0d9140c9039",
+    "index.json": "23a7f109e710b85d36b6fdacc19f00caf9cee490661517fddc7712ad1f547a78",
+    "schedule.json": "ea0688d3d6286adf418864103313bb233bb62356bae5df1191f247461cdff1f5"
+  },
+  "analysis_sha256": "6f1b6cbdcd5c82a17afa3d4dbee06edc949a7094ff59e1a5352a0a10f80b477e"
+}

@@ -1,0 +1,42 @@
+{
+  "status": "passed",
+  "method": "existing Bell decoder on setting-aggregated counts; no postselection",
+  "rows": [
+    {
+      "scale": 1.0,
+      "bell_real": 5.463578075658237,
+      "bell_imag": -5.266620473065586e-15,
+      "difference_from_weight_estimator": -8.881784197001252e-16,
+      "shots": 50000
+    },
+    {
+      "scale": 1.5,
+      "bell_real": 5.4359574221979186,
+      "bell_imag": -5.155598170603071e-15,
+      "difference_from_weight_estimator": -8.881784197001252e-16,
+      "shots": 50000
+    },
+    {
+      "scale": 2.0,
+      "bell_real": 5.34257137354317,
+      "bell_imag": -5.280498260873401e-15,
+      "difference_from_weight_estimator": 8.881784197001252e-16,
+      "shots": 50000
+    },
+    {
+      "scale": 3.0,
+      "bell_real": 5.236597517927486,
+      "bell_imag": -4.8780424144467815e-15,
+      "difference_from_weight_estimator": 8.881784197001252e-16,
+      "shots": 50000
+    },
+    {
+      "scale": 5.0,
+      "bell_real": 4.824349038432465,
+      "bell_imag": -4.711508960753008e-15,
+      "difference_from_weight_estimator": 1.7763568394002505e-15,
+      "shots": 50000
+    }
+  ],
+  "protocol_sha256": "b84394e76acd652b408b25146124dcfdf3607d5cb21ad9efe176dac7ae7f2b52"
+}

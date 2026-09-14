@@ -1,0 +1,1682 @@
+[
+  {
+    "arm": "DD",
+    "factor": 1,
+    "shots": 1000,
+    "records": [
+      {
+        "block_id": 0,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 1,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 2,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 3,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 4,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 5,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 6,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 7,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 8,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 9,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 10,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 11,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 12,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 13,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 14,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 15,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 16,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 17,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 18,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 19,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 20,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 21,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 22,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 23,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 24,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 25,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 26,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 27,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 28,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 29,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 30,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 31,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 32,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 33,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 34,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 35,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 36,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 37,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 38,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 39,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 40,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 41,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 42,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 43,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 44,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 45,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 46,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 47,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 48,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 49,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      }
+    ],
+    "file": "dd_scale_1.qpy",
+    "circuit_hashes": [
+      "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+      "2c33c86c7268c24f77d31346b7ddd3f039c2c3bb5741b61a3c185a469b482e40",
+      "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+      "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+      "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+      "1ea2bf771cb47d61af4335b695fce42ae7d6ffdf1b14bf6e7054d3e86a7246da",
+      "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+      "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+      "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+      "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+      "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+      "2c33c86c7268c24f77d31346b7ddd3f039c2c3bb5741b61a3c185a469b482e40",
+      "db9d05f674722c1b07c6d39d2c0ab95f7c4ba8118f6d50c670c07ce0847d9de1",
+      "2c33c86c7268c24f77d31346b7ddd3f039c2c3bb5741b61a3c185a469b482e40",
+      "1ea2bf771cb47d61af4335b695fce42ae7d6ffdf1b14bf6e7054d3e86a7246da",
+      "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+      "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+      "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+      "db9d05f674722c1b07c6d39d2c0ab95f7c4ba8118f6d50c670c07ce0847d9de1",
+      "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+      "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+      "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+      "1ea2bf771cb47d61af4335b695fce42ae7d6ffdf1b14bf6e7054d3e86a7246da",
+      "2c33c86c7268c24f77d31346b7ddd3f039c2c3bb5741b61a3c185a469b482e40",
+      "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+      "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+      "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+      "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+      "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+      "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+      "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+      "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+      "3d54e28cc5adf7ce43469903a3b2d265258a2dc85853f2dd9b0f9118405416bf",
+      "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+      "db9d05f674722c1b07c6d39d2c0ab95f7c4ba8118f6d50c670c07ce0847d9de1",
+      "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+      "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+      "3d54e28cc5adf7ce43469903a3b2d265258a2dc85853f2dd9b0f9118405416bf",
+      "1ea2bf771cb47d61af4335b695fce42ae7d6ffdf1b14bf6e7054d3e86a7246da",
+      "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+      "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+      "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+      "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+      "db9d05f674722c1b07c6d39d2c0ab95f7c4ba8118f6d50c670c07ce0847d9de1",
+      "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+      "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+      "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+      "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+      "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+      "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461"
+    ]
+  },
+  {
+    "arm": "DD",
+    "factor": 3,
+    "shots": 1000,
+    "records": [
+      {
+        "block_id": 0,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 1,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 2,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 3,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 4,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 5,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 6,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 7,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 8,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 9,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 10,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 11,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 12,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 13,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 14,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 15,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 16,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 17,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 18,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 19,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 20,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 21,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 22,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 23,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 24,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 25,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 26,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 27,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 28,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 29,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 30,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 31,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 32,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 33,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 34,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 35,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 36,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 37,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 38,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 39,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 40,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 41,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 42,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 43,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 44,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 45,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 46,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 47,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 48,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 49,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      }
+    ],
+    "file": "dd_scale_3.qpy",
+    "circuit_hashes": [
+      "e9783cd3a0a5769361307a5122b9ad2bb013d69e3ef6becaa015c8e486ffcf31",
+      "c844a03e0a4ff93949ac589feb123a8b79ab175893eb003a843a8c42318089ff",
+      "c40c62e0e4e5263897893ef818e86b5ddb20e3108bd42abe56a0ba173d1ced39",
+      "c40c62e0e4e5263897893ef818e86b5ddb20e3108bd42abe56a0ba173d1ced39",
+      "f38ede8bfcad0624201b0061ecf83d5ae1c30d02480168017d24293622b192b8",
+      "ed8fa78bd5654905effb9daabc7d99ddfdfa608750a0802ac277fd5ad6e5623a",
+      "c40c62e0e4e5263897893ef818e86b5ddb20e3108bd42abe56a0ba173d1ced39",
+      "be03ab307d0d06ee6561217af24efbea1fafff270b0b5d56818e4a4cf25bdb20",
+      "f38ede8bfcad0624201b0061ecf83d5ae1c30d02480168017d24293622b192b8",
+      "18d13db9b487cf99c78cb74434bb35086c3de7456e3836ce17f8335896c69da7",
+      "f38ede8bfcad0624201b0061ecf83d5ae1c30d02480168017d24293622b192b8",
+      "c844a03e0a4ff93949ac589feb123a8b79ab175893eb003a843a8c42318089ff",
+      "4563eb46c47efd2dde6d2dcd4fc4cda60ee9aca21078440f734c72582963d915",
+      "c844a03e0a4ff93949ac589feb123a8b79ab175893eb003a843a8c42318089ff",
+      "ed8fa78bd5654905effb9daabc7d99ddfdfa608750a0802ac277fd5ad6e5623a",
+      "e9783cd3a0a5769361307a5122b9ad2bb013d69e3ef6becaa015c8e486ffcf31",
+      "c40c62e0e4e5263897893ef818e86b5ddb20e3108bd42abe56a0ba173d1ced39",
+      "f38ede8bfcad0624201b0061ecf83d5ae1c30d02480168017d24293622b192b8",
+      "4563eb46c47efd2dde6d2dcd4fc4cda60ee9aca21078440f734c72582963d915",
+      "be03ab307d0d06ee6561217af24efbea1fafff270b0b5d56818e4a4cf25bdb20",
+      "f38ede8bfcad0624201b0061ecf83d5ae1c30d02480168017d24293622b192b8",
+      "c40c62e0e4e5263897893ef818e86b5ddb20e3108bd42abe56a0ba173d1ced39",
+      "ed8fa78bd5654905effb9daabc7d99ddfdfa608750a0802ac277fd5ad6e5623a",
+      "c844a03e0a4ff93949ac589feb123a8b79ab175893eb003a843a8c42318089ff",
+      "c40c62e0e4e5263897893ef818e86b5ddb20e3108bd42abe56a0ba173d1ced39",
+      "be03ab307d0d06ee6561217af24efbea1fafff270b0b5d56818e4a4cf25bdb20",
+      "e9783cd3a0a5769361307a5122b9ad2bb013d69e3ef6becaa015c8e486ffcf31",
+      "18d13db9b487cf99c78cb74434bb35086c3de7456e3836ce17f8335896c69da7",
+      "e9783cd3a0a5769361307a5122b9ad2bb013d69e3ef6becaa015c8e486ffcf31",
+      "c40c62e0e4e5263897893ef818e86b5ddb20e3108bd42abe56a0ba173d1ced39",
+      "be03ab307d0d06ee6561217af24efbea1fafff270b0b5d56818e4a4cf25bdb20",
+      "f38ede8bfcad0624201b0061ecf83d5ae1c30d02480168017d24293622b192b8",
+      "59d43207e1f6ee7b841b3e831e7f9bcf0d8ef83ef8f55bf20e8f445ee7d26ce2",
+      "e9783cd3a0a5769361307a5122b9ad2bb013d69e3ef6becaa015c8e486ffcf31",
+      "4563eb46c47efd2dde6d2dcd4fc4cda60ee9aca21078440f734c72582963d915",
+      "be03ab307d0d06ee6561217af24efbea1fafff270b0b5d56818e4a4cf25bdb20",
+      "e9783cd3a0a5769361307a5122b9ad2bb013d69e3ef6becaa015c8e486ffcf31",
+      "59d43207e1f6ee7b841b3e831e7f9bcf0d8ef83ef8f55bf20e8f445ee7d26ce2",
+      "ed8fa78bd5654905effb9daabc7d99ddfdfa608750a0802ac277fd5ad6e5623a",
+      "18d13db9b487cf99c78cb74434bb35086c3de7456e3836ce17f8335896c69da7",
+      "18d13db9b487cf99c78cb74434bb35086c3de7456e3836ce17f8335896c69da7",
+      "e9783cd3a0a5769361307a5122b9ad2bb013d69e3ef6becaa015c8e486ffcf31",
+      "f38ede8bfcad0624201b0061ecf83d5ae1c30d02480168017d24293622b192b8",
+      "4563eb46c47efd2dde6d2dcd4fc4cda60ee9aca21078440f734c72582963d915",
+      "18d13db9b487cf99c78cb74434bb35086c3de7456e3836ce17f8335896c69da7",
+      "f38ede8bfcad0624201b0061ecf83d5ae1c30d02480168017d24293622b192b8",
+      "c40c62e0e4e5263897893ef818e86b5ddb20e3108bd42abe56a0ba173d1ced39",
+      "f38ede8bfcad0624201b0061ecf83d5ae1c30d02480168017d24293622b192b8",
+      "c40c62e0e4e5263897893ef818e86b5ddb20e3108bd42abe56a0ba173d1ced39",
+      "18d13db9b487cf99c78cb74434bb35086c3de7456e3836ce17f8335896c69da7"
+    ]
+  },
+  {
+    "arm": "DD",
+    "factor": 5,
+    "shots": 1000,
+    "records": [
+      {
+        "block_id": 0,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 1,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 2,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 3,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 4,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 5,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 6,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 7,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 8,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 9,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 10,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 11,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 12,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 13,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 14,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 15,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 16,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 17,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 18,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 19,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 20,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 21,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 22,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 23,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 24,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 25,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 26,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 27,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 28,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 29,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 30,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 31,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 32,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 33,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 34,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 35,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 36,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 37,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 38,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 39,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 40,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 41,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 42,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 43,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 44,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 45,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 46,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 47,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 48,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      },
+      {
+        "block_id": 49,
+        "instance": 0,
+        "mapping": [
+          19,
+          20,
+          27,
+          28
+        ]
+      }
+    ],
+    "file": "dd_scale_5.qpy",
+    "circuit_hashes": [
+      "f52727e1da4e2951225678267a6274052843508ad8e1946c5cd548275db86232",
+      "b56e5227d33ec579997cf15e4bb16d1f2884533022491577e782f4569a513d83",
+      "0dc872f64bb8690f0a0fcd319e598c732444ccfbde9a9cf55e244699090b67f5",
+      "0dc872f64bb8690f0a0fcd319e598c732444ccfbde9a9cf55e244699090b67f5",
+      "e10920fd7e4adbf16b6ba608cb036ee0e32b72d45fd29aa2928db8820f2e7009",
+      "30794ad8ad7654c5c75ae0fcac704e3b3ababb885d0dbdbd2b3e80238739aab5",
+      "0dc872f64bb8690f0a0fcd319e598c732444ccfbde9a9cf55e244699090b67f5",
+      "76e81dce74ee79289ec46539948b9e9b2bcab5ec31f52226d76265e1fdb277f4",
+      "e10920fd7e4adbf16b6ba608cb036ee0e32b72d45fd29aa2928db8820f2e7009",
+      "2fd23361f456f40d370c1808c2073e782e154a6db7e3ac69755d50abb50dea22",
+      "e10920fd7e4adbf16b6ba608cb036ee0e32b72d45fd29aa2928db8820f2e7009",
+      "b56e5227d33ec579997cf15e4bb16d1f2884533022491577e782f4569a513d83",
+      "4637712e62b02586f5822192a93ecdbc504c00bd4669c0dc8aaa0c5bebaf1428",
+      "b56e5227d33ec579997cf15e4bb16d1f2884533022491577e782f4569a513d83",
+      "30794ad8ad7654c5c75ae0fcac704e3b3ababb885d0dbdbd2b3e80238739aab5",
+      "f52727e1da4e2951225678267a6274052843508ad8e1946c5cd548275db86232",
+      "0dc872f64bb8690f0a0fcd319e598c732444ccfbde9a9cf55e244699090b67f5",
+      "e10920fd7e4adbf16b6ba608cb036ee0e32b72d45fd29aa2928db8820f2e7009",
+      "4637712e62b02586f5822192a93ecdbc504c00bd4669c0dc8aaa0c5bebaf1428",
+      "76e81dce74ee79289ec46539948b9e9b2bcab5ec31f52226d76265e1fdb277f4",
+      "e10920fd7e4adbf16b6ba608cb036ee0e32b72d45fd29aa2928db8820f2e7009",
+      "0dc872f64bb8690f0a0fcd319e598c732444ccfbde9a9cf55e244699090b67f5",
+      "30794ad8ad7654c5c75ae0fcac704e3b3ababb885d0dbdbd2b3e80238739aab5",
+      "b56e5227d33ec579997cf15e4bb16d1f2884533022491577e782f4569a513d83",
+      "0dc872f64bb8690f0a0fcd319e598c732444ccfbde9a9cf55e244699090b67f5",
+      "76e81dce74ee79289ec46539948b9e9b2bcab5ec31f52226d76265e1fdb277f4",
+      "f52727e1da4e2951225678267a6274052843508ad8e1946c5cd548275db86232",
+      "2fd23361f456f40d370c1808c2073e782e154a6db7e3ac69755d50abb50dea22",
+      "f52727e1da4e2951225678267a6274052843508ad8e1946c5cd548275db86232",
+      "0dc872f64bb8690f0a0fcd319e598c732444ccfbde9a9cf55e244699090b67f5",
+      "76e81dce74ee79289ec46539948b9e9b2bcab5ec31f52226d76265e1fdb277f4",
+      "e10920fd7e4adbf16b6ba608cb036ee0e32b72d45fd29aa2928db8820f2e7009",
+      "353cc733917195b49097a7ebaa886c24967100e57a4ec1bf13d637b94e1f7620",
+      "f52727e1da4e2951225678267a6274052843508ad8e1946c5cd548275db86232",
+      "4637712e62b02586f5822192a93ecdbc504c00bd4669c0dc8aaa0c5bebaf1428",
+      "76e81dce74ee79289ec46539948b9e9b2bcab5ec31f52226d76265e1fdb277f4",
+      "f52727e1da4e2951225678267a6274052843508ad8e1946c5cd548275db86232",
+      "353cc733917195b49097a7ebaa886c24967100e57a4ec1bf13d637b94e1f7620",
+      "30794ad8ad7654c5c75ae0fcac704e3b3ababb885d0dbdbd2b3e80238739aab5",
+      "2fd23361f456f40d370c1808c2073e782e154a6db7e3ac69755d50abb50dea22",
+      "2fd23361f456f40d370c1808c2073e782e154a6db7e3ac69755d50abb50dea22",
+      "f52727e1da4e2951225678267a6274052843508ad8e1946c5cd548275db86232",
+      "e10920fd7e4adbf16b6ba608cb036ee0e32b72d45fd29aa2928db8820f2e7009",
+      "4637712e62b02586f5822192a93ecdbc504c00bd4669c0dc8aaa0c5bebaf1428",
+      "2fd23361f456f40d370c1808c2073e782e154a6db7e3ac69755d50abb50dea22",
+      "e10920fd7e4adbf16b6ba608cb036ee0e32b72d45fd29aa2928db8820f2e7009",
+      "0dc872f64bb8690f0a0fcd319e598c732444ccfbde9a9cf55e244699090b67f5",
+      "e10920fd7e4adbf16b6ba608cb036ee0e32b72d45fd29aa2928db8820f2e7009",
+      "0dc872f64bb8690f0a0fcd319e598c732444ccfbde9a9cf55e244699090b67f5",
+      "2fd23361f456f40d370c1808c2073e782e154a6db7e3ac69755d50abb50dea22"
+    ]
+  }
+]

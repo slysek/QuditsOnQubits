@@ -1,0 +1,14 @@
+{
+  "status": "blocked",
+  "reason": "insufficient_iqm_credits",
+  "failed_job_index": 3,
+  "failed_job_id": "01a0a1b3-9f79-7210-b965-27b8f8bead19",
+  "provider_status": "JobStatus.ERROR",
+  "provider_error": "iqm-server: declined: Not enough credits to execute job",
+  "completed_jobs": 3,
+  "planned_jobs": 4,
+  "completed_shots": 37500,
+  "planned_shots": 50000,
+  "remaining_shots": 12500,
+  "checked_at": "2026-09-14T20:57:38.782628+00:00"
+}

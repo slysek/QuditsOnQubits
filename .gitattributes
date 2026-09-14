@@ -2,3 +2,25 @@ benchmarks/bell_20260907/data.zip binary
 benchmarks/bell_20260907/manifest.json linguist-generated=true
 benchmarks/bell_20260907/reports/**/*.json linguist-generated=true
 benchmarks/bell_20260907/reports/**/*.csv linguist-generated=true
+
+# Frozen Bell evidence: retain exact bytes used by SHA256 audits.
+artifacts/bell_optimized/** -text
+badania/two_qutrit_bell_baseline_przekroczenie_punktowe_2026-09-15/** -text
+experiment_inputs/bell_optimized/** -text
+experiment_inputs/iqm_randomized_bell/canonical_optimized_20260909/** -text
+scripts/bell_optimized_benchmark.py -text
+scripts/iqm_bell_interleaved_analysis.py -text
+scripts/iqm_bell_interleaved_zne.py -text
+scripts/iqm_bell_optimized.py -text
+scripts/iqm_bell_optimized_randomized.py -text
+scripts/iqm_bell_randomized_uncertainty.py -text
+scripts/iqm_bell_short.py -text
+scripts/iqm_randomized_bell_campaign.py -text
+src/qudits_on_qubits/bell_measurements/bell_optimized.py -text
+tests/test_bell_optimized.py -text
+tests/test_bell_optimized_benchmark.py -text
+tests/test_iqm_bell_interleaved_analysis.py -text
+tests/test_iqm_bell_interleaved_zne.py -text
+tests/test_iqm_bell_optimized.py -text
+tests/test_iqm_bell_optimized_randomized.py -text
+tests/test_iqm_bell_randomized_uncertainty.py -text

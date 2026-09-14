@@ -1,0 +1,48 @@
+{
+  "status": "complete",
+  "jobs": [
+    {
+      "planned_job_index": 0,
+      "job_id": "01a0a1aa-b8b6-7042-8f91-3f92a33cd7d7",
+      "counts_file": "hardware/job_000.counts.json",
+      "qpy_file": "hardware/job_000.qpy",
+      "counts_sha256": "af47ef246e5f26d3d34739e5bb6c406ada0c52d6888749fe8b302a5f83c9ea93",
+      "qpy_sha256": "9a5288c6a2046fd63aa755e50501861ef3644ded4f6cdd4696ce5abe4fadd96e",
+      "shots": 12500,
+      "finished_at": "2026-09-14T20:46:06.782518+00:00"
+    },
+    {
+      "planned_job_index": 1,
+      "job_id": "01a0a1ab-849c-7ea1-aa13-a3bbcd97f08a",
+      "counts_file": "hardware/job_001.counts.json",
+      "qpy_file": "hardware/job_001.qpy",
+      "counts_sha256": "8fa9d6328e6b693ab497ae7c220114395d2074f6a659e0595a708ee0cb6f6205",
+      "qpy_sha256": "f40fe33cc5be3fb4ec92d1a9d6962b5207849ca6c21b3e69c55ff1218941c43e",
+      "shots": 12500,
+      "finished_at": "2026-09-14T20:47:34.142053+00:00"
+    },
+    {
+      "planned_job_index": 2,
+      "job_id": "01a0a1ac-d8b9-7b23-bcaf-cd64f5ddd4ca",
+      "counts_file": "hardware/job_002.counts.json",
+      "qpy_file": "hardware/job_002.qpy",
+      "counts_sha256": "42ff938d9a1c825d780c9ca6e2094dacdfe6e005588f1906ea672710df881151",
+      "qpy_sha256": "bc38e5132c6bd672f945a6f21e94ba6f7fb6369e0417a2a8a3aea30e999ff713",
+      "shots": 12500,
+      "finished_at": "2026-09-14T20:54:57.966225+00:00"
+    },
+    {
+      "planned_job_index": 3,
+      "job_id": "01a0a1b9-9a36-7b03-9fef-8cf7872645ac",
+      "counts_file": "retry_job_003_attempt_2/job_000.counts.json",
+      "qpy_file": "retry_job_003_attempt_2/job_000.qpy",
+      "counts_sha256": "1583a2f91090776d299da0e0db39a394a10966ff36f4e4ef4c85d18b19896696",
+      "qpy_sha256": "4830ab7eeec47464726a927219ecddc71b077b6a50fcb77588d768e728084cce",
+      "shots": 12500,
+      "finished_at": "2026-09-14T21:05:47.564470+00:00"
+    }
+  ],
+  "preserved_failed_attempt": "01a0a1b3-9f79-7210-b965-27b8f8bead19",
+  "raw_hardware_directory": "hardware",
+  "retry_directory": "retry_job_003_attempt_2"
+}

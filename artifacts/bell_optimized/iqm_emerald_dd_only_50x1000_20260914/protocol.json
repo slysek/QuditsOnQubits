@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "variant": "DD_ONLY",
+  "source_directory": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_optimized\\iqm_emerald_randomized_50x1000_20260914",
+  "selection": {
+    "layout": [
+      27,
+      28,
+      19,
+      20
+    ],
+    "score": 0.0619078133225878,
+    "candidates": 248,
+    "calibration_set_id": "86eefe25-9e43-4376-ad98-39b63cc0ebbc",
+    "backend": "emerald",
+    "metrics": [
+      {
+        "gate": "r",
+        "qubits": [
+          27
+        ],
+        "error": 0.00024259401150517057,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "r",
+        "qubits": [
+          28
+        ],
+        "error": 0.0003232582880011714,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          27,
+          28
+        ],
+        "error": 0.0012918696029453614,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "r",
+        "qubits": [
+          19
+        ],
+        "error": 0.00026353177227356195,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          27,
+          19
+        ],
+        "error": 0.0023265776490095647,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "r",
+        "qubits": [
+          20
+        ],
+        "error": 0.0002954364097660367,
+        "duration_seconds": 2.4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          20,
+          28
+        ],
+        "error": 0.0031995633984176486,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "cz",
+        "qubits": [
+          19,
+          20
+        ],
+        "error": 0.0033562198073243676,
+        "duration_seconds": 4e-08
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          19
+        ],
+        "error": 0.014499999999999957,
+        "duration_seconds": 3.6e-07
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          20
+        ],
+        "error": 0.009499999999999953,
+        "duration_seconds": 3.6e-07
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          27
+        ],
+        "error": 0.010249999999999981,
+        "duration_seconds": 3.6e-07
+      },
+      {
+        "gate": "measure",
+        "qubits": [
+          28
+        ],
+        "error": 0.007650000000000046,
+        "duration_seconds": 3.6e-07
+      }
+    ],
+    "qubit_names_logical_order": [
+      "QB28",
+      "QB29",
+      "QB20",
+      "QB21"
+    ],
+    "measurement_map_c0_to_c3": [
+      19,
+      20,
+      27,
+      28
+    ]
+  },
+  "draws": 50,
+  "shots_per_draw": 1000,
+  "total_shots": 50000,
+  "twirling": false,
+  "zne": false,
+  "readout_mitigation": false,
+  "dd_mode": "enabled",
+  "dd_strategy": {
+    "merge_contiguous_waits": true,
+    "target_qubits": null,
+    "skip_leading_wait": true,
+    "skip_trailing_wait": true,
+    "gate_sequences": [
+      [
+        9,
+        "XYXYYXYX",
+        "asap"
+      ],
+      [
+        5,
+        "YXYX",
+        "asap"
+      ],
+      [
+        2,
+        "XX",
+        "center"
+      ]
+    ]
+  },
+  "setting_frequencies": {
+    "A1,B0": 7,
+    "A0,B0": 4,
+    "A1,B2": 9,
+    "A2,B1": 9,
+    "A0,B1": 4,
+    "A2,B0": 5,
+    "A0,B2": 6,
+    "A2,B2": 4,
+    "A1,B1": 2
+  },
+  "circuit_hashes": [
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "2c33c86c7268c24f77d31346b7ddd3f039c2c3bb5741b61a3c185a469b482e40",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "1ea2bf771cb47d61af4335b695fce42ae7d6ffdf1b14bf6e7054d3e86a7246da",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "2c33c86c7268c24f77d31346b7ddd3f039c2c3bb5741b61a3c185a469b482e40",
+    "db9d05f674722c1b07c6d39d2c0ab95f7c4ba8118f6d50c670c07ce0847d9de1",
+    "2c33c86c7268c24f77d31346b7ddd3f039c2c3bb5741b61a3c185a469b482e40",
+    "1ea2bf771cb47d61af4335b695fce42ae7d6ffdf1b14bf6e7054d3e86a7246da",
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "db9d05f674722c1b07c6d39d2c0ab95f7c4ba8118f6d50c670c07ce0847d9de1",
+    "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "1ea2bf771cb47d61af4335b695fce42ae7d6ffdf1b14bf6e7054d3e86a7246da",
+    "2c33c86c7268c24f77d31346b7ddd3f039c2c3bb5741b61a3c185a469b482e40",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "3d54e28cc5adf7ce43469903a3b2d265258a2dc85853f2dd9b0f9118405416bf",
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "db9d05f674722c1b07c6d39d2c0ab95f7c4ba8118f6d50c670c07ce0847d9de1",
+    "53f258a74d18e75213432f7e1382e8b1dfcdb11d0f9aa637a42501987c02e8ca",
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "3d54e28cc5adf7ce43469903a3b2d265258a2dc85853f2dd9b0f9118405416bf",
+    "1ea2bf771cb47d61af4335b695fce42ae7d6ffdf1b14bf6e7054d3e86a7246da",
+    "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+    "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+    "0df94c6d2903059d0f76cb31082af0efab5a305e4a01ed9e4ed4b5732a3bdd58",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "db9d05f674722c1b07c6d39d2c0ab95f7c4ba8118f6d50c670c07ce0847d9de1",
+    "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "7d7d0dff8d0503a2d2d9ab6f4478a9b6e4e2047d3380ec10a9e5182599537997",
+    "198cca980b49277dc457ddacc0fb1e896be18afefc83345859ab405a8f0e63e1",
+    "9769cea406ac3aeab21d0d05a8b67d6122013585757f8dfd8e75cf60edbe6461"
+  ],
+  "source_protocol_sha256": "1e315df8f496c934e183474394af518166df9345e3363b53f6aea0186e7b3511",
+  "versions": {
+    "qiskit": "2.1.2",
+    "iqm-client": "35.0.2",
+    "numpy": "2.5.3",
+    "scipy": "1.18.1"
+  },
+  "created_at": "2026-09-14T20:35:52.591508+00:00",
+  "input_sha256": {
+    "batch.json": "2ef7917653a51a7fda92da67a2e93dba7e1151c781fc0a06fa74297ae1db83d1",
+    "dd_circuits.qpy": "fcdcf58983a112f63c75ca522fe53407801cc6af1c2960e8486eb8913312bdf4",
+    "evidence.json": "09abbcf245222cd3007bdfea2f2f426a52e761c597a94237e8f3c0d9140c9039",
+    "previous_analysis.json": "1b5590cf098193a6826f123329255b360f2d4730e57bfca7baf77f5126438c7e",
+    "schedule.json": "ea0688d3d6286adf418864103313bb233bb62356bae5df1191f247461cdff1f5"
+  }
+}
