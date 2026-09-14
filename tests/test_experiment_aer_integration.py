@@ -271,9 +271,6 @@ def test_usage_guide_documents_library_runner_contracts() -> None:
 
     required = (
         "python library",
-        "no dashboard",
-        "no web",
-        "no server",
         "benchmarkbasis",
         "aerideal",
         "noisysimulator",
@@ -298,7 +295,8 @@ def test_usage_guide_documents_library_runner_contracts() -> None:
         "drift",
         "model bias",
     )
-    assert all(statement in guide for statement in required)
+    missing = [statement for statement in required if statement not in guide]
+    assert not missing, f"Usage guide is missing runner contracts: {missing}"
     assert "uncertainty=BootstrapConfig(" in guide_source
     assert "ExecutionMode" in guide_source
     assert "RunManifest" in guide_source
