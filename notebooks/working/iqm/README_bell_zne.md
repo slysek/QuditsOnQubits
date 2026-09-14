@@ -20,8 +20,8 @@ Both notebooks default to `RUN_HARDWARE = False` and analyze the committed
 campaigns in `artifacts/iqm_bell_short/`. They regenerate derived JSON, CSV and
 plots; the saved counts, submissions, manifests and QPY circuits are preserved.
 No provider account is needed for offline analysis. A fresh hardware campaign
-requires opting in, configuring IQM credentials as described in the repository
-README, and choosing a new `CAMPAIGN` directory. An existing directory represents
+requires opting in, configuring IQM credentials as described in the
+[usage guide](../../../docs/usage_guide.md#iqm-direct-basis-transpilation), and choosing a new `CAMPAIGN` directory. An existing directory represents
 a frozen plan: completed jobs are reused, and uncertain submissions require
 inspection before recovery.
 
