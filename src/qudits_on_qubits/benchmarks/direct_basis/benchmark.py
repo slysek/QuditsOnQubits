@@ -6,13 +6,15 @@ import re
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import asdict
 from datetime import datetime
+from numbers import Integral
 from typing import Iterable, Optional
 
 import numpy as np
 import pandas as pd
 from qiskit import qpy, transpile
-from qiskit.circuit.library import UnitaryGate
+from qiskit.circuit.library import CXGate, CZGate, U3Gate, UGate, UnitaryGate
 from qiskit.quantum_info import Statevector, state_fidelity
 
 from qudits_on_qubits.bell_measurements import build_sampler_circuits_for_candidate
@@ -31,15 +33,21 @@ from qudits_on_qubits.benchmarks.direct_basis.math_utils import (
     is_isometry,
     is_unitary,
     optimal_f3_leakage_phase,
+    qutrit_cz,
+    qutrit_fourier,
 )
 from qudits_on_qubits.benchmarks.direct_basis.selection import (
     selection_label as format_selection_label,
     transpiled_qpy_filename,
 )
 from qudits_on_qubits.benchmarks.direct_basis.optimized_gates import (
+    CZ3_TOLERANCE,
+    F3_TOLERANCE,
     GateSynthesisError,
     gate_metric_defaults,
     optimized_gate_library,
+    validate_code_space_gate,
+    validate_cz3_tolerance,
 )
 from qudits_on_qubits.benchmarks.direct_basis.state_reconstruction import (
     _bits_to_index,
@@ -54,7 +62,9 @@ from qudits_on_qubits.benchmarks.direct_basis.state_reconstruction import (
 )
 from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_strategies import (
     run_iqm_transpiler_strategy,
+    validate_state_preserving_iqm_strategies,
 )
+from .circuit_serialization import normalize_circuit_bit_indices
 from qudits_on_qubits.core.benchmark_encoding_bases import BASIS_GATES, COUPLING_MAP, TWO_Q_GATES
 from qudits_on_qubits.core.project_paths import repo_path
 from qudits_on_qubits.experiments.workload_metrics import summarize_compiled_workload
@@ -149,7 +159,7 @@ def _validate_ranking_workload(ranking_workload: str) -> str:
     return ranking_workload
 
 
-def _compiled_measurement_physical_mappings(circuits) -> tuple[tuple[int, ...], ...]:
+def _compiled_measurement_physical_mappings(circuits, *, isa_indices: bool = False) -> tuple[tuple[int, ...], ...]:
     """Return measured physical qubits in classical-bit order."""
     mappings: list[tuple[int, ...]] = []
     for circuit in circuits:
@@ -158,7 +168,7 @@ def _compiled_measurement_physical_mappings(circuits) -> tuple[tuple[int, ...], 
         layout = getattr(circuit, "layout", None)
         initial_layout = getattr(layout, "initial_layout", None)
         get_registers = getattr(initial_layout, "get_registers", None)
-        if callable(get_registers) and get_registers() == set(circuit.qregs):
+        if not isa_indices and callable(get_registers) and get_registers() == set(circuit.qregs):
             get_virtual_bits = getattr(initial_layout, "get_virtual_bits", None)
             if not callable(get_virtual_bits):
                 raise ValueError("compiled measurement physical layout is invalid")
@@ -220,6 +230,8 @@ def _transpile_one_trial(
     *,
     trial: int,
     transpiler_backend=None,
+    transpiler_provider: str = "iqm",
+    initial_layout: tuple[int, ...] | None = None,
     basis_gates=None,
     coupling_map=None,
     optimization_level: int = 3,
@@ -237,7 +249,23 @@ def _transpile_one_trial(
         }
         if approximation_degree is not None:
             transpile_kwargs["approximation_degree"] = float(approximation_degree)
+        for name, value in (
+            ("initial_layout", initial_layout),
+            ("layout_method", layout_method),
+            ("routing_method", routing_method),
+        ):
+            if value is not None:
+                transpile_kwargs[name] = value
         return transpile(qc, **transpile_kwargs)
+
+    if transpiler_provider == "ibm":
+        from .ibm_backend import build_ibm_pass_manager
+        return build_ibm_pass_manager(
+            transpiler_backend, optimization_level=optimization_level,
+            seed_transpiler=trial, layout_method=layout_method,
+            routing_method=routing_method, approximation_degree=approximation_degree,
+            initial_layout=initial_layout,
+        ).run(qc)
 
     if iqm_strategy_name:
         result = run_iqm_transpiler_strategy(
@@ -262,7 +290,7 @@ def _transpile_one_trial(
         routing_method=routing_method,
         approximation_degree=approximation_degree,
     )
-    return pass_manager.run(qc)
+    return normalize_circuit_bit_indices(pass_manager.run(qc))
 
 
 def _f3_graph_comparison_defaults() -> dict:
@@ -327,6 +355,8 @@ def benchmark_optimal_f3_graph_comparison(
     routing_method: str | None,
     approximation_degree: float | None,
     iqm_strategy_names: Iterable[str] | None,
+    transpiler_provider: str = "iqm",
+    initial_layout: tuple[int, ...] | None = None,
     quantum_circuits_dir: str | None = None,
     class_name: str = "",
     candidate_name: str = "",
@@ -405,6 +435,8 @@ def benchmark_optimal_f3_graph_comparison(
         for strategy_name in active_strategies:
             common = dict(
                 trial=trial, transpiler_backend=transpiler_backend,
+                transpiler_provider=transpiler_provider,
+                initial_layout=initial_layout,
                 basis_gates=basis_gates, coupling_map=coupling_map,
                 optimization_level=int(optimization_level), layout_method=layout_method,
                 routing_method=routing_method, approximation_degree=approximation_degree,
@@ -545,6 +577,65 @@ def _base_row(
     }
 
 
+def _validate_supplied_gate_library(
+    gate_library, basis_matrix: np.ndarray, *, cz3_tolerance: float = CZ3_TOLERANCE,
+) -> dict:
+    """Validate supplied circuits and return metrics independent of metadata."""
+    cz3_tolerance = validate_cz3_tolerance(cz3_tolerance)
+    metrics = {}
+    try:
+        embedding = encoding_embedding(basis_matrix)
+        for circuit, name, width, code, target, tolerance, limit, allowed in (
+            (
+                gate_library.f3, "F3", 2, embedding, qutrit_fourier(),
+                F3_TOLERANCE, 2, {"u", "u3", "cx", "cz"},
+            ),
+            (
+                gate_library.cz3, "CZ3", 4, np.kron(embedding, embedding),
+                qutrit_cz(), cz3_tolerance, None, {"u", "u3", "cz"},
+            ),
+        ):
+            if circuit.num_qubits != width or circuit.num_clbits:
+                raise GateSynthesisError(
+                    f"{name} requires {width} qubits and no classical bits.", metrics,
+                )
+            # Check gate types as well as names so renamed opaque operations
+            # cannot masquerade as elementary U/CX/CZ gates.
+            elementary = all(
+                item.operation.name in allowed
+                and isinstance(item.operation, (UGate, U3Gate, CXGate, CZGate))
+                and item.operation.num_qubits == (
+                    1 if item.operation.name in {"u", "u3"} else 2
+                )
+                and not item.clbits
+                and not getattr(item.operation, "condition", None)
+                for item in circuit.data
+            )
+            validation = validate_code_space_gate(circuit, code, target)
+            prefix = "f3_" if name == "F3" else ""
+            metrics.update({
+                prefix + key: value for key, value in asdict(validation).items()
+            })
+            if not (
+                elementary
+                and np.isfinite([validation.E_norm, validation.L_norm]).all()
+                and validation.E_norm <= tolerance
+                and validation.L_norm <= tolerance
+                and (limit is None or validation.N_2q <= limit)
+            ):
+                raise GateSynthesisError(
+                    f"{name} failed supplied gate validation: {asdict(validation)}",
+                    metrics,
+                )
+    except GateSynthesisError:
+        raise
+    except Exception as exc:
+        raise GateSynthesisError(
+            f"Supplied gate library could not be validated: {exc}", metrics,
+        ) from exc
+    return metrics
+
+
 def benchmark_direct_basis(
     *,
     state_name: str,
@@ -565,6 +656,8 @@ def benchmark_direct_basis(
     selection_label: str = "exact",
     legacy_exact_transpiled_filename: bool = True,
     transpiler_backend=None,
+    transpiler_provider: str = "iqm",
+    initial_layout: tuple[int, ...] | None = None,
     transpiler_metadata: dict | None = None,
     optimization_level: int = 3,
     layout_method: str | None = None,
@@ -572,9 +665,48 @@ def benchmark_direct_basis(
     iqm_strategy_names: Iterable[str] | None = None,
     ranking_workload: str = "state_preparation",
     compare_optimal_f3_leakage: bool = False,
+    gate_library=None,
+    cz3_tolerance: float = CZ3_TOLERANCE,
+    transpiler_seeds: Iterable[int] | None = None,
+    rank_by_cz: bool = False,
 ) -> dict:
-    """Benchmark graph-state preparation using direct W-defined encoding."""
+    """Benchmark direct encoding, optionally reusing independently validated gates.
+
+    Explicit ``transpiler_seeds`` override ``n_transpile_runs``. ``rank_by_cz``
+    ranks state-preparation trials by (two-qubit count, depth, one-qubit count,
+    size, seed); the default retains the existing depth-first ranking.
+    Supplied libraries preserve ``coupling_map=None`` for all-to-all compilation;
+    synthesized libraries retain the legacy default coupling map.
+    ``cz3_tolerance`` controls independent validation of supplied CZ3 gates only;
+    automatic synthesis and its cache retain their existing strict threshold.
+    """
+    cz3_tolerance = validate_cz3_tolerance(cz3_tolerance)
+    trial_seeds = None
+    if transpiler_seeds is not None:
+        try:
+            trial_seeds = tuple(transpiler_seeds)
+        except TypeError as exc:
+            raise ValueError("transpiler_seeds must be a nonempty iterable of unique uint32 integers") from exc
+        if not trial_seeds or any(
+            isinstance(seed, bool) or not isinstance(seed, Integral)
+            or not 0 <= seed < 2**32
+            for seed in trial_seeds
+        ):
+            raise ValueError("transpiler_seeds must contain unique uint32 integers and cannot be empty")
+        trial_seeds = tuple(int(seed) for seed in trial_seeds)
+        if len(set(trial_seeds)) != len(trial_seeds):
+            raise ValueError("transpiler_seeds must contain unique uint32 integers")
+        n_transpile_runs = len(trial_seeds)
+    if transpiler_provider not in {"iqm", "ibm"}:
+        raise ValueError("transpiler_provider must be iqm or ibm")
+    if transpiler_provider == "ibm" and (iqm_strategy_names or compare_optimal_f3_leakage):
+        raise ValueError("IQM strategies and F3 comparison are not supported for IBM")
+    if transpiler_provider == "ibm" and transpiler_backend is None:
+        raise ValueError("IBM requires a transpiler backend")
     ranking_workload = _validate_ranking_workload(ranking_workload)
+    iqm_strategy_names = tuple(iqm_strategy_names or ())
+    if transpiler_provider == "iqm" and transpiler_backend is not None and ranking_workload == "state_preparation":
+        validate_state_preserving_iqm_strategies(iqm_strategy_names)
     class_name = source_class_name or basis_candidate_type
     candidate_name = source_candidate_name or basis_candidate_name
     row = _base_row(
@@ -592,11 +724,15 @@ def benchmark_direct_basis(
     if transpiler_metadata:
         row.update(transpiler_metadata)
     elif transpiler_backend is not None:
-        row["transpiler_backend"] = "iqm"
+        row["transpiler_backend"] = transpiler_provider
     row["optimization_level"] = int(optimization_level)
     row["layout_method"] = layout_method
     row["routing_method"] = routing_method
     row["ranking_workload"] = ranking_workload
+    if trial_seeds is not None:
+        row["transpiler_seeds"] = json.dumps(trial_seeds)
+    if rank_by_cz:
+        row["rank_by_cz"] = True
 
     started = time.time()
     try:
@@ -604,8 +740,15 @@ def benchmark_direct_basis(
         row["basis_matrix_unitary"] = is_unitary(basis_matrix)
         row["basis_matrix_isometry"] = is_isometry(basis_matrix)
 
-        gates = optimized_gate_library(basis_matrix)
+        gates = gate_library if gate_library is not None else optimized_gate_library(basis_matrix)
+        validated_metrics = (
+            _validate_supplied_gate_library(gates, basis_matrix, cz3_tolerance=cz3_tolerance)
+            if gate_library is not None else {}
+        )
         row.update(gates.benchmark_metrics())
+        row.update(validated_metrics)
+        if gate_library is not None:
+            row["cz3_tolerance"] = cz3_tolerance
         qc = build_optimized_direct_basis_graph_state_circuit(
             state_name,
             basis_matrix,
@@ -652,7 +795,8 @@ def benchmark_direct_basis(
 
     if transpiler_backend is None:
         basis_gates = basis_gates or BASIS_GATES
-        coupling_map = coupling_map if coupling_map is not None else COUPLING_MAP
+        if coupling_map is None and gate_library is None:
+            coupling_map = COUPLING_MAP
         native_operation_names = []
     else:
         basis_gates = None
@@ -670,6 +814,8 @@ def benchmark_direct_basis(
             state_name=state_name, basis_matrix=basis_matrix, n_qutrits=n_qutrits,
             coupling_map=coupling_map, basis_gates=basis_gates,
             n_transpile_runs=n_transpile_runs, transpiler_backend=transpiler_backend,
+            transpiler_provider=transpiler_provider,
+            initial_layout=initial_layout,
             optimization_level=optimization_level, layout_method=layout_method,
             routing_method=routing_method, approximation_degree=approximation_degree,
             iqm_strategy_names=iqm_strategy_names,
@@ -678,7 +824,7 @@ def benchmark_direct_basis(
         ))
 
     last_trial_error = ""
-    for trial in range(int(n_transpile_runs)):
+    for trial in trial_seeds if trial_seeds is not None else range(int(n_transpile_runs)):
         strategy_names = (
             iqm_strategy_names
             if transpiler_backend is not None and iqm_strategy_names
@@ -691,6 +837,8 @@ def benchmark_direct_basis(
                         circuit,
                         trial=trial,
                         transpiler_backend=transpiler_backend,
+                        transpiler_provider=transpiler_provider,
+                        initial_layout=initial_layout,
                         basis_gates=basis_gates,
                         coupling_map=coupling_map,
                         optimization_level=int(optimization_level),
@@ -707,7 +855,7 @@ def benchmark_direct_basis(
                         transpile_trial(circuit) for circuit in measured_circuits
                     )
                     physical_mappings = _compiled_measurement_physical_mappings(
-                        compiled_measured
+                        compiled_measured, isa_indices=transpiler_provider == "ibm"
                     )
                     requested_physical_qubits = tuple(
                         sorted(
@@ -718,30 +866,40 @@ def benchmark_direct_basis(
                             }
                         )
                     )
+                    if transpiler_provider == "ibm" and initial_layout is not None:
+                        requested_physical_qubits = tuple(initial_layout)
                     workload_metrics = summarize_compiled_workload(
                         compiled_measured,
                         settings=measured_settings,
                         physical_mappings=physical_mappings,
                         requested_physical_qubits=requested_physical_qubits,
+                        target=getattr(transpiler_backend, "target", None) if transpiler_provider == "ibm" else None,
                     )
                 ops = qc_t.count_ops()
                 depth = int(qc_t.depth())
                 size = int(qc_t.size())
-                twoq = _count_two_qubit_gates_from_ops(ops)
+                twoq = sum(len(item.qubits) == 2 and not getattr(item.operation, "_directive", False) for item in qc_t.data)
                 oneq = _count_one_qubit_gates(qc_t)
                 native_ops = _count_native_ops(ops, native_operation_names)
 
                 if workload_metrics is None:
-                    rank_key = (
-                        (depth, twoq, oneq, size)
-                        if transpiler_backend is not None
-                        else (depth, twoq, size)
-                    )
+                    if rank_by_cz:
+                        rank_key = (twoq, depth, oneq, size, trial)
+                    else:
+                        rank_key = (
+                            (depth, twoq, oneq, size)
+                            if transpiler_backend is not None
+                            else (depth, twoq, size)
+                        )
                 else:
                     aggregate = workload_metrics.aggregate
                     rank_key = (
                         aggregate["maximum_two_qubit_gate_count"],
                         aggregate["total_two_qubit_gate_count"],
+                        *(
+                            (aggregate["maximum_two_qubit_depth"], aggregate["total_two_qubit_depth"])
+                            if transpiler_provider == "ibm" else ()
+                        ),
                         aggregate["maximum_depth"],
                         aggregate["total_depth"],
                         aggregate["maximum_size"],
@@ -816,8 +974,15 @@ def benchmark_direct_basis(
     row["num_qubits"] = best["num_qubits"]
     row["best_count_ops"] = best["ops"]
     row["iqm_transpiler_strategy"] = best.get("iqm_strategy_name", "")
-    row["iqm_transpiler_seed"] = best.get("seed_transpiler")
+    row["iqm_transpiler_seed"] = best.get("seed_transpiler") if transpiler_provider == "iqm" else None
+    row["transpiler_seed"] = best.get("seed_transpiler")
+    row["initial_layout"] = json.dumps(initial_layout)
+    row["best_two_qubit_depth"] = best["qc"].depth(lambda item: len(item.qubits) == 2 and not getattr(item.operation, "_directive", False))
+    row["best_swap_count"] = int(best["ops"].get("swap", 0))
+    row["active_physical_qubits"] = json.dumps(sorted({best["qc"].find_bit(bit).index for item in best["qc"].data if not getattr(item.operation, "_directive", False) for bit in item.qubits}))
+    row["final_index_layout"] = json.dumps(best["qc"].layout.final_index_layout() if best["qc"].layout else None)
     if best["workload_metrics"] is not None:
+        row["workload_metrics"] = json.dumps(best["workload_metrics"].to_safe_dict(), sort_keys=True)
         aggregate = best["workload_metrics"].aggregate
         row["workload_circuit_count"] = aggregate["circuit_count"]
         row["workload_max_depth"] = aggregate["maximum_depth"]
@@ -828,6 +993,8 @@ def benchmark_direct_basis(
         row["workload_total_two_qubit_gate_count"] = aggregate[
             "total_two_qubit_gate_count"
         ]
+        row["workload_max_two_qubit_depth"] = aggregate["maximum_two_qubit_depth"]
+        row["workload_total_two_qubit_depth"] = aggregate["total_two_qubit_depth"]
         row["workload_max_size"] = aggregate["maximum_size"]
         row["workload_total_size"] = aggregate["total_size"]
 
@@ -891,6 +1058,8 @@ def _attach_transpiler_run_metadata(
     row: dict,
     *,
     transpiler_backend=None,
+    transpiler_provider: str = "iqm",
+    initial_layout: tuple[int, ...] | None = None,
     transpiler_metadata: dict | None = None,
     optimization_level: int = 3,
     layout_method: str | None = None,
@@ -900,7 +1069,7 @@ def _attach_transpiler_run_metadata(
     if transpiler_metadata:
         row.update(transpiler_metadata)
     elif transpiler_backend is not None:
-        row["transpiler_backend"] = "iqm"
+        row["transpiler_backend"] = transpiler_provider
     row["optimization_level"] = int(optimization_level)
     row["layout_method"] = layout_method
     row["routing_method"] = routing_method
@@ -937,6 +1106,8 @@ def _benchmark_direct_basis_candidate_group(
     max_fidelity_qubits: int = 10,
     quantum_circuits_dir: str | None = None,
     transpiler_backend=None,
+    transpiler_provider: str = "iqm",
+    initial_layout: tuple[int, ...] | None = None,
     transpiler_metadata: dict | None = None,
     optimization_level: int = 3,
     layout_method: str | None = None,
@@ -969,6 +1140,8 @@ def _benchmark_direct_basis_candidate_group(
             _attach_transpiler_run_metadata(
                 row,
                 transpiler_backend=transpiler_backend,
+                transpiler_provider=transpiler_provider,
+                initial_layout=initial_layout,
                 transpiler_metadata=transpiler_metadata,
                 optimization_level=optimization_level,
                 layout_method=layout_method,
@@ -1000,6 +1173,8 @@ def _benchmark_direct_basis_candidate_group(
                 selection_label=run_label,
                 legacy_exact_transpiled_filename=legacy_exact_transpiled_filename,
                 transpiler_backend=transpiler_backend,
+                transpiler_provider=transpiler_provider,
+                initial_layout=initial_layout,
                 transpiler_metadata=transpiler_metadata,
                 optimization_level=optimization_level,
                 layout_method=layout_method,
@@ -1029,6 +1204,8 @@ def benchmark_direct_basis_candidates(
     quantum_circuits_dir: str | None = None,
     approximation_degrees: Iterable[float] | None = None,
     transpiler_backend=None,
+    transpiler_provider: str = "iqm",
+    initial_layout: tuple[int, ...] | None = None,
     transpiler_metadata: dict | None = None,
     optimization_level: int = 3,
     layout_method: str | None = None,
@@ -1046,7 +1223,7 @@ def benchmark_direct_basis_candidates(
     jobs = max(int(jobs or 1), 1)
     if transpiler_backend is not None and jobs > 1:
         print(
-            "[direct_basis_encoding] IQM transpiler backend is not thread-safe; "
+            "[direct_basis_encoding] Shared transpiler backend; "
             "running candidate jobs serially.",
             flush=True,
         )
@@ -1069,6 +1246,8 @@ def benchmark_direct_basis_candidates(
         "max_fidelity_qubits": max_fidelity_qubits,
         "quantum_circuits_dir": quantum_circuits_dir,
         "transpiler_backend": transpiler_backend,
+        "transpiler_provider": transpiler_provider,
+        "initial_layout": initial_layout,
         "transpiler_metadata": transpiler_metadata,
         "optimization_level": optimization_level,
         "layout_method": layout_method,
@@ -1147,7 +1326,7 @@ def candidate_circuit_output_dir(
 def _save_qpy(circuit, path: str) -> str:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as handle:
-        qpy.dump(circuit, handle)
+        qpy.dump(normalize_circuit_bit_indices(circuit), handle)
     return path
 
 

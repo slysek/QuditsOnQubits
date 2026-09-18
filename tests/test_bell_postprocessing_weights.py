@@ -10,7 +10,6 @@ import pytest
 SRC = Path(__file__).resolve().parents[1] / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
-sys.modules.pop("qudits_on_qubits", None)
 
 
 import qudits_on_qubits.bell_measurements as bell_measurements

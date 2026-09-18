@@ -28,6 +28,13 @@ WORKLOAD_SELECTION_COLUMNS = (
     "workload_total_size",
 )
 
+IBM_WORKLOAD_SELECTION_COLUMNS = (
+    *WORKLOAD_SELECTION_COLUMNS[:2],
+    "workload_max_two_qubit_depth",
+    "workload_total_two_qubit_depth",
+    *WORKLOAD_SELECTION_COLUMNS[2:],
+)
+
 
 @dataclass(frozen=True)
 class SelectionConfig:
@@ -157,19 +164,26 @@ def select_top_k(
             return ranked
 
     selection_columns = RANK_BY_DEPTH_COLUMNS
+    workload_columns = WORKLOAD_SELECTION_COLUMNS
+    if (
+        "transpiler_backend" in ranked.columns
+        and ranked["transpiler_backend"].eq("ibm").all()
+        and all(column in ranked.columns for column in IBM_WORKLOAD_SELECTION_COLUMNS)
+    ):
+        workload_columns = IBM_WORKLOAD_SELECTION_COLUMNS
     has_complete_workload = (
         "ranking_workload" in ranked.columns
         and ranked["ranking_workload"].eq("bell_measurements").all()
-        and all(column in ranked.columns for column in WORKLOAD_SELECTION_COLUMNS)
+        and all(column in ranked.columns for column in workload_columns)
     )
     if has_complete_workload:
-        workload_values = ranked.loc[:, WORKLOAD_SELECTION_COLUMNS].apply(
+        workload_values = ranked.loc[:, workload_columns].apply(
             pd.to_numeric,
             errors="coerce",
         )
         if np.isfinite(workload_values.to_numpy(dtype=float)).all():
-            ranked.loc[:, WORKLOAD_SELECTION_COLUMNS] = workload_values
-            selection_columns = WORKLOAD_SELECTION_COLUMNS
+            ranked.loc[:, workload_columns] = workload_values
+            selection_columns = workload_columns
 
     for column in selection_columns:
         ranked[column] = _numeric_column(ranked, column)

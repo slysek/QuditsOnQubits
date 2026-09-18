@@ -21,11 +21,12 @@ New-Item -ItemType Directory -Path $wheelDir -Force | Out-Null
 New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $repoRoot "pyproject.toml") -Destination $sourceDir
 Copy-Item -LiteralPath (Join-Path $repoRoot "README.md") -Destination $sourceDir
+Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $sourceDir
 Copy-Item -LiteralPath (Join-Path $repoRoot "src") -Destination $sourceDir -Recurse
 
 
 try {
-    & $Python -m pip wheel $sourceDir --no-deps --no-build-isolation --wheel-dir $wheelDir
+    & $Python -m pip wheel $sourceDir --no-deps --wheel-dir $wheelDir
     if ($LASTEXITCODE -ne 0) {
         throw "Wheel build failed."
     }

@@ -3,7 +3,7 @@
 QuditsOnQubits is a Python library for experiments with qudits encoded on qubit architectures. It provides circuit construction, direct-basis benchmarks, Bell measurements, backend adapters, durable artifacts, and local uncertainty analysis.
 
 This guide covers advanced execution, compilation, artifacts, and analysis.
-For a first local run, start with the [root README](../README.md#quick-start)
+For a first local run, start with the [root README](../README.md#run-the-example)
 and the [two-qutrit Bell guide](two_qutrit_bell_vertical_slice.md).
 Run all shell commands and resolve example input/output paths from the
 repository root, even though this document lives under `docs/`.
@@ -26,10 +26,10 @@ repository root, even though this document lives under `docs/`.
 
 ## Setup and troubleshooting
 
-Follow the [installation instructions](../README.md#install-from-source) for
+Follow the [installation instructions](../README.md#install) for
 supported Python versions, virtual-environment activation, and the optional
 mitigation dependencies. For editable installation and test dependencies, see
-[Development](../README.md#development). Install the dependency set from
+[Development](../CONTRIBUTING.md#local-development). Install the dependency set from
 `pyproject.toml` in one resolver run.
 
 Check that the IQM adapter imports successfully:
@@ -393,7 +393,7 @@ Run a small IQM-backed direct-basis benchmark:
 python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --jobs 4
 ```
 
-The `--iqm-backend` value is the IQM quantum computer name or alias. `garnet` is only an example. When this flag is present, the script loads one IQM backend for the whole run and, by default, compiles each candidate with the same IQM strategy set used by the transpiler harness:
+The `--iqm-backend` value is the IQM quantum computer name or alias. `garnet` is only an example. When this flag is present, the script loads one IQM backend for the whole run. The default state-preparation workload uses phase-preserving strategies (`preset_exact` and `transpile_to_iqm_exact`). The full set below remains available for Bell measurement workloads and the comparison harness:
 
 ```text
 preset_default
@@ -410,7 +410,7 @@ Optional transpiler controls:
 python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --layout-method sabre
 python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --routing-method sabre
 python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --iqm-use-metrics
-python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --iqm-strategy preset_default
+python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --iqm-strategy preset_exact
 python scripts/run_direct_basis_benchmarks.py --state two_qutrit --candidate-set sanity --iqm-backend garnet --iqm-legacy-pass-manager
 ```
 

@@ -19,7 +19,6 @@ SRC = REPO_ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-sys.modules.pop("qudits_on_qubits", None)
 
 from qudits_on_qubits.experiments.errors import ExperimentValidationError, JobResultError
 from qudits_on_qubits.experiments.mitigation import (

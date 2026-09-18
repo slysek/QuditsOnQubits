@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use QuditsOnQubits, cite this software and record the commit and benchmark manifest."
+type: software
+title: QuditsOnQubits
+authors:
+  - family-names: "Łysek"
+    given-names: "Szymon"
+repository-code: "https://github.com/slysek/QuditsOnQubits"
+url: "https://github.com/slysek/QuditsOnQubits"
+license: Apache-2.0
+abstract: "Encoding-basis benchmarks and Bell experiments for qutrit circuits on qubit hardware."
+keywords:
+  - quantum computing
+  - qutrits
+  - quantum compilation
+  - reproducible benchmarks

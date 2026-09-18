@@ -104,6 +104,10 @@ def summarize_compiled_workload(
                 "setting": tuple(setting),
                 "depth": circuit.depth(),
                 "size": circuit.size(),
+                "two_qubit_depth": circuit.depth(
+                    lambda instruction: len(instruction.qubits) == 2
+                    and not _instruction_is_directive(instruction)
+                ),
                 "operation_counts": operation_counts,
                 "two_qubit_gate_count": sum(
                     len(instruction.qubits) == 2
@@ -122,6 +126,7 @@ def summarize_compiled_workload(
     depths = [item["depth"] for item in per_circuit]
     sizes = [item["size"] for item in per_circuit]
     two_qubit_counts = [item["two_qubit_gate_count"] for item in per_circuit]
+    two_qubit_depths = [item["two_qubit_depth"] for item in per_circuit]
     native_cz_counts = [item["native_cz_count"] for item in per_circuit]
     requested_set = set(requested)
     aggregate = {
@@ -130,6 +135,8 @@ def summarize_compiled_workload(
         "total_depth": sum(depths),
         "maximum_two_qubit_gate_count": max(two_qubit_counts),
         "total_two_qubit_gate_count": sum(two_qubit_counts),
+        "maximum_two_qubit_depth": max(two_qubit_depths),
+        "total_two_qubit_depth": sum(two_qubit_depths),
         "maximum_native_cz_count": max(native_cz_counts),
         "total_native_cz_count": sum(native_cz_counts),
         "maximum_size": max(sizes),

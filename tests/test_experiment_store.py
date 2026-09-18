@@ -19,7 +19,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
-sys.modules.pop("qudits_on_qubits", None)
 
 import qudits_on_qubits.experiments.store as store_module
 from qudits_on_qubits.experiments.errors import ExperimentPersistenceError

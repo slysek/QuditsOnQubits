@@ -163,9 +163,7 @@ class DirectBasisIqmCliTests(unittest.TestCase):
         self.assertEqual(
             benchmark_kwargs["iqm_strategy_names"],
             (
-                "preset_default",
                 "preset_exact",
-                "transpile_to_iqm_default",
                 "transpile_to_iqm_exact",
             ),
         )

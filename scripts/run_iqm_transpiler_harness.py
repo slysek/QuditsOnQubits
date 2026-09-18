@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import re
 import sys
 from pathlib import Path
@@ -52,6 +53,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--iqm-use-metrics", action="store_true")
     parser.add_argument("--n-transpile-runs", type=_positive_int, default=1)
     parser.add_argument(
+        "--jobs", type=_positive_int, default=1,
+        help="Concurrent candidate processes, including gate synthesis. Defaults to 1.",
+    )
+    parser.add_argument(
+        "--progress-interval", type=_progress_interval, default=15.0,
+        help="Seconds between candidate stage/CPU progress displays (default 15; 0 disables).",
+    )
+    parser.add_argument(
         "--strategy",
         action="append",
         default=[],
@@ -82,6 +91,13 @@ def _positive_int(value: str) -> int:
         raise argparse.ArgumentTypeError("must be an integer >= 1") from exc
     if parsed < 1:
         raise argparse.ArgumentTypeError("must be >= 1")
+    return parsed
+
+
+def _progress_interval(value: str) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed) or parsed < 0:
+        raise argparse.ArgumentTypeError("must be finite and >= 0")
     return parsed
 
 
@@ -166,6 +182,8 @@ def main(argv=None) -> int:
         quantum_circuits_dir=_quantum_circuits_dir_from_args(args, output_dir),
         strategy_names=tuple(args.strategy),
         n_transpile_runs=args.n_transpile_runs,
+        jobs=args.jobs,
+        progress_interval=args.progress_interval,
         max_depth_warning=args.max_depth_warning,
         max_cz_warning=args.max_cz_warning,
     )

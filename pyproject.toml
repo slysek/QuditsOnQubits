@@ -44,9 +44,11 @@ dependencies = [
     "tqdm",
     "ipython",
     "jupyterlab",
+    "ipywidgets>=8,<9",
     "qiskit>=2,<2.2",
     "bqskit>=1.2.1,<1.3",
     "filelock>=3.16,<4",
+    "psutil>=5.9,<8",
     "qiskit-aer>=0.17,<0.18",
     "qiskit-ibm-runtime>=0.34,<0.44.1",
     "qiskit-experiments>=0.13,<0.14",
@@ -56,18 +58,21 @@ dependencies = [
 ]
 
 [project.urls]
+Documentation = "https://github.com/slysek/QuditsOnQubits/blob/main/docs/README.md"
 Homepage = "https://github.com/slysek/QuditsOnQubits"
 Repository = "https://github.com/slysek/QuditsOnQubits"
 Issues = "https://github.com/slysek/QuditsOnQubits/issues"
 
 [project.scripts]
 qoq-two-qutrit-bell = "qudits_on_qubits.vertical_slice.cli:entrypoint"
+qoq-benchmark = "qudits_on_qubits.benchmarks.cli:entrypoint"
 
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8,<9",
     "pytest-cov>=5,<7",
+    "build>=1.2,<2",
 ]
 mitigation = [
     "mthree>=3,<4",
@@ -80,6 +85,7 @@ namespaces = false
 
 [tool.setuptools.package-data]
 qudits_on_qubits = ["quantum_circuits/*.qpy"]
+"qudits_on_qubits.benchmarks.theta_continuation.data" = ["*.qpy", "*.npy", "README.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "benchmarks/bell_20260907"]

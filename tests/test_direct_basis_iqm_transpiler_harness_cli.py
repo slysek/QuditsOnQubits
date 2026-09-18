@@ -24,6 +24,8 @@ class IqmTranspilerHarnessCliTests(unittest.TestCase):
         self.assertEqual(args.candidate_set, "sanity")
         self.assertEqual(args.iqm_backend, "garnet")
         self.assertEqual(args.n_transpile_runs, 1)
+        self.assertEqual(args.jobs, 1)
+        self.assertEqual(args.progress_interval, 15)
         self.assertEqual(args.max_depth_warning, 100)
         self.assertEqual(args.max_cz_warning, 50)
         self.assertEqual(args.strategy, [])
@@ -146,6 +148,10 @@ class IqmTranspilerHarnessCliTests(unittest.TestCase):
                     "transpile_to_iqm_default",
                     "--n-transpile-runs",
                     "2",
+                    "--jobs",
+                    "4",
+                    "--progress-interval",
+                    "10",
                     "--max-depth-warning",
                     "80",
                     "--max-cz-warning",
@@ -160,6 +166,8 @@ class IqmTranspilerHarnessCliTests(unittest.TestCase):
         self.assertEqual(config.iqm_backend_name, "garnet")
         self.assertEqual(config.strategy_names, ("preset_default", "transpile_to_iqm_default"))
         self.assertEqual(config.n_transpile_runs, 2)
+        self.assertEqual(config.jobs, 4)
+        self.assertEqual(config.progress_interval, 10)
         self.assertEqual(config.max_depth_warning, 80)
         self.assertEqual(config.max_cz_warning, 40)
         self.assertEqual(config.quantum_circuits_dir, os.path.join("out", "quantum_circuits"))
@@ -169,6 +177,25 @@ class IqmTranspilerHarnessCliTests(unittest.TestCase):
         self.assertIn("Pareto ranked CSV: out" + os.sep + "pareto_ranked.csv", stdout.getvalue())
         self.assertIn("State equivalence groups CSV: out" + os.sep + "state_equivalence_groups.csv", stdout.getvalue())
         self.assertIn("Recommended circuits CSV: out" + os.sep + "recommended_circuits.csv", stdout.getvalue())
+
+    def test_jobs_rejects_invalid_values_before_backend_load(self):
+        for value in ("0", "-2", "1.5"):
+            with self.subTest(value=value), patch(
+                "scripts.run_iqm_transpiler_harness.load_iqm_backend"
+            ) as load_backend, contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as raised:
+                    main(["--state", "two_qutrit", "--iqm-backend", "garnet", "--jobs", value])
+                self.assertEqual(raised.exception.code, 2)
+                load_backend.assert_not_called()
+
+    def test_progress_interval_accepts_disable_and_rejects_invalid_values(self):
+        parser = build_parser()
+        args = parser.parse_args(["--state", "two_qutrit", "--iqm-backend", "garnet", "--progress-interval", "0"])
+        self.assertEqual(args.progress_interval, 0)
+        for value in ("-1", "nan", "inf", "bad"):
+            with self.subTest(value=value), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    parser.parse_args(["--state", "two_qutrit", "--iqm-backend", "garnet", "--progress-interval", value])
 
 
 if __name__ == "__main__":

@@ -47,6 +47,7 @@ def test_summarize_compiled_workload_covers_the_complete_structural_workload():
             "size": 1,
             "operation_counts": {"cz": 1},
             "two_qubit_gate_count": 1,
+            "two_qubit_depth": 1,
             "native_cz_count": 1,
             "physical_qubit_mapping": [4, 7],
             "instruction_error_cost": None,
@@ -59,6 +60,7 @@ def test_summarize_compiled_workload_covers_the_complete_structural_workload():
             "size": 3,
             "operation_counts": {"cz": 2, "x": 1},
             "two_qubit_gate_count": 2,
+            "two_qubit_depth": 2,
             "native_cz_count": 2,
             "physical_qubit_mapping": [7, 4],
             "instruction_error_cost": None,
@@ -71,6 +73,8 @@ def test_summarize_compiled_workload_covers_the_complete_structural_workload():
         "total_depth": 4,
         "maximum_two_qubit_gate_count": 2,
         "total_two_qubit_gate_count": 3,
+        "maximum_two_qubit_depth": 2,
+        "total_two_qubit_depth": 3,
         "maximum_native_cz_count": 2,
         "total_native_cz_count": 3,
         "maximum_size": 3,
@@ -839,3 +843,22 @@ def test_workload_rank_key_rejects_unavailable_calibration_metrics():
                 seed=1,
                 layout=(4, 7),
             )
+
+
+def test_two_qubit_depth_distinguishes_parallel_gates_and_ignores_directives():
+    parallel = QuantumCircuit(4)
+    parallel.cx(0, 1)
+    parallel.cx(2, 3)
+    parallel.barrier()
+    serial = QuantumCircuit(4)
+    serial.cx(0, 1)
+    serial.x(1)
+    serial.cx(1, 2)
+    metrics = summarize_compiled_workload(
+        [parallel, serial], settings=[('A0',), ('A1',)],
+        physical_mappings=[(0,1,2,3)] * 2, requested_physical_qubits=(0,1,2,3),
+    )
+    assert [item['two_qubit_gate_count'] for item in metrics.circuits] == [2,2]
+    assert [item['two_qubit_depth'] for item in metrics.circuits] == [1,2]
+    assert metrics.aggregate['maximum_two_qubit_depth'] == 2
+    assert metrics.aggregate['total_two_qubit_depth'] == 3

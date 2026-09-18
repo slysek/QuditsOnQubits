@@ -226,13 +226,35 @@ def test_cz3_thresholds_are_independent_and_inclusive(metric):
 
 def test_bqskit_targets_all_code_columns_and_converts_bit_order(monkeypatch):
     import bqskit
+    import bqskit.compiler
     from bqskit.ir import Circuit
     from bqskit.ir.gates import U3Gate
     embedding = np.eye(4)[:, [0, 2, 3]] @ _dense_basis()
     native = Circuit(4)
     native.append_gate(U3Gate(), 0, [.2, .3, .4])
+    events = []
+
+    class StartupLock:
+        def __init__(self, path):
+            assert "bqskit" in str(path)
+
+        def __enter__(self):
+            events.append("locked")
+
+        def __exit__(self, *args):
+            events.append("unlocked")
+
+    class FakeCompiler:
+        def __init__(self, **kwargs):
+            assert events == ["locked"]
+            assert kwargs == {"num_workers": 1}
+
+        def close(self):
+            events.append("closed")
 
     def compiler(target, **options):
+        assert events == ["locked", "unlocked"]
+        assert isinstance(options["compiler"], FakeCompiler)
         b2 = np.kron(embedding, embedding)
         assert len(target) == 9
         for j, (source, output) in enumerate(target.items()):
@@ -246,7 +268,10 @@ def test_bqskit_targets_all_code_columns_and_converts_bit_order(monkeypatch):
         return native
 
     monkeypatch.setattr(bqskit, "compile", compiler)
+    monkeypatch.setattr(bqskit.compiler, "Compiler", FakeCompiler)
+    monkeypatch.setattr(gates, "FileLock", StartupLock)
     converted = gates._compile_cz3(embedding)
+    assert events == ["locked", "unlocked", "closed"]
     np.testing.assert_allclose(Operator(converted).data, np.asarray(native.get_unitary()), atol=1e-12)
 
 
