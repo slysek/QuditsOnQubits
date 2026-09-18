@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import importlib
 import json
+import math
+import multiprocessing
+import os
+import pickle
 import re
 import sys
 import time
-from dataclasses import dataclass
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
+from dataclasses import dataclass, replace
 from datetime import datetime
 from importlib import metadata as importlib_metadata
 from pathlib import Path
@@ -14,7 +19,11 @@ from typing import Any, Iterable, Mapping
 import pandas as pd
 from qiskit import qpy
 
+from .circuit_serialization import normalize_circuit_bit_indices
+from .harness_progress import monitor_progress, report_stage, stage_scope
+
 from qudits_on_qubits.benchmarks.direct_basis.benchmark import (
+    candidate_circuit_output_dir,
     export_direct_basis_candidate_circuits,
 )
 from qudits_on_qubits.benchmarks.direct_basis.candidates import DirectBasisCandidate
@@ -60,6 +69,8 @@ class IqmTranspilerHarnessConfig:
     optimization_level: int = 3
     max_depth_warning: int = 100
     max_cz_warning: int = 50
+    jobs: int = 1
+    progress_interval: float = 15.0
 
 
 _METRIC_KEYS = (
@@ -349,13 +360,171 @@ def _summary(
     }
 
 
+def _run_candidate(
+    candidate: DirectBasisCandidate,
+    config: IqmTranspilerHarnessConfig,
+    metadata: dict[str, Any],
+    strategy_runner: Any,
+) -> list[dict[str, Any]]:
+    if not candidate.is_supported:
+        return [_unsupported_candidate_row(candidate, config=config, metadata=metadata)]
+    try:
+        report_stage("preparing optimized graph circuit")
+        circuit = build_optimized_direct_basis_graph_state_circuit(
+            config.state_name, candidate.matrix, n_qutrits=config.n_qutrits,
+        )
+        candidate_metadata = {**metadata, **circuit.metadata}
+        report_stage("exporting candidate circuits")
+        artifact_paths = _export_candidate_artifacts(
+            config, candidate, graph_state_circuit=circuit,
+        )
+    except Exception as exc:
+        failed = _unsupported_candidate_row(candidate, config=config, metadata=metadata)
+        failed.update({
+            "status": "gate_validation_failed" if isinstance(exc, GateSynthesisError) else "build_error",
+            "error_type": type(exc).__name__, "error_message": str(exc),
+            **getattr(exc, "metrics", {}),
+        })
+        return [failed]
+
+    rows = []
+    for seed in range(config.n_transpile_runs):
+        for strategy_name in config.strategy_names:
+            report_stage(f"transpiling {strategy_name} seed={seed}", completed=len(rows))
+            result = _run_strategy_trial(
+                strategy_runner, strategy_name, circuit, backend=config.backend,
+                seed_transpiler=seed, optimization_level=config.optimization_level,
+            )
+            report_stage(f"recording {strategy_name} seed={seed}", completed=len(rows))
+            rows.append(_trial_row(
+                candidate, result=result, config=config, metadata=candidate_metadata,
+                artifact_paths=artifact_paths,
+            ))
+            report_stage("transpiling: trial recorded", completed=len(rows))
+    return rows
+
+
+_WORKER_CONTEXT: tuple[Any, ...] = ()
+
+
+def _initialize_candidate_worker(config, metadata, strategy_runner, progress_events=None):
+    global _WORKER_CONTEXT
+    # Candidate processes own parallelism; prevent nested Qiskit/Rayon pools.
+    os.environ["QISKIT_PARALLEL"] = "FALSE"
+    os.environ["RAYON_NUM_THREADS"] = "1"
+    _WORKER_CONTEXT = (config, metadata, strategy_runner, progress_events)
+
+
+def _run_candidate_worker(candidate):
+    return _run_candidate_with_progress(candidate, *_WORKER_CONTEXT)
+
+
+def _run_candidate_with_progress(candidate, config, metadata, strategy_runner, events):
+    if events is None:
+        return _run_candidate(candidate, config, metadata, strategy_runner)
+    key = (os.getpid(), candidate.class_name, candidate.candidate_name)
+    events.put(dict(
+        kind="start", key=key, label=f"{candidate.class_name}/{candidate.candidate_name}",
+        pid=os.getpid(), total=config.n_transpile_runs * len(config.strategy_names), at=time.monotonic(),
+    ))
+
+    def emit(stage, completed):
+        events.put(dict(kind="stage", key=key, stage=stage, completed=completed, at=time.monotonic()))
+
+    try:
+        with stage_scope(emit):
+            rows = _run_candidate(candidate, config, metadata, strategy_runner)
+    except BaseException as exc:
+        events.put(dict(kind="finish", key=key, status=type(exc).__name__, at=time.monotonic()))
+        raise
+    status = ", ".join(sorted({row["status"] for row in rows}))
+    events.put(dict(kind="finish", key=key, status=status, at=time.monotonic()))
+    return rows
+
+
+def _parallel_candidate_rows(config, representatives, metadata, strategy_runner, progress_events=None):
+    from .iqm_compilation_backend import snapshot_compilation_backend
+
+    if config.quantum_circuits_dir is not None:
+        output_paths = set()
+        for candidate in representatives:
+            if not candidate.is_supported:
+                continue
+            path = candidate_circuit_output_dir(
+                str(config.quantum_circuits_dir), state_name=config.state_name,
+                class_name=candidate.class_name, candidate_name=candidate.candidate_name,
+            )
+            normalized = os.path.normcase(os.path.abspath(path))
+            if normalized in output_paths:
+                raise ValueError(f"Parallel artifact directory collision: {path}")
+            output_paths.add(normalized)
+
+    worker_config = replace(
+        config, candidates=(), backend=snapshot_compilation_backend(config.backend),
+    )
+    try:
+        pickle.dumps((worker_config, metadata, strategy_runner, representatives))
+    except Exception as exc:
+        raise ValueError(
+            "jobs > 1 requires a serializable backend, candidates and module-level "
+            "strategy_runner; use jobs=1 for local callbacks."
+        ) from exc
+
+    grouped = [None] * len(representatives)
+    worker_count = min(config.jobs, len(representatives))
+    executor = ProcessPoolExecutor(
+        max_workers=worker_count,
+        mp_context=multiprocessing.get_context("spawn"),
+        initializer=_initialize_candidate_worker,
+        initargs=(worker_config, metadata, strategy_runner, progress_events),
+    )
+    pending = {}
+    next_index = 0
+    completed = 0
+    try:
+        while next_index < len(representatives) or pending:
+            while next_index < len(representatives) and len(pending) < worker_count:
+                future = executor.submit(_run_candidate_worker, representatives[next_index])
+                pending[future] = next_index
+                next_index += 1
+            done, _ = wait(pending, return_when=FIRST_COMPLETED)
+            for future in done:
+                index = pending.pop(future)
+                grouped[index] = future.result()
+                completed += 1
+                candidate = representatives[index]
+                print(
+                    f"[iqm_transpiler_harness] completed {completed}/{len(representatives)} "
+                    f"{candidate.class_name}/{candidate.candidate_name}", flush=True,
+                )
+    finally:
+        # Do not drain the candidate pool after a failure or interrupt. Already
+        # active workers finish/handle their interrupt and close private BQSKit
+        # runtimes normally; killing them could orphan synthesis subprocesses.
+        for future in pending:
+            future.cancel()
+        executor.shutdown(wait=True, cancel_futures=True)
+    # Completion order must not change tie-breaking, CSV order or Pareto input.
+    return [row for candidate_rows in grouped for row in candidate_rows]
+
+
 def run_iqm_transpiler_harness(
     config: IqmTranspilerHarnessConfig,
     *,
     strategy_runner: Any = run_iqm_transpiler_strategy,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
+    if isinstance(config.jobs, bool) or not isinstance(config.jobs, int) or config.jobs < 1:
+        raise ValueError("jobs must be an integer >= 1")
+    if (
+        isinstance(config.progress_interval, bool)
+        or not isinstance(config.progress_interval, (int, float))
+        or not math.isfinite(config.progress_interval)
+        or config.progress_interval < 0
+    ):
+        raise ValueError("progress_interval must be finite and >= 0")
     strategy_names = config.strategy_names or iqm_transpiler_strategy_names()
     n_transpile_runs = _validated_n_transpile_runs(config.n_transpile_runs)
+    config = replace(config, strategy_names=strategy_names, n_transpile_runs=n_transpile_runs)
     metadata = {
         **_runtime_metadata(),
         **_backend_metadata(
@@ -374,59 +543,20 @@ def run_iqm_transpiler_harness(
     candidate_global_phase_duplicates = [dict(row) for row in deduplication.duplicate_rows]
 
     rows: list[dict[str, Any]] = []
-    for candidate_index, candidate in enumerate(representatives, start=1):
-        print(
-            "[iqm_transpiler_harness] "
-            f"{candidate_index}/{representative_candidate_count} "
-            f"{candidate.class_name}/{candidate.candidate_name}",
-            flush=True,
-        )
-        if not candidate.is_supported:
-            rows.append(
-                _unsupported_candidate_row(
-                    candidate,
-                    config=config,
-                    metadata=metadata,
-                )
+    with monitor_progress(config.progress_interval, len(representatives), parallel=config.jobs > 1) as events:
+        if config.jobs > 1 and representatives:
+            print(
+                f"[iqm_transpiler_harness] starting {min(config.jobs, len(representatives))} "
+                f"candidate processes for {len(representatives)} candidates", flush=True,
             )
-            continue
-
-        try:
-            circuit = build_optimized_direct_basis_graph_state_circuit(
-                config.state_name, candidate.matrix, n_qutrits=config.n_qutrits,
-            )
-            candidate_metadata = {**metadata, **circuit.metadata}
-            artifact_paths = _export_candidate_artifacts(
-                config, candidate, graph_state_circuit=circuit,
-            )
-        except Exception as exc:
-            failed = _unsupported_candidate_row(candidate, config=config, metadata=metadata)
-            failed.update({
-                "status": "gate_validation_failed" if isinstance(exc, GateSynthesisError) else "build_error",
-                "error_type": type(exc).__name__, "error_message": str(exc),
-                **getattr(exc, "metrics", {}),
-            })
-            rows.append(failed)
-            continue
-        for seed in range(n_transpile_runs):
-            for strategy_name in strategy_names:
-                result = _run_strategy_trial(
-                    strategy_runner,
-                    strategy_name,
-                    circuit,
-                    backend=config.backend,
-                    seed_transpiler=seed,
-                    optimization_level=config.optimization_level,
+            rows = _parallel_candidate_rows(config, representatives, metadata, strategy_runner, events)
+        else:
+            for candidate_index, candidate in enumerate(representatives, start=1):
+                print(
+                    f"[iqm_transpiler_harness] {candidate_index}/{representative_candidate_count} "
+                    f"{candidate.class_name}/{candidate.candidate_name}", flush=True,
                 )
-                rows.append(
-                    _trial_row(
-                        candidate,
-                        result=result,
-                        config=config,
-                        metadata=candidate_metadata,
-                        artifact_paths=artifact_paths,
-                    )
-                )
+                rows.extend(_run_candidate_with_progress(candidate, config, metadata, strategy_runner, events))
 
     best_rows = _best_trial_rows(rows)
     summary = _summary(
@@ -436,6 +566,7 @@ def run_iqm_transpiler_harness(
         representative_candidate_count=representative_candidate_count,
         global_phase_duplicate_count=deduplication.removed_count,
     )
+    summary["jobs"] = config.jobs
     all_trials = pd.DataFrame(rows)
     best_by_candidate = pd.DataFrame(best_rows)
     all_trials.attrs["candidate_global_phase_duplicates"] = [
@@ -630,7 +761,7 @@ def _export_trial_transpiled_circuit(
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("wb") as handle:
-        qpy.dump(circuit, handle)
+        qpy.dump(normalize_circuit_bit_indices(circuit), handle)
     return str(path)
 
 

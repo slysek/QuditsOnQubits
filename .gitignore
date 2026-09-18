@@ -30,3 +30,6 @@ Thumbs.db
 .coverage.*
 htmlcov/
 .vscode/
+
+# Local assistant worktrees
+.claude/

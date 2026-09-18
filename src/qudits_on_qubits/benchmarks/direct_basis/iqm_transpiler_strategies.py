@@ -7,6 +7,8 @@ from typing import Any, Mapping
 
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
+from .circuit_serialization import normalize_circuit_bit_indices
+
 from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import (
     EXACT_RZ_SCHEDULING_METHOD,
 )
@@ -72,6 +74,27 @@ def iqm_transpiler_strategy_names() -> tuple[str, ...]:
     return tuple(BUILTIN_IQM_TRANSPILER_STRATEGIES)
 
 
+def state_preserving_iqm_strategy_names() -> tuple[str, ...]:
+    return tuple(
+        name for name, strategy in BUILTIN_IQM_TRANSPILER_STRATEGIES.items()
+        if not strategy.remove_final_rzs
+    )
+
+
+def validate_state_preserving_iqm_strategies(names) -> None:
+    incompatible = [
+        name for name in names
+        if name in BUILTIN_IQM_TRANSPILER_STRATEGIES
+        and BUILTIN_IQM_TRANSPILER_STRATEGIES[name].remove_final_rzs
+    ]
+    if incompatible:
+        raise ValueError(
+            "State preparation requires strategies that preserve relative phases; "
+            f"{', '.join(incompatible)} remove final RZ gates. "
+            "Use preset_exact or transpile_to_iqm_exact."
+        )
+
+
 def get_iqm_transpiler_strategy(name: str) -> IqmTranspilerStrategy:
     try:
         return BUILTIN_IQM_TRANSPILER_STRATEGIES[name]
@@ -132,7 +155,7 @@ def run_iqm_transpiler_strategy(
             strategy_name=strategy.name,
             seed_transpiler=seed_value,
             success=True,
-            circuit=transpiled_circuit,
+            circuit=normalize_circuit_bit_indices(transpiled_circuit),
             compile_time_seconds=time.perf_counter() - started,
         )
     except BaseException as exc:

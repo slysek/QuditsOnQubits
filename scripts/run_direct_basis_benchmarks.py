@@ -6,6 +6,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
+
 _SRC = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
@@ -40,9 +42,19 @@ from qudits_on_qubits.benchmarks.direct_basis.iqm_backend import (
 )
 from qudits_on_qubits.benchmarks.direct_basis.iqm_transpiler_strategies import (
     iqm_transpiler_strategy_names,
+    state_preserving_iqm_strategy_names,
+    validate_state_preserving_iqm_strategies,
+)
+from qudits_on_qubits.benchmarks.direct_basis.phase_equivalence import (
+    PHASE_DUPLICATE_COLUMNS,
+    deduplicate_candidates_up_to_global_phase,
 )
 from qudits_on_qubits.encoding_search.candidates import CandidateSearchConfig
 from qudits_on_qubits.core.project_paths import repo_path, repo_root
+from qudits_on_qubits.benchmarks.direct_basis.ibm_backend import (
+    load_ibm_backend,
+    ibm_backend_metadata,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -50,7 +62,13 @@ def build_parser() -> argparse.ArgumentParser:
         description="Run direct qutrit-basis benchmarks with validated optimized F3 (<=2 CNOTs) and BQSKit CZ3 gates.",
     )
     parser.add_argument("--state", required=True)
+    parser.add_argument("--ibm-backend", default=None, help="IBM backend name; compile only, no QPU submission.")
+    parser.add_argument("--ibm-account-name", default=None)
+    parser.add_argument("--ibm-instance", default=None)
+    parser.add_argument("--initial-layout", default=None, help="Ordered IBM physical qubits, comma-separated.")
     parser.add_argument("--n-qutrits", type=int, default=None)
+    parser.add_argument("--optimization-level", type=int, choices=range(4), default=3,
+                        help="Transpiler optimization level for local, IQM and IBM compilation.")
     parser.add_argument(
         "--candidate-set",
         choices=("sanity", "all-qutrit-u3", "old_qutrit", "v2-stage1", "from-old-csv"),
@@ -89,6 +107,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--near-identity-seed", type=int, default=500)
     parser.add_argument("--n-transpile-runs", type=int, default=1)
     parser.add_argument(
+        "--deduplicate-global-phase",
+        action="store_true",
+        help=(
+            "Benchmark one representative per global-phase-equivalent encoding, "
+            "preferring baseline. Applied after candidate filters and limits. "
+            "Write removed candidates to <output-stem>_global_phase_duplicates.csv."
+        ),
+    )
+    parser.add_argument(
         "--compare-optimal-f3-leakage",
         action="store_true",
         help=(
@@ -125,7 +152,8 @@ def build_parser() -> argparse.ArgumentParser:
         choices=iqm_transpiler_strategy_names(),
         help=(
             "IQM transpiler strategy to run. May be passed multiple times. "
-            "Defaults to all harness strategies when --iqm-backend is set."
+            "Defaults to phase-preserving strategies for state preparation, "
+            "or all harness strategies for Bell measurement workloads."
         ),
     )
     parser.add_argument(
@@ -224,7 +252,10 @@ def _default_results_prefix(args) -> str:
     from qudits_on_qubits.encoding_search.states import resolve_benchmark_state
 
     state = resolve_benchmark_state(args.state, n_qutrits=args.n_qutrits)
-    if getattr(args, "iqm_backend", None):
+    if getattr(args, "ibm_backend", None):
+        parts = ["direct_basis", "ibm", safe_backend_slug(args.ibm_backend),
+                 _safe_filename_part(state.state_id), _safe_filename_part(args.candidate_set)]
+    elif getattr(args, "iqm_backend", None):
         parts = [
             "direct_basis",
             "iqm",
@@ -315,6 +346,18 @@ def _load_candidates(args):
 
 
 def _validate_cli_selection_args(args) -> None:
+    if args.iqm_backend and args.ranking_workload == "state_preparation":
+        validate_state_preserving_iqm_strategies(args.iqm_strategy)
+    if args.ibm_backend and (args.iqm_backend or args.local_line_coupling or args.iqm_use_metrics
+                             or args.iqm_strategy or args.iqm_legacy_pass_manager or args.compare_optimal_f3_leakage):
+        raise ValueError("--ibm-backend cannot be combined with IQM, local coupling, or F3 comparison options.")
+    if not args.ibm_backend and (args.ibm_account_name or args.ibm_instance or args.initial_layout):
+        raise ValueError("IBM account, instance, and initial layout require --ibm-backend.")
+    if args.initial_layout:
+        from qudits_on_qubits.experiments.models import TranspilationConfig
+        args.initial_layout = TranspilationConfig(initial_layout=tuple(int(value) for value in args.initial_layout.split(","))).initial_layout
+    if args.n_transpile_runs < 1:
+        raise ValueError("--n-transpile-runs must be positive.")
     if int(args.jobs) < 1:
         raise ValueError("--jobs must be positive.")
     if args.select_top_k is not None and int(args.select_top_k) < 1:
@@ -345,12 +388,20 @@ def _iqm_quantum_circuits_dir_from_args(args) -> str:
 def _iqm_strategy_names_from_args(args) -> tuple[str, ...]:
     if not args.iqm_backend or args.iqm_legacy_pass_manager:
         return ()
-    return tuple(args.iqm_strategy) or iqm_transpiler_strategy_names()
+    defaults = (
+        state_preserving_iqm_strategy_names()
+        if args.ranking_workload == "state_preparation"
+        else iqm_transpiler_strategy_names()
+    )
+    return tuple(args.iqm_strategy) or defaults
 
 
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    supplied = list(sys.argv[1:] if argv is None else argv)
+    if args.ibm_backend and not any(value.split("=", 1)[0] == "--ranking-workload" for value in supplied):
+        args.ranking_workload = "bell_measurements"
     try:
         _validate_cli_selection_args(args)
     except ValueError as exc:
@@ -358,11 +409,27 @@ def main(argv=None) -> int:
 
     approximation_thresholds = _resolved_approximation_thresholds(args)
     candidates = _load_candidates(args)
+    deduplication = None
+    if args.deduplicate_global_phase:
+        candidate_count = len(candidates)
+        deduplication = deduplicate_candidates_up_to_global_phase(candidates)
+        candidates = list(deduplication.representatives)
+        print(
+            f"Global-phase deduplication: {candidate_count} -> {len(candidates)} "
+            f"candidates ({deduplication.removed_count} removed).",
+            flush=True,
+        )
     transpiler_backend = None
     transpiler_metadata = None
     output_dir = args.output_dir
     quantum_circuits_dir = args.quantum_circuits_dir
     iqm_strategy_names = _iqm_strategy_names_from_args(args)
+
+    if args.ibm_backend:
+        transpiler_backend = load_ibm_backend(args.ibm_backend, account_name=args.ibm_account_name, instance=args.ibm_instance)
+        transpiler_metadata = ibm_backend_metadata(transpiler_backend)
+        output_dir = output_dir or repo_path("artifacts", "ibm_runs", "raw")
+        quantum_circuits_dir = quantum_circuits_dir or repo_path("artifacts", "ibm_runs", "raw", "quantum_circuits", safe_backend_slug(args.ibm_backend))
 
     if args.iqm_backend:
         transpiler_backend = load_iqm_backend(
@@ -373,7 +440,7 @@ def main(argv=None) -> int:
             transpiler_backend,
             iqm_backend_name=args.iqm_backend,
             iqm_use_metrics=args.iqm_use_metrics,
-            optimization_level=3,
+            optimization_level=args.optimization_level,
             layout_method=args.layout_method,
             routing_method=args.routing_method,
         )
@@ -386,6 +453,16 @@ def main(argv=None) -> int:
         output_dir=output_dir,
         prefix=_default_results_prefix(args),
     )
+    if deduplication is not None:
+        results_path = Path(output_csv)
+        audit_path = results_path.with_name(
+            f"{results_path.stem}_global_phase_duplicates.csv"
+        )
+        audit_path.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame(
+            deduplication.duplicate_rows, columns=PHASE_DUPLICATE_COLUMNS
+        ).to_csv(audit_path, index=False)
+        print(f"Candidate global phase duplicates CSV: {audit_path}", flush=True)
 
     print(
         f"Running direct_basis_encoding: state={args.state}, "
@@ -415,8 +492,10 @@ def main(argv=None) -> int:
         ),
         approximation_degrees=approximation_thresholds or None,
         transpiler_backend=transpiler_backend,
+        transpiler_provider="ibm" if args.ibm_backend else "iqm",
+        initial_layout=args.initial_layout,
         transpiler_metadata=transpiler_metadata,
-        optimization_level=3,
+        optimization_level=args.optimization_level,
         layout_method=args.layout_method,
         routing_method=args.routing_method,
         iqm_strategy_names=iqm_strategy_names,

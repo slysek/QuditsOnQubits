@@ -15,6 +15,7 @@ import threading
 import time
 from dataclasses import asdict, dataclass
 from importlib.metadata import version
+from numbers import Real
 from pathlib import Path
 
 import numpy as np
@@ -33,6 +34,7 @@ from qudits_on_qubits.benchmarks.direct_basis.math_utils import (
     qutrit_fourier,
 )
 from qudits_on_qubits.core.project_paths import repo_path
+from .harness_progress import report_stage
 
 F3_TOLERANCE = 1e-10
 CZ3_TOLERANCE = 1e-5
@@ -150,6 +152,18 @@ def synthesize_f3(encoding: np.ndarray) -> QuantumCircuit:
     return circuit
 
 
+def _create_bqskit_compiler():
+    from bqskit.compiler import Compiler
+
+    # BQSKit 1.2 uses fixed startup ports, then closes both listeners after
+    # its client and workers connect. Serialize that handshake across local
+    # processes, not the expensive compilation on their private connections.
+    report_stage("waiting for BQSKit startup lock")
+    with FileLock(Path(tempfile.gettempdir()) / "qudits_on_qubits_bqskit_startup.lock"):
+        report_stage("starting BQSKit runtime")
+        return Compiler(num_workers=1)
+
+
 def _compile_cz3(embedding: np.ndarray) -> QuantumCircuit:
     # Lazy import keeps the F3 optimizer usable without BQSKit installed.
     from bqskit import MachineModel, compile
@@ -164,26 +178,51 @@ def _compile_cz3(embedding: np.ndarray) -> QuantumCircuit:
         StateVector(outputs[:, j], radixes=[2] * 4)
         for j in range(9)
     })
-    compiled = compile(
-        target, model=MachineModel(4, gate_set={U3Gate(), CZGate()}),
-        optimization_level=2, max_synthesis_size=4,
-        synthesis_epsilon=SYNTHESIS_EPSILON, seed=SYNTHESIS_SEED,
-        num_workers=1,
-    )
+    compiler = _create_bqskit_compiler()
+    try:
+        report_stage("CZ3 synthesis (BQSKit)")
+        compiled = compile(
+            target, model=MachineModel(4, gate_set={U3Gate(), CZGate()}),
+            optimization_level=2, max_synthesis_size=4,
+            synthesis_epsilon=SYNTHESIS_EPSILON, seed=SYNTHESIS_SEED,
+            compiler=compiler,
+        )
+    finally:
+        report_stage("closing BQSKit runtime")
+        compiler.close()
     # BQSKit matrix axes are big endian; QASM conversion preserves wire labels.
     # Reverse wires to make Operator(result) act on the original B2 columns.
     return bqskit_to_qiskit(compiled).reverse_bits()
 
 
-def synthesize_cz3(encoding: np.ndarray) -> QuantumCircuit:
+def validate_cz3_tolerance(value: object) -> float:
+    """Return an explicit positive finite acceptance threshold for CZ3."""
+    message = "cz3_tolerance must be a positive finite real number"
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise ValueError(message)
+    try:
+        tolerance = float(value)
+    except OverflowError as exc:
+        raise ValueError(message) from exc
+    if not np.isfinite(tolerance) or tolerance <= 0:
+        raise ValueError(message)
+    return tolerance
+
+
+def synthesize_cz3(
+    encoding: np.ndarray, *, tolerance: float = CZ3_TOLERANCE,
+) -> QuantumCircuit:
+    """Synthesize with fixed BQSKit settings, then apply the requested threshold."""
+    tolerance = validate_cz3_tolerance(tolerance)
     embedding = encoding_embedding(encoding)
     # BQSKit launches a runtime; serialize launches also for threaded benchmarks.
     with _SYNTHESIS_LOCK:
         circuit = _compile_cz3(embedding)
     circuit.name = "CZ3_W"
+    report_stage("validating CZ3")
     validation = validate_code_space_gate(circuit, np.kron(embedding, embedding), qutrit_cz())
-    _accept(circuit, validation, name="CZ3", tolerance=CZ3_TOLERANCE)
-    circuit.metadata = {"gate_library": GATE_LIBRARY, **asdict(validation)}
+    _accept(circuit, validation, name="CZ3", tolerance=tolerance)
+    circuit.metadata = {"gate_library": GATE_LIBRARY, "cz3_tolerance": tolerance, **asdict(validation)}
     return circuit
 
 
@@ -286,17 +325,22 @@ def optimized_gate_library(
     root.mkdir(parents=True, exist_ok=True)
     # Keep lock files outside the directories that publication replaces. OS
     # locks are released even if the holder process terminates unexpectedly.
+    report_stage("waiting for gate cache lock")
     with _SYNTHESIS_LOCK, FileLock(str(root / f"{key}.lock")):
         if directory.exists():
             try:
+                report_stage("validating cached F3/CZ3")
                 return _load_cached_library(directory, embedding, specification)
             except (FileNotFoundError, ValueError, TypeError, KeyError, IndexError,
                     EOFError, struct.error, QiskitError) as exc:
                 _LOGGER.warning("Rebuilding invalid gate cache %s: %s", directory, exc)
         started = time.perf_counter()
+        report_stage("F3 synthesis")
         f3 = synthesize_f3(embedding)
+        report_stage("CZ3 synthesis")
         cz3 = synthesize_cz3(embedding)
         elapsed = time.perf_counter() - started
         library = OptimizedGateLibrary(f3, cz3, elapsed)
+        report_stage("writing gate cache")
         _publish_cached_library(directory, embedding, specification, library)
         return library
