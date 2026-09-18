@@ -67,6 +67,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ibm-instance", default=None)
     parser.add_argument("--initial-layout", default=None, help="Ordered IBM physical qubits, comma-separated.")
     parser.add_argument("--n-qutrits", type=int, default=None)
+    parser.add_argument("--optimization-level", type=int, choices=range(4), default=3,
+                        help="Transpiler optimization level for local, IQM and IBM compilation.")
     parser.add_argument(
         "--candidate-set",
         choices=("sanity", "all-qutrit-u3", "old_qutrit", "v2-stage1", "from-old-csv"),
@@ -438,7 +440,7 @@ def main(argv=None) -> int:
             transpiler_backend,
             iqm_backend_name=args.iqm_backend,
             iqm_use_metrics=args.iqm_use_metrics,
-            optimization_level=3,
+            optimization_level=args.optimization_level,
             layout_method=args.layout_method,
             routing_method=args.routing_method,
         )
@@ -493,7 +495,7 @@ def main(argv=None) -> int:
         transpiler_provider="ibm" if args.ibm_backend else "iqm",
         initial_layout=args.initial_layout,
         transpiler_metadata=transpiler_metadata,
-        optimization_level=3,
+        optimization_level=args.optimization_level,
         layout_method=args.layout_method,
         routing_method=args.routing_method,
         iqm_strategy_names=iqm_strategy_names,

@@ -247,6 +247,15 @@ def saved_candidate(directory: str | Path, candidate_id: str = "saved"):
                              parameters={"encoding_sha256": hashlib.sha256(content).hexdigest()})
 
 
+def _matches_theta_encoding(encoding, theta: float) -> bool:
+    # libm sin/cos can differ by a few ULPs across platforms. Bundle hashes
+    # remain exact; this only checks numerical agreement with the theta family.
+    expected = theta_embedding(theta)
+    return (isinstance(encoding, np.ndarray) and encoding.shape == expected.shape
+            and np.issubdtype(encoding.dtype, np.number)
+            and np.allclose(encoding, expected, atol=1e-14, rtol=0.0))
+
+
 class ThetaContinuationSynthesis:
     """Sequential angle fitting/fallback, or exact reuse of a completed theta run."""
 
@@ -315,7 +324,7 @@ class ThetaContinuationSynthesis:
         if (metadata.get("index") != index or metadata.get("theta") != theta
                 or metadata.get("template_id") != store.manifest["template_id"]):
             raise SynthesisArtifactError("Saved theta point identity does not match the configured grid")
-        if not np.array_equal(bundle["arrays"].get("E.npy"), theta_embedding(theta)):
+        if not _matches_theta_encoding(bundle["arrays"].get("E.npy"), theta):
             raise SynthesisArtifactError("Saved theta encoding does not match its grid point")
         if store.manifest["benchmark"] == "theta_threshold_reassessment_v1":
             details = metadata.get("reassessment")
@@ -350,7 +359,7 @@ class ThetaContinuationSynthesis:
                 raise ValueError("Theta candidate grid_index does not match the configured grid")
         else:
             raise ValueError(f"Theta continuation cannot synthesize candidate family: {candidate.family}")
-        if not np.array_equal(candidate.encoding, theta_embedding(theta)):
+        if not _matches_theta_encoding(candidate.encoding, theta):
             raise ValueError("Candidate encoding does not match its theta grid point")
         return index
 

@@ -331,3 +331,56 @@ def test_default_optimized_cache_avoids_installation_root(monkeypatch, tmp_path,
     assert strategy.cache_dir.is_relative_to(user_home)
     assert list(strategy.cache_dir.rglob("*.qpy"))
     assert strategy.to_dict() == synthesis.OptimizedSynthesis(cache_dir=tmp_path / "other").to_dict()
+
+@pytest.mark.parametrize("round_saved", [False, True])
+def test_theta_replay_accepts_one_ulp_roundoff(theta_run, tmp_path, round_saved):
+    synthesis = _synthesis()
+    from qudits_on_qubits.benchmarks.theta_continuation.artifacts import RunStore
+    config, root = theta_run
+    source = RunStore.open(root)
+    original = source.read_bundle("points/00000")
+    candidate = _candidate()
+    encoding = original["arrays"]["E.npy"].copy()
+    encoding[0, 0] = np.nextafter(encoding[0, 0].real, 0.0)
+    if round_saved:
+        source = RunStore.create(tmp_path / "rounded", source.manifest)
+        source.write_bundle("points/00000", metadata=original["metadata"],
+                            arrays={"E.npy": encoding}, circuits=original["circuits"])
+    else:
+        candidate.encoding = encoding
+    strategy = synthesis.ThetaContinuationSynthesis(config, source_run=source.root)
+    strategy.prepare([candidate], tmp_path)
+    library = strategy.build(candidate)
+    assert library.f3 == original["circuits"]["f3_optimal.qpy"]
+    assert library.cz3 == original["circuits"]["cz3_selected.qpy"]
+
+
+@pytest.mark.parametrize("encoding", [
+    np.eye(4, 3) * (1 + 1e-8), np.zeros((4, 1)),
+])
+def test_theta_replay_rejects_wrong_encoding_with_valid_hashes(theta_run, tmp_path, encoding):
+    synthesis = _synthesis()
+    from qudits_on_qubits.benchmarks.theta_continuation.artifacts import RunStore
+    config, root = theta_run
+    source = RunStore.open(root)
+    bundle = source.read_bundle("points/00000")
+    wrong = RunStore.create(tmp_path / "wrong", source.manifest)
+    wrong.write_bundle("points/00000", metadata=bundle["metadata"],
+                       arrays={"E.npy": encoding}, circuits=bundle["circuits"])
+    with pytest.raises(synthesis.SynthesisArtifactError, match="encoding"):
+        synthesis.ThetaContinuationSynthesis(config, source_run=wrong.root)
+
+
+def test_theta_replay_still_checks_hash_for_one_ulp_file_change(theta_run, tmp_path):
+    synthesis = _synthesis()
+    import shutil
+    config, root = theta_run
+    copy = tmp_path / "changed"
+    shutil.copytree(root, copy)
+    strategy = synthesis.ThetaContinuationSynthesis(config, source_run=copy)
+    path = copy / "points/00000/E.npy"
+    encoding = np.load(path, allow_pickle=False)
+    encoding[0, 0] = np.nextafter(encoding[0, 0].real, 0.0)
+    np.save(path, encoding, allow_pickle=False)
+    with pytest.raises(synthesis.SynthesisArtifactError, match="hash"):
+        strategy.build(_candidate())
