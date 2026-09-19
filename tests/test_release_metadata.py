@@ -14,6 +14,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 CHANGELOG = ROOT / "CHANGELOG.md"
+REPOSITORY = "github.com/slysek/QuditsOnQubits"
 
 RELEASE_HEADING = re.compile(r"^## \[(\d+\.\d+\.\d+)\] - (\d{4}-\d{2}-\d{2})$", re.M)
 
@@ -57,8 +58,20 @@ def test_changelog_keeps_an_unreleased_section():
     assert "## [Unreleased]" in CHANGELOG.read_text(encoding="utf-8")
 
 
+def test_citation_version_is_a_string():
+    # A two-component version such as `0.2` parses as float unless quoted, which
+    # would make the comparison above fail as 0.2 != "0.2".
+    assert isinstance(citation()["version"], str)
+
+
 def test_changelog_link_references_resolve():
     text = CHANGELOG.read_text(encoding="utf-8")
     version = project_version()
-    assert f"\n[{version}]: " in text, f"missing link reference for {version}"
-    assert f"compare/v{version}...HEAD" in text, "[Unreleased] must compare from the latest tag"
+    reference = re.search(rf"^\[{re.escape(version)}\]: (\S+)$", text, re.M)
+    assert reference is not None, f"missing link reference for {version}"
+    assert reference.group(1).endswith(f"...v{version}"), reference.group(1)
+    assert REPOSITORY in reference.group(1), reference.group(1)
+
+    unreleased = re.search(r"^\[Unreleased\]: (\S+)$", text, re.M)
+    assert unreleased is not None, "missing [Unreleased] link reference"
+    assert unreleased.group(1).endswith(f"compare/v{version}...HEAD"), unreleased.group(1)

@@ -37,8 +37,8 @@ Notable changes to QuditsOnQubits are recorded here, using the
 - Links to archived Polish documents now carry a `(Polish)` label.
 - Corrected the duplicated `Copyright` word in `LICENSE`.
 - Distribution verification selects artifacts with version-independent globs.
-  Local contribution instructions use a fresh output directory; CI builds in a
-  clean checkout.
+  Local contribution instructions use a fresh output directory, and the CI
+  workflow documents why its own checkout needs none.
 
 ### Fixed
 

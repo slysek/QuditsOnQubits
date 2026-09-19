@@ -16,19 +16,21 @@ bootstrap SE. Each row is the maximum over the eight (basis x F3) cells for that
 backend and state. **Selection of the maximum is exploratory; the intervals carry
 no multiple-comparison correction.**
 
-| Backend | State | Basis | F3 | Bell |
-| --- | --- | --- | --- | --- |
-| ibm | two_qutrit | sup023_P021_ph000 | optimal | 5.0309 +/- 0.0351 |
-| ibm | ghz3 | sup023_P021_ph001 | optimal | 4.5739 +/- 0.0337 |
-| ibm | ame43 | canonical_ez | optimal | 5.3524 +/- 0.0404 |
-| iqm | two_qutrit | canonical_ez | standard | 4.7397 +/- 0.0350 |
-| iqm | ghz3 | sup023_P021_ph001 | optimal | 3.6363 +/- 0.0350 |
-| iqm | ame43 | canonical_ez | optimal | 2.0291 +/- 0.0468 |
+| Backend | State | Basis | F3 | Bell | Ideal | Classical bound |
+| --- | --- | --- | --- | --- | --- | --- |
+| ibm | two_qutrit | sup023_P021_ph000 | optimal | 5.0309 +/- 0.0351 | 6 | 5.6381557 |
+| ibm | ghz3 | sup023_P021_ph001 | optimal | 4.5739 +/- 0.0337 | 6 | 5.6381557 |
+| ibm | ame43 | canonical_ez | optimal | 5.3524 +/- 0.0404 | 8 | 7.6381557 |
+| iqm | two_qutrit | canonical_ez | standard | 4.7397 +/- 0.0350 | 6 | 5.6381557 |
+| iqm | ghz3 | sup023_P021_ph001 | optimal | 3.6363 +/- 0.0350 | 6 | 5.6381557 |
+| iqm | ame43 | canonical_ez | optimal | 2.0291 +/- 0.0468 | 8 | 7.6381557 |
 
-For `two_qutrit` the ideal value is 6 and the nominal classical bound is
-5.6381557. **No raw result exceeded the nominal classical bound.** A post-selected
-or mitigated value is not a loophole-free proof of nonlocality; the parties'
-qubits sit on the same processor.
+`two_qutrit` and `ghz3` have ideal value 6 and nominal classical bound 5.6381557.
+`ame43` is on a **different scale**: ideal 8 and bound 7.6381557, so its values are
+not directly comparable with the other two rows. **No raw result exceeded the
+nominal classical bound of its own state.** A post-selected or mitigated value is
+not a loophole-free proof of nonlocality; the parties' qubits sit on the same
+processor.
 
 Best candidate against the baseline, F3 optimal: IBM improves for `two_qutrit`
 (+0.2293 +/- 0.0498, +4.78%) and `ghz3` (+0.1502 +/- 0.0478, +3.40%) but degrades
