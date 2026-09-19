@@ -1,17 +1,17 @@
 """Graph-state edge generators and benchmark state-name resolution.
 
-Pojedyncze, czyste miejsce w repo, w ktorym definiujemy:
+A single, self-contained place in the repository defining:
 
-* generatory listy krawedzi dla rodzin grafow (star / path / cycle / wheel /
+* edge-list generators for graph families (star / path / cycle / wheel /
   complete / 2D cluster grid),
-* parser tekstowych nazw stanow benchmarkowych (np. ``"path5"``,
+* a parser for textual benchmark state names (e.g. ``"path5"``,
   ``"cluster2x3"``, ``"ghz_star_4"``, ``"ame43"``),
-* gotowe rejestry zestawow benchmarkowych ("suite") wykorzystywane przez
-  jednoetapowy pipeline w :mod:`encoding_search_v2.suite`.
+* predefined benchmark suite registries used by the single-stage pipeline
+  in :mod:`encoding_search_v2.suite`.
 
-Modul zostal celowo wyniesiony poza :mod:`encoding_search_v2` i poza
-:mod:`QuditsOnQubits.benchmark_encoding_bases`, zeby obie warstwy mogly
-korzystac z tej samej, jedynej definicji rodzin grafow bez cyklu importow.
+This module is intentionally outside :mod:`encoding_search_v2` and
+:mod:`QuditsOnQubits.benchmark_encoding_bases` so both layers can share
+a single definition of graph families without circular imports.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ EdgeList = Tuple[Tuple[int, int], ...]
 
 @dataclass(frozen=True)
 class GraphStateSpec:
-    """Statyczny opis qutrytowego stanu grafowego dla benchmarku."""
+    """Static description of a qutrit graph state for benchmarking."""
 
     state_id: str
     state_family: str
@@ -37,7 +37,7 @@ class GraphStateSpec:
     edges: EdgeList
 
 
-# ───────────────────── generatory krawedzi ─────────────────────
+# ───────────────────── edge generators ────────────────────────
 
 def star_edges(n: int) -> EdgeList:
     n = int(n)
@@ -61,9 +61,9 @@ def cycle_edges(n: int) -> EdgeList:
 
 
 def wheel_edges(n: int) -> EdgeList:
-    """Wheel: wezel 0 jako centrum, wezly 1..n-1 jako cykl zewnetrzny.
+    """Wheel: node 0 is the center, nodes 1..n-1 form the outer cycle.
 
-    Wymaga n>=4 (czyli co najmniej 1 centrum + 3 wezly cyklu).
+    Requires n>=4 (at least 1 center + 3 cycle nodes).
     """
     n = int(n)
     if n < 4:
@@ -82,7 +82,7 @@ def complete_edges(n: int) -> EdgeList:
 
 
 def cluster_edges(rows: int, cols: int) -> EdgeList:
-    """2D cluster (siatka prostokatna) z sasiedztwem nearest-neighbor."""
+    """2D cluster (rectangular grid) with nearest-neighbor adjacency."""
     rows = int(rows)
     cols = int(cols)
     if rows < 1 or cols < 1:
@@ -107,7 +107,7 @@ def cluster_edges(rows: int, cols: int) -> EdgeList:
     return tuple(edges)
 
 
-# ───────────────────── parser nazw stanow ──────────────────────
+# ───────────────────── state-name parser ──────────────────────
 
 _GHZ_STAR_PATTERN = re.compile(r"^(?:ghz_star|ghz_n)_(\d+)$")
 _GHZ_SHORT_PATTERN = re.compile(r"^ghz(\d+)$")
@@ -245,29 +245,29 @@ def resolve_graph_state_or_raise(
 
 
 def is_known_graph_state(state_name: str) -> bool:
-    """Zwroc True dla kazdej nazwy obslugiwanej przez resolver."""
+    """Return True for every name supported by the resolver."""
     try:
         return resolve_graph_state(state_name) is not None
     except ValueError:
-        # Stany typu "ghz_star" wymagajace n_qutrits.
+        # States such as "ghz_star" that require n_qutrits.
         return True
 
 
-# ───────────────────── rejestr "suite" ─────────────────────────
+# ───────────────────── "suite" registry ────────────────────────
 
-#: Zestaw rozszerzonych qutrytowych stanow grafowych do nocnego benchmarku.
-#: Stany ``two_qutrit``, ``ghz3``, ``ame43`` *celowo* nie wchodza w sklad
-#: tego zestawu — sa juz zbenchmarkowane na osobno w starszym pipeline.
+#: Extended set of qutrit graph states for overnight benchmarking.
+#: States ``two_qutrit``, ``ghz3``, ``ame43`` are *intentionally* excluded
+#: from this set — they are already benchmarked separately in the older pipeline.
 EXTENDED_GRAPH_STATES: Tuple[str, ...] = (
-    # GHZ / star graph qutritowy
+    # Qutrit GHZ / star graph
     "ghz4", "ghz5", "ghz6", "ghz7", "ghz8", "ghz9",
-    # Sciezki / chain
+    # Paths / chains
     "path4", "path5", "path6", "path7", "path8", "path9",
-    # Cykle / ring
+    # Cycles / rings
     "cycle4", "cycle5", "cycle6", "cycle7", "cycle8", "cycle9",
-    # Kola
+    # Wheels
     "wheel5", "wheel6", "wheel7", "wheel8", "wheel9",
-    # Grafy pelne
+    # Complete graphs
     "complete4", "complete5", "complete6",
     # 2D cluster grids
     "cluster2x2", "cluster2x3",

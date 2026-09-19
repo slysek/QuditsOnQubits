@@ -4,6 +4,7 @@ import ast
 import json
 from pathlib import Path
 import random
+import re
 
 import numpy as np
 import pytest
@@ -29,6 +30,41 @@ def namespace(tmp_path):
     values["WORK_ROOT"] = tmp_path
     exec(compile(code("basis-helper"), str(NOTEBOOK), "exec"), values)
     return values
+
+
+def assert_no_user_specific_windows_paths(path):
+    source = path.read_text(encoding="utf-8")
+    if path.suffix.lower() == ".json":
+        source = json.dumps(json.loads(source))
+    assert re.search(r"[a-z]:[/\\]+users[/\\]+", source, flags=re.IGNORECASE) is None, (
+        f"User-specific Windows path in {path}"
+    )
+
+
+@pytest.mark.parametrize(
+    "path",
+    sorted(
+        path for path in (ROOT / "benchmarks").rglob("*")
+        if path.is_file() and path.suffix.lower() in {".json", ".txt"}
+    ),
+    ids=lambda path: path.relative_to(ROOT).as_posix(),
+)
+def test_benchmark_artifacts_have_no_user_specific_windows_paths(path):
+    assert_no_user_specific_windows_paths(path)
+
+
+@pytest.mark.parametrize("suffix", [".json", ".txt"])
+@pytest.mark.parametrize("source", [
+    r"C:\Users\example\artifacts",
+    r"c:\users\example\artifacts",
+    "C:/Users/example/artifacts",
+    "c:/users/example/artifacts",
+])
+def test_path_guard_rejects_windows_user_paths(tmp_path, suffix, source):
+    path = tmp_path / f"artifact{suffix}"
+    path.write_text(json.dumps({"path": source}) if suffix == ".json" else source, encoding="utf-8")
+    with pytest.raises(AssertionError, match="User-specific Windows path"):
+        assert_no_user_specific_windows_paths(path)
 
 
 def test_notebook_is_output_free_and_hardware_runs_are_guarded():

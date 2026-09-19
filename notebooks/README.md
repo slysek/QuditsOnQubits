@@ -11,6 +11,8 @@ sampled local measurement settings.
 
 Other notebooks document specific research questions. Those under `working/`
 may need saved inputs, optional integrations or provider credentials. Read their
-configuration before running; hardware cells can submit jobs.
+configuration before running; hardware cells can submit jobs. Some of them, and
+some archived reports they point to, keep their original language (Polish); such
+links are marked where they appear.
 
 See the [documentation index](../docs/README.md) for supported APIs and guides.

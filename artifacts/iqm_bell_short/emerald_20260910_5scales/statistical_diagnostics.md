@@ -1,3 +1,8 @@
+> **Note (English):** archived exploratory ZNE diagnostics for IQM Emerald over five
+> noise scales - 40 jobs, 405 504 shots, scales 1, 1.5, 2, 2.5, 3; unit of analysis is
+> eight blocks of four repetitions, theoretical Bell = 6. The report body below retains
+> its original language (Polish). The machine-readable form is `statistical_diagnostics.json`.
+
 **Diagnostyka statystyczna ZNE: IQM Emerald, pięć skal**
 
 40 jobów, 405 504 shoty, skale 1, 1.5, 2, 2.5, 3. Jednostka analizy: osiem bloków po cztery powtórzenia. Teoria Bell = 6.

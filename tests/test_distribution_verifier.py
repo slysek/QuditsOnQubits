@@ -7,7 +7,8 @@ import pytest
 from scripts import verify_distribution as check
 
 
-def packages(tmp_path, *, omit_gate=False, omit_baseline=False, license=True, entry=True, omit_source=False):
+def packages(tmp_path, *, omit_gate=False, omit_baseline=False, license=True, entry=True, omit_source=False,
+             omitted_sources=()):
     wheel = tmp_path / "demo.whl"
     sdist = tmp_path / "demo.tar.gz"
     gates = sorted(check.GATES)
@@ -23,7 +24,8 @@ def packages(tmp_path, *, omit_gate=False, omit_baseline=False, license=True, en
             archive.writestr("demo.dist-info/entry_points.txt",
                              "[console_scripts]\nqoq-benchmark = demo:main\nqoq-two-qutrit-bell = demo:main\n")
     with tarfile.open(sdist, "w:gz") as archive:
-        for name in check.SOURCE_FILES - ({"examples/data/theta_demo.zip"} if omit_source else set()):
+        excluded = set(omitted_sources) | ({"examples/data/theta_demo.zip"} if omit_source else set())
+        for name in check.SOURCE_FILES - excluded:
             info = tarfile.TarInfo("demo/" + name)
             info.size = 1
             archive.addfile(info, io.BytesIO(b"x"))
@@ -45,6 +47,21 @@ def test_incomplete_distributions_are_rejected(tmp_path, option, message):
     value = option not in {"license", "entry"}
     with pytest.raises(ValueError, match=message):
         check.verify_archives(*packages(tmp_path, **{option: value}))
+
+
+@pytest.mark.parametrize("missing_source", [
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "CODE_OF_CONDUCT.md",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    ".github/ISSUE_TEMPLATE/bug_report.md",
+    ".github/ISSUE_TEMPLATE/feature_request.md",
+    ".github/ISSUE_TEMPLATE/config.yml",
+])
+def test_missing_community_file_is_rejected(tmp_path, missing_source):
+    with pytest.raises(ValueError) as error:
+        check.verify_archives(*packages(tmp_path, omitted_sources=(missing_source,)))
+    assert str(error.value) == f"sdist is missing: {missing_source}"
 
 
 def test_missing_console_command_is_rejected(tmp_path):

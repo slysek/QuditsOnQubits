@@ -53,7 +53,7 @@ from qudits_on_qubits.core.encoding_change_unitary import (
     validate_encoding_map,
 )
 
-# ═══════════════════════════ STAŁE ═══════════════════════════
+# ═════════════════════════ CONSTANTS ════════════════════════
 
 E_OLD = np.array(
     [[1, 0, 0],
@@ -63,7 +63,7 @@ E_OLD = np.array(
     dtype=complex,
 )
 
-# Projektor na starą code space: span{|00>,|01>,|10>}
+# Projector onto the old code space: span{|00>,|01>,|10>}
 P_OLD_CODESPACE = E_OLD @ E_OLD.conj().T  # 4×4
 
 OMEGA = np.exp(2j * np.pi / 3)
@@ -76,7 +76,7 @@ _DEFAULT_CIRCUITS_OUTPUT_DIR = object()
 _EXPORTED_TRANSPILED_CIRCUIT_COUNT = 3
 
 COUPLING_MAP = [
-    # poziome
+    # horizontal
     [0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,12],[12,13],[13,14],[14,15],
     [16,17],[17,18],[18,19],[19,20],[20,21],[21,22],[22,23],[23,24],[24,25],[25,26],[26,27],[27,28],[28,29],[29,30],[30,31],
     [32,33],[33,34],[34,35],[35,36],[36,37],[37,38],[38,39],[39,40],[40,41],[41,42],[42,43],[43,44],[44,45],[45,46],[46,47],
@@ -85,7 +85,7 @@ COUPLING_MAP = [
     [80,81],[81,82],[82,83],[83,84],[84,85],[85,86],[86,87],[87,88],[88,89],[89,90],[90,91],[91,92],[92,93],[93,94],[94,95],
     [96,97],[97,98],[98,99],[99,100],[100,101],[101,102],[102,103],[103,104],[104,105],[105,106],[106,107],[107,108],[108,109],[109,110],[110,111],
     [112,113],[113,114],[114,115],[115,116],[116,117],[117,118],[118,119],[119,120],[120,121],[121,122],[122,123],[123,124],[124,125],[125,126],[126,127],
-    # pionowe
+    # vertical
     [3,19],[7,23],[11,27],[15,31],
     [17,33],[21,37],[25,41],[29,45],
     [35,51],[39,55],[43,59],[47,63],
@@ -96,7 +96,7 @@ COUPLING_MAP = [
 ]
 
 
-# ════════════════════ OPERATORY QUTRYTOWE (3×3) ══════════════
+# ════════════════════ QUTRIT OPERATORS (3×3) ════════════════
 
 _GHZ_STAR_STATE_PREFIXES = ("ghz_star_", "ghz_n_")
 
@@ -144,12 +144,12 @@ def _resolve_star_graph_n(state_name, n_qutrits=None):
 
 
 def _resolve_state_spec(state_name, n_qutrits=None):
-    """Internal: zwroc :class:`GraphStateSpec` dla rozpoznanej nazwy stanu.
+    """Internal: return :class:`GraphStateSpec` for a recognized state name.
 
-    Najpierw konsultuje ogolny rejestr w ``QuditsOnQubits.graph_states``
-    (ktory rozumie path/cycle/wheel/complete/cluster/ghz<n>),  a w razie
-    nieznanej nazwy zwraca ``None``, zachowujac dotychczasowe komunikaty
-    bledow w :func:`benchmark_basis`.
+    First consult the general registry in ``QuditsOnQubits.graph_states``
+    (which supports path/cycle/wheel/complete/cluster/ghz<n>). For an
+    unknown name, return ``None``, preserving the existing error messages
+    in :func:`benchmark_basis`.
     """
     return resolve_graph_state(state_name, n_qutrits=n_qutrits)
 
@@ -178,7 +178,7 @@ def _state_num_qutrits(state_name, n_qutrits=None):
 
 @lru_cache(maxsize=None)
 def _build_cached_graph(state_id, num_qutrits, edges_tuple):
-    """Internal cache by canonical state_id, niezalezny od formy argumentow."""
+    """Internal cache by canonical state_id, independent of argument form."""
     edges = [list(pair) for pair in edges_tuple]
     return Graph(n=num_qutrits, edges=edges)
 
@@ -186,9 +186,9 @@ def _build_cached_graph(state_id, num_qutrits, edges_tuple):
 def _get_state_graph(state_name, n_qutrits=None):
     """Return a cached graph object for a named benchmark state.
 
-    Cache jest kluczowany po kanonicznym ``state_id``, dzieki czemu wywolania
-    ``_get_state_graph("ame43")`` oraz ``_get_state_graph("ame43", 4)``
-    zwroca *te sama* instancje :class:`igraph.Graph`.
+    The cache is keyed by canonical ``state_id``, so calls to
+    ``_get_state_graph("ame43")`` and ``_get_state_graph("ame43", 4)``
+    return *the same* :class:`igraph.Graph` instance.
     """
     spec = _resolve_state_spec(state_name, n_qutrits)
     if spec is None:
@@ -221,7 +221,7 @@ def _get_cached_approximation_pass_manager(
 
 
 def qutrit_X():
-    """Cykliczny shift X₃:  |k⟩ → |k+1 mod 3⟩."""
+    """Cyclic shift X₃:  |k⟩ → |k+1 mod 3⟩."""
     return np.array(
         [[0, 0, 1],
          [1, 0, 0],
@@ -231,12 +231,12 @@ def qutrit_X():
 
 
 def qutrit_Z():
-    """Operator fazowy Z₃:  |k⟩ → ω^k |k⟩."""
+    """Phase operator Z₃:  |k⟩ → ω^k |k⟩."""
     return np.diag([1, OMEGA, OMEGA**2]).astype(complex)
 
 
 def qutrit_fourier():
-    """Macierz Fouriera F₃ dla qutrytu."""
+    """Fourier matrix F₃ for a qutrit."""
     return np.array(
         [[1, 1,        1       ],
          [1, OMEGA,    OMEGA**2],
@@ -250,10 +250,10 @@ def get_E_old():
     return E_OLD.copy()
 
 
-# ════════════════════ POMOCNICZE ═════════════════════════════
+# ════════════════════ HELPERS ═══════════════════════════════
 
 def _random_unitary(n, rng):
-    """Losowa macierz unitarna n×n (Haar) przez QR."""
+    """Haar-random n×n unitary matrix via QR decomposition."""
     Z = (rng.standard_normal((n, n)) + 1j * rng.standard_normal((n, n))) / np.sqrt(2)
     Q, R = np.linalg.qr(Z)
     d = np.diag(R)
@@ -262,17 +262,17 @@ def _random_unitary(n, rng):
 
 
 def _random_unitary_3x3(rng):
-    """Losowa macierz unitarna 3×3 (Haar)."""
+    """Haar-random 3×3 unitary matrix."""
     return _random_unitary(3, rng)
 
 
 def _random_unitary_4x4(rng):
-    """Losowa macierz unitarna 4×4 (Haar)."""
+    """Haar-random 4×4 unitary matrix."""
     return _random_unitary(4, rng)
 
 
 def _perm_matrix(perm):
-    """Macierz permutacji 3×3 z krotki np. (1,2,0)."""
+    """3×3 permutation matrix from a tuple, e.g. (1,2,0)."""
     P = np.zeros((3, 3), dtype=complex)
     for i, j in enumerate(perm):
         P[i, j] = 1.0
@@ -293,14 +293,14 @@ _PHASES_3 = [1, OMEGA, OMEGA**2]
 
 
 def _phase_label(phases):
-    """Zakoduj fazy z {1, ω, ω²} jako cyfry 0/1/2 do nazwy kandydata."""
+    """Encode phases from {1, ω, ω²} as digits 0/1/2 for a candidate name."""
     return "".join(
         str(int(round(np.angle(phase) * 3 / (2 * np.pi))) % 3)
         for phase in phases
     )
 
 
-# ────────────── metryki kodowania ──────────────
+# ────────────── encoding metrics ──────────────
 
 def _single_qubit_product_library():
     """Small discrete library of 1-qubit unitaries for product-basis candidates."""
@@ -407,12 +407,12 @@ def _single_qubit_product_grid(angle_grid=None):
 def _codeword_entanglement(col):
     """Return the von Neumann entanglement entropy of a pure two-qubit state.
     col is a normalized statevector of shape (4,). The result is in [0, 1] bits."""
-    # Reshape do 2×2 (qubit_A ⊗ qubit_B)
+    # Reshape to 2×2 (qubit_A ⊗ qubit_B)
     psi = col.reshape(2, 2)
-    # Zredukowana macierz gęstości ρ_A = Tr_B(|ψ⟩⟨ψ|)
+    # Reduced density matrix ρ_A = Tr_B(|ψ⟩⟨ψ|)
     rho_A = psi @ psi.conj().T
     eigvals = np.linalg.eigvalsh(rho_A)
-    # Wytnij numeryczne szumy < 0
+    # Clip numerical noise < 0
     eigvals = eigvals[eigvals > 1e-14]
     if len(eigvals) == 0:
         return 0.0
@@ -433,15 +433,15 @@ def compute_encoding_metadata(E_new):
             "overlap_with_old_codespace": 1.0,
         }
 
-    # Czy czwarty wiersz (|11⟩) jest zerowy?
+    # Is the fourth row (|11⟩) zero?
     row11_norm = np.linalg.norm(E_new[3, :])
     uses_old = bool(row11_norm < 1e-10)
 
-    # Średnie splątanie codewordów
+    # Mean codeword entanglement
     ents = [_codeword_entanglement(E_new[:, j]) for j in range(3)]
     avg_ent = float(np.mean(ents))
 
-    # Overlap z starą code space
+    # Overlap with the old code space
     proj = P_OLD_CODESPACE @ E_new  # 4×3
     overlap = np.real(np.trace(proj.conj().T @ proj)) / 3.0
 
@@ -628,17 +628,17 @@ def _benchmark_approximation_sweep(
     return result
 
 
-# ════════════════ GENERATORY BAZ — STARA CODE SPACE ═════════
+# ════════════════ BASIS GENERATORS — OLD CODE SPACE ═══════
 
 def generate_baseline():
-    """Klasa 0: baseline – samo E_old."""
-    return [("baseline", "E_old", None)]  # E_new=None → domyślne kodowanie
+    """Class 0: baseline – E_old only."""
+    return [("baseline", "E_old", None)]  # E_new=None → default encoding
 
 
 def generate_monomial_old_codespace_bases(max_candidates=500):
     """
-    Klasa 1: E_new = E_old @ D @ P
-    Permutacja + diagonalne fazy z {1, ω, ω²}.
+    Class 1: E_new = E_old @ D @ P
+    Permutation + diagonal phases from {1, ω, ω²}.
     """
     candidates = []
     for perm in _PERMS_3:
@@ -655,7 +655,7 @@ def generate_monomial_old_codespace_bases(max_candidates=500):
 
 
 def generate_monomial_bases(max_candidates=500):
-    """Backward-compatible wrapper dla monomiali ograniczonych do E_old."""
+    """Backward-compatible wrapper for monomials restricted to E_old."""
     return generate_monomial_old_codespace_bases(max_candidates=max_candidates)
 
 
@@ -685,8 +685,8 @@ def generate_monomial_full_bases(max_candidates=500):
 
 def generate_fourier_like_bases(max_candidates=80):
     """
-    Klasa 2: E_new = E_old @ D1 @ F3 @ D2
-    Fourier z fazami po obu stronach.
+    Class 2: E_new = E_old @ D1 @ F3 @ D2
+    Fourier with phases on both sides.
     """
     F3 = qutrit_fourier()
     candidates = []
@@ -722,7 +722,7 @@ def generate_householder_bases(n_samples=20, seed=42):
 
 def generate_clifford_wh_bases():
     """
-    Klasa 4: E_new = E_old @ X3^a @ Z3^b @ F3^c
+    Class 4: E_new = E_old @ X3^a @ Z3^b @ F3^c
     """
     X3 = qutrit_X()
     Z3 = qutrit_Z()
@@ -736,7 +736,7 @@ def generate_clifford_wh_bases():
     return candidates
 
 
-# ════════════ GENERATORY BAZ — OGÓLNE IZOMETRIE 4×3 ═════════
+# ════════════ BASIS GENERATORS — GENERAL 4×3 ISOMETRIES ════
 
 def generate_haar_random_isometries(n_samples=20, seed=100):
     """Class 5: Haar-random 4×3 isometries.
@@ -761,9 +761,9 @@ def generate_perturbed_isometries(n_samples_per_eps=8, seed=200):
         for i in range(n_samples_per_eps):
             noise = (rng.standard_normal((4, 3)) + 1j * rng.standard_normal((4, 3))) * eps
             E_pert = E_OLD + noise
-            # Reortonormalizacja kolumn przez QR
+            # Reorthonormalize columns via QR
             Q, R = np.linalg.qr(E_pert, mode='reduced')
-            # Ustal orientację faz (żeby QR nie flipował znaków)
+            # Fix phase orientation (so QR does not flip signs)
             signs = np.diag(np.sign(np.diag(R)))
             E_new = Q @ signs
             name = f"pert_eps{eps:.2f}_{i:02d}"
@@ -789,7 +789,7 @@ def generate_structured_entangling_isometries():
     from qiskit.circuit.library import CZGate
     from qiskit.quantum_info import Operator as QOp
 
-    # CZ jako macierz 4×4
+    # CZ as a 4×4 matrix
     cz_mtx = QOp(CZGate()).data
 
     def _ry(theta):
@@ -816,7 +816,7 @@ def generate_structured_entangling_isometries():
     return candidates
 
 
-# ═══════ GENERATORY BAZ — ROZSZERZONY SEARCH (nowe klasy) ════
+# ═══════ BASIS GENERATORS — EXTENDED SEARCH (new classes) ══
 
 def generate_product_bases(
     max_candidates=500,
@@ -873,7 +873,7 @@ def generate_local_ry_only(n_grid=10):
     for theta in angles:
         for phi in angles:
             if abs(theta) < 1e-10 and abs(phi) < 1e-10:
-                continue  # pomiń tożsamość
+                continue  # skip identity
             W = np.kron(_ry(theta), _ry(phi))
             E_new = W @ E_OLD
             name = f"ry_{theta:.3f}_{phi:.3f}"
@@ -883,8 +883,8 @@ def generate_local_ry_only(n_grid=10):
 
 def generate_local_general_su2(n_samples=30, seed=600):
     """
-    Klasa 11: W = U₁ ⊗ U₂  gdzie U₁, U₂ ∈ SU(2) losowe.
-    Zero dodatkowych bramek 2-qubitowych z W.
+    Class 11: W = U₁ ⊗ U₂  with random U₁, U₂ ∈ SU(2).
+    No additional two-qubit gates from W.
     """
     rng = np.random.default_rng(seed)
     candidates = []
@@ -998,7 +998,7 @@ def generate_two_cz_ansatz(n_samples=50, seed=700):
     return candidates
 
 
-# ════════════════════ BENCHMARK JEDNEGO PRZYPADKU ════════════
+# ════════════════════ SINGLE-CASE BENCHMARK ═════════════════
 
 def benchmark_basis(E_new, class_name, candidate_name,
                     state_name="ghz3",
@@ -1021,7 +1021,7 @@ def benchmark_basis(E_new, class_name, candidate_name,
     state_name = _normalize_state_name(state_name, resolved_n_qutrits)
     circuits_output_dir = _resolve_circuits_output_dir(state_name, circuits_output_dir)
 
-    # ── metryki kodowania ──
+    # ── encoding metrics ──
     meta = compute_encoding_metadata(E_new)
 
     row = {
@@ -1051,7 +1051,7 @@ def benchmark_basis(E_new, class_name, candidate_name,
     }
     row.update(_make_approximation_result_fields(fidelity_thresholds))
 
-    # ── walidacja ──
+    # ── validation ──
     if E_new is not None:
         vres = validate_encoding_map(E_new)
         if not vres["is_valid"]:
@@ -1060,7 +1060,7 @@ def benchmark_basis(E_new, class_name, candidate_name,
             row["error_message"] = vres["message"]
             return row
 
-    # ── budowa obwodu ──
+    # ── circuit construction ──
     try:
         qc, _ = _build_state_circuit(state_name, E_new=E_new,
                                      encoding_strategy=encoding_strategy,
@@ -1100,7 +1100,7 @@ def benchmark_basis(E_new, class_name, candidate_name,
         row["approx_status"] = "error"
         row["approx_error_message"] = traceback.format_exc()
 
-    # ── transpilacja × n_transpile_runs — zbieramy pełne statystyki ──
+    # ── transpilation × n_transpile_runs — collect full statistics ──
     depths = []
     sizes = []
     two_q_counts = []
@@ -1152,14 +1152,14 @@ def benchmark_basis(E_new, class_name, candidate_name,
     if row["successful_trials"] == 0:
         row["status"] = "all_transpile_failed"
         row["error_message"] = (
-            f"Wszystkie próby transpilacji zakończyły się błędem. "
-            f"Ostatni błąd: {last_trial_error}"
+            f"All transpilation attempts failed. "
+            f"Last error: {last_trial_error}"
             if last_trial_error
-            else "Wszystkie próby transpilacji zakończyły się błędem."
+            else "All transpilation attempts failed."
         )
         return row
 
-    # ── statystyki ──
+    # ── statistics ──
     ranked_circuits = sorted(successful_circuits, key=lambda item: item["rank_key"])
     best = ranked_circuits[0]
 
@@ -1209,7 +1209,7 @@ def _markdown_table(headers, rows):
 
 def _format_fidelity_cell(row, prefix, suffix):
     value = row.get(f"{prefix}_{suffix}")
-    return "brak" if pd.isna(value) else value
+    return "missing" if pd.isna(value) else value
 
 
 def write_multi_state_benchmark_report(state_frames, output_path):
@@ -2004,7 +2004,7 @@ def run_benchmark(n_qutrits=None, n_transpile_runs=20,
         )
         return df
 
-    # ── tryb "all": trzy stany + wspólny raport ──
+    # ── "all" mode: three states + combined report ──
     common_kwargs = dict(
         n_transpile_runs=n_transpile_runs,
         mode=mode,

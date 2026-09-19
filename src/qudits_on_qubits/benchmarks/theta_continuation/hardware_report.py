@@ -106,43 +106,43 @@ def generate_hardware_report(directory) -> Path:
                            max_depth=r['bell_routed_depth_max']) for r in rows] for state,rows in ranking.items()}))
     _plot(directory, summary, states)
     source=Path(manifest['source_run'])
-    lines=['# Dodatkowa warstwa IQM dla benchmarku theta','',
-        '**Dotychczasowy benchmark pozostaje bez zmian.** Ten raport dodaje koszty sprzętowe do tych samych zapisanych bramek i stanów.', '',
-        f'[Oryginalny raport](<{(source/"report.md").as_posix()}>) · [Oryginalne pełne obwody CSV](<{(source/"full_circuits.csv").as_posix()}>)', '',
-        f'Punkty theta: **{len(indices)}**. Przygotowania stanów: **{len(summary)}**. Pełne ustawienia Bella: **{len(settings)}**. Bloki F3/CZ3: **{len(gates)}**. Zadań sprzętowych: **0**.', '',
-        '## Co porównujemy','',
-        '1. Oryginalne przygotowanie U/CZ przy pełnej łączności — zachowane liczby z zapisanych QPY.',
-        '2. Natywne przygotowanie R/CZ przy pełnej łączności.',
-        '3. Przygotowanie R/CZ po routingu na wybranym podgrafie IQM.',
-        '4. Pełne obwody Bella: wspólne przygotowanie, lokalne obroty baz, dekodowanie i odczyt; koszty przed i po routingu.', '',
-        'Kolumny 1q dla U i R dotyczą różnych zbiorów bramek. Głębokość pełnego obwodu Bella obejmuje odczyt; głębokość przygotowania nie obejmuje pomiarów. CZ depth liczy warstwy CZ. Koszty są przed DD/ZNE i bez impulsów dopisywanych przez serwer.', '',
-        'W pełnych obwodach Bella końcowe lokalne bramki przygotowania łączymy z lokalnym pomiarem i kompilujemy razem. Dlatego koszt pełnego Bella nie musi być sumą całego przygotowania i osobno skompilowanej bazy. CSV rozdziela wspólny prefiks (`bell_prefix_routed_n_cz`), lokalne bloki pomiarowe (`local_measurement_n_cz`) oraz naprawcze SWAP-y (3 CZ każdy, już wliczone w prefiks). Zmiana bazy jednej strony nie zmienia obwodu pozostałych stron.', '',
-        '**Baseline theta=0 oznacza obwód z tej samej biblioteki F3/CZ3. Nie jest skróconym sprzętowym baseline’em Bella o 5–7 CZ z odrębnego eksperymentu.**', '',
-        '## Topologia i zasady porównania','',
-        f'Backend: **{manifest["snapshot"]["backend"]}**. Kalibracja migawki: `{manifest["snapshot"]["calibration_set_id"]}`.',
-        f'Seedy transpilera: `{manifest["config"]["seeds"]}`. Każdy kąt danego stanu ma te same fizyczne kubity i początkowe przypisanie.', '',
-        *_table(['Stan','Fizyczne kubity, kolejność przewodów'],
+    lines=['# Additional IQM layer for the theta benchmark','',
+        '**The existing benchmark remains unchanged.** This report adds hardware costs for the same saved gates and states.', '',
+        f'[Original report](<{(source/"report.md").as_posix()}>) · [Original full circuits CSV](<{(source/"full_circuits.csv").as_posix()}>)', '',
+        f'Theta points: **{len(indices)}**. State preparations: **{len(summary)}**. Full Bell settings: **{len(settings)}**. F3/CZ3 blocks: **{len(gates)}**. Hardware jobs: **0**.', '',
+        '## What is compared','',
+        '1. Original U/CZ preparation with all-to-all connectivity — counts preserved from saved QPY files.',
+        '2. Native R/CZ preparation with all-to-all connectivity.',
+        '3. R/CZ preparation after routing on the selected IQM subgraph.',
+        '4. Full Bell circuits: shared preparation, local basis rotations, decoding and readout; costs before and after routing.', '',
+        'The 1q columns for U and R refer to different gate sets. Full Bell circuit depth includes readout; preparation depth excludes measurements. CZ depth counts CZ layers. Costs are before DD/ZNE and exclude pulses added by the server.', '',
+        'In full Bell circuits, the final local preparation gates are combined with the local measurement and compiled together. Therefore, the full Bell cost need not equal the sum of the complete preparation and a separately compiled basis. The CSV separates the shared prefix (`bell_prefix_routed_n_cz`), local measurement blocks (`local_measurement_n_cz`) and repair SWAPs (3 CZ each, already included in the prefix). Changing one party’s basis does not change the circuits of the other parties.', '',
+        '**The theta=0 baseline is a circuit from the same F3/CZ3 library. It is not the shortened hardware Bell baseline of 5–7 CZ from a separate experiment.**', '',
+        '## Topology and comparison rules','',
+        f'Backend: **{manifest["snapshot"]["backend"]}**. Snapshot calibration: `{manifest["snapshot"]["calibration_set_id"]}`.',
+        f'Transpiler seeds: `{manifest["config"]["seeds"]}`. Every angle for a given state uses the same physical qubits and initial mapping.', '',
+        *_table(['State','Physical qubits, wire order'],
                 [(state,', '.join(manifest['profiles'][state]['qubit_names'])) for state in states]), '',
-        'Routing zachowuje końcową permutację. Samo inne numerowanie wyjść nie wymaga fizycznego SWAP-a. Dla pomiarów Bella dołączamy najkrótszą znalezioną sekwencję SWAP-ów zapewniającą połączenie wewnątrz każdej pary kutrytu; nie wymagamy powrotu do oryginalnej numeracji. Wszystkie operacje między stronami kończą się przed lokalnymi blokami zależnymi od ustawienia.', '',
-        'Jest to porównanie przy zamrożonej topologii i skończonym budżecie kompilacji. Nie jest globalnym minimum routingu, rankingiem według błędów kalibracji, harmonogramem impulsów ani prognozą wartości Bella na sprzęcie.', '',
-        '## Kandydaci według pełnego kosztu po routingu','',
-        'Ranking wykorzystuje średnią liczbę CZ po różnych ustawieniach Bella, następnie maksymalną głębokość i średnią liczbę R. Średnia jest opisem zasobów z równymi wagami ustawień, nie planem shotów. Baseline pokazano oddzielnie.', '']
+        'Routing preserves the final permutation. Output renumbering alone does not require a physical SWAP. For Bell measurements, we append the shortest SWAP sequence found that ensures connectivity within each qutrit’s qubit pair; a return to the original numbering is not required. All operations between parties finish before the local setting-dependent blocks.', '',
+        'This comparison uses a fixed topology and a finite compilation budget. It is not a global routing minimum, a ranking by calibration errors, a pulse schedule or a prediction of hardware Bell values.', '',
+        '## Candidates by full cost after routing','',
+        'The ranking uses the mean CZ count across distinct Bell settings, followed by maximum depth and mean R count. The mean summarizes resources with equal setting weights; it is not a shot allocation plan. The baseline is shown separately.', '']
     for state in states:
         chosen=[baselines[state],*ranking[state][:3]]
         lines += [f'### {state}', '', *_table(
-            ['indeks','theta/pi','CZ przygotowania, oryginał','CZ przygotowania, IQM','CZ Bella, IQM min–max','CZ Bella, średnia','delta do theta=0'],
+            ['index','theta/pi','Preparation CZ, original','Preparation CZ, IQM','Bell CZ, IQM min–max','Bell CZ, mean','delta from theta=0'],
             [(r['index'],r['theta_over_pi'],r['preparation_original_n_cz'],r['preparation_routed_n_cz'],
               f'{r["bell_routed_n_cz_min"]}–{r["bell_routed_n_cz_max"]}',r['bell_routed_n_cz_mean'],r['bell_cz_mean_minus_theta0']) for r in chosen]), '']
-    lines += ['## Wszystkie kąty', '', *_table(
-        ['stan','indeks','theta/pi','CZ prep U/CZ','CZ prep IQM','CZ Bella IQM min–max','max depth Bella','błąd histogramu'],
+    lines += ['## All angles', '', *_table(
+        ['state','index','theta/pi','CZ prep U/CZ','CZ prep IQM','Bell CZ IQM min–max','max Bell depth','histogram error'],
         [(r['state'],r['index'],r['theta_over_pi'],r['preparation_original_n_cz'],r['preparation_routed_n_cz'],
           f'{r["bell_routed_n_cz_min"]}–{r["bell_routed_n_cz_max"]}',r['bell_routed_depth_max'],r['max_probability_error']) for r in summary]), '',
-        '![Koszty przy kolejnych theta](hardware_costs.png)', '',
-        '[Wykres PDF](hardware_costs.pdf) · [Wszystkie koszty stanów CSV](summary.csv) · [Każde ustawienie Bella CSV](bell_settings.csv) · [Bramki F3/CZ3 CSV](gates.csv) · [Ranking JSON](ranking.json)', '',
-        '## Walidacja i artefakty','',
-        'Źródłowe oraz nowe QPY/NPY są odczytywane przez magazyn sprawdzający SHA256. Kompilację przygotowania sprawdzamy względem rzeczywistego wejściowego stanu, pełne F3/CZ3 względem całego operatora, a pomiary według wszystkich prawdopodobieństw w kolejności klasycznych bitów. Leakage pozostaje w mianowniku i ma wagę zero. Zgodność idealna potwierdza poprawność kompilacji, nie odporność na szum.', '',
-        'Kolumna `qpy_path` w każdym CSV wskazuje rzeczywisty obwód; pliki używają kompaktowych indeksów podgrafu. Odpowiadające numery i nazwy fizycznych kubitów, permutacje oraz naprawcze SWAP-y zapisano w metadanych pakietu i manifeście.', '',
-        f'Fingerprint warstwy: `{manifest["fingerprint"]}`. Plików źródłowych objętych kontrolą niezmienności: {manifest["source_file_count"]}.', '']
+        '![Costs across theta points](hardware_costs.png)', '',
+        '[Plot PDF](hardware_costs.pdf) · [All state costs CSV](summary.csv) · [Each Bell setting CSV](bell_settings.csv) · [F3/CZ3 gates CSV](gates.csv) · [Ranking JSON](ranking.json)', '',
+        '## Validation and artifacts','',
+        'Source and new QPY/NPY files are read through a store that checks SHA256. Preparation compilation is checked against the actual input state, full F3/CZ3 gates against the entire operator, and measurements against all probabilities in classical-bit order. Leakage remains in the denominator and has zero weight. Ideal agreement confirms compilation correctness, not noise robustness.', '',
+        'The `qpy_path` column in each CSV points to the actual circuit; files use compact subgraph indices. The corresponding physical qubit numbers and names, permutations and repair SWAPs are recorded in the bundle metadata and manifest.', '',
+        f'Layer fingerprint: `{manifest["fingerprint"]}`. Source files checked for changes: {manifest["source_file_count"]}.', '']
     path=directory/'report.md'
     path.write_text('\n'.join(lines),encoding='utf-8')
     return path
@@ -156,13 +156,13 @@ def _plot(directory, rows, states):
     for state,ax in zip(states,axes[:,0]):
         selected=sorted((r for r in rows if r['state']==state),key=lambda r:r['theta'])
         x=[r['theta']*180/np.pi for r in selected]
-        for key,label,color in [('preparation_original_n_cz','Przygotowanie: oryginał','#617789'),
-                                ('preparation_routed_n_cz','Przygotowanie: IQM','#d58d34'),
-                                ('bell_routed_n_cz_mean','Pełny Bell: IQM, średnia','#187c78')]:
+        for key,label,color in [('preparation_original_n_cz','Preparation: original','#617789'),
+                                ('preparation_routed_n_cz','Preparation: IQM','#d58d34'),
+                                ('bell_routed_n_cz_mean','Full Bell: IQM, mean','#187c78')]:
             ax.plot(x,[r[key] for r in selected],'.-',label=label,color=color)
         ax.fill_between(x,[r['bell_routed_n_cz_min'] for r in selected],
                         [r['bell_routed_n_cz_max'] for r in selected],color='#187c78',alpha=.15)
-        ax.set(title=state,xlabel='theta [stopnie]',ylabel='Liczba CZ')
+        ax.set(title=state,xlabel='theta [degrees]',ylabel='CZ count')
         ax.grid(alpha=.2);ax.legend(fontsize=8)
     fig.savefig(directory/'hardware_costs.png',dpi=180)
     fig.savefig(directory/'hardware_costs.pdf')

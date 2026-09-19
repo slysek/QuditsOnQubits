@@ -1,18 +1,18 @@
-"""Jednoetapowy pipeline benchmarkowy "suite".
+"""Single-stage "suite" benchmark pipeline.
 
-Ten modul jest celowo wezszy niz :mod:`encoding_search_v2.runner`.
-W :mod:`runner` zyje stary mechanizm dwuetapowy z preselekcja top-k.
-Tu — w odpowiedzi na nocny benchmark dla rodzin grafow qutrytowych
+This module is intentionally narrower than :mod:`encoding_search_v2.runner`.
+The legacy two-stage mechanism with top-k preselection lives in :mod:`runner`.
+For overnight benchmarks of qutrit graph families
 (``ghz<n>``, ``path<n>``, ``cycle<n>``, ``wheel<n>``, ``complete<n>``,
-``cluster<r>x<c>``) — chcemy:
+``cluster<r>x<c>``), the goals here are to:
 
-* odpalic *jedna* komenda,
-* zbenchmarkowac *kazdy* zarejestrowany stan ze sluga "suite",
-* uzyc *wszystkich* klas baz kodowania zaimplementowanych w
+* launch with *one* command,
+* benchmark *every* registered state under the "suite" slug,
+* use *all* encoding-basis classes implemented in
   :mod:`QuditsOnQubits.benchmark_encoding_bases` (``mode="full"``),
-* zapisac wyniki do osobnego folderu suite, rownolegle w wielu workerach,
-* renderowac czytelny progres ("[done/total] ETA...") nadajacy sie do logu
-  uruchomienia nocnego.
+* save results to a separate suite folder, using multiple workers in parallel,
+* render readable progress ("[done/total] ETA...") suitable for an overnight
+  run log.
 """
 
 from __future__ import annotations
@@ -53,12 +53,12 @@ COMBINED_RESULTS_BASENAME = "suite_combined_results.csv"
 SUITE_LOG_FILENAME = "suite_run.log"
 
 
-# ───────────────────────── konfiguracja ────────────────────────
+# ───────────────────────── configuration ───────────────────────
 
 
 @dataclass(frozen=True)
 class SuiteConfig:
-    """Konfiguracja jednorazowego nocnego runa benchmarkowego."""
+    """Configuration for a single overnight benchmark run."""
 
     suite_name: str
     states: tuple[str, ...]
@@ -78,18 +78,18 @@ class SuiteConfig:
     rtol: float = DEFAULT_RTOL
 
 
-# ─────────── kandydaci: pelny zestaw klas baz kodowania ────────
+# ─────────── candidates: all encoding-basis classes ───────────
 
 
 def generate_all_class_candidates(
     mode: str = "full",
     class_filter: Optional[Iterable[str]] = None,
 ) -> list[tuple]:
-    """Zwroc liste (class_name, candidate_name, E_new) dla wszystkich klas.
+    """Return a list of (class_name, candidate_name, E_new) for all classes.
 
-    Lazy-import :mod:`QuditsOnQubits.benchmark_encoding_bases_parallel` zeby
-    uniknac ladowania ciezkich zaleznosci (qiskit) podczas importu modulu
-    suite.
+    Lazily import :mod:`QuditsOnQubits.benchmark_encoding_bases_parallel` to
+    avoid loading heavy dependencies (qiskit) when importing the suite
+    module.
     """
     from qudits_on_qubits.core.benchmark_encoding_bases_parallel import (
         _generate_candidates_for_mode,
@@ -98,14 +98,14 @@ def generate_all_class_candidates(
     return _generate_candidates_for_mode(mode, class_filter=class_filter)
 
 
-# ─────────── nizsze warstwy: budowa zadan i workery ────────────
+# ─────────── lower layers: task construction and workers ──────
 
 
 def _strip_e_old_baseline_only_from_candidates(candidates):
-    """Pozostaw kandydatow w ich naturalnej kolejnosci — bez modyfikacji.
+    """Keep candidates in their original order without modifications.
 
-    Zachowane jako wyrazny punkt wejscia, gdyby w przyszlosci suite
-    chcial filtrowac np. baseline z innej rodziny.
+    Retained as an explicit entry point in case the suite needs to filter,
+    for example, a baseline from another family in the future.
     """
     return list(candidates)
 
@@ -194,11 +194,11 @@ def _benchmark_candidate_worker(task: dict) -> dict:
     return _strip_internal_circuit_objects(row)
 
 
-# ─────────── stream-tee: jednoczesny stdout + plik logu ───────
+# ─────────── stream-tee: simultaneous stdout + log file ───────
 
 
 class _TeeStream:
-    """Lekki tee: rownolegle pisze do dwoch strumieni."""
+    """Lightweight tee: write to two streams in tandem."""
 
     def __init__(self, *streams):
         self._streams = streams
@@ -213,7 +213,7 @@ class _TeeStream:
             stream.flush()
 
 
-# ─────────── glowna petla benchmarku po stanach ────────────────
+# ─────────── main benchmark loop over states ─────────────────
 
 
 def _state_results_already_exist(config: SuiteConfig, state_id: str) -> bool:
@@ -355,7 +355,7 @@ def _write_combined_csv(
     return combined_path
 
 
-# ─────────────────────── publiczne API ─────────────────────────
+# ─────────────────────── public API ────────────────────────────
 
 
 def run_benchmark_suite(
@@ -363,9 +363,9 @@ def run_benchmark_suite(
     *,
     log_stream=None,
 ) -> dict:
-    """Uruchom suite benchmarkow dla wszystkich stanow w ``config.states``.
+    """Run the benchmark suite for all states in ``config.states``.
 
-    Zwraca slownik z metadanymi runu (sciezki + per-state DataFrame).
+    Return a dictionary of run metadata (paths + per-state DataFrame).
     """
     suite_log_path = _suite_log_path(config)
     os.makedirs(os.path.dirname(suite_log_path), exist_ok=True)

@@ -31,5 +31,14 @@ Thumbs.db
 htmlcov/
 .vscode/
 
-# Local assistant worktrees
+# Local agent tooling state (not part of the project).
+# Unanchored where the name can never be real project content, so copies
+# created by an agent started in a subdirectory are caught too.
 .claude/
+.squad/
+.codex/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+# Anchored: "locks" is a plausible future project directory name.
+/locks/

@@ -131,8 +131,8 @@
     ]
   ],
   "circuit_sources": {
-    "ibm": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_benchmark_20260907\\weighted\\fez\\ibm\\final",
-    "iqm": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_benchmark_20260907\\weighted\\iqm\\final"
+    "ibm": "artifacts/bell_benchmark_20260907/weighted/fez/ibm/final",
+    "iqm": "artifacts/bell_benchmark_20260907/weighted/iqm/final"
   },
   "limits_seconds": {
     "ibm": 540.0,

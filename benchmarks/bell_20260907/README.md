@@ -2,15 +2,67 @@
 
 This bundle contains **the complete earlier analysis and the Fez/Garnet repeat with 5000 shots per setting**. Bell values, bootstrap SE/95% CI, F3/baseline differences, and historical ZNE can be recomputed from saved real-QPU results. Replaying the analysis requires no IBM/IQM credentials and consumes no QPU credits.
 
-- [5000-shot report: Fez + IQM](reports/rerun5000/RAPORT.md)
-- [First benchmark: Kingston, Marrakesh, Fez, IQM, and ZNE](reports/RAPORT_KONCOWY.md)
-- [Repeat methodology and limitations](reports/rerun5000/METODY.md)
+## Results summary
+
+The repeat campaign completed **48/48 variants**: 3 states (`two_qutrit`, `ghz3`,
+`ame43`) x (baseline + 3 candidate encodings) x 2 F3 versions x 2 real processors
+(IBM Fez, IQM Garnet). Each of the 544 Bell settings received exactly 5000 shots,
+2 970 000 shots in total including calibrations. ZNE was omitted in this repeat.
+
+### Highest measured values across all bases and both F3 versions
+
+The values below are **post-selected, without readout correction**; `+/-` is one
+bootstrap SE. Each row is the maximum over the eight (basis x F3) cells for that
+backend and state. **Selection of the maximum is exploratory; the intervals carry
+no multiple-comparison correction.**
+
+| Backend | State | Basis | F3 | Bell |
+| --- | --- | --- | --- | --- |
+| ibm | two_qutrit | sup023_P021_ph000 | optimal | 5.0309 +/- 0.0351 |
+| ibm | ghz3 | sup023_P021_ph001 | optimal | 4.5739 +/- 0.0337 |
+| ibm | ame43 | canonical_ez | optimal | 5.3524 +/- 0.0404 |
+| iqm | two_qutrit | canonical_ez | standard | 4.7397 +/- 0.0350 |
+| iqm | ghz3 | sup023_P021_ph001 | optimal | 3.6363 +/- 0.0350 |
+| iqm | ame43 | canonical_ez | optimal | 2.0291 +/- 0.0468 |
+
+For `two_qutrit` the ideal value is 6 and the nominal classical bound is
+5.6381557. **No raw result exceeded the nominal classical bound.** A post-selected
+or mitigated value is not a loophole-free proof of nonlocality; the parties'
+qubits sit on the same processor.
+
+Best candidate against the baseline, F3 optimal: IBM improves for `two_qutrit`
+(+0.2293 +/- 0.0498, +4.78%) and `ghz3` (+0.1502 +/- 0.0478, +3.40%) but degrades
+for `ame43` (-0.1485 +/- 0.0578, -2.78%); IQM improves
+for `ghz3` (+0.1181 +/- 0.0496, +3.36%) but degrades for `two_qutrit`
+(-1.2187 +/- 0.0527, -25.93%) and `ame43` (-0.8996 +/- 0.0666, -44.33%).
+
+Against the earlier series the median post-selected SE fell by 56.15% (IBM) and
+64.16% (IQM). Fez reached higher values, but `rep_delay` also changed from 250 to
+75 us and twirling from 16 to 8 randomizations, so the change cannot be attributed
+to the shot count alone. IQM shows a decline in part of the results, especially
+AME; checks of instructions, mapping and calibration did not establish a cause,
+and the results were neither discarded nor replaced by the earlier ones.
+
+QPU cost of the repeat: IBM 127 s; IQM upper bound 526.660 s, i.e. 263.330
+credits under the author's own conversion factor, not a provider rate. Whole
+campaign: IBM 438/540 s; IQM upper bound 745.598/1000 s, i.e. 372.799/500 credits.
+The IQM figure is a timeline-derived limit, not an invoice.
+
+## Reports and data
+
+The full reports below are the primary evidence. They were written during the
+original campaign and **retain their original language (Polish)**; the summary
+above covers their headline results in English.
+
+- [5000-shot report: Fez + IQM](reports/rerun5000/RAPORT.md) (Polish)
+- [First benchmark: Kingston, Marrakesh, Fez, IQM, and ZNE](reports/RAPORT_KONCOWY.md) (Polish)
+- [Repeat methodology and limitations](reports/rerun5000/METODY.md) (Polish)
 - [Encoding matrices](reports/coding_bases.json)
 - [Data manifest and SHA-256 hashes](manifest.json)
 
 ## Installation — Python 3.12
 
-Run these commands from the root of a normal repository checkout, such as `main` or the `v0.1.0` tag once available. The historical reports retain their original language.
+Run these commands from the root of a normal repository checkout, such as `main` or the `v0.1.0` tag once available.
 
 Windows PowerShell:
 
@@ -68,7 +120,7 @@ Static reports, plots, and original CSVs are already available in `reports/`; re
 
 The source was commit `156305e8b21d78ba7e729070d86e97e7d21e734e` plus the decoder correction for an inactive AME participant with monomial supports. That correction and its tests are included in the repository, along with the required Qiskit/QPY bit-index normalization and IBM configuration helpers.
 
-Historical provenance files, `reports/rerun5000/protocol.json`, and `validation-original.txt` may contain original absolute paths. They are preserved records, not executable configuration. Report links are portable. The binding distribution manifest is `manifest.json`; historical report hashes recorded before link adjustments do not describe the published copies.
+Historical provenance files are preserved records, not executable configuration. After publication the path fields in `reports/rerun5000/protocol.json` (`circuit_sources`) and `reports/rerun5000/provenance.json` (`raw_data_root`, `analysis_root`) were normalised from absolute Windows paths to repository-relative form. No hash in `manifest.json` or in `provenance.json` covers those two files, so the distribution integrity boundary is unaffected. The same normalisation was applied to the single absolute path recorded in `validation-original.txt`; no other byte of that log was changed, and it is likewise not covered by any recorded hash. Report links are portable. The binding distribution manifest is `manifest.json`; historical report hashes recorded before link adjustments do not describe the published copies.
 
 `study.py`, `hardware.py`, `target_screen.py`, `execute.py`, and `rerun5000.py` retain the design and execution code for the historical campaign. `report.py` is the original first-stage report generator. The supported entry point for reproducing the publication is **`reproduce.py`**. Historical hardware scripts expect the former `weighted/` layout and are not ready-to-use launchers for a new campaign.
 

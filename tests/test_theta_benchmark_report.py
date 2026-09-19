@@ -77,12 +77,12 @@ def test_report_exports_failures_provenance_and_scientific_figures(store):
     path = report.generate_report(store.root)
     assert path == store.root / "report.md"
     text = path.read_text(encoding="utf-8")
-    assert "Nieudane punkty: 1" in text
-    assert "Poprawne powyżej baseline: 1" in text
+    assert "Failed points: 1" in text
+    assert "Valid above baseline: 1" in text
     assert "3.12.test" in text and "abc123" in text
     assert "1e-10" in text and "1e-05" in text
-    assert "nie dowodzi" in text.lower()
-    assert "unwrap" in text.lower() and "gładkości" in text
+    assert "does not prove" in text.lower()
+    assert "unwrap" in text.lower() and "smoothness" in text
     rows = _csv(store.root / "points.csv")
     assert len(rows) == 5 and rows[2]["status"] == "failed"
     assert rows[2]["cz3_n_cz"] == "" and rows[3]["cz3_n_cz"] == "8"
@@ -150,7 +150,7 @@ def test_report_handles_empty_valid_run(tmp_path):
     })
     store.write_bundle("baseline", metadata={}, documents={"template.json": _template()})
     path = report.generate_report(store.root)
-    assert "Nieudane punkty: 0" in path.read_text(encoding="utf-8")
+    assert "Failed points: 0" in path.read_text(encoding="utf-8")
     assert _csv(store.root / "points.csv") == []
 
 
@@ -183,7 +183,7 @@ def test_real_pinned_template_exports_all_33_angles_without_fabricating_later_po
         "correct": True, "continuation_valid": True, "status": "ok",
     }, arrays={"cz3_parameters.npy": template.initial_parameters})
     text = report.generate_report(store.root).read_text(encoding="utf-8")
-    assert "6 CZ, 11 U3, 33 kątów" in text
+    assert "6 CZ, 11 U3, 33 angles" in text
     rows = _csv(store.root / "parameters.csv")
     assert len(rows) == 66
     first = [row for row in rows if row["index"] == "0"]
@@ -219,11 +219,11 @@ def test_report_shows_component_cz_costs_before_fusion_and_preserves_1q_costs(st
         "one_qubit_gate_count": 27, **components,
     })
     text = report.generate_report(store.root).read_text(encoding="utf-8")
-    assert "### Koszt składników przed łączeniem bloków" in text
-    assert "| przygotowanie CZ | bloki F3 CZ | bloki CZ3 CZ | suma przed łączeniem CZ | pełny obwód CZ |" in text
+    assert "### Component costs before block fusion" in text
+    assert "| preparation CZ | F3 blocks CZ | CZ3 blocks CZ | total before fusion CZ | full circuit CZ |" in text
     assert "| 0 | 0 | ghz3 | 0 | 6 | 12 | 18 | 16 |" in text
-    assert "może różnić się" in text and "optymalizacji całego obwodu" in text
-    assert "koszty 1q" in text and "full_circuits.csv" in text
+    assert "may differ" in text and "whole-circuit optimization" in text
+    assert "1q costs" in text and "full_circuits.csv" in text
     row = next(row for row in _csv(store.root / "full_circuits.csv") if row["state_name"] == "ghz3")
     for key, value in components.items():
         assert row[key] == str(value)
@@ -238,7 +238,7 @@ def test_report_does_not_infer_missing_component_costs_for_older_bundles(store, 
     })
     text = report.generate_report(store.root).read_text(encoding="utf-8")
     assert "| 0 | 0 | ghz3 | — | — | — | — | 16 |" in text
-    assert "brak zapisanych danych" in text and "zerowego kosztu" in text
+    assert "missing saved data" in text and "zero cost" in text
     row = next(row for row in _csv(store.root / "full_circuits.csv") if row["state_name"] == "ghz3")
     assert row.get("preparation_n_cz", "") == ""
     assert row.get("unfused_n_cz", "") == ""

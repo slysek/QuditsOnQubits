@@ -1,0 +1,7 @@
+# Keep an entry point for research and installation questions while Discussions
+# is disabled; bug reports and feature requests have dedicated templates.
+blank_issues_enabled: true
+contact_links:
+  - name: Existing issues and project questions
+    url: https://github.com/slysek/QuditsOnQubits/issues
+    about: Search existing QuditsOnQubits reports and questions before opening an issue.
