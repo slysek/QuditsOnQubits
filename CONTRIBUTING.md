@@ -38,16 +38,20 @@ into one Pareto front. Circuit costs do not establish hardware performance.
 
 ## Validate a distribution
 
+Build into a fresh directory so previous releases cannot match the artifact globs:
+
 ```bash
-python -m build
+DIST_DIR=$(mktemp -d)
+python -m build --outdir "$DIST_DIR"
 ```
 
-In a fresh virtual environment, install the resulting wheel:
+In the same shell, activate a fresh virtual environment and install the resulting
+wheel:
 
 ```bash
-python -m pip install dist/qudits_on_qubits-0.1.1-py3-none-any.whl
+python -m pip install "$DIST_DIR"/*.whl
 python -m pip check
-python scripts/verify_distribution.py --wheel dist/qudits_on_qubits-0.1.1-py3-none-any.whl --sdist dist/qudits_on_qubits-0.1.1.tar.gz
+python scripts/verify_distribution.py --wheel "$DIST_DIR"/*.whl --sdist "$DIST_DIR"/*.tar.gz
 ```
 
 The verifier checks package contents and runs both installed entry points outside

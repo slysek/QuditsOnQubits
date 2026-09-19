@@ -114,11 +114,11 @@ def test_report_uses_actual_qpy_costs_and_full_precision_provenance(store):
     assert "0.0005" in text and "1e-05" in text
     assert "original-fingerprint" in text
     assert "exact_u3_to_u" in text and "reconstructed" in text
-    assert "poprzednim progu: **1/2**" in text
-    assert "Historyczne próby kontynuacji: 2" in text
-    assert "spełniające nowy próg: 0" in text
+    assert "previous threshold: **1/2**" in text
+    assert "Historical continuation attempts: 2" in text
+    assert "meeting the new threshold: 0" in text
     assert float(_csv(store.root / "attempts.csv")[0]["E_norm"]) == 0.005206495797314588
-    assert "nie oznacza" in text and "kontynuacji" in text
+    assert "does not imply" in text and "continuation" in text
     rows = _csv(store.root / "points.csv")
     assert len(rows) == 2
     assert rows[0]["f3_n_cz"] == "2"
@@ -226,7 +226,7 @@ def test_empty_report_marks_missing_results_and_draws_empty_circuit(tmp_path):
     store.write_bundle("baseline", metadata={})
     result = report.generate_reassessment_report(store.root)
     text = result.read_text(encoding="utf-8")
-    assert "brakujące punkty: [0, 1]" in text
+    assert "missing points: [0, 1]" in text
     assert "**0/2**" in text
     assert (source / "report.md").as_posix() in text
     assert _csv(store.root / "points.csv") == []

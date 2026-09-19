@@ -1,16 +1,16 @@
-"""CLI dla jednoetapowego pipeline'u benchmarkowego (suite).
+"""CLI for the single-stage benchmark pipeline (suite).
 
-Przyklad uruchomienia nocnego:
+Example overnight run:
 
     OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
     python -m encoding_search_v2.suite_cli \
         --suite graph_states_extended \
         --jobs 32
 
-Zmienne srodowiskowe ``OMP_NUM_THREADS=1`` itd. nakazuja BLAS/OMP nie
-forkowac dodatkowych watkow w kazdym workerze, co znacznie redukuje
-oversubscription na maszynach 32-rdzeniowych (kazdy proces transpilera
-qiskit i tak swietnie wykorzystuje pojedynczy rdzen).
+Environment variables such as ``OMP_NUM_THREADS=1`` tell BLAS/OMP not to
+spawn additional threads in each worker, which significantly reduces
+oversubscription on 32-core machines (each qiskit transpiler process
+already makes good use of a single core).
 """
 
 from __future__ import annotations

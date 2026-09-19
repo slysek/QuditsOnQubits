@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qudits-on-qubits"
-version = "0.1.1"
+version = "0.1.2"
 description = "Hardware-aware compilation and benchmarking of qudit circuits encoded on qubit quantum processors."
 readme = "README.md"
 license = "Apache-2.0"
@@ -73,6 +73,7 @@ dev = [
     "pytest>=8,<9",
     "pytest-cov>=5,<7",
     "build>=1.2,<2",
+    "pyyaml>=6,<7",
 ]
 mitigation = [
     "mthree>=3,<4",

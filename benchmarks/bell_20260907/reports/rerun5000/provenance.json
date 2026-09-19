@@ -9,8 +9,8 @@
     "artifacts\\bell_benchmark_20260907\\hardware.py": "8f5b3429087aa506666de1b83f23c0905d4018baaa785a692a0de6837bc653ba"
   },
   "review_round1": "CLEAN",
-  "raw_data_root": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_benchmark_20260907\\weighted",
-  "analysis_root": "C:\\Users\\szymon\\QuditsOnQubits\\artifacts\\bell_benchmark_20260907\\weighted\\rerun5000",
+  "raw_data_root": "artifacts/bell_benchmark_20260907/weighted",
+  "analysis_root": "artifacts/bell_benchmark_20260907/weighted/rerun5000",
   "review_round2": "CLEAN",
   "artifact_sha256": {
     "RAPORT.md": "dde9d2c8167071c166a2334af2b133e608be9fec3ce8ca362b4b3e8dff500fa1",

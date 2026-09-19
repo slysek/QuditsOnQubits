@@ -17,10 +17,13 @@ THETA_DATA = {f"qudits_on_qubits/benchmarks/theta_continuation/data/{name}"
               for name in ("CZ3_W.qpy", "E.npy")}
 SOURCE_FILES = {
     "LICENSE", "CITATION.cff", "CONTRIBUTING.md", "README.md", "pyproject.toml",
+    "CHANGELOG.md", "SECURITY.md", "CODE_OF_CONDUCT.md",
     "examples/data/theta_demo.zip", "examples/encoding_benchmark_demo.py",
     "examples/two_qutrit_encoding_benchmark.py", "notebooks/encoding_benchmark.ipynb",
     "docs/README.md", "docs/encoding_benchmark.md", "docs/assets/encoding_benchmark.png",
     ".github/workflows/ci.yml",
+    ".github/PULL_REQUEST_TEMPLATE.md", ".github/ISSUE_TEMPLATE/config.yml",
+    ".github/ISSUE_TEMPLATE/bug_report.md", ".github/ISSUE_TEMPLATE/feature_request.md",
     "tests/test_encoding_benchmark_notebook.py", "scripts/verify_distribution.py",
     "scripts/iqm_bell_short.py", "scripts/iqm_randomized_bell_campaign.py",
     "experiment_inputs/iqm_randomized_bell/canonical_optimized_20260909/CZ3_W.qpy",

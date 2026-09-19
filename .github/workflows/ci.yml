@@ -85,6 +85,7 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: pyproject.toml
+      # A fresh checkout has no ignored dist/ artifacts, so globs match only this build.
       - name: Build source archive and rebuild wheel from it
         run: |
           python -m pip install "build>=1.2,<2"
@@ -96,5 +97,5 @@ jobs:
       - name: Verify installed examples outside checkout
         run: >-
           python scripts/verify_distribution.py
-          --wheel dist/qudits_on_qubits-0.1.1-py3-none-any.whl
-          --sdist dist/qudits_on_qubits-0.1.1.tar.gz
+          --wheel dist/*.whl
+          --sdist dist/*.tar.gz

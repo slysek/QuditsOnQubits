@@ -19,7 +19,7 @@ The committed notebook is clean: it contains no credentials, absolute user paths
 
 ## Clean installation
 
-Follow the [root README installation instructions](../README.md#install-from-source)
+Follow the [root README installation instructions](../README.md#install)
 for supported Python versions and virtual-environment setup. Run the commands
 below from the repository root. For IQM dependency repair and PiastQ setup, see
 the [usage guide](usage_guide.md#setup-and-troubleshooting).

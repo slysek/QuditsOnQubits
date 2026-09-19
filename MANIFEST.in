@@ -1,11 +1,11 @@
-include README.md LICENSE CITATION.cff CONTRIBUTING.md
+include README.md LICENSE CITATION.cff CONTRIBUTING.md CHANGELOG.md SECURITY.md CODE_OF_CONDUCT.md
 include requirements.txt
 recursive-include tests *.py
 recursive-include scripts *.py *.ps1
 include docs/*.md
 recursive-include docs/assets *.png
 recursive-include examples *.py *.md *.zip
-recursive-include .github *.yml
+recursive-include .github *.yml *.md
 recursive-include notebooks *.ipynb *.py *.md
 recursive-include experiment_inputs *.npy *.qpy *.json *.md
 recursive-include benchmarks/bell_20260907 *.py *.md *.txt *.json *.csv *.png *.zip

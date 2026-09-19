@@ -60,13 +60,13 @@ def test_json_is_canonical_deterministic_and_utf8(tmp_path):
     store = ExperimentStore(tmp_path / "runs")
     run = store.create_run("canonical")
 
-    first = store.write_json(run, "first.json", {"z": 1, "accent": "zażółć", "a": [3, 2]})
-    second = store.write_json(run, "second.json", {"a": [3, 2], "accent": "zażółć", "z": 1})
+    first = store.write_json(run, "first.json", {"z": 1, "accent": "sample-日本", "a": [3, 2]})
+    second = store.write_json(run, "second.json", {"a": [3, 2], "accent": "sample-日本", "z": 1})
 
     assert first.read_bytes() == second.read_bytes()
     assert first.read_bytes().endswith(b"\n")
-    assert b"\\u017c" not in first.read_bytes()
-    assert first.read_text(encoding="utf-8") == '{"a":[3,2],"accent":"zażółć","z":1}\n'
+    assert b"\\u65e5" not in first.read_bytes()
+    assert first.read_text(encoding="utf-8") == '{"a":[3,2],"accent":"sample-日本","z":1}\n'
 
 
 def test_json_round_trips_supported_tagged_values_and_model_values(tmp_path):
@@ -75,7 +75,7 @@ def test_json_round_trips_supported_tagged_values_and_model_values(tmp_path):
     ordered = OrderedDict([(("A", 1), Path("alpha")), (3, complex(-2.5, 4.0))])
     array = np.array([[1.5 + 2j, -3j], [0j, 4.25 - 1j]], dtype=np.complex128)
     value = {
-        "path": Path("relative/żółć"),
+        "path": Path("relative/sample-日本"),
         "enum": SampleStatus.READY,
         "complex": 1.25 - 0.5j,
         "scalar": np.int16(12),
