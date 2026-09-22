@@ -25,9 +25,3 @@ it is not a claim of awarded funding or guaranteed hardware results.
 Hardware execution remains a separate experiment, subject to provider access.
 Compilation improvements must be re-evaluated on each target; they do not imply
 better Bell values or lower experimental error by themselves.
-
-For a [Unitary Foundation microgrant](https://unitary.foundation/grants), a focused
-proposal can select milestones with public code, reproducible artifacts and clear
-acceptance criteria. The [program FAQ](https://unitary.foundation/faqs) describes
-the preferred duration as 3–6 months. Final scope, budget and schedule belong in
-the application and should reflect the maintainer's available time.
