@@ -92,14 +92,14 @@ def _git_value(repository: Path, *arguments: str) -> str | None:
     except (OSError, subprocess.SubprocessError):
         return None
     value = completed.stdout.strip()
-    if completed.returncode != 0 or not value or unsafe_persisted_text(value):
+    if completed.returncode != 0 or unsafe_persisted_text(value):
         return None
     return value
 
 
 def _software_provenance() -> SoftwareProvenance:
     repository = Path(__file__).resolve().parents[3]
-    git_commit = _git_value(repository, "rev-parse", "HEAD")
+    git_commit = _git_value(repository, "rev-parse", "HEAD") or None
     status = _git_value(repository, "status", "--porcelain")
     dirty_worktree = None if git_commit is None or status is None else bool(status)
     return SoftwareProvenance(

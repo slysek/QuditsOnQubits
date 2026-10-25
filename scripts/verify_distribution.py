@@ -25,6 +25,10 @@ SOURCE_FILES = {
     ".github/PULL_REQUEST_TEMPLATE.md", ".github/ISSUE_TEMPLATE/config.yml",
     ".github/ISSUE_TEMPLATE/bug_report.md", ".github/ISSUE_TEMPLATE/feature_request.md",
     "tests/test_encoding_benchmark_notebook.py", "scripts/verify_distribution.py",
+    "tests/fixtures/relay_provider.py", "tests/test_agent_relay.py",
+    "tools/agent_relay/__init__.py", "tools/agent_relay/__main__.py",
+    "tools/agent_relay/protocol.py", "tools/agent_relay/runner.py",
+    "tools/agent_relay/state.py", "tools/agent_relay/README.md",
     "scripts/iqm_bell_short.py", "scripts/iqm_randomized_bell_campaign.py",
     "experiment_inputs/iqm_randomized_bell/canonical_optimized_20260909/CZ3_W.qpy",
 }

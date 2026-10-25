@@ -101,15 +101,6 @@ def generate_all_class_candidates(
 # ─────────── lower layers: task construction and workers ──────
 
 
-def _strip_e_old_baseline_only_from_candidates(candidates):
-    """Keep candidates in their original order without modifications.
-
-    Retained as an explicit entry point in case the suite needs to filter,
-    for example, a baseline from another family in the future.
-    """
-    return list(candidates)
-
-
 def _suite_state_output_dir(config: SuiteConfig, state_id: str) -> str:
     root = config.output_root or default_results_root()
     return os.path.join(root, config.suite_name, state_id)
@@ -391,7 +382,6 @@ def _run_benchmark_suite_inner(config: SuiteConfig, tee) -> dict:
         mode=config.candidate_mode,
         class_filter=config.class_filter,
     )
-    candidates = _strip_e_old_baseline_only_from_candidates(candidates)
 
     print(
         f"[suite {config.suite_name}] starting; "
@@ -427,10 +417,7 @@ def _run_benchmark_suite_inner(config: SuiteConfig, tee) -> dict:
                 _suite_state_output_dir(config, state_spec.state_id),
                 f"{SUITE_FILE_PREFIX}_{state_spec.state_id}_results.csv",
             )
-            try:
-                state_frames[state_spec.state_id] = pd.read_csv(csv_path)
-            except Exception:
-                state_frames[state_spec.state_id] = pd.DataFrame()
+            state_frames[state_spec.state_id] = pd.read_csv(csv_path)
             continue
 
         state_started = time.time()

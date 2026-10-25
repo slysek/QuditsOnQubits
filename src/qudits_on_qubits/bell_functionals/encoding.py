@@ -25,7 +25,7 @@ def validate_isometry(E: np.ndarray, atol: float = 1e-10) -> bool:
     matrix = np.asarray(E, dtype=complex)
     if matrix.shape != (4, 3):
         return False
-    return np.allclose(matrix.conj().T @ matrix, np.eye(3), atol=atol)
+    return np.allclose(matrix.conj().T @ matrix, np.eye(3), atol=atol, rtol=0)
 
 
 def _require_isometry(E: np.ndarray) -> np.ndarray:

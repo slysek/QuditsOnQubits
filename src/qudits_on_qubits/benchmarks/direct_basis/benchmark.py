@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -37,6 +36,7 @@ from qudits_on_qubits.benchmarks.direct_basis.math_utils import (
     qutrit_fourier,
 )
 from qudits_on_qubits.benchmarks.direct_basis.selection import (
+    safe_path_part as _safe_path_part,
     selection_label as format_selection_label,
     transpiled_qpy_filename,
 )
@@ -1301,12 +1301,6 @@ def _direct_basis_run_specs(
         value = float(degree)
         specs.append((value, format_selection_label(value), False))
     return specs
-
-
-def _safe_path_part(value: str) -> str:
-    value = str(value).strip()
-    value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value)
-    return value.strip("._") or "unnamed"
 
 
 def candidate_circuit_output_dir(

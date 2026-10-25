@@ -6,7 +6,6 @@ import math
 import multiprocessing
 import os
 import pickle
-import re
 import sys
 import time
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
@@ -49,6 +48,7 @@ from qudits_on_qubits.benchmarks.direct_basis.phase_equivalence import (
     PHASE_DUPLICATE_COLUMNS,
     deduplicate_candidates_up_to_global_phase,
 )
+from .selection import safe_path_part as _safe_path_part
 from qudits_on_qubits.benchmarks.direct_basis.state_equivalence import (
     load_logical_state_from_qpy,
 )
@@ -763,12 +763,6 @@ def _export_trial_transpiled_circuit(
     with path.open("wb") as handle:
         qpy.dump(normalize_circuit_bit_indices(circuit), handle)
     return str(path)
-
-
-def _safe_path_part(value: Any) -> str:
-    text = str(value).strip()
-    text = re.sub(r"[^A-Za-z0-9_.-]+", "_", text)
-    return text.strip("._") or "unnamed"
 
 
 def _run_strategy_trial(

@@ -62,28 +62,6 @@ def _is_embedding_equal_up_to_global_phase(
     return _is_matrix_equal_up_to_global_phase(candidate, base, atol=atol, rtol=rtol)
 
 
-def _is_w_identity(
-    e_new,
-    atol: float = DEFAULT_ATOL,
-    rtol: float = DEFAULT_RTOL,
-) -> bool:
-    if e_new is None:
-        return True
-
-    try:
-        from encoding_change_unitary import build_encoding_change_unitary
-
-        w = build_encoding_change_unitary(np.asarray(e_new, dtype=complex), tol=atol)
-    except Exception:
-        return False
-
-    identity = np.eye(4, dtype=complex)
-    return bool(
-        np.allclose(w, identity, atol=atol, rtol=rtol)
-        or _is_matrix_equal_up_to_global_phase(w, identity, atol=atol, rtol=rtol)
-    )
-
-
 def _is_baseline_equivalent_candidate(
     class_name: str,
     candidate_name: str,
@@ -116,7 +94,6 @@ def _is_baseline_equivalent_candidate(
         atol=atol,
         rtol=rtol,
     )
-    w_identity = _is_w_identity(embedding, atol=atol, rtol=rtol)
 
     if exact_embedding:
         return BaselineEquivalence(
@@ -124,13 +101,6 @@ def _is_baseline_equivalent_candidate(
             is_trivial_identity=True,
             is_baseline_equivalent=True,
             skip_reason="same embedding as baseline within tolerance",
-        )
-    if w_identity:
-        return BaselineEquivalence(
-            is_baseline_reference=False,
-            is_trivial_identity=True,
-            is_baseline_equivalent=True,
-            skip_reason="W is identity up to tolerance",
         )
     if phase_embedding:
         return BaselineEquivalence(

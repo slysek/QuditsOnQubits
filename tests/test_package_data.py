@@ -5,7 +5,7 @@ from importlib.resources import files
 import numpy as np
 import pytest
 from qiskit import qpy
-from qiskit.quantum_info import Statevector
+from qiskit.quantum_info import Operator, Statevector
 
 from qudits_on_qubits import create_ame_circuit
 
@@ -31,7 +31,12 @@ def test_bundled_gates_and_core_imports(dimension, monkeypatch, tmp_path):
     circuit, graph = create_ame_circuit(2, dimension)
     assert graph.vcount() == 2
     assert circuit.num_qubits == 4
-    assert np.isclose(np.linalg.norm(Statevector.from_instruction(circuit).data), 1)
+    levels = np.arange(dimension)
+    expected = np.zeros((4, 4), dtype=complex)
+    expected[:dimension, :dimension] = (
+        np.exp(2j * np.pi * np.outer(levels, levels) / dimension) / dimension
+    )
+    assert Statevector.from_instruction(circuit).equiv(expected.ravel())
 
     # This module eagerly loads all eight X/Z gates, including their adjoints.
     from qudits_on_qubits.core.generate_b_ame import generate_b_ame
@@ -41,7 +46,25 @@ def test_bundled_gates_and_core_imports(dimension, monkeypatch, tmp_path):
 
 @pytest.mark.parametrize("strategy", ["append_w", "prepared_w_then_conjugated_entanglers"])
 def test_encoding_change_uses_package_imports(strategy):
-    encoding = np.eye(4, 3, dtype=complex)
+    encoding = np.eye(4, dtype=complex)[:, [0, 2, 3]] * [1, 1j, -1]
     circuit, _ = create_ame_circuit(2, 3, E_new=encoding, encoding_strategy=strategy)
-    baseline, _ = create_ame_circuit(2, 3)
-    assert Statevector.from_instruction(circuit).equiv(Statevector.from_instruction(baseline))
+    levels = np.arange(3)
+    logical = np.exp(2j * np.pi * np.outer(levels, levels) / 3).ravel() / 3
+    expected = np.kron(encoding, encoding) @ logical
+    assert Statevector.from_instruction(circuit).equiv(expected)
+
+
+@pytest.mark.parametrize("dimension", [3, 4])
+@pytest.mark.parametrize("dagger", [False, True])
+def test_bundled_stabilizer_gates_match_logical_paulis(dimension, dagger):
+    from qudits_on_qubits.core.generate_b_ame import create_stab_from_str
+
+    shift = np.roll(np.eye(dimension), 1, axis=0)
+    phase = np.diag(np.exp(2j * np.pi * np.arange(dimension) / dimension))
+    for word, logical in (("X", shift), ("Z", phase), ("XZ", phase @ shift)):
+        expected = np.eye(4, dtype=complex)
+        expected[:dimension, :dimension] = logical
+        if dagger:
+            expected = expected.conj().T
+        actual = Operator(create_stab_from_str(word, dimension, dag=dagger)).data
+        np.testing.assert_allclose(actual, expected, rtol=0, atol=1e-10)

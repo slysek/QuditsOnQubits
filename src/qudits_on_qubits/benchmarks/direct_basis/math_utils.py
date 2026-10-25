@@ -56,14 +56,14 @@ def is_unitary(matrix: np.ndarray, tol: float = 1e-10) -> bool:
     matrix = np.asarray(matrix, dtype=complex)
     if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
         return False
-    return bool(np.allclose(matrix.conj().T @ matrix, np.eye(matrix.shape[0]), atol=tol))
+    return bool(np.allclose(matrix.conj().T @ matrix, np.eye(matrix.shape[0]), atol=tol, rtol=0.0))
 
 
 def is_isometry(matrix: np.ndarray, tol: float = 1e-10) -> bool:
     matrix = np.asarray(matrix, dtype=complex)
     if matrix.ndim != 2:
         return False
-    return bool(np.allclose(matrix.conj().T @ matrix, np.eye(matrix.shape[1]), atol=tol))
+    return bool(np.allclose(matrix.conj().T @ matrix, np.eye(matrix.shape[1]), atol=tol, rtol=0.0))
 
 
 def validate_unitary(matrix: np.ndarray, dimension: int, name: str = "matrix") -> np.ndarray:
@@ -309,9 +309,9 @@ def has_code_leakage_identity(embedded: np.ndarray, tol: float = 1e-10) -> bool:
     for idx in leakage:
         expected = np.zeros(16, dtype=complex)
         expected[idx] = 1.0
-        if not np.allclose(embedded[:, idx], expected, atol=tol):
+        if not np.allclose(embedded[:, idx], expected, atol=tol, rtol=0.0):
             return False
-        if not np.allclose(embedded[idx, :], expected, atol=tol):
+        if not np.allclose(embedded[idx, :], expected, atol=tol, rtol=0.0):
             return False
     return True
 

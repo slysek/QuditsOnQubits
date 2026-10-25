@@ -123,12 +123,14 @@ def _normalize_document(value: Mapping[str, Any]) -> dict[str, Any]:
     )
     document = _thaw_json(_freeze_json(value, "manifest"))
     version = document.get("schema_version")
-    if version == MANIFEST_SCHEMA_VERSION:
-        return document
-    if version != LEGACY_MANIFEST_SCHEMA_VERSION:
+    if type(version) is not int or version not in (
+        MANIFEST_SCHEMA_VERSION, LEGACY_MANIFEST_SCHEMA_VERSION
+    ):
         raise ExperimentPersistenceError(
             "unsupported experiment schema version"
         ) from None
+    if version == MANIFEST_SCHEMA_VERSION:
+        return document
     spec = _mapping(document.get("spec"), "manifest spec")
     backend = dict(_mapping(spec.get("backend"), "manifest backend spec"))
     kind = backend.get("kind")
@@ -161,7 +163,10 @@ def _validate_document(document: Mapping[str, Any]) -> None:
         raise ExperimentValidationError(
             "manifest fields do not match schema v2"
         ) from None
-    if document.get("schema_version") != MANIFEST_SCHEMA_VERSION:
+    if (
+        type(document.get("schema_version")) is not int
+        or document["schema_version"] != MANIFEST_SCHEMA_VERSION
+    ):
         raise ExperimentValidationError(
             "manifest schema version is invalid"
         ) from None

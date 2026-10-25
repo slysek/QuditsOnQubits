@@ -57,8 +57,10 @@ def test_incomplete_distributions_are_rejected(tmp_path, option, message):
     ".github/ISSUE_TEMPLATE/bug_report.md",
     ".github/ISSUE_TEMPLATE/feature_request.md",
     ".github/ISSUE_TEMPLATE/config.yml",
+    "tools/agent_relay/protocol.py",
+    "tests/fixtures/relay_provider.py",
 ])
-def test_missing_community_file_is_rejected(tmp_path, missing_source):
+def test_missing_source_file_is_rejected(tmp_path, missing_source):
     with pytest.raises(ValueError) as error:
         check.verify_archives(*packages(tmp_path, omitted_sources=(missing_source,)))
     assert str(error.value) == f"sdist is missing: {missing_source}"

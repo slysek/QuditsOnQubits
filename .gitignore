@@ -10,6 +10,18 @@ artifacts/
 !artifacts/README.md
 !artifacts/MANIFEST.template.csv
 
+notebooks/private/
+
+# Exclude local AME46 files and process logs.
+/ame46/
+/ai_scientist/ame46/
+/ai_scientist/runtime/Dockerfile.codex
+/ai_scientist/.ame46.runtime-build.lock
+/tools/ame46_scientist/
+/tools/CEL.md
+/tests/test_ame46_*.py
+/log.txt
+
 docs/superpowers/
 .agents/
 .worktrees/

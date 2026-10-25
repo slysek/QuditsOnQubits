@@ -1,17 +1,6 @@
-"""Graph-state edge generators and benchmark state-name resolution.
+"""Define graph edges, benchmark state names, and benchmark suites.
 
-A single, self-contained place in the repository defining:
-
-* edge-list generators for graph families (star / path / cycle / wheel /
-  complete / 2D cluster grid),
-* a parser for textual benchmark state names (e.g. ``"path5"``,
-  ``"cluster2x3"``, ``"ghz_star_4"``, ``"ame43"``),
-* predefined benchmark suite registries used by the single-stage pipeline
-  in :mod:`encoding_search_v2.suite`.
-
-This module is intentionally outside :mod:`encoding_search_v2` and
-:mod:`QuditsOnQubits.benchmark_encoding_bases` so both layers can share
-a single definition of graph families without circular imports.
+The core benchmark and encoding_search share these definitions.
 """
 
 from __future__ import annotations
@@ -249,8 +238,7 @@ def is_known_graph_state(state_name: str) -> bool:
     try:
         return resolve_graph_state(state_name) is not None
     except ValueError:
-        # States such as "ghz_star" that require n_qutrits.
-        return True
+        return str(state_name).strip() in ("ghz_star", "ghz_n")
 
 
 # ───────────────────── "suite" registry ────────────────────────

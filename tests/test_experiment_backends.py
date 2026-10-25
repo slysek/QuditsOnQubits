@@ -300,6 +300,21 @@ def test_result_extracts_primitive_meas_and_named_data_bins(named):
     assert result.counts == counts
 
 
+@pytest.mark.parametrize("names", [("meas", "aux"), ("left", "right")])
+def test_result_rejects_primitive_registers_without_joint_provenance(names):
+    from qiskit.primitives.containers import BitArray, DataBin, SamplerPubResult
+
+    from qudits_on_qubits.experiments.backends import CustomBackendAdapter, SubmittedJob
+
+    registers = {name: BitArray.from_counts({"0": 3}) for name in names}
+    raw = (SamplerPubResult(DataBin(**registers)),)
+    adapter = CustomBackendAdapter(_custom_backend(_Backend()))
+    submitted = SubmittedJob("job-1", _Job(raw), adapter.resolve(), 1, 3)
+
+    with pytest.raises(JobResultError, match="multiple registers"):
+        adapter.result(submitted)
+
+
 @pytest.mark.parametrize(
     ("raw", "circuit_count", "shots", "message"),
     [

@@ -14,10 +14,12 @@ VALID_ENCODING_STRATEGIES = ("append_w", "prepared_w_then_conjugated_entanglers"
 def create_ame_circuit(n=None, dim=3, graph_type="star", graph=None,
                        basis=None, E_new=None,
                        encoding_strategy="append_w"):
-    """Construct an AME graph-state circuit.
+    """Construct a graph state circuit with two qubits per qudit.
 
     Parameters
     ----------
+    basis : np.ndarray, shape (4, 4), optional
+        Apply this local unitary after state preparation and any encoding change.
     E_new : np.ndarray, shape (4, 3), optional
         New qutrit encoding isometry C^3 -> C^4, supported only for dim=3.
         With append_w, build in the base encoding and append an encoding-change
@@ -60,7 +62,8 @@ def create_ame_circuit(n=None, dim=3, graph_type="star", graph=None,
 
     if basis is not None:
         T = change_basis(basis, dim)
-        T_qc = TwoQubitWeylDecomposition(T).circuit()
+        # Keep small entangling phases in the supplied basis.
+        T_qc = TwoQubitWeylDecomposition(T, fidelity=None).circuit()
 
         for i in range(graph.vcount()):
             qc.append(T_qc, [2 * i, 2 * i + 1])
@@ -74,7 +77,8 @@ def _load_qpy_gate(filename):
 
 
 def _build_circuit_append_w(graph, dim, E_new=None):
-    """Apply F to each qutrit, CZ on graph edges, and local W gates last."""
+    """Apply F to each qudit. Apply CZ on graph edges.
+    Apply local W gates last if E_new is supplied."""
     Fgate, CZgate = _load_gates_for_dim(dim)
 
     W_qc = None
@@ -108,8 +112,10 @@ def _build_circuit_prepared_w_then_conjugated_entanglers(graph, dim, E_new=None)
             "Strategy 'prepared_w_then_conjugated_entanglers' requires dim=3."
         )
 
-    _, CZgate = _load_gates_for_dim(dim)
-    Fgate, _ = _load_gates_for_dim(dim)
+    if E_new is None:
+        return _build_circuit_append_w(graph, dim)
+
+    Fgate, CZgate = _load_gates_for_dim(dim)
 
     n = graph.vcount()
     qubit_list = [[2 * i, 2 * i + 1] for i in range(n)]
@@ -117,21 +123,15 @@ def _build_circuit_prepared_w_then_conjugated_entanglers(graph, dim, E_new=None)
 
     qc = QuantumCircuit(2 * n)
 
-    if E_new is not None:
-        W, W_qc, Wdag_qc = _build_encoding_change_circuits(E_new)
+    W, W_qc, Wdag_qc = _build_encoding_change_circuits(E_new)
 
-        local_prep = _build_local_w_plus_preparation(W, Fgate)
-        for pair in qubit_list:
-            qc.append(local_prep, pair)
+    local_prep = _build_local_w_plus_preparation(W, Fgate)
+    for pair in qubit_list:
+        qc.append(local_prep, pair)
 
-        conjugated_cz = _build_conjugated_cz_block(W_qc, Wdag_qc, CZgate)
-        for edge in edge_list:
-            qc.append(conjugated_cz, edge)
-    else:
-        for pair in qubit_list:
-            qc.append(Fgate, pair)
-        for edge in edge_list:
-            qc.append(CZgate, edge)
+    conjugated_cz = _build_conjugated_cz_block(W_qc, Wdag_qc, CZgate)
+    for edge in edge_list:
+        qc.append(conjugated_cz, edge)
 
     return qc
 
@@ -206,18 +206,17 @@ def _build_encoding_change_circuits(E_new):
 
 
 def change_basis(mtx, dim):
-    qubit0 = np.array([[1], [0]])
-    qubit1 = np.array([[0], [1]])
-
-    q0 = np.kron(qubit0, qubit0)
-    q1 = np.kron(qubit0, qubit1)
-    q2 = np.kron(qubit1, qubit0)
-    q3 = np.kron(qubit1, qubit1)
-
-    if np.array_equal((mtx.transpose().conjugate() @ mtx).round(6), np.identity(4)):
-        pi_old = np.column_stack((q0, q1, q2, q3))
-        pi_new = mtx
-        T = pi_new @ pi_old.conjugate().transpose()
+    """Return a copy of the physical (4, 4) basis matrix.
+    Check unitarity with an absolute tolerance of 1e-10."""
+    if (
+        not isinstance(mtx, np.ndarray)
+        or mtx.shape != (4, 4)
+        or mtx.dtype.kind not in "biufc"
+    ):
+        raise ValueError("basis must be a numeric numpy.ndarray of shape (4, 4).")
+    with np.errstate(over="ignore", invalid="ignore"):
+        T = mtx.astype(complex if np.iscomplexobj(mtx) else float)
+    if np.isfinite(T).all() and np.allclose(T.conj().T @ T, np.eye(4), atol=1e-10, rtol=0):
         return T
 
     raise ValueError("The supplied matrix is not unitary", mtx)

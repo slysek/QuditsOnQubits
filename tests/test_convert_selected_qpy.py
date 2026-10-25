@@ -1,7 +1,9 @@
 import importlib.util
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from qiskit import QuantumCircuit, qpy
 
@@ -18,6 +20,38 @@ def load_script_module():
 
 
 class ConvertSelectedQpyTests(unittest.TestCase):
+    def test_cli_converts_requested_candidate(self):
+        module = load_script_module()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "source" / "monomial_full__selected" / "circuit.qpy"
+            source.parent.mkdir(parents=True)
+            with source.open("wb") as handle:
+                qpy.dump(QuantumCircuit(1), handle)
+
+            with patch.object(sys, "argv", [str(SCRIPT_PATH), "--source-root", str(root / "source"),
+                                           "--output-root", str(root / "output"), "--candidate", "selected",
+                                           "--target-version", "13"]):
+                module.main()
+
+            with (root / "output" / "monomial_full__selected" / "circuit.qpy").open("rb") as handle:
+                self.assertEqual(qpy.get_qpy_version(handle), 13)
+
+    def test_failed_in_place_conversion_preserves_source(self):
+        module = load_script_module()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "monomial_full__selected" / "circuit.qpy"
+            source.parent.mkdir()
+            with source.open("wb") as handle:
+                qpy.dump(QuantumCircuit(1), handle)
+            original = source.read_bytes()
+
+            with self.assertRaises(ValueError):
+                module.convert_candidates(root, root, ["selected"], target_version=-1)
+
+            self.assertEqual(source.read_bytes(), original)
+
     def test_converts_only_selected_candidate_directories(self):
         module = load_script_module()
 

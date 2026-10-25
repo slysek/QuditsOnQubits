@@ -140,6 +140,17 @@ def test_schema_v1_custom_backend_is_rejected_without_guessing():
         RunManifest.from_safe_dict(document)
 
 
+@pytest.mark.parametrize("version", [True, 1.0, 2.0])
+def test_manifest_rejects_non_integer_schema_version(version):
+    from qudits_on_qubits.experiments.manifest import RunManifest
+
+    document = manifest_document()
+    document["schema_version"] = version
+
+    with pytest.raises(ExperimentPersistenceError, match="schema"):
+        RunManifest.from_safe_dict(document)
+
+
 @pytest.mark.parametrize(
     ("mutation", "error_type", "message"),
     [

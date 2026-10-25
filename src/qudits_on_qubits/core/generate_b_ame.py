@@ -1,39 +1,20 @@
-from qiskit import qpy
-from qiskit.quantum_info import Operator, Statevector, SparsePauliOp
+from qiskit.quantum_info import Statevector
 from qiskit.circuit import QuantumCircuit
 import numpy as np
 from igraph import Graph, plot
 import matplotlib.pyplot as plt
-from .create_ame_circuit import create_ame_circuit
-from .project_paths import quantum_circuits_resource
+from .create_ame_circuit import _load_qpy_gate, create_ame_circuit
 from IPython.display import display, Math
 from fractions import Fraction
 
-_QC_DIR = quantum_circuits_resource()
-
-with _QC_DIR.joinpath('Xgate3.qpy').open('rb') as fd:
-    Xgate3 = qpy.load(fd)[0]
-
-with _QC_DIR.joinpath('Zgate3.qpy').open('rb') as fd:
-    Zgate3 = qpy.load(fd)[0]
-
-with _QC_DIR.joinpath('Xgate4.qpy').open('rb') as fd:
-    Xgate4 = qpy.load(fd)[0]
-
-with _QC_DIR.joinpath('Zgate4.qpy').open('rb') as fd:
-    Zgate4 = qpy.load(fd)[0]
-
-with _QC_DIR.joinpath('Xgate3dag.qpy').open('rb') as fd:
-    Xgate3dag = qpy.load(fd)[0]
-
-with _QC_DIR.joinpath('Zgate3dag.qpy').open('rb') as fd:
-    Zgate3dag = qpy.load(fd)[0]
-
-with _QC_DIR.joinpath('Xgate4dag.qpy').open('rb') as fd:
-    Xgate4dag = qpy.load(fd)[0]
-
-with _QC_DIR.joinpath('Zgate4dag.qpy').open('rb') as fd:
-    Zgate4dag = qpy.load(fd)[0]
+Xgate3 = _load_qpy_gate('Xgate3.qpy')
+Zgate3 = _load_qpy_gate('Zgate3.qpy')
+Xgate4 = _load_qpy_gate('Xgate4.qpy')
+Zgate4 = _load_qpy_gate('Zgate4.qpy')
+Xgate3dag = _load_qpy_gate('Xgate3dag.qpy')
+Zgate3dag = _load_qpy_gate('Zgate3dag.qpy')
+Xgate4dag = _load_qpy_gate('Xgate4dag.qpy')
+Zgate4dag = _load_qpy_gate('Zgate4dag.qpy')
 
 class MemoryLimitExceeded(Exception):
     """Exception raised when circuit requires too much memory for computation"""
@@ -108,10 +89,11 @@ class generate_b_ame:
             g1list[k - 1].insert(0, ck_list[k - 1][0])
             g1g2k_list[f'(G1G2^{k})'] = g1list[k - 1]
 
-        for j in j_list.keys():
-            for i, k2 in zip(range(len(j_list[j])), k2_list):
-                g2list[i][j - 1].insert(0, ck_list[j - 1][i + 1])
-                g1gik_list[f'(G1G{k2})'] = g2list[i][j - 1]
+        for j, neighbors in j_list.items():
+            for i, k2 in enumerate(k2_list):
+                if k2 in neighbors:
+                    g2list[i][0].insert(0, ck_list[j - 1][i + 1])
+                    g1gik_list[f'(G1G{k2})'] = g2list[i][0]
 
 
         for k, i in zip(k3_list, range(len(k3_list))):
@@ -253,10 +235,9 @@ class generate_b_ame:
         Returns:
             float: B_AME value computed from experimental results
         """
-        bamesum = 0
-        for ck, ev in zip(self.ck_final, result_list):
-            bamesum += ck * ev
-        return bamesum
+        if len(result_list) != len(self.ck_final):
+            raise ValueError("result_list must contain one result per coefficient")
+        return sum(ck * ev for ck, ev in zip(self.ck_final, result_list))
 
     def get_n1n2(self):
         """
@@ -320,10 +301,10 @@ def create_latex(op_dict):
     return 'B_{ame} = ' + latexstr
 def th_values(main_qc, qc_list):
     """
-    Computes theoretical expectation values of stabilizers for given state.
+    Compute stabilizer expectations by statevector evolution.
 
-    First checks if circuits are not too large (memory limit), then
-    creates operators and computes expectation values.
+    Preserve the limit of 18 qubits and rounding to four decimal places.
+    Do not construct dense stabilizer matrices.
 
     Args:
         main_qc (QuantumCircuit): Main quantum circuit (AME state)
@@ -335,39 +316,30 @@ def th_values(main_qc, qc_list):
     Raises:
         MemoryLimitExceeded: When circuit requires too much memory
     """
-    # Check size of each circuit before creating operator
     for qc_stab in qc_list:
         if hasattr(qc_stab, 'num_qubits'):
             num_qubits = qc_stab.num_qubits
-            if num_qubits > 18:  # 2^18 = 262144 - reasonable limit
+            if num_qubits > 18:
                 raise MemoryLimitExceeded(
-                    f"Circuit has {num_qubits} qubits. This requires {2**num_qubits}x{2**num_qubits} "
-                    f"matrix ({(2**(2*num_qubits) * 16) / (1024**4):.2f} TB memory). "
-                    f"Too much for regular computer."
+                    f"Circuit has {num_qubits} qubits. The limit is 18 qubits."
                 )
-
+    if not qc_list:
+        return []
     try:
-        operators = [Operator(qc_stab) for qc_stab in qc_list]
-    except MemoryError:
-        max_qubits = max(qc.num_qubits for qc in qc_list if hasattr(qc, 'num_qubits'))
+        state = Statevector(main_qc)
+        # Qiskit 2.1 uses a shallow copy before it applies circuit phases.
+        return [state.inner(state.copy().evolve(qc_stab)).round(4) for qc_stab in qc_list]
+    except MemoryError as error:
         raise MemoryLimitExceeded(
-            f"Cannot create operator for circuit with {max_qubits} qubits. "
-            f"Too much memory needed for computation on regular computer."
-        )
-
-    exp_val = []
-
-    for op in operators:
-        exp_val.append(Statevector(main_qc).expectation_value(op).round(4))
-
-    return exp_val
+            "Cannot compute stabilizer expectations within the available memory."
+        ) from error
 
 def find_n1_n2(graph):
     """
-    Finds two nodes with highest degree in the graph.
+    Select a root edge by the number of distinct neighbors.
 
-    Algorithm searches for node n1 with maximum degree, then among its
-    neighbors searches for node n2 with highest degree.
+    Select n1 first. Select n2 from the neighbors of n1.
+    Return indices that start at 1. Resolve ties by vertex order.
 
     Args:
         graph (igraph.Graph): Input graph
@@ -375,18 +347,14 @@ def find_n1_n2(graph):
     Returns:
         tuple[int, int]: Indices of nodes (n1, n2) with highest degrees
     """
-    n1 = graph.vs[0]
-    n2 = graph.vs[1]
-
-    for i in range(graph.vcount()):
-        if graph.neighborhood_size(i) - 1 > len(n1.neighbors()):
-            n1 = graph.vs[i]
-            ng = graph.neighbors(n1.index)
-            n2 = graph.vs[ng[0]]
-            for j in ng:
-                if graph.neighborhood_size(j) - 1 > len(n2.neighbors()) and j != n1.index:
-                    n2 = graph.vs[j]
-    return n1.index + 1, n2.index + 1
+    if graph.vcount() < 2:
+        raise ValueError("graph must contain an edge between distinct vertices")
+    n1 = max(range(graph.vcount()), key=graph.neighborhood_size)
+    neighbors = [vertex for vertex in graph.neighbors(n1) if vertex != n1]
+    if not neighbors:
+        raise ValueError("graph must contain an edge between distinct vertices")
+    n2 = max(neighbors, key=graph.neighborhood_size)
+    return n1 + 1, n2 + 1
 
 def n1_ng(graph, n1, n2):
     """
@@ -400,7 +368,7 @@ def n1_ng(graph, n1, n2):
     Returns:
         numpy.ndarray: Array of neighbor indices of n1 without n2 (1-indexed)
     """
-    ng = graph.neighbors(n1 - 1)
+    ng = sorted(set(graph.neighbors(n1 - 1)))
     ng = np.add(ng, 1)
 
     idxs = np.where(ng == n2)
@@ -583,7 +551,7 @@ def Gi1(graph, n1, n2):
         opstr[n1] = 'Z' * num_edges
         num_edges2 = len(graph.es.select(_between=([n2], [i])))
         if num_edges2 > 0:
-            opstr[n2.index] = 'Z' * num_edges2
+            opstr[n2] = 'Z' * num_edges2
 
         ni = n1_without_n2.copy().tolist()
         ni.remove(graph.vs[i].index)
@@ -700,10 +668,7 @@ def G3n(graph, dim):
             g_list.append(gtemp)
         cleaned = clean_id(g_list)
         op_list.append(cleaned)
-    if not op_list:
-        return op_list
-    else:
-        return op_list
+    return op_list
 
 def is_j(graph, dim):
     """
@@ -759,9 +724,7 @@ def find_ck(graph, dim):
 
 
     for i in range(1, dim):
-        k_list = np.full(len(k2), 0)
-        for j in j_list[i]:
-            k_list[j - k2[0]] = 1
+        k_list = [int(j in j_list[i]) for j in k2]
         c2_list.append(k_list)
 
     c2_list = np.array(c2_list)
@@ -792,6 +755,10 @@ def create_stab_from_str(str, dim, dag=False):
     Returns:
         QuantumCircuit: Quantum circuit representing stabilizer
     """
+    if dim not in (3, 4):
+        raise ValueError("dim must be 3 or 4")
+    if any(operator not in "IXZ" for operator in str):
+        raise ValueError("operator strings must contain only I, X, and Z")
     qc = QuantumCircuit(2)
     if not dag:
         if dim == 3:

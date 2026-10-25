@@ -26,23 +26,6 @@ E_OLD = np.array(
 N_OLD = np.array([0, 0, 0, 1], dtype=complex)
 
 
-# ──────────────────────── nullspace (SVD) ────────────────────
-
-def _nullspace(A: np.ndarray, tol: float = 1e-10) -> np.ndarray:
-    """Return an orthonormal basis of the null space of A using SVD.
-
-    A has shape (m, n); tol is the singular-value threshold.
-    The returned array has shape (n, k), with null-space basis vectors as columns."""
-    _, s, Vh = np.linalg.svd(A, full_matrices=True)
-    # Rows of Vh corresponding to singular values ≈ 0
-    null_mask = s < tol
-    # Add any missing dimensions (when m < n)
-    extra = Vh.shape[0] - len(s)
-    if extra > 0:
-        null_mask = np.concatenate([null_mask, np.ones(extra, dtype=bool)])
-    return Vh[null_mask].conj().T
-
-
 # ──────────────────────── validation ─────────────────────────
 
 def validate_encoding_map(E, tol: float = 1e-10) -> dict:
@@ -51,10 +34,20 @@ def validate_encoding_map(E, tol: float = 1e-10) -> dict:
     E must be a numpy.ndarray of shape (4, 3), mapping C³ to C⁴, with rank 3.
     Its columns must be normalized and orthogonal: E†E = I₃.
     The projector P = EE† must be Hermitian (P† = P) and idempotent (P² = P).
+    The array must contain finite numbers. The checks use float64 or complex128 arithmetic.
+    tol sets the absolute tolerance. Raise ValueError if tol is not a finite nonnegative real number.
 
     Return a dict with is_valid, correct_type, correct_shape, columns_normalized,
     columns_orthogonal, is_isometry, projector_hermitian, projector_idempotent,
     rank, and message."""
+    if (
+        not np.isscalar(tol)
+        or np.asarray(tol).dtype.kind not in "fiu"
+        or not np.isfinite(tol)
+        or tol < 0
+    ):
+        raise ValueError("tol must be a finite real number greater than or equal to zero.")
+
     result = {
         "is_valid":             False,
         "correct_type":         False,
@@ -84,6 +77,15 @@ def validate_encoding_map(E, tol: float = 1e-10) -> dict:
         return result
     result["correct_shape"] = True
 
+    if E.dtype.kind not in "biufc":
+        result["message"] = "E must contain numeric values."
+        return result
+    with np.errstate(over="ignore", invalid="ignore"):
+        E = E.astype(complex if np.iscomplexobj(E) else float, copy=False)
+    if not np.isfinite(E).all():
+        result["message"] = "E must contain finite values within the float64 range."
+        return result
+
     # --- rank ---
     result["rank"] = int(np.linalg.matrix_rank(E, tol=tol))
 
@@ -91,25 +93,25 @@ def validate_encoding_map(E, tol: float = 1e-10) -> dict:
     G = E.conj().T @ E
 
     # column norms
-    col_norms_ok = np.allclose(np.diag(G), 1.0, atol=tol)
+    col_norms_ok = np.allclose(np.diag(G), 1.0, atol=tol, rtol=0)
     result["columns_normalized"] = bool(col_norms_ok)
 
     # orthogonality (off-diagonal elements ≈ 0)
     off_diag = G - np.diag(np.diag(G))
-    cols_ortho_ok = np.allclose(off_diag, 0.0, atol=tol)
+    cols_ortho_ok = np.allclose(off_diag, 0.0, atol=tol, rtol=0)
     result["columns_orthogonal"] = bool(cols_ortho_ok)
 
     # overall isometry check
-    isometry_ok = np.allclose(G, np.eye(3), atol=tol)
+    isometry_ok = np.allclose(G, np.eye(3), atol=tol, rtol=0)
     result["is_isometry"] = bool(isometry_ok)
 
     # --- projector P = EE† ---
     P = E @ E.conj().T
 
-    hermitian_ok = np.allclose(P, P.conj().T, atol=tol)
+    hermitian_ok = np.allclose(P, P.conj().T, atol=tol, rtol=0)
     result["projector_hermitian"] = bool(hermitian_ok)
 
-    idempotent_ok = np.allclose(P @ P, P, atol=tol)
+    idempotent_ok = np.allclose(P @ P, P, atol=tol, rtol=0)
     result["projector_idempotent"] = bool(idempotent_ok)
 
     # --- final assessment ---
@@ -150,10 +152,10 @@ def build_encoding_change_unitary(
 
     The result satisfies W @ E_old = E_new and W†W = I₄.
     E_new is a real or complex ndarray of shape (4, 3), an isometry C³ to C⁴.
-    tol is the numerical tolerance.
+    tol is the absolute tolerance. The calculations use float64 or complex128 arithmetic.
 
-    Raise ValueError if E_new fails validation, W is not unitary, or
-    W @ E_old = E_new is not satisfied."""
+    Raise ValueError if tol is invalid or E_new fails validation.
+    Also raise ValueError if W is not unitary or W @ E_old = E_new is not satisfied."""
 
     # ── 1. validate E_new ──
     vres = validate_encoding_map(E_new, tol=tol)
@@ -166,13 +168,10 @@ def build_encoding_change_unitary(
 
     # ── 2. unused direction of the new encoding ──
     # n_new ∈ ker(E_new†), i.e.  E_new† @ n_new = 0
-    ns = _nullspace(E_new.conj().T, tol=tol)       # shape (4, 1)
-    if ns.shape[1] != 1:
-        raise ValueError(
-            f"Expected exactly one null-space vector for E_new†; "
-            f"found {ns.shape[1]}."
-        )
-    n_new = ns[:, 0]
+    # Shape (4, 3) and rank 3 leave one unused direction.
+    E_new = E_new.astype(complex if np.iscomplexobj(E_new) else float, copy=False)
+    _, _, Vh = np.linalg.svd(E_new.conj().T, full_matrices=True)
+    n_new = Vh[-1].conj()
     # normalize defensively (it should already be normalized)
     n_new = n_new / np.linalg.norm(n_new)
 
@@ -182,14 +181,12 @@ def build_encoding_change_unitary(
         E_new @ E_OLD.conj().T
         + np.outer(n_new, N_OLD.conj())
     )
-    W = W.astype(complex)
-
     # ── 4. verify unitarity ──
-    if not np.allclose(W.conj().T @ W, np.eye(4), atol=tol):
+    if not np.allclose(W.conj().T @ W, np.eye(4), atol=tol, rtol=0):
         raise ValueError("The constructed matrix W is not unitary (W†W ≠ I₄).")
 
     # ── 5. verify W @ E_old == E_new ──
-    if not np.allclose(W @ E_OLD, E_new, atol=tol):
+    if not np.allclose(W @ E_OLD, E_new, atol=tol, rtol=0):
         raise ValueError("Encoding-change verification failed: W @ E_old ≠ E_new.")
 
     return W

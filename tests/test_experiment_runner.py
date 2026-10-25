@@ -274,14 +274,7 @@ def test_run_experiment_submits_compiler_outputs_without_qpy_or_preflight(
     adapter.capabilities = Mock(side_effect=AssertionError("capabilities called"))
     adapter.metadata = Mock(side_effect=AssertionError("metadata called"))
     forbidden = Mock(side_effect=AssertionError("durable helper called"))
-    for name in (
-        "_sha256",
-        "_transition",
-        "_retry",
-        "_persist_prepared",
-        "_persist_factor_batches",
-        "_execute_measurement_factor",
-    ):
+    for name in ("_sha256", "_transition"):
         monkeypatch.setattr(runner, name, forbidden)
     monkeypatch.setattr(
         ExperimentStore,

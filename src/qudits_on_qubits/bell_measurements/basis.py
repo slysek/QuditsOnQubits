@@ -62,7 +62,7 @@ def physical_to_logical_outcome_map(
     matrix = np.asarray(E, dtype=complex)
     if matrix.shape != (4, d):
         raise ValueError(f"E must have shape (4, {d})")
-    if not np.allclose(matrix.conj().T @ matrix, np.eye(d), atol=tol):
+    if not np.allclose(matrix.conj().T @ matrix, np.eye(d), atol=tol, rtol=0):
         raise ValueError("E must satisfy E^dagger E = I")
 
     logical_to_physical: dict[int, int] = {}
@@ -121,7 +121,7 @@ def complete_isometry_to_unitary(E: np.ndarray, tol: float = 1e-10) -> np.ndarra
     physical_dim, logical_dim = matrix.shape
     if physical_dim < logical_dim:
         raise ValueError("E must have at least as many rows as columns")
-    if not np.allclose(matrix.conj().T @ matrix, np.eye(logical_dim), atol=tol):
+    if not np.allclose(matrix.conj().T @ matrix, np.eye(logical_dim), atol=tol, rtol=0):
         raise ValueError("E must satisfy E^dagger E = I")
 
     if physical_dim == logical_dim:
@@ -134,7 +134,7 @@ def complete_isometry_to_unitary(E: np.ndarray, tol: float = 1e-10) -> np.ndarra
 
     complement = vh.conj().T[:, logical_dim:]
     U = np.column_stack((matrix, complement))
-    if not np.allclose(U.conj().T @ U, np.eye(physical_dim), atol=tol):
+    if not np.allclose(U.conj().T @ U, np.eye(physical_dim), atol=tol, rtol=0):
         raise ValueError("failed to complete E to a unitary")
     return U
 
@@ -176,6 +176,8 @@ def ordered_qutrit_eigenbasis(
     matrix = np.asarray(O, dtype=complex)
     if matrix.shape != (d, d):
         raise ValueError(f"O must have shape ({d}, {d})")
+    if not np.allclose(matrix.conj().T @ matrix, np.eye(d), atol=tol, rtol=0):
+        raise ValueError("O must be unitary")
 
     eigenvalues, eigenvectors = np.linalg.eig(matrix)
     root_powers = [omega(d) ** outcome for outcome in range(d)]
@@ -211,7 +213,7 @@ def ordered_qutrit_eigenbasis(
         [_canonicalize_vector_phase(eigenvectors[:, idx]) for idx in order]
     )
 
-    if not np.allclose(V.conj().T @ V, np.eye(d), atol=max(10 * tol, 1e-10)):
+    if not np.allclose(V.conj().T @ V, np.eye(d), atol=max(10 * tol, 1e-10), rtol=0):
         raise ValueError("O eigenvectors are not orthonormal; expected a normal observable")
 
     return V, gamma
@@ -232,7 +234,7 @@ def local_measurement_basis_unitary(
     matrix = np.asarray(E, dtype=complex)
     if matrix.shape != (4, d):
         raise ValueError(f"E must have shape (4, {d})")
-    if not np.allclose(matrix.conj().T @ matrix, np.eye(d), atol=tol):
+    if not np.allclose(matrix.conj().T @ matrix, np.eye(d), atol=tol, rtol=0):
         raise ValueError("E must satisfy E^dagger E = I")
 
     obs = np.asarray(observable, dtype=complex)
@@ -251,7 +253,7 @@ def local_measurement_basis_unitary(
 
     W = np.column_stack((matrix @ V, leakage_columns[:, 0]))
     W_dag = W.conj().T
-    if not np.allclose(W_dag @ W, np.eye(4), atol=tol):
+    if not np.allclose(W_dag @ W, np.eye(4), atol=tol, rtol=0):
         raise ValueError("constructed measurement basis is not unitary")
     return W, W_dag, V, gamma
 

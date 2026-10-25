@@ -1,8 +1,9 @@
 include README.md LICENSE CITATION.cff CONTRIBUTING.md CHANGELOG.md SECURITY.md CODE_OF_CONDUCT.md
 include requirements.txt
 recursive-include tests *.py
+recursive-include tools/agent_relay *.py *.md
 recursive-include scripts *.py *.ps1
-include docs/*.md
+include docs/*.md docs/*.csv docs/*.txt
 recursive-include docs/assets *.png
 recursive-include examples *.py *.md *.zip
 recursive-include .github *.yml *.md
@@ -15,3 +16,4 @@ global-exclude __pycache__ *.py[cod] .DS_Store
 recursive-include artifacts/iqm_bell_short/emerald_20260910 *.json *.npy *.qpy *.png *.md *.csv
 recursive-include artifacts/iqm_bell_short/emerald_20260910_5scales *.json *.npy *.qpy *.png *.md *.csv
 recursive-include artifacts/iqm_randomized_bell/campaign_1ee8e73b3efb45ee921e8be945833fad *.json *.npy *.qpy *.png *.md *.csv
+prune notebooks/private

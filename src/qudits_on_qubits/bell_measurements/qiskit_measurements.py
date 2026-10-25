@@ -36,7 +36,7 @@ def append_measurement_for_global_setting(
     encoding = np.asarray(E, dtype=complex)
     if encoding.shape != (4, d):
         raise ValueError(f"E must have shape (4, {d})")
-    if not np.allclose(encoding.conj().T @ encoding, np.eye(d), atol=1e-8):
+    if not np.allclose(encoding.conj().T @ encoding, np.eye(d), atol=1e-8, rtol=0):
         raise ValueError("E must satisfy E^dagger E = I")
 
     qc = state_circuit if inplace else state_circuit.copy()
@@ -126,6 +126,11 @@ def append_measurement_for_global_setting(
         "local_gammas": local_gammas,
         "local_basis_gates": local_basis_gates,
         "classical_bits_by_qutrit": classical_bits_by_qutrit,
+        "classical_registers": {
+            register.name: tuple(qc.find_bit(bit).index for bit in register)
+            for register in qc.cregs
+        },
+        "num_clbits": qc.num_clbits,
     }
     return qc, metadata
 

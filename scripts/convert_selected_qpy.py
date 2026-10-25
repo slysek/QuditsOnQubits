@@ -2,6 +2,7 @@
 
 import argparse
 import shutil
+import tempfile
 from pathlib import Path
 
 from qiskit import qpy
@@ -52,8 +53,11 @@ def convert_candidates(source_root, output_root, candidates, target_version=13):
             if source_path.suffix.lower() == ".qpy":
                 with source_path.open("rb") as handle:
                     circuits = qpy.load(handle)
-                with destination_path.open("wb") as handle:
-                    qpy.dump(circuits, handle, version=target_version)
+                with tempfile.TemporaryDirectory(dir=destination_path.parent) as staging:
+                    converted_path = Path(staging) / "circuit.qpy"
+                    with converted_path.open("wb") as handle:
+                        qpy.dump(circuits, handle, version=target_version)
+                    converted_path.replace(destination_path)
                 converted += 1
             else:
                 shutil.copy2(source_path, destination_path)

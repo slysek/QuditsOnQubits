@@ -72,6 +72,8 @@ def build_sampler_circuits_from_graph(
     ]
     if sort_settings:
         measurement_settings = sorted(measurement_settings, key=_setting_sort_key)
+    if inplace and len(measurement_settings) > 1:
+        raise ValueError("inplace=True requires exactly one measurement setting")
 
     observables_by_label = bell_settings_data.get("observables_by_label", {})
     observable_lookup = observable_from_label or (
@@ -232,6 +234,8 @@ def build_sampler_circuits_for_candidate(
                 measurement_settings.append(labels)
         if not measurement_settings:
             raise ValueError("explicit_settings must contain at least one full setting")
+    if inplace and len(measurement_settings) > 1:
+        raise ValueError("inplace=True requires exactly one measurement setting")
 
     observables_by_label = bell_settings_data["observables_by_label"]
     observable_lookup = lambda label: np.asarray(
@@ -333,7 +337,11 @@ def counts_by_setting_from_sampler_result(
     counts_by_setting: dict[tuple[object, ...], Mapping[str, int]] = {}
     setting_by_index = list(metadata["setting_by_circuit_index"])
     for index, setting in enumerate(setting_by_index):
-        counts = _counts_for_index(result, index)
+        circuit_metadata = metadata.get("circuit_metadata")
+        counts = _counts_for_index(
+            result, index,
+            circuit_metadata[index] if circuit_metadata is not None else None,
+        )
         counts_by_setting[tuple(setting)] = counts
     return counts_by_setting
 
@@ -445,7 +453,9 @@ def run_iqm_sampler_circuits_to_counts_by_setting(
     )
 
 
-def _counts_for_index(result: Any, index: int) -> Mapping[str, int]:
+def _counts_for_index(
+    result: Any, index: int, circuit_metadata: Mapping[str, Any] | None = None,
+) -> Mapping[str, int]:
     if hasattr(result, "get_counts"):
         try:
             return result.get_counts(index)
@@ -457,6 +467,25 @@ def _counts_for_index(result: Any, index: int) -> Mapping[str, int]:
         entry = result[index]
     except Exception as exc:
         raise NotImplementedError(_UNKNOWN_RESULT_FORMAT) from exc
+
+    if hasattr(entry, "join_data"):
+        registers = (circuit_metadata or {}).get("classical_registers")
+        if registers is not None:
+            positions = {
+                bit: position
+                for position, bit in enumerate(
+                    bit for indices in registers.values() for bit in indices
+                )
+            }
+            num_clbits = circuit_metadata["num_clbits"]
+            if set(positions) != set(range(num_clbits)):
+                raise ValueError("Sampler results do not contain all classical bits")
+            return entry.join_data(list(registers)).slice_bits(
+                [positions[bit] for bit in range(num_clbits)]
+            ).get_counts()
+        if len(entry.data.keys()) > 1:
+            raise ValueError("Circuit metadata is required for multiple classical registers")
+        return entry.join_data().get_counts()
 
     data = getattr(entry, "data", None)
     meas = getattr(data, "meas", None)

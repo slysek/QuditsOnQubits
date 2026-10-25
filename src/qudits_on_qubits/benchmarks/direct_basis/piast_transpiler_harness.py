@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib
 import json
-import re
 import sys
 import time
 from dataclasses import dataclass
@@ -24,6 +23,7 @@ from qudits_on_qubits.benchmarks.direct_basis.circuits import (
     build_optimized_direct_basis_graph_state_circuit,
 )
 from qudits_on_qubits.benchmarks.direct_basis.math_utils import encoding_embedding
+from .selection import safe_path_part as _safe_path_part
 from qudits_on_qubits.benchmarks.direct_basis.piast_backend import (
     backend_metadata,
 )
@@ -732,12 +732,6 @@ def _trial_qpy_strategy_stem(strategy_name: str) -> str:
         str(strategy_name),
         _safe_path_part(strategy_name)[:32],
     )
-
-
-def _safe_path_part(value: Any) -> str:
-    text = str(value).strip()
-    text = re.sub(r"[^A-Za-z0-9_.-]+", "_", text)
-    return text.strip("._") or "unnamed"
 
 
 def _run_strategy_trial(

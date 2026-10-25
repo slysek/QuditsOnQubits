@@ -88,9 +88,9 @@ def split_nonhermitian(O: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 def is_hermitian(O: np.ndarray, atol: float = 1e-10) -> bool:
     matrix = np.asarray(O, dtype=complex)
-    return np.allclose(matrix.conj().T, matrix, atol=atol)
+    return np.allclose(matrix.conj().T, matrix, atol=atol, rtol=0)
 
 
 def is_unitary(O: np.ndarray, atol: float = 1e-10) -> bool:
     matrix = np.asarray(O, dtype=complex)
-    return np.allclose(matrix.conj().T @ matrix, np.eye(matrix.shape[0]), atol=atol)
+    return np.allclose(matrix.conj().T @ matrix, np.eye(matrix.shape[0]), atol=atol, rtol=0)

@@ -199,3 +199,23 @@ def test_artifact_loading_rejects_non_isometric_encoding(tmp_path):
 
     with pytest.raises(ExperimentValidationError, match="isometry"):
         load_basis_artifacts(PathBasis(directory), "two_qutrit")
+
+
+@pytest.mark.parametrize("filename", ["graph_state_direct_basis.qpy", "E.npy"])
+def test_artifact_loading_rejects_corrupt_source(tmp_path, filename):
+    directory = tmp_path / "basis"
+    _write_artifacts(directory)
+    (directory / filename).write_bytes(b"invalid artifact")
+
+    with pytest.raises(ExperimentValidationError):
+        load_basis_artifacts(PathBasis(directory), "two_qutrit")
+
+
+def test_artifact_loading_rejects_numpy_archive(tmp_path):
+    directory = tmp_path / "basis"
+    _write_artifacts(directory)
+    with (directory / "E.npy").open("wb") as handle:
+        np.savez(handle, encoding=np.eye(4, 3))
+
+    with pytest.raises(ExperimentValidationError, match="NumPy array"):
+        load_basis_artifacts(PathBasis(directory), "two_qutrit")

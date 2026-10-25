@@ -561,12 +561,7 @@ def _counts_from_primitive_entry(entry: Any) -> Mapping[str, int]:
     data = getattr(entry, "data", None)
     if data is None:
         raise JobResultError("primitive result entry has no data bin")
-    meas = getattr(data, "meas", None)
-    getter = getattr(meas, "get_counts", None)
-    if callable(getter):
-        return _call_provider_counts(getter)
-
-    names: list[str] = []
+    names: list[str] = ["meas"]
     keys = getattr(data, "keys", None)
     if callable(keys):
         try:
@@ -578,11 +573,16 @@ def _counts_from_primitive_entry(entry: Any) -> Mapping[str, int]:
     values = getattr(data, "__dict__", {})
     if isinstance(values, Mapping):
         names.extend(key for key in values if isinstance(key, str) and not key.startswith("_"))
+    getters = []
     for name in dict.fromkeys(names):
         register = getattr(data, name, None)
         getter = getattr(register, "get_counts", None)
         if callable(getter):
-            return _call_provider_counts(getter)
+            getters.append(getter)
+    if len(getters) > 1:
+        raise JobResultError("primitive multiple registers require joint counts with circuit provenance")
+    if getters:
+        return _call_provider_counts(getters[0])
     raise JobResultError("primitive data bin does not expose get_counts")
 
 

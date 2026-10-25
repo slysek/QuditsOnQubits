@@ -99,8 +99,6 @@ def load_basis_artifacts(
     _require_file(state_path)
     _require_file(encoding_path)
 
-    _read_artifact_bytes(state_path, "state circuit")
-    _read_artifact_bytes(encoding_path, "encoding")
     state_circuit = _load_single_circuit(state_path)
     _validate_state_circuit(state_circuit, state)
     encoding = _load_encoding(encoding_path)
@@ -136,13 +134,6 @@ def _validate_selector_component(value: str, field_name: str) -> None:
 def _require_file(path: Path) -> None:
     if not path.is_file():
         raise ExperimentValidationError(f"required artifact is missing: {path}")
-
-
-def _read_artifact_bytes(path: Path, artifact_name: str) -> bytes:
-    try:
-        return path.read_bytes()
-    except OSError as error:
-        raise ExperimentValidationError(f"could not read {artifact_name} artifact") from error
 
 
 def _load_single_circuit(path: Path) -> Any:
@@ -194,6 +185,9 @@ def _load_encoding(path: Path) -> np.ndarray:
         encoding = np.load(path, allow_pickle=False)
     except Exception as error:
         raise ExperimentValidationError("could not load encoding artifact") from error
+    if not isinstance(encoding, np.ndarray):
+        encoding.close()
+        raise ExperimentValidationError("encoding artifact must contain one NumPy array")
     if not np.issubdtype(encoding.dtype, np.number):
         raise ExperimentValidationError("encoding artifact must contain numeric values")
     if encoding.shape != (4, 3):
