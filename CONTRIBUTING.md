@@ -9,7 +9,7 @@ intended behavior in a [GitHub issue](https://github.com/slysek/QuditsOnQubits/i
 Use Python 3.11–3.13 and a virtual environment:
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,evolution]"
 python -m pytest -q
 ```
 
