@@ -1,116 +1,87 @@
 # QuditsOnQubits
 
-**Find cheaper qubit circuits by changing how qutrits are encoded.**
+**A research harness that finds smaller qubit circuits for qudit states.**
 
-QuditsOnQubits benchmarks encoding bases for qutrit circuits on qubit hardware.
-Give it a logical circuit, candidate families and a backend. It synthesizes the
-encoded gates, compiles and routes each candidate, checks that the state is
-preserved, and returns a Pareto front of circuit costs.
+The harness searches circuit structures and local qudit encodings, fits gate
+angles, and checks the complete output state. It saves valid circuits, their
+encodings, decoder costs, and results for further searches.
 
-The reference example is a maximally entangled two-qutrit graph state encoded on
-four qubits. The same pipeline supports new F3/CZ3 circuits and additional encoding
-families. Bell measurement and execution tools are also available.
+[Harness guide](docs/harness.md) ·
+[Results and checks](benchmarks/state_preparation/README.md) ·
+[Saved circuits](quantum_circuits/README.md)
 
-[Example notebook](notebooks/encoding_benchmark.ipynb) ·
-[Benchmark guide](docs/encoding_benchmark.md) ·
-[Documentation](docs/README.md) · [Advanced usage](docs/usage_guide.md) · [Roadmap](docs/roadmap.md)
+## Results
 
-## Install
+Saved results through **11 November 2026**. The comparison uses canonical direct
+preparation as its baseline. All counts include preparation from physical zero.
 
-Python **3.11–3.13**. Clone the repository and create a virtual environment:
+| State | Qubits | Canonical CZ | Harness CZ | Fewer CZ | Decoder CZ |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Two-qutrit graph state | 4 | 8 | **3** | **62.5%** | 3 |
+| GHZ₃ graph state | 6 | 15 | **5** | **66.7%** | 4 |
+| AME(4,3) | 8 | 28 | **17** | **39.3%** | 6 |
+
+These are statevector-checked preparation costs before routing and measurement.
+The decoder maps the output to the canonical encoding and adds the cost shown.
+The saved fidelities exceed `1 - 1e-12`, with final leakage probability below `1e-20`.
+These results do not establish global minima or gains on a QPU.
+
+**AME(4,6) is also available:** 12-qubit circuits with **46 CZ** for `Bruzda60`
+and **37 CZ** for `Casas36`, plus source tensors and four importable baselines.
+These counts already occur in the imported baselines. The harness preserves them
+and finds some smaller depths. See the [result details](benchmarks/state_preparation/README.md).
+
+## How the harness works
+
+A qutrit occupies three dimensions of a two-qubit block. The unused dimension
+gives the search more freedom. Intermediate states can leave the code space.
+The final state must return to the selected encoding and match the target.
+This controlled use of **temporary leakage** can reduce the preparation cost.
+
+1. Select a target state, encoding mode, and optional processor model.
+2. Propose structures with random mutations, an LLM, or a construction agent.
+3. Fit angles and check state error and leakage norms against `1e-10`.
+4. Rank valid circuits and save QPY files, encodings, decoders, and search history.
+
+The harness supports searches with fixed or free encodings, shared results between
+families, saved sessions, and offline routing for IBM and IQM processor models.
+The [guide](docs/harness.md) describes the commands and their limits.
+
+## Start locally
+
+Use Python **3.11–3.13**. Run these commands on Linux or macOS:
 
 ```bash
 git clone https://github.com/slysek/QuditsOnQubits.git
 cd QuditsOnQubits
 python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[evolution]"
+qoq-evolution menu
 ```
 
-Activate with `source .venv/bin/activate` on Linux/macOS or
-`.venv\Scripts\Activate.ps1` in PowerShell, then install:
+The menu selects the state, search method, time limit, and processor model.
+For a short search without a network connection or provider account:
 
 ```bash
-python -m pip install --upgrade pip
-python -m pip install -e .
+qoq-evolution discover --state two_qutrit --encoding-mode free \
+  --offline-model mutations --families 1 --iterations 3 --polish-seconds 0 \
+  --output artifacts/evolution/first_search
 ```
 
-No provider account is needed for the local examples.
-See [installation details](docs/installation.md) for optional integrations.
+Run this from the repository root. Use a new output directory for each search.
+The example starts from the published record. It checks the search pipeline
+and does not guarantee an improvement. Agent searches need a configured Codex
+account and use its quota. See [installation](docs/installation.md) for Windows.
 
-## Run the example
+## More
 
-```bash
-python -m jupyterlab notebooks/encoding_benchmark.ipynb
-```
+- [Harness guide](docs/harness.md): offline runs, agents, routing, AME(4,6), and resume.
+- [Results](benchmarks/state_preparation/README.md): baselines, costs, files, and validation.
+- [Encoding benchmark](docs/encoding_benchmark.md) and [notebook](notebooks/encoding_benchmark.ipynb): the earlier F₃/CZ₃ comparison.
+- [Documentation](docs/README.md) and [advanced usage](docs/usage_guide.md): Bell measurements and provider tools.
+- [Historical Bell measurements](benchmarks/bell_20260907/README.md): a separate hardware dataset.
 
-Choose **Restart Kernel and Run All Cells**. Five code cells cover configuration,
-execution, a baseline comparison and a Pareto plot. The bundled example reuses all
-41 saved theta gate sets and performs fresh compilation on a four-qubit line.
-It needs no previous results directory and submits no QPU jobs.
-
-Change two settings to run your own search:
-
-```python
-families = [LocalSU2(samples=4, seed=42), SchmidtTheta(points=5)]
-synthesis = OptimizedSynthesis()
-```
-
-The notebook contains the imports and complete `run_benchmark(...)` call.
-Fresh optimized synthesis can take substantially longer than replay.
-For a quick command-line control using dense exact synthesis:
-
-```bash
-qoq-benchmark --backend local --family local-su2 --family schmidt-theta --local-samples 2 --theta-points 3 --synthesis exact --seeds 0 1 2
-```
-
-This control uses a different synthesis protocol from the saved theta example;
-their Pareto fronts are separate. A complete standalone API example is in
-[`examples/two_qutrit_encoding_benchmark.py`](examples/two_qutrit_encoding_benchmark.py).
-
-## What is compared?
-
-| Choice | Meaning |
-| --- | --- |
-| `LocalSU2` | Local single-qubit basis changes within each two-qubit qutrit encoding. |
-| `SchmidtTheta` | A theta sweep of the encoding defined through its leakage state and orthonormal code basis. |
-| Backend | Explicit local target, IQM Garnet/Emerald or a named IBM backend. |
-| Objectives | Mean native two-qubit gate count, mean depth and depth standard deviation across compiler seeds. |
-
-Costs are measured **after backend-specific compilation and routing**. Every
-comparison includes a canonical baseline under the same target and protocol.
-Candidates enter the Pareto front only when every planned seed passes gate,
-state-fidelity and leakage checks. Saved results include encodings, QPY circuits,
-compiler settings, validation metrics and hash-verified provenance.
-
-In the bundled example, a theta candidate gives **15 CZ and depth 22**, compared
-with **16 CZ and depth 25** for canonical encoding. This is a local compilation
-result for the four-qubit line, Qiskit 2.1.2 and seeds 0, 1, 2, with CZ3 gate
-tolerance `5e-4`. It is not a hardware measurement or a global optimum; another
-target or compiler version can change the result. See the
-[data provenance](examples/data/README.md); run the notebook to reproduce the comparison.
-
-![Local theta scan: Pareto candidate and canonical baseline after routing.](docs/assets/encoding_benchmark.png)
-
-## Scope and next steps
-
-The unified benchmark currently accepts qutrit circuits built from F3 and CZ3,
-using one shared encoding per circuit. Validation is intended for small circuits;
-the default limit is 12 active qubits. New families and synthesis policies can be
-added through the [documented interfaces](docs/encoding_benchmark.md#where-to-extend).
-
-For Bell measurements, start with the separate
-[local Aer example](docs/two_qutrit_bell_vertical_slice.md).
-[Historical hardware results](benchmarks/bell_20260907/README.md) have their own
-offline replay. Research notebooks live under `notebooks/working/`.
-
-Next milestones: broader workloads, backend comparison campaigns and a smaller
-optional dependency footprint. See the [roadmap](docs/roadmap.md).
-
-## Contribute and cite
-
-Bug reports, reproducibility checks, new encoding families and backend tests are
-welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) and
-[open an issue](https://github.com/slysek/QuditsOnQubits/issues).
-Citation metadata is in [CITATION.cff](CITATION.cff); include the commit and
-benchmark manifest when reporting results.
-
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development and [CITATION.cff](CITATION.cff)
+for citation metadata. Include the commit and result manifest when you report a result.
 Licensed under [Apache-2.0](LICENSE).

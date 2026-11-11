@@ -1,0 +1,472 @@
+{
+ "state": "ame64",
+ "processor": "iqm_sirius",
+ "date": "2026-11-09",
+ "source": {
+  "run": "night_20261109/canonical/ame64_graph18_012569",
+  "construction": "graph state from the systematic form of the binary code (CSS), canonical encoding, no decoder"
+ },
+ "settings": {
+  "arm": "graph_construction",
+  "model": null,
+  "orchestrator": null,
+  "method": "adapted_direct",
+  "encoding_mode": "free",
+  "objective": "preparation",
+  "architecture": null
+ },
+ "logical": {
+  "num_qubits": 12,
+  "gates": [
+   "cz",
+   "u"
+  ],
+  "cz_count": 18,
+  "two_qubit_depth": 3,
+  "depth": 5,
+  "one_qubit_gate_count": 18,
+  "decoder_cz_count": 0,
+  "F": 0.9999999999999998,
+  "leakage": 0.0,
+  "cz_pairs": [
+   [
+    3,
+    5
+   ],
+   [
+    4,
+    6
+   ],
+   [
+    2,
+    8
+   ],
+   [
+    5,
+    8
+   ],
+   [
+    7,
+    9
+   ],
+   [
+    2,
+    7
+   ],
+   [
+    0,
+    10
+   ],
+   [
+    0,
+    3
+   ],
+   [
+    0,
+    7
+   ],
+   [
+    9,
+    10
+   ],
+   [
+    5,
+    10
+   ],
+   [
+    1,
+    11
+   ],
+   [
+    1,
+    4
+   ],
+   [
+    1,
+    8
+   ],
+   [
+    4,
+    9
+   ],
+   [
+    6,
+    11
+   ],
+   [
+    2,
+    11
+   ],
+   [
+    3,
+    6
+   ]
+  ]
+ },
+ "native": {
+  "basis_gates": [
+   "cz",
+   "move",
+   "r"
+  ],
+  "two_qubit_count": 50,
+  "two_qubit_depth": 50,
+  "depth": 51,
+  "one_qubit_count": 30,
+  "success_estimate": 0.788291081128095,
+  "routing_seed": 0,
+  "initial_physical_qubits": [
+   0,
+   11,
+   6,
+   1,
+   8,
+   4,
+   7,
+   2,
+   9,
+   5,
+   3,
+   10
+  ],
+  "final_physical_qubits": [
+   0,
+   11,
+   6,
+   1,
+   8,
+   4,
+   7,
+   2,
+   9,
+   5,
+   3,
+   10
+  ]
+ },
+ "encoding": {
+  "description": "per party k: 4x4 isometry, column j = 2-qubit state of qudit level j (row index = basis state of qubits 2k to 2k+1, Qiskit little-endian)",
+  "real": [
+   [
+    [
+     1.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   [
+    [
+     1.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   [
+    [
+     1.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   [
+    [
+     1.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   [
+    [
+     1.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   [
+    [
+     1.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ]
+   ]
+  ],
+  "imag": [
+   [
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   ],
+   [
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   ]
+  ]
+ },
+ "qubit_order": "party k on logical qubits 2k to 2k+1; logical qubit k ends on physical qubit final_physical_qubits[k]",
+ "files": {
+  "circuit.qpy": "logical circuit as found (u + cz, 12 qubits, no measurement)",
+  "circuit_native.qpy": "the same circuit in the processor native gates on physical qubits",
+  "circuit_native.json": "gate list of circuit_native.qpy"
+ }
+}

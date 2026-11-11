@@ -1,0 +1,57 @@
+{
+  "date": "2026-11-11",
+  "protocol": "State preparation from physical zero before routing or measurement. Decoder costs are separate.",
+  "validation": {
+    "state_error_norm_max": 1e-10,
+    "leakage_norm_max": 1e-10
+  },
+  "versions": {
+    "python": "3.12.15",
+    "qiskit": "2.1.2",
+    "openevolve": "0.4.0"
+  },
+  "comparisons": [
+    {
+      "state": "two_qutrit",
+      "baseline_method": "canonical_direct",
+      "baseline_circuit": "experiment_inputs/state_preparation/two_qutrit_canonical_direct.qpy",
+      "baseline_encoding": "experiment_inputs/state_preparation/canonical_direct_E.npy",
+      "record": "quantum_circuits/two_qutrit/logical",
+      "canonical_cz": 8,
+      "canonical_two_qubit_depth": 6,
+      "preparation_cz": 3,
+      "decoder_cz": 3,
+      "preparation_two_qubit_depth": 2,
+      "F": 1.0,
+      "leakage_probability": 3.592658092323782e-26
+    },
+    {
+      "state": "ghz3",
+      "baseline_method": "canonical_direct",
+      "baseline_circuit": "experiment_inputs/state_preparation/ghz3_canonical_direct.qpy",
+      "baseline_encoding": "experiment_inputs/state_preparation/canonical_direct_E.npy",
+      "record": "quantum_circuits/ghz3/logical",
+      "canonical_cz": 15,
+      "canonical_two_qubit_depth": 11,
+      "preparation_cz": 5,
+      "decoder_cz": 4,
+      "preparation_two_qubit_depth": 3,
+      "F": 1.0,
+      "leakage_probability": 3.6611636644165956e-29
+    },
+    {
+      "state": "ame43",
+      "baseline_method": "canonical_direct",
+      "baseline_circuit": "experiment_inputs/state_preparation/ame43_canonical_direct.qpy",
+      "baseline_encoding": "experiment_inputs/state_preparation/canonical_direct_E.npy",
+      "record": "quantum_circuits/ame43/logical",
+      "canonical_cz": 28,
+      "canonical_two_qubit_depth": 16,
+      "preparation_cz": 17,
+      "decoder_cz": 6,
+      "preparation_two_qubit_depth": 12,
+      "F": 0.9999999999999991,
+      "leakage_probability": 2.7652816850737006e-30
+    }
+  ]
+}

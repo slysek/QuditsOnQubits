@@ -1,0 +1,796 @@
+{
+ "processor": "ibm_heron_r3",
+ "basis_gates": [
+  "cz",
+  "rz",
+  "sx",
+  "x"
+ ],
+ "num_physical_qubits": 156,
+ "global_phase": 5.3582361898637245,
+ "initial_physical_qubits": [
+  23,
+  24,
+  3,
+  21,
+  4,
+  20,
+  22,
+  16
+ ],
+ "final_physical_qubits": [
+  16,
+  24,
+  3,
+  22,
+  4,
+  20,
+  21,
+  23
+ ],
+ "gates": [
+  {
+   "name": "rz",
+   "qubits": [
+    3
+   ],
+   "params": [
+    1.9734863375990264
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    3
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    3
+   ],
+   "params": [
+    -6.185433174249818
+   ]
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    4
+   ],
+   "params": [
+    0.907316006626826
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    4
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    4
+   ],
+   "params": [
+    2.232240562796211
+   ]
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    16
+   ],
+   "params": [
+    -1.6836361835684177
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    16
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    16
+   ],
+   "params": [
+    -1.54074727371985
+   ]
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    3,
+    16
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    3
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    3
+   ],
+   "params": [
+    -2.217582365187601
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    3
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    3
+   ],
+   "params": [
+    3.352231112447978
+   ]
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    3,
+    4
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    3
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    3
+   ],
+   "params": [
+    8.425296579487844
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    4
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    4
+   ],
+   "params": [
+    6.9642531593648505
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    4
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    4
+   ],
+   "params": [
+    19.35159141515277
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    16
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    16
+   ],
+   "params": [
+    -1.562777464212055
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    16
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    16
+   ],
+   "params": [
+    1.4771485481546058
+   ]
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    20
+   ],
+   "params": [
+    -2.7649237494168633
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    20
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    20
+   ],
+   "params": [
+    -1.6166097892559925
+   ]
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    21
+   ],
+   "params": [
+    -1.310635585097708
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    21
+   ],
+   "params": []
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    20,
+    21
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    20
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    20
+   ],
+   "params": [
+    -2.6186407607513225
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    20
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    20
+   ],
+   "params": [
+    -0.654475587029351
+   ]
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    21
+   ],
+   "params": [
+    -0.794172931057076
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    21
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    21
+   ],
+   "params": [
+    -2.8436635318777324
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    21
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    21
+   ],
+   "params": [
+    -0.17496947159532716
+   ]
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    22
+   ],
+   "params": [
+    2.3159733234735365
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    22
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    22
+   ],
+   "params": [
+    -1.886696026972455
+   ]
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    23
+   ],
+   "params": [
+    -2.6931314185761757
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    23
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    23
+   ],
+   "params": [
+    -1.93184442833405
+   ]
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    22,
+    23
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    22
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    22
+   ],
+   "params": [
+    -0.47781742653732806
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    22
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    22
+   ],
+   "params": [
+    -1.9636216887075237
+   ]
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    21,
+    22
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    21
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    22
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    22
+   ],
+   "params": [
+    3.141592653589793
+   ]
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    21,
+    22
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    21
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    21
+   ],
+   "params": [
+    -3.11112162649495
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    21
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    21
+   ],
+   "params": [
+    -0.286305694449112
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    22
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    22
+   ],
+   "params": [
+    -0.8879430898609044
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    22
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    22
+   ],
+   "params": [
+    0.19204626173871464
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    23
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    23
+   ],
+   "params": [
+    -1.5406439525110827
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    23
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    23
+   ],
+   "params": [
+    2.8711499942807883
+   ]
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    23,
+    16
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    16
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    23
+   ],
+   "params": []
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    23,
+    16
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    16
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    23
+   ],
+   "params": []
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    23,
+    16
+   ],
+   "params": []
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    16,
+    3
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    3
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    3
+   ],
+   "params": [
+    6.9544258145025335
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    3
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    3
+   ],
+   "params": [
+    18.899016440995766
+   ]
+  },
+  {
+   "name": "x",
+   "qubits": [
+    16
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    16
+   ],
+   "params": [
+    2.4914119373942025
+   ]
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    24
+   ],
+   "params": [
+    2.7551137805401904
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    24
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    24
+   ],
+   "params": [
+    6.813378423899217
+   ]
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    24,
+    23
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    23
+   ],
+   "params": [
+    0.6378758660389261
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    23
+   ],
+   "params": []
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    22,
+    23
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    23
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    23
+   ],
+   "params": [
+    0.4092329184197121
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    24
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    24
+   ],
+   "params": [
+    13.856929810805587
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    24
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    24
+   ],
+   "params": [
+    11.809785821301467
+   ]
+  }
+ ]
+}

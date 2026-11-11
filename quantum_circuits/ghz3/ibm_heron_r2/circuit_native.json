@@ -1,0 +1,172 @@
+{
+ "processor": "ibm_heron_r2",
+ "basis_gates": [
+  "cz",
+  "rz",
+  "sx"
+ ],
+ "num_physical_qubits": 156,
+ "global_phase": 4.238337039869617,
+ "initial_physical_qubits": [
+  143,
+  142,
+  140,
+  136,
+  141,
+  144
+ ],
+ "final_physical_qubits": [
+  143,
+  142,
+  140,
+  136,
+  141,
+  144
+ ],
+ "gates": [
+  {
+   "name": "sx",
+   "qubits": [
+    136
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    140
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    141
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    142
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    142
+   ],
+   "params": [
+    5.0522258898388115
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    142
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    143
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    143
+   ],
+   "params": [
+    3.9269908169872414
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    143
+   ],
+   "params": []
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    143,
+    142
+   ],
+   "params": []
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    142,
+    141
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    141
+   ],
+   "params": []
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    140,
+    141
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    143
+   ],
+   "params": []
+  },
+  {
+   "name": "rz",
+   "qubits": [
+    143
+   ],
+   "params": [
+    3.9269908169872414
+   ]
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    143
+   ],
+   "params": []
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    143,
+    136
+   ],
+   "params": []
+  },
+  {
+   "name": "sx",
+   "qubits": [
+    144
+   ],
+   "params": []
+  },
+  {
+   "name": "cz",
+   "qubits": [
+    143,
+    144
+   ],
+   "params": []
+  }
+ ]
+}

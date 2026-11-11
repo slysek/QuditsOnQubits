@@ -66,9 +66,11 @@ Issues = "https://github.com/slysek/QuditsOnQubits/issues"
 [project.scripts]
 qoq-two-qutrit-bell = "qudits_on_qubits.vertical_slice.cli:entrypoint"
 qoq-benchmark = "qudits_on_qubits.benchmarks.cli:entrypoint"
+qoq-evolution = "qudits_on_qubits.evolution.harness:entrypoint"
 
 
 [project.optional-dependencies]
+evolution = ["openevolve==0.4.0"]
 dev = [
     "pytest>=8,<9",
     "pytest-cov>=5,<7",
@@ -87,6 +89,7 @@ namespaces = false
 [tool.setuptools.package-data]
 qudits_on_qubits = ["quantum_circuits/*.qpy"]
 "qudits_on_qubits.benchmarks.theta_continuation.data" = ["*.qpy", "*.npy", "README.md"]
+"qudits_on_qubits.evolution" = ["qpu_snapshots/*/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "benchmarks/bell_20260907"]

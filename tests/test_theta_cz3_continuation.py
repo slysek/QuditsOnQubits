@@ -130,6 +130,27 @@ def test_fit_phase_initialization_and_residual_match_full_complex_action(monkeyp
     continuation.fit_cz3(StaticTemplate(circuit), _embedding(theta), [0.0])
 
 
+def test_fit_uses_distinct_encodings_in_physical_wire_order():
+    low = _embedding()
+    low[:, 1] = [0, np.cos(0.31), 0, -np.sin(0.31)]
+    high = _embedding(0.0)
+    code = np.kron(high, low)
+    matrix = np.eye(16) + code @ (qutrit_cz() - np.eye(9)) @ code.conj().T
+    circuit = QuantumCircuit(4)
+    circuit.unitary(matrix, range(4))
+    template = StaticTemplate(circuit)
+    result = continuation.fit_cz3(template, low, [0.0], encoding_b=high, max_nfev=2)
+    reverse = continuation.fit_cz3(template, high, [0.0], encoding_b=low, max_nfev=2)
+    assert result.valid and result.E_norm < 1e-12
+    assert not reverse.valid and reverse.E_norm > 0.1
+
+
+def test_fit_rejects_invalid_second_encoding():
+    with pytest.raises(ValueError, match="encoding"):
+        continuation.fit_cz3(StaticTemplate(_exact_circuit()), _embedding(), [0.0],
+                             encoding_b=np.zeros((4, 3)))
+
+
 @pytest.mark.parametrize("parameters", [[np.nan], [np.inf], [1j], [True], ["0"], [], [[0.0]], None])
 def test_fit_rejects_invalid_parameters(parameters):
     with pytest.raises(ValueError, match="parameters"):

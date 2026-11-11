@@ -196,6 +196,8 @@ def fit_cz3(
     *,
     max_nfev: int = 3000,
     tolerance: float = 1e-5,
+    encoding_b: np.ndarray | None = None,
+    angle_radius: float | None = None,
 ) -> Cz3FitResult:
     """Fit nine code columns using one phase and an unrestricted complement.
 
@@ -205,18 +207,25 @@ def fit_cz3(
     """
     started = perf_counter()
     max_nfev, tolerance = _settings(max_nfev, tolerance)
+    if angle_radius is not None:
+        angle_radius = _finite_real(angle_radius, "angle_radius")
+        if angle_radius <= 0:
+            raise ValueError("angle_radius must be positive")
     initial = _parameters(initial_parameters, np.asarray(template.initial_parameters).shape)
-    try:
-        embedding = np.asarray(encoding, dtype=complex)
-    except (ValueError, TypeError) as exc:
-        raise ValueError("encoding must be a finite 4x3 isometry") from exc
-    if (
-        embedding.shape != (4, 3)
-        or not np.isfinite(embedding).all()
-        or not np.allclose(embedding.conj().T @ embedding, np.eye(3), atol=1e-12, rtol=0)
-    ):
-        raise ValueError("encoding must be a finite 4x3 isometry")
-    code = np.kron(embedding, embedding)
+    embeddings = []
+    for value in (encoding, encoding if encoding_b is None else encoding_b):
+        try:
+            embedding = np.asarray(value, dtype=complex)
+        except (ValueError, TypeError) as exc:
+            raise ValueError("encoding must be a finite 4x3 isometry") from exc
+        if (
+            embedding.shape != (4, 3)
+            or not np.isfinite(embedding).all()
+            or not np.allclose(embedding.conj().T @ embedding, np.eye(3), atol=1e-12, rtol=0)
+        ):
+            raise ValueError("encoding must be a finite 4x3 isometry")
+        embeddings.append(embedding)
+    code = np.kron(embeddings[1], embeddings[0])
     target = code @ qutrit_cz()
     leakage_projector = np.eye(16) - code @ code.conj().T
 
@@ -261,9 +270,17 @@ def fit_cz3(
 
     analytic = hasattr(action, "jacobian")
     residual(x0)
+    bounds = {}
+    if angle_radius is not None:
+        lower = np.r_[initial - angle_radius, gamma - np.pi]
+        upper = np.r_[initial + angle_radius, gamma + np.pi]
+        if not np.isfinite(lower).all() or not np.isfinite(upper).all() or np.any(lower >= upper):
+            raise ValueError("angle_radius is too small or too large for the initial parameters")
+        bounds["bounds"] = (lower, upper)
     solution = least_squares(
         residual, x0, method="trf", jac=analytic_jacobian if analytic else "3-point", loss="linear",
         max_nfev=max_nfev, ftol=1e-11, xtol=1e-11, gtol=1e-11,
+        **bounds,
     )
     residual(solution.x)
     selected = best_valid_x if best_valid_x is not None else best_x

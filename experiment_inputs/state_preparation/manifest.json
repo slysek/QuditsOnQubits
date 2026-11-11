@@ -1,0 +1,16 @@
+{
+  "files": {
+    "ame43_canonical_direct.qpy": "c80aba015b0f1792b9727a7d8edfaf592295aefe7bfbaa564f24b27536732d75",
+    "ame43_canonical_f3.qpy": "3a84b59b323b35c02cd75062643e9d241f2fa8cf8a50e25e754a0d1b5d2ad02c",
+    "ame43_estar_direct.qpy": "b2f7c6bc37d00698becb7b23e171f5afb1f64dc5942e6c072a4b385a68ed4bfa",
+    "canonical_direct_E.npy": "4829b0594b7769b357789834467f875ad10deabd185296858671119155dc6e21",
+    "canonical_f3_E.npy": "4829b0594b7769b357789834467f875ad10deabd185296858671119155dc6e21",
+    "estar_direct_E.npy": "715f4339c6f0df6ca588c999c81b41bf47cab10b1ea420db7590822807bb38af",
+    "ghz3_canonical_direct.qpy": "74d7afa8fabca1865409c06f6eac1789680e58b4d7842eff8892be8cd23c0cdd",
+    "ghz3_canonical_f3.qpy": "75febc72487461661fa02fd51a49a061b04a9ba83c1108ca68ad2d2eb61d8b55",
+    "ghz3_estar_direct.qpy": "b22a64a968e55f6157ee4f9a15a436da64efb917ada3a1de45b7879a62bf3c1d",
+    "two_qutrit_canonical_direct.qpy": "dcf50598dec076cf664abe8f7ccc3370a6f50985222621c4f0b55bc47eb8b79b",
+    "two_qutrit_canonical_f3.qpy": "858babe93218fffb02e4c8cc2bd66ce56accf49eab54188423e7638b54994fc8",
+    "two_qutrit_estar_direct.qpy": "13ef61d41f9c9141d356551b839d781f4267baa625a6d4542e387e03bef67753"
+  }
+}

@@ -8,7 +8,9 @@ recursive-include docs/assets *.png
 recursive-include examples *.py *.md *.zip
 recursive-include .github *.yml *.md
 recursive-include notebooks *.ipynb *.py *.md
-recursive-include experiment_inputs *.npy *.qpy *.json *.md
+recursive-include experiment_inputs *.npy *.npz *.qpy *.json *.md
+recursive-include quantum_circuits *.qpy *.json *.md
+recursive-include benchmarks/state_preparation *.json *.md
 recursive-include benchmarks/bell_20260907 *.py *.md *.txt *.json *.csv *.png *.zip
 include artifacts/README.md artifacts/MANIFEST.template.csv
 recursive-include artifacts .gitkeep

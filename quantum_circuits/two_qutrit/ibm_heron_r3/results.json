@@ -1,0 +1,174 @@
+{
+ "state": "two_qutrit",
+ "processor": "ibm_heron_r3",
+ "date": "2026-11-09",
+ "source": {
+  "run": "night_20261109/two_qutrit/ga_random_r2",
+  "arm": "ga_random",
+  "directory": "/home/szymon/projects/QuditsOnQubits/artifacts/evolution/night_20261109/runs/two_qutrit/ga_random_r2/round_1_1_hub"
+ },
+ "settings": {
+  "arm": "ga_random",
+  "model": null,
+  "orchestrator": null,
+  "method": "estar_direct",
+  "encoding_mode": "free",
+  "objective": "preparation",
+  "architecture": null
+ },
+ "logical": {
+  "num_qubits": 4,
+  "gates": [
+   "cz",
+   "u"
+  ],
+  "cz_count": 3,
+  "two_qubit_depth": 2,
+  "depth": 5,
+  "one_qubit_gate_count": 10,
+  "decoder_cz_count": 3,
+  "F": 0.9999999999999998,
+  "leakage": 3.447268906862124e-27,
+  "cz_pairs": [
+   [
+    3,
+    2
+   ],
+   [
+    1,
+    3
+   ],
+   [
+    0,
+    2
+   ]
+  ]
+ },
+ "native": {
+  "basis_gates": [
+   "cz",
+   "rz",
+   "sx"
+  ],
+  "two_qubit_count": 3,
+  "two_qubit_depth": 2,
+  "depth": 15,
+  "one_qubit_count": 36,
+  "success_estimate": 0.9960606112331111,
+  "routing_seed": 0,
+  "initial_physical_qubits": [
+   43,
+   62,
+   56,
+   63
+  ],
+  "final_physical_qubits": [
+   43,
+   62,
+   56,
+   63
+  ]
+ },
+ "encoding": {
+  "description": "per party k: 4x3 isometry, column j = 2-qubit state of qudit level j (row index = basis state of qubits 2k to 2k+1, Qiskit little-endian)",
+  "real": [
+   [
+    [
+     -0.1540116804691288,
+     -0.4339852620652347,
+     -0.25031028432583546
+    ],
+    [
+     0.34503793869413246,
+     -0.17699851069385233,
+     -0.257826906478859
+    ],
+    [
+     0.13531223787254376,
+     -0.14804611502089196,
+     -0.47692012820746743
+    ],
+    [
+     -0.3827289004887513,
+     0.389723096480799,
+     -0.13984761828987402
+    ]
+   ],
+   [
+    [
+     0.21362665856287913,
+     0.5571071502373864,
+     1.691195341203011e-16
+    ],
+    [
+     -0.8771977868931784,
+     -0.1720352100299406,
+     3.5194884247290656e-16
+    ],
+    [
+     -2.989990628800159e-16,
+     1.2215702451411948e-16,
+     -0.1188345000535459
+    ],
+    [
+     3.0987805387093077e-16,
+     5.206641821876984e-17,
+     -0.22746917116101467
+    ]
+   ]
+  ],
+  "imag": [
+   [
+    [
+     0.4918240382529916,
+     0.5957858406713762,
+     0.06471827579791035
+    ],
+    [
+     -0.24323963251474057,
+     -0.2109990338856662,
+     0.7107730481556632
+    ],
+    [
+     -0.5631137690504304,
+     0.10725952633054432,
+     -0.33428118709306986
+    ],
+    [
+     0.2725525450804069,
+     -0.4421997390152227,
+     0.052241645976987286
+    ]
+   ],
+   [
+    [
+     -0.22731382669775285,
+     0.7696256870048331,
+     1.0980466464639007e-16
+    ],
+    [
+     -0.36498783214374847,
+     0.2602149334044285,
+     -3.3643374637014356e-16
+    ],
+    [
+     1.0461105431506496e-19,
+     1.577252328557988e-16,
+     0.6789397302270295
+    ],
+    [
+     -3.047797563930926e-16,
+     1.61888254567661e-16,
+     -0.6878786088312338
+    ]
+   ]
+  ]
+ },
+ "qubit_order": "party k on logical qubits 2k to 2k+1; logical qubit k ends on physical qubit final_physical_qubits[k]",
+ "files": {
+  "circuit.qpy": "logical circuit as found (u + cz, 4 qubits, no measurement)",
+  "decoder.qpy": "maps the encoding to the canonical one (qudit level j -> basis state j)",
+  "circuit_native.qpy": "the same circuit in the processor native gates on physical qubits",
+  "circuit_native.json": "gate list of circuit_native.qpy"
+ }
+}

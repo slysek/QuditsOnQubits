@@ -1,0 +1,29 @@
+{
+  "source_tensors": "artifacts/evolution/ame46/targets.npz",
+  "circuits": {
+    "Bruzda60": {
+      "source": "ame46/team_lb/best/Bruzda60.json",
+      "sha256": "2d7badb54d8f83c4bbbb1d0b71b98ca20670747c8b40785c7c161ac23c4b9180",
+      "cz_count": 46,
+      "two_qubit_depth": 30
+    },
+    "Pandya60prime": {
+      "source": "ame46/team_lb/best/Pandya60prime.json",
+      "sha256": "6f8bfb1eb8a4c8dd8d6f4973bcce1baca1801cde7c28d8d564c127389e6e1380",
+      "cz_count": 64,
+      "two_qubit_depth": 41
+    },
+    "HZ96": {
+      "source": "ame46/team_lb/best/HZ96.json",
+      "sha256": "4f0e802ba9b2c84e4c87590d670b4775928f8bf2f9282cf53ed1f3923bd681f9",
+      "cz_count": 69,
+      "two_qubit_depth": 39
+    },
+    "Casas36": {
+      "source": "ame46/team_lb/best/Casas36.json",
+      "sha256": "ab96f6e61c4ffbb5d3c00fbf01ba2e1832e0ce8484d4baf3a8e860535913a1bb",
+      "cz_count": 37,
+      "two_qubit_depth": 22
+    }
+  }
+}

@@ -1,10 +1,12 @@
 # Documentation
 
-Start with the [encoding benchmark](encoding_benchmark.md) and its
-[short notebook](../notebooks/encoding_benchmark.ipynb).
+Start with the [state preparation harness](harness.md), its
+[published results](../benchmarks/state_preparation/README.md), and
+[saved circuits](../quantum_circuits/README.md).
 
 ## User guides
 
+- [State preparation harness](harness.md): searches, encodings, agents, AME(4,6), routing, and resume.
 - [Installation](installation.md): environments, dependency bounds and optional integrations.
 - [Encoding benchmark](encoding_benchmark.md): families, backend compilation, validation and Pareto results.
 - [Experiment runner](experiment_runner.md): Bell measurements, execution, uncertainty and saved results.
@@ -15,6 +17,8 @@ Start with the [encoding benchmark](encoding_benchmark.md) and its
 
 ## Research and extension
 
+- [Current state preparation results](../benchmarks/state_preparation/README.md): checked comparisons and source files.
+- [Harness research log in Polish](pipeline-ewolucji-stanow.md): development history and earlier campaigns.
 - [Roadmap](roadmap.md): current scope and proposed next milestones.
 - [Contributing](../CONTRIBUTING.md): tests and extension points.
 - [Benchmark specification](unified-benchmark-spec.md): comparison and artifact contracts.
