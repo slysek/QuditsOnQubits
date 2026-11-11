@@ -106,7 +106,7 @@ def test_campaign_timeout_kills_process_group(tmp_path, monkeypatch, preexisting
     for _ in range(40):
         try:
             state = Path(f"/proc/{child}/stat").read_text().split()[2]
-        except FileNotFoundError:
+        except (FileNotFoundError, ProcessLookupError):
             break
         if state == "Z":
             break
